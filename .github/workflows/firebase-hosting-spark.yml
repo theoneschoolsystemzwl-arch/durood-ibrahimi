@@ -1,4 +1,4 @@
-name: Auto-update website on Firebase Hosting (Spark)
+name: Auto-update Firebase website on Spark
 on:
   push:
     branches: [main]
@@ -6,34 +6,40 @@ on:
       - 'public/**'
       - 'firebase.json'
       - '.firebaserc'
+      - 'firestore.rules'
       - '.github/workflows/firebase-hosting-spark.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   hosting:
     runs-on: ubuntu-latest
     steps:
-      - name: Get published website files
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Check Firebase Hosting deployment authorization
-        id: firebase_access
+      - name: Verify deployment authorization
+        id: access
         env:
-          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD_E_IBRAHIMI_GLOBAL_C74E0 }}
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
         run: |
           if [ -n "$FIREBASE_CREDENTIALS" ]; then
-            echo "connected=true" >> "$GITHUB_OUTPUT"
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "connected=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Automatic Hosting deploy needs the Firebase Hosting service account secret. No deploy attempted."
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Firebase deploy credential not connected. Hosting was NOT published."
           fi
-      - name: Publish updated web app (Hosting only, no Blaze upgrade)
-        if: steps.firebase_access.outputs.connected == 'true'
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Authenticate to Google Cloud
+        if: steps.access.outputs.authorized == 'true'
+        uses: google-github-actions/auth@v2
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD_E_IBRAHIMI_GLOBAL_C74E0 }}
-          projectId: durood-e-ibrahimi-global-c74e0
-          channelId: live
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+      - name: Set up Node.js
+        if: steps.access.outputs.authorized == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy website and protected data rules, no Cloud Functions or billing
+        if: steps.access.outputs.authorized == 'true'
+        run: |
+          npm install -g firebase-tools@15
+          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore --non-interactive
