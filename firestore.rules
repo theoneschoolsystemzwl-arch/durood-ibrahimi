@@ -25,8 +25,14 @@ service cloud.firestore {
       return signed() && exists(memberPath(uid)) &&
         get(memberPath(uid)).data.disabled == false;
     }
+    function legacyOwnerUid() {
+      return 'ecrykLlmTAbV90llOdQVRSX4OyE3';
+    }
+    function legacyIsOwner() {
+      return signed() && request.auth.uid == legacyOwnerUid();
+    }
     function owner() {
-      return signed() && request.auth.token.owner == true && active(request.auth.uid);
+      return signed() && (request.auth.token.owner == true || legacyIsOwner()) && active(request.auth.uid);
     }
     function currentMember() {
       return signed() && active(request.auth.uid);
@@ -199,6 +205,50 @@ service cloud.firestore {
       allow create, update: if docId == 'global' && updatedGlobal();
       allow delete: if false;
     }
+    // Legacy Android data remains accessible under its original restrictions.
+    function approvedLegacyMember(memberUid) {
+      let member = /databases/$(database)/documents/memberAccess/$(memberUid);
+      return memberUid != legacyOwnerUid() && exists(member) && get(member).data.enabled == true;
+    }
+    function sameLegacyMemberAccount(memberUid) {
+      return signed() && request.auth.uid == memberUid &&
+        request.auth.token.firebase.sign_in_provider == 'password' &&
+        approvedLegacyMember(memberUid);
+    }
+    function activeLegacyDevice(memberUid) {
+      let lease = /databases/$(database)/documents/memberSessions/$(memberUid);
+      return signed() &&
+        request.auth.token.firebase.sign_in_provider == 'anonymous' &&
+        approvedLegacyMember(memberUid) && exists(lease) &&
+        get(lease).data.deviceUid == request.auth.uid;
+    }
+    function validLegacyProfile() {
+      let profile = request.resource.data;
+      return profile.keys().hasAll(['displayName','phone']) &&
+        profile.keys().hasOnly(['displayName','phone']) &&
+        profile.displayName is string &&
+        profile.displayName.size() >= 1 && profile.displayName.size() <= 80 &&
+        profile.phone is string && profile.phone.size() <= 32;
+    }
+    match /ownerProfiles/DI-1 {
+      allow get: if legacyIsOwner();
+      allow create, update: if legacyIsOwner() && validLegacyProfile();
+      allow list, delete: if false;
+    }
+    match /memberSessions/{memberUid} {
+      allow get: if sameLegacyMemberAccount(memberUid);
+      allow create, update: if sameLegacyMemberAccount(memberUid) &&
+        request.resource.data.keys().hasOnly(['deviceUid']) &&
+        request.resource.data.deviceUid is string &&
+        request.resource.data.deviceUid.size() >= 1 &&
+        request.resource.data.deviceUid.size() <= 128;
+      allow delete: if activeLegacyDevice(memberUid);
+    }
+    match /members/{memberUid}/private/profile {
+      allow get: if activeLegacyDevice(memberUid);
+      allow create, update: if activeLegacyDevice(memberUid) && validLegacyProfile();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
