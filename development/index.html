@@ -1225,8 +1225,7 @@ function authMarkup() {
       tr("<form class=\"form\" id=\"account-form\"><label class=\"field\">Username<input name=\"username\" autocomplete=\"username\" placeholder=\"e.g. owner\" required></label>", '<form class="form" id="account-form"><label class="field">یوزر نیم<input name="username" autocomplete="username" placeholder="مثلاً owner" required></label>') +
       passwordField('password',tr("Password", 'پاس ورڈ'),'current-password',true) +
       feedback() + tr("<button class=\"button full\">Log in</button></form>", '<button class="button full">لاگ اِن کریں</button></form>') +
-      tr("<div class=\"auth-links\"><button class=\"link warm\" data-action=\"screen\" data-value=\"reset\">Forgot password?</button>", '<div class="auth-links"><button class="link warm" data-action="screen" data-value="reset">پاس ورڈ بھول گئے؟</button>') +
-      tr("<button class=\"link\" data-action=\"screen\" data-value=\"register\">Create account</button></div>", '<button class="link" data-action="screen" data-value="register">اکاؤنٹ بنائیں</button></div>');
+      ''; // Login and registration navigation is provided by the two tabs.
   } else if (screen === 'register') {
     form = tr("<header class=\"auth-head\"><h1>Create account</h1>", '<header class="auth-head"><h1>اکاؤنٹ بنائیں</h1>') +
       ur(tr('Ask an existing member for an invitation code.', 'دعوتی کوڈ کسی موجودہ رکن سے حاصل کریں۔'),'p','muted') + '</header>' +
@@ -1242,7 +1241,7 @@ function authMarkup() {
       '<p id="register-checks-status" role="status">' +
       tr('Tick all three boxes to enable this button.','بٹن فعال کرنے کے لیے تینوں خانوں پر ٹِک لگائیں۔') +
       '</p></div></form>' +
-      tr("<div class=\"auth-links\"><button class=\"link\" data-action=\"screen\" data-value=\"login\">Back to login</button></div>", '<div class="auth-links"><button class="link" data-action="screen" data-value="login">واپس لاگ اِن پر جائیں</button></div>');
+      ''; // Already available in the Login tab.
   } else {
     const confirming = recoveryUserId !== null;
     form = tr("<header class=\"auth-head\"><h1>Reset password</h1>", '<header class="auth-head"><h1>پاس ورڈ بحال کریں</h1>') +
