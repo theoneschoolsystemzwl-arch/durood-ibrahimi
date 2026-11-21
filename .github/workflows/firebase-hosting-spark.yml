@@ -25,8 +25,8 @@ jobs:
           if [ -n "$FIREBASE_CREDENTIALS" ]; then
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Firebase deploy credential not connected. Hosting was NOT published."
+            echo "::error::Firebase Hosting is NOT live: deploy permission is missing. GitHub must not report a successful auto-deploy."
+            exit 1
           fi
       - name: Authenticate to Google Cloud
         if: steps.access.outputs.authorized == 'true'
