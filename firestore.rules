@@ -1,52 +1,202 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function loggedIn() {
-      return request.auth != null;
+    function signed() { return request.auth != null; }
+    function self(uid) { return signed() && request.auth.uid == uid; }
+    function memberPath(uid) {
+      return /databases/$(database)/documents/members/$(uid);
+    }
+    function usernamePath(username) {
+      return /databases/$(database)/documents/usernames/$(username);
+    }
+    function invitationPath(code) {
+      return /databases/$(database)/documents/invitations/$(code);
+    }
+    function sequencePath() {
+      return /databases/$(database)/documents/system/membership;
+    }
+    function countPath(uid) {
+      return /databases/$(database)/documents/memberCounts/$(uid);
+    }
+    function globalPath() {
+      return /databases/$(database)/documents/publicStats/global;
+    }
+    function active(uid) {
+      return signed() && exists(memberPath(uid)) &&
+        get(memberPath(uid)).data.disabled == false;
     }
     function owner() {
-      return loggedIn() && request.auth.token.owner == true;
+      return signed() && request.auth.token.owner == true && active(request.auth.uid);
     }
-    function self(uid) {
-      return loggedIn() && request.auth.uid == uid;
+    function currentMember() {
+      return signed() && active(request.auth.uid);
     }
-    function activeSelf(uid) {
-      return self(uid) &&
-        exists(/databases/$(database)/documents/members/$(uid)) &&
-        get(/databases/$(database)/documents/members/$(uid)).data.disabled != true;
+    function validUsername(name) {
+      return name is string &&
+        name.matches('^[a-z0-9._-]{3,24}$') &&
+        !name.matches('^di-[0-9]+$');
     }
-    // UID is internal Firebase identity; memberNumber "DI-1" is stored in data.
-    // Only trusted backend may create member numbers or change owner status.
+    function validInvite(code) {
+      return code is string && code.matches('^[a-z0-9]{6}$');
+    }
+    function allowedMemberCreate(uid) {
+      let m = request.resource.data;
+      return self(uid) && !exists(memberPath(uid)) &&
+        m.keys().hasOnly(['uid','username','name','role','memberNumber',
+          'serial','inviterUid','inviteCode','disabled','pledgeAcceptedAt','createdAt']) &&
+        m.keys().hasAll(['uid','username','name','role','memberNumber',
+          'serial','inviterUid','inviteCode','disabled','pledgeAcceptedAt','createdAt']) &&
+        m.uid == uid && validUsername(m.username) &&
+        m.name is string && m.name.size() >= 2 && m.name.size() <= 60 &&
+        m.role == 'member' && m.disabled == false &&
+        m.memberNumber is int && m.memberNumber >= 2 &&
+        m.serial == 'DI-' + string(m.memberNumber) &&
+        m.pledgeAcceptedAt == request.time && m.createdAt == request.time &&
+        validInvite(m.inviteCode) &&
+        exists(invitationPath(m.inviteCode)) &&
+        get(invitationPath(m.inviteCode)).data.used == false &&
+        get(invitationPath(m.inviteCode)).data.revoked == false &&
+        m.inviterUid == get(invitationPath(m.inviteCode)).data.byUid &&
+        active(m.inviterUid) &&
+        getAfter(invitationPath(m.inviteCode)).data.used == true &&
+        getAfter(invitationPath(m.inviteCode)).data.usedByUid == uid &&
+        getAfter(usernamePath(m.username)).data.uid == uid &&
+        exists(sequencePath()) &&
+        m.memberNumber == get(sequencePath()).data.lastNumber + 1 &&
+        getAfter(sequencePath()).data.lastNumber == m.memberNumber &&
+        getAfter(sequencePath()).data.lastMemberUid == uid;
+    }
+    function signupCounter() {
+      let d = request.resource.data;
+      return currentMember() == false && signed() &&
+        !exists(memberPath(request.auth.uid)) &&
+        resource.data.lastNumber is int && resource.data.lastNumber >= 1 &&
+        d.keys().hasOnly(['lastNumber','ownerUid','lastMemberUid','updatedAt']) &&
+        d.keys().hasAll(['lastNumber','ownerUid','lastMemberUid','updatedAt']) &&
+        d.ownerUid == resource.data.ownerUid &&
+        d.lastNumber == resource.data.lastNumber + 1 &&
+        d.lastMemberUid == request.auth.uid &&
+        d.updatedAt == request.time &&
+        getAfter(memberPath(request.auth.uid)).data.memberNumber == d.lastNumber &&
+        getAfter(memberPath(request.auth.uid)).data.role == 'member';
+    }
     match /members/{uid} {
-      allow get: if (self(uid) && resource.data.disabled != true) || owner();
-      allow list: if owner();
-      allow create, update, delete: if false;
+      allow get: if self(uid) || currentMember();
+      allow list: if owner() ||
+        (currentMember() && request.query.limit != null &&
+         request.query.limit <= 200 && resource.data.inviterUid == request.auth.uid);
+      allow create: if allowedMemberCreate(uid);
+      allow update: if owner() && uid != request.auth.uid &&
+        resource.data.role == 'member' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled','updatedAt']) &&
+        request.resource.data.disabled is bool &&
+        request.resource.data.updatedAt == request.time
+        || (self(uid) && active(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 60 &&
+        request.resource.data.updatedAt == request.time);
+      allow delete: if false;
     }
-    // Counters and usernames are always maintained by trusted server.
     match /system/{docId} {
-      allow read, write: if false;
+      allow get: if docId == 'membership' && currentMember();
+      allow list, create, delete: if false;
+      allow update: if docId == 'membership' && signupCounter();
     }
     match /usernames/{username} {
-      allow read, write: if false;
+      allow read, update, delete: if false;
+      allow create: if signed() && validUsername(username) &&
+        request.resource.data.keys().hasOnly(['uid','createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        !exists(memberPath(request.auth.uid)) &&
+        getAfter(memberPath(request.auth.uid)).data.username == username;
     }
     match /invitations/{code} {
+      allow get: if signed() && validInvite(code);
+      allow list, delete: if false;
+      allow create: if validInvite(code) && currentMember() &&
+        request.resource.data.keys().hasOnly(['byUid','used','revoked','createdAt']) &&
+        request.resource.data.byUid == request.auth.uid &&
+        request.resource.data.used == false &&
+        request.resource.data.revoked == false &&
+        request.resource.data.createdAt == request.time;
+      allow update: if signed() &&
+        resource.data.used == false && resource.data.revoked == false &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used','usedByUid','usedAt']) &&
+        request.resource.data.used == true &&
+        request.resource.data.usedByUid == request.auth.uid &&
+        request.resource.data.usedAt == request.time &&
+        !exists(memberPath(request.auth.uid)) &&
+        getAfter(memberPath(request.auth.uid)).data.inviteCode == code &&
+        getAfter(memberPath(request.auth.uid)).data.inviterUid == resource.data.byUid;
+    }
+    function validPrayerStatuses(values) {
+      return values is map &&
+        values.keys().hasOnly(['fajr','dhuhr','asr','maghrib','isha']) &&
+        values.values().hasOnly(['jamat','solo','made','missed','clear']);
+    }
+    match /memberPrivate/{uid}/prayers/{date} {
+      allow get, list: if active(uid) && self(uid);
+      allow create, update: if self(uid) && active(uid) &&
+        date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        request.resource.data.keys().hasOnly(['date','statuses','updatedAt']) &&
+        request.resource.data.keys().hasAll(['date','statuses','updatedAt']) &&
+        request.resource.data.date == date &&
+        validPrayerStatuses(request.resource.data.statuses) &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /memberPrivate/{uid}/{doc=**} {
       allow read, write: if false;
     }
-    // Future per-user private data. Write only through verified callable functions.
-    match /memberPrivate/{uid}/{document=**} {
-      allow read: if activeSelf(uid) || owner();
-      allow write: if false;
+    function previousPersonal(uid) {
+      return exists(countPath(uid)) ? get(countPath(uid)).data.total : 0;
+    }
+    function previousGlobal() {
+      return exists(globalPath()) ? get(globalPath()).data.totalRecitations : 0;
+    }
+    function updatedPersonal(uid) {
+      let d = request.resource.data;
+      let amount = d.lastEntryAmount;
+      return self(uid) && active(uid) &&
+        d.keys().hasOnly(['memberUid','total','lastEntryAmount','updatedAt']) &&
+        d.keys().hasAll(['memberUid','total','lastEntryAmount','updatedAt']) &&
+        d.memberUid == uid && d.total is int && d.total >= 0 &&
+        amount is int && amount >= 1 && amount <= 10000 &&
+        d.total == previousPersonal(uid) + amount &&
+        d.updatedAt == request.time &&
+        getAfter(globalPath()).data.totalRecitations == previousGlobal() + amount &&
+        getAfter(globalPath()).data.lastEntryUid == uid &&
+        getAfter(globalPath()).data.lastEntryAmount == amount;
+    }
+    function updatedGlobal() {
+      let d = request.resource.data;
+      let uid = request.auth.uid;
+      let amount = d.lastEntryAmount;
+      return currentMember() &&
+        d.keys().hasOnly(['totalRecitations','lastEntryAmount','lastEntryUid','updatedAt']) &&
+        d.keys().hasAll(['totalRecitations','lastEntryAmount','lastEntryUid','updatedAt']) &&
+        d.totalRecitations is int && d.totalRecitations >= 0 &&
+        amount is int && amount >= 1 && amount <= 10000 &&
+        d.lastEntryUid == uid &&
+        d.totalRecitations == previousGlobal() + amount &&
+        d.updatedAt == request.time &&
+        getAfter(countPath(uid)).data.total == previousPersonal(uid) + amount &&
+        getAfter(countPath(uid)).data.lastEntryAmount == amount;
     }
     match /memberCounts/{uid} {
-      allow get: if activeSelf(uid) || owner();
-      allow list: if owner();
-      allow write: if false;
+      allow get: if (self(uid) && active(uid)) || owner();
+      allow list: if currentMember() && request.query.limit != null &&
+        request.query.limit <= 10;
+      allow create, update: if updatedPersonal(uid);
+      allow delete: if false;
     }
-    // No direct collection listing of all profiles by ordinary members.
-    // Public aggregate totals do not reveal private account information.
     match /publicStats/{docId} {
       allow get, list: if true;
-      allow write: if false;
+      allow create, update: if docId == 'global' && updatedGlobal();
+      allow delete: if false;
     }
     match /{document=**} {
       allow read, write: if false;
