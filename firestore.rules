@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function loggedIn() {
+      return request.auth != null;
+    }
+    function owner() {
+      return loggedIn() && request.auth.token.owner == true;
+    }
+    function self(uid) {
+      return loggedIn() && request.auth.uid == uid;
+    }
+    // UID is internal Firebase identity; memberNumber "DI-1" is stored in data.
+    // Only trusted backend may create member numbers or change owner status.
+    match /members/{uid} {
+      allow get: if self(uid) || owner();
+      allow list: if owner();
+      allow create, update, delete: if false;
+    }
+    // Counters and usernames are always maintained by trusted server.
+    match /system/{docId} {
+      allow read, write: if false;
+    }
+    match /usernames/{username} {
+      allow read, write: if false;
+    }
+    match /invitations/{code} {
+      allow read, write: if false;
+    }
+    // Future per-user private data. Write only through verified callable functions.
+    match /memberPrivate/{uid}/{document=**} {
+      allow read: if self(uid) || owner();
+      allow write: if false;
+    }
+    match /memberCounts/{uid} {
+      allow get: if self(uid) || owner();
+      allow list: if owner();
+      allow write: if false;
+    }
+    // No direct collection listing of all profiles by ordinary members.
+    // Public aggregate totals do not reveal private account information.
+    match /publicStats/{docId} {
+      allow get, list: if true;
+      allow write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
