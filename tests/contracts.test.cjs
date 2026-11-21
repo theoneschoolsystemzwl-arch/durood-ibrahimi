@@ -27,7 +27,7 @@ present(auth,'entered.includes("@")');
 present(auth,'loginStage="firebase-auth"');
 present(auth,'loginStage="firestore-profile"');
 present(auth,'loginStage="missing-member-profile"');
-present(client,'signingIn:true');
+present(client,'signingIn:false');
 present(client,'appState.signingIn=true');
 present(client,'if(user && (appState.registering || appState.signingIn))return');
 present(client,'Firebase Authentication نے Email یا Password قبول نہیں کیا');
