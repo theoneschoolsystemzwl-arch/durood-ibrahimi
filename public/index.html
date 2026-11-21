@@ -40,19 +40,28 @@
       </div>
       <form id="access-form" autocomplete="on">
         <fieldset id="login-fields" class="fields">
-          <label>Username
-            <input name="loginUsername" autocomplete="username" placeholder="مثلاً owner" required minlength="3" maxlength="24" autocapitalize="none" spellcheck="false">
-          </label>
-          <label>Password
-            <input name="loginPassword" type="password" autocomplete="current-password" placeholder="اپنا پاس ورڈ" required>
-          </label>
+          <label for="login-identity">Login ID / Full email (English, left to right)</label>
+          <input id="login-identity" class="latin-input login-id" name="loginUsername" type="text" dir="ltr" inputmode="email" autocomplete="username" placeholder="Username or your full email address" aria-describedby="login-id-help" required maxlength="254" autocapitalize="none" spellcheck="false">
+          <small id="login-id-help" class="field-help">پورا Email لکھ سکتے ہیں؛ آخر کا حصہ بھی نیچے دکھائی دے گا۔</small>
+          <output id="login-identity-preview" class="full-email-preview" dir="ltr" aria-live="polite" hidden></output>
+          <label for="login-password">Password</label>
+          <div class="password-field">
+            <input id="login-password" name="loginPassword" type="password" dir="ltr" autocomplete="current-password" placeholder="Enter password" required>
+            <button id="toggle-login-password" class="password-eye" type="button" aria-label="Show password" aria-controls="login-password" aria-pressed="false" title="Show password">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path class="eye-slash" d="M3 3l18 18" hidden/>
+              </svg>
+            </button>
+          </div>
         </fieldset>
         <fieldset id="register-fields" class="fields" hidden disabled>
           <label>پورا نام — Full name
             <input name="name" autocomplete="name" required maxlength="60" placeholder="اپنا پورا نام">
           </label>
           <label>Username
-            <input name="username" autocomplete="username" pattern="[a-zA-Z0-9._-]{3,24}" minlength="3" maxlength="24" required autocapitalize="none" spellcheck="false" placeholder="مثلاً ahmed.raza">
+            <input name="username" dir="ltr" class="latin-input" autocomplete="username" pattern="[a-zA-Z0-9._-]{3,24}" minlength="3" maxlength="24" required autocapitalize="none" spellcheck="false" placeholder="مثلاً ahmed.raza">
           </label>
           <label>Password
             <input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="کم از کم 8 حروف">
@@ -61,7 +70,7 @@
             <input name="confirm" type="password" autocomplete="new-password" minlength="8" required placeholder="دوبارہ پاس ورڈ">
           </label>
           <label>Invite Code
-            <input name="invite" autocomplete="off" autocapitalize="none" maxlength="6" minlength="6" required placeholder="ممبر کا دعوتی کوڈ">
+            <input name="invite" dir="ltr" class="latin-input" autocomplete="off" autocapitalize="none" maxlength="6" minlength="6" required placeholder="ممبر کا دعوتی کوڈ">
           </label>
           <details class="pledge">
             <summary>حلف نامہ پڑھیں — Read pledge</summary>
