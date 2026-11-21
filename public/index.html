@@ -138,6 +138,22 @@
           <button type="submit" class="secondary">نام محفوظ کریں</button>
         </form>
         <p id="profile-message" class="message" role="status" aria-live="polite"></p>
+        <div class="account-password-section">
+          <h3>پاس ورڈ تبدیل کریں</h3>
+          <form id="password-form" class="fields">
+            <label>موجودہ پاس ورڈ
+              <input name="currentPassword" type="password" autocomplete="current-password" minlength="8" required>
+            </label>
+            <label>نیا پاس ورڈ
+              <input name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+            </label>
+            <label>نیا پاس ورڈ دوبارہ لکھیں
+              <input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+            </label>
+            <button class="secondary" type="submit">پاس ورڈ تبدیل کریں</button>
+          </form>
+          <p id="password-message" class="message" role="status" aria-live="polite"></p>
+        </div>
       </div>
 
       <section class="panel" data-page="prayers" hidden>
