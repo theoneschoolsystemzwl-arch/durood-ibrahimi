@@ -13,6 +13,47 @@ initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
 
+// This local courtesy pause reduces accidental repeat attempts.
+// It does not override Firebase's server-side rate limiting.
+const LOGIN_RETRY_KEY="di-login-retry-guard-v1";
+function readLoginRetry(){
+  try{
+    const value=JSON.parse(sessionStorage.getItem(LOGIN_RETRY_KEY)||"{}");
+    return {
+      failures:Number.isInteger(value.failures)?value.failures:0,
+      since:Number.isFinite(value.since)?value.since:0,
+      until:Number.isFinite(value.until)?value.until:0
+    };
+  }catch{return {failures:0,since:0,until:0};}
+}
+function saveLoginRetry(state){
+  try{sessionStorage.setItem(LOGIN_RETRY_KEY,JSON.stringify(state));}catch{}
+}
+function checkLoginRetry(){
+  const minutes=Math.ceil((readLoginRetry().until-Date.now())/60000);
+  if(minutes>0){
+    const error=new Error("مزید بار بار کوششوں سے بچنے کے لیے "+minutes+" منٹ رکیں۔ یہ ایپ کا حفاظتی وقفہ ہے؛ Firebase کی پابندی اس سے زیادہ بھی رہ سکتی ہے۔");
+    error.code="client/login-cooldown";
+    throw error;
+  }
+}
+function rememberLoginFailure(error){
+  const code=error?.code||"";
+  const now=Date.now();
+  const state=readLoginRetry();
+  if(code==="auth/too-many-requests"){
+    state.until=Math.max(state.until,now+5*60*1000);
+  }else if(["auth/invalid-credential","auth/wrong-password","auth/user-not-found"].includes(code)){
+    if(now-state.since>10*60*1000){state.since=now;state.failures=0;}
+    state.failures+=1;
+    if(state.failures>=3){state.until=now+60*1000;state.failures=0;}
+  }else{return;}
+  saveLoginRetry(state);
+}
+function clearLoginRetry(){
+  try{sessionStorage.removeItem(LOGIN_RETRY_KEY);}catch{}
+}
+
 const number=new Intl.NumberFormat("en-US");
 
 function view(selector,visible) {$(selector).hidden=!visible;}
@@ -41,7 +82,7 @@ function errorText(err) {
   if(code==="auth/operation-not-allowed")return "Firebase میں Email/Password Sign-in طریقہ فعال نہیں۔";
   if(code==="auth/network-request-failed")return "Firebase سے رابطہ نہیں ہو رہا، انٹرنیٹ کنکشن چیک کریں۔";
   if(code==="auth/unauthorized-domain")return "اس ویب سائٹ کا ڈومین Firebase Authentication میں مجاز نہیں۔";
-  if(code==="auth/too-many-requests")return "بہت زیادہ کوششیں ہوئیں۔ کچھ دیر بعد دوبارہ کوشش کریں۔";
+  if(code==="auth/too-many-requests")return "Firebase نے بار بار کوششوں کی وجہ سے Login عارضی طور پر روک دیا ہے۔ دوبارہ بار بار Login نہ دبائیں؛ کچھ وقفے کے بعد درست Email اور Password سے ایک بار کوشش کریں۔";
   if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ یا Firebase Firestore دستیاب نہیں۔";
   if(code==="permission-denied"||code==="firestore/permission-denied")return "Firebase Security Rules یا ممبر کی اجازت چیک کریں۔";
   if(code==="not-found"||code==="firestore/not-found")return "Firestore کا ریکارڈ یا ڈیٹابیس نہیں ملا۔";
@@ -125,7 +166,9 @@ $("#access-form").addEventListener("submit",async event=>{
       // Prevent the auth-state listener from racing the explicit login's profile lookup.
       appState.signingIn=true;
       try {
+        checkLoginRetry();
         const profile=await login(form.get("loginUsername"),form.get("loginPassword"));
+        clearLoginRetry();
         showSignedIn(profile);
         refreshCounts().catch(err=>message("#reading-message",errorText(err)));
         if(profile.role==="owner")refreshMembers().catch(err=>message("#admin-message",errorText(err)));
@@ -157,6 +200,7 @@ $("#access-form").addEventListener("submit",async event=>{
     event.currentTarget.reset();
     message("#auth-message","اکاؤنٹ کامیابی سے کھل گیا۔",true);
   }catch(err){
+    if(appState.tab==="login")rememberLoginFailure(err);
     message("#auth-message",errorText(err));
   }finally{updateBusy(false);}
 });
