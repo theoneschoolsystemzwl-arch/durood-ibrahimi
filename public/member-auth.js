@@ -15,11 +15,28 @@ export async function login(usernameOrEmail,password){
   if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     throw Error("Enter a valid Username or full Email address.");
   }
-  const credential=await signInWithEmailAndPassword(auth,email,password);
-  const member=await getDoc(doc(db,"members",credential.user.uid));
+  let credential;
+  try {
+    credential=await signInWithEmailAndPassword(auth,email,password);
+  } catch(error) {
+    // Preserve Firebase's actual diagnostic code; never log or expose passwords.
+    error.loginStage="firebase-auth";
+    throw error;
+  }
+  let member;
+  try {
+    member=await getDoc(doc(db,"members",credential.user.uid));
+  } catch(error) {
+    error.loginStage="firestore-profile";
+    throw error;
+  }
   if(!member.exists()||member.data().disabled===true){
+    const failure=new Error(member.exists()
+      ?"Firebase پاس ورڈ قبول کر چکا ہے، مگر یہ ممبر اکاؤنٹ غیر فعال ہے۔"
+      :"Firebase پاس ورڈ قبول کر چکا ہے، مگر Owner/Members کا Firestore پروفائل موجود نہیں۔");
+    failure.loginStage="missing-member-profile";
     await signOut(auth);
-    throw Error("ممبر کا اکاؤنٹ موجود نہیں یا بند کر دیا گیا ہے۔");
+    throw failure;
   }
   return {uid:credential.user.uid,...member.data()};
 }
