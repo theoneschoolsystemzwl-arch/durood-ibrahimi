@@ -162,3 +162,41 @@ exports.updateMyProfile = onCall({region,maxInstances:10},async request => {
   await getAuth().updateUser(uid,{displayName:name});
   return {name};
 });
+
+
+// Production Durood counter. Only authenticated, active accounts may add readings.
+// Totals remain server-controlled and cannot be edited from the browser directly.
+exports.recordRecitations = onCall({region,maxInstances:20}, async request => {
+  const uid = ensureMember(request);
+  const amount = request.data?.amount;
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > 10000) {
+    throw new HttpsError("invalid-argument","Choose a whole number between 1 and 10000.");
+  }
+  const dateUTC = new Date().toISOString().slice(0,10);
+  const memberRef = members.doc(uid);
+  const countRef = db.doc("memberCounts/" + uid);
+  const dailyRef = memberRef.collection("recitations").doc(dateUTC);
+  const globalRef = db.doc("publicStats/global");
+  await db.runTransaction(async tx => {
+    const member = await tx.get(memberRef);
+    if (!member.exists || member.get("disabled") === true) {
+      throw new HttpsError("permission-denied","Account is not active.");
+    }
+    // Server-side updates keep aggregate totals consistent across concurrent readers.
+    tx.set(countRef,{
+      memberUid:uid,
+      total:FieldValue.increment(amount),
+      updatedAt:FieldValue.serverTimestamp()
+    },{merge:true});
+    tx.set(dailyRef,{
+      dayUTC:dateUTC,
+      total:FieldValue.increment(amount),
+      updatedAt:FieldValue.serverTimestamp()
+    },{merge:true});
+    tx.set(globalRef,{
+      totalRecitations:FieldValue.increment(amount),
+      updatedAt:FieldValue.serverTimestamp()
+    },{merge:true});
+  });
+  return {recorded:amount,dayUTC:dateUTC};
+});
