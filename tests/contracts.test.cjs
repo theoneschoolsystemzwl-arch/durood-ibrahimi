@@ -24,6 +24,14 @@ present(html,'id="login-identity-preview"');
 present(client,'identityPreview.textContent=fullId');
 present(client,'loginPassword.type=show?"text":"password"');
 present(auth,'entered.includes("@")');
+present(auth,'loginStage="firebase-auth"');
+present(auth,'loginStage="firestore-profile"');
+present(auth,'loginStage="missing-member-profile"');
+present(client,'signingIn:true');
+present(client,'appState.signingIn=true');
+present(client,'if(user && (appState.registering || appState.signingIn))return');
+present(client,'Firebase Authentication نے Email یا Password قبول نہیں کیا');
+
 
 present(auth,"registerSpark");
 present(auth,"invitationSpark");
