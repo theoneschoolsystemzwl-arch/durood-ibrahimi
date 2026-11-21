@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#114837">
+<title>New User — Gender & Oath Design Preview</title>
+<style>
+  :root{font-family:system-ui,"Noto Naskh Arabic","Segoe UI",sans-serif;background:#f3f6f1;color:#20362e;line-height:1.65}
+  *{box-sizing:border-box}body{margin:0;padding:20px 14px 45px}
+  .card{max-width:550px;margin:0 auto;background:white;border:1px solid #d6e3d7;border-radius:20px;padding:24px;box-shadow:0 12px 42px #123d2612}
+  .brand{text-align:center;color:#114837;margin:0;font-size:1.6rem}.sub{text-align:center;margin:0 0 20px;color:#63746c}
+  .demo{text-align:center;background:#fff6df;color:#68521a;border-radius:10px;padding:8px;margin:0 0 16px;font-size:.88rem}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;direction:ltr;gap:5px;background:#edf3ee;padding:5px;border-radius:12px;margin:0 0 18px}
+  .tabs span{display:block;padding:10px;text-align:center;border-radius:8px;color:#4e6b59;font-weight:700}
+  .tabs .active{background:#114837;color:white}
+  .field{display:block;margin:0 0 13px;font-weight:650;color:#254536}
+  .field input{display:block;width:100%;border:1px solid #b7cbbf;border-radius:11px;background:#fcfefb;padding:11px 13px;font:inherit;margin-top:5px;min-height:45px;color:#263c30}
+  .gender-title{font-weight:750;margin:14px 0 9px}
+  .gender-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gender-option{display:flex;justify-content:center;align-items:center;gap:9px;border:1px solid #bdcfbf;background:#f9fcf9;border-radius:12px;padding:14px 8px;cursor:pointer;font-weight:700;transition:background .15s,border-color .15s}
+  .gender-option:has(input:checked){border-color:#114837;background:#e3f2e6;box-shadow:inset 0 0 0 1px #114837}
+  input[type=radio],input[type=checkbox]{accent-color:#114837;width:19px;height:19px;flex-shrink:0}
+  .gender-option input{margin:0}
+  details{margin-top:18px;padding:14px;border:1px solid #cee0d1;background:#eff5ee;border-radius:12px}
+  summary{font-weight:800;cursor:pointer}
+  #oath-text{margin:12px 0 0;line-height:2}
+  .selection{margin:10px 0 0;color:#597265;font-size:.9rem}
+  .checks{display:grid;gap:12px;margin:16px 0}
+  .checks label{display:flex;align-items:center;gap:10px}
+  .preview-btn{width:100%;padding:13px 16px;border:0;border-radius:12px;background:#b7c9bc;color:#395746;font-weight:800;font-size:1rem}
+  .note{text-align:center;color:#677e70;margin:12px 0 0;font-size:.86rem}
+  @media(max-width:400px){.card{padding:17px}.brand{font-size:1.35rem}.gender-option{font-size:.9rem}}
+</style>
+</head>
+<body>
+<main class="card">
+<h1 class="brand">درودِ ابراہیمی گلوبل</h1>
+<p class="sub">New User — نیا اکاؤنٹ</p>
+<p class="demo">صرف ڈیزائن پری ویو — Firebase رجسٹریشن فعال نہیں</p>
+<div class="tabs" aria-label="Account screens"><span>Login</span><span class="active">New User</span></div>
+<form onsubmit="return false">
+<label class="field">پورا نام — Full Name<input type="text" placeholder="اپنا پورا نام" autocomplete="name"></label>
+<label class="field">Username / ID<input type="text" dir="ltr" placeholder="Your login ID" autocomplete="username"></label>
+<label class="field">Password<input type="password" dir="ltr" placeholder="Password" autocomplete="new-password"></label>
+<label class="field">Confirm Password<input type="password" dir="ltr" placeholder="Confirm password" autocomplete="new-password"></label>
+<fieldset style="border:0;padding:0;margin:0">
+<legend class="gender-title">جنس منتخب کریں — Gender</legend>
+<div class="gender-grid">
+<label class="gender-option"><input type="radio" name="gender" value="male" checked> Male — مرد</label>
+<label class="gender-option"><input type="radio" name="gender" value="female"> Female — عورت</label>
+</div>
+</fieldset>
+<label class="field" style="margin-top:16px">Invite Code<input type="text" dir="ltr" placeholder="دعوتی کوڈ"></label>
+<details open>
+<summary>حلف نامہ — Oath</summary>
+<p id="oath-text" aria-live="polite"></p>
+<p id="selection-text" class="selection"></p>
+</details>
+<div class="checks">
+<label><input type="checkbox"> میں مسلمان ہوں</label>
+<label><input type="checkbox"> میں نے یہ حلف پڑھ کر قبول کیا ہے</label>
+</div>
+<button type="button" class="preview-btn" disabled> Create Account — صرف ڈیزائن</button>
+<p class="note">حلف کا متن منتخب کردہ Male/Female کے مطابق بدلتا ہے۔ ڈیٹا محفوظ یا Firebase کو نہیں بھیجا جاتا۔</p>
+</form>
+</main>
+<script>
+const oathText={
+  male:"میں حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
+  female:"میں حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
+};
+function showOath(){
+  const selected=document.querySelector('input[name="gender"]:checked')?.value||"male";
+  document.getElementById("oath-text").textContent=oathText[selected];
+  document.getElementById("selection-text").textContent=selected==="male"?"منتخب: Male — مرد":"منتخب: Female — عورت";
+}
+document.querySelectorAll('input[name="gender"]').forEach(option=>option.addEventListener("change",showOath));
+showOath();
+</script>
+</body>
+</html>
