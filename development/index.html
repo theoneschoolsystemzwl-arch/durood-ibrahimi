@@ -1043,6 +1043,12 @@ input,select,textarea { border-radius:8px; min-height:42px; padding:5px 8px; }
   .about-hadiths { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .about-contact-links { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* Unified access panel: login and registration tabs */
+.auth-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:5px; gap:5px; background:#edf2ed; border-radius:14px; margin-bottom:20px; direction:ltr; }
+.auth-tab { border:0; border-radius:10px; font:inherit; font-weight:750; padding:12px 8px; color:#40544b; background:transparent; cursor:pointer; }
+.auth-tab[aria-selected="true"] { background:#155842; color:#fff; box-shadow:0 2px 5px #0002; }
+.auth-tab:focus-visible { outline:3px solid #f1b93c; outline-offset:2px; }
 </style>
 </head>
 <body>
@@ -1216,7 +1222,7 @@ function authMarkup() {
   let extras = '';
   if (screen === 'login') {
     form = tr("<header class=\"auth-head\"><h1>Member Login</h1></header>", '<header class="auth-head"><h1>رکن کا لاگ اِن</h1></header>') +
-      tr("<form class=\"form\" id=\"login\"><label class=\"field\">Username<input name=\"username\" autocomplete=\"username\" placeholder=\"e.g. owner\" required></label>", '<form class="form" id="login"><label class="field">یوزر نیم<input name="username" autocomplete="username" placeholder="مثلاً owner" required></label>') +
+      tr("<form class=\"form\" id=\"account-form\"><label class=\"field\">Username<input name=\"username\" autocomplete=\"username\" placeholder=\"e.g. owner\" required></label>", '<form class="form" id="account-form"><label class="field">یوزر نیم<input name="username" autocomplete="username" placeholder="مثلاً owner" required></label>') +
       passwordField('password',tr("Password", 'پاس ورڈ'),'current-password',true) +
       feedback() + tr("<button class=\"button full\">Log in</button></form>", '<button class="button full">لاگ اِن کریں</button></form>') +
       tr("<div class=\"auth-links\"><button class=\"link warm\" data-action=\"screen\" data-value=\"reset\">Forgot password?</button>", '<div class="auth-links"><button class="link warm" data-action="screen" data-value="reset">پاس ورڈ بھول گئے؟</button>') +
@@ -1224,7 +1230,7 @@ function authMarkup() {
   } else if (screen === 'register') {
     form = tr("<header class=\"auth-head\"><h1>Create account</h1>", '<header class="auth-head"><h1>اکاؤنٹ بنائیں</h1>') +
       ur(tr('Ask an existing member for an invitation code.', 'دعوتی کوڈ کسی موجودہ رکن سے حاصل کریں۔'),'p','muted') + '</header>' +
-      tr("<form class=\"form\" id=\"register\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" autocomplete=\"name\" maxlength=\"60\" placeholder=\"e.g. Ahmed Raza\" required></label>", '<form class="form" id="register"><label class="field">پورا نام<input name="name" dir="auto" autocomplete="name" maxlength="60" placeholder="مثلاً احمد رضا" required></label>') +
+      tr("<form class=\"form\" id=\"account-form\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" autocomplete=\"name\" maxlength=\"60\" placeholder=\"e.g. Ahmed Raza\" required></label>", '<form class="form" id="account-form"><label class="field">پورا نام<input name="name" dir="auto" autocomplete="name" maxlength="60" placeholder="مثلاً احمد رضا" required></label>') +
       tr("<label class=\"field\">Choose a login ID<input name=\"username\" autocomplete=\"username\" minlength=\"3\" maxlength=\"24\" placeholder=\"e.g. ahmed.raza\" required>", '<label class="field">لاگ اِن آئی ڈی منتخب کریں<input name="username" autocomplete="username" minlength="3" maxlength="24" placeholder="مثلاً ahmed.raza" required>') +
       ur(tr("Use English letters, numbers, periods, hyphens or underscores.", 'انگریزی حروف، اعداد، نقطہ، ڈیش یا انڈراسکور استعمال کریں۔'),'small','muted') + '</label>' +
       passwordField('password',tr("Password", 'پاس ورڈ')) + passwordField('confirm',tr("Confirm password", 'پاس ورڈ کی تصدیق')) +
@@ -1252,7 +1258,12 @@ function authMarkup() {
     (screen === 'login' ? ur(tr("Enter your username and password. New accounts require an invitation code.", 'لاگ اِن کے لیے یوزر نیم اور پاس ورڈ درج کریں۔ نیا اکاؤنٹ بنانے کے لیے دعوتی کوڈ حاصل کریں۔'),'p','auth-guide') : '') +
     '<p lang="ar" dir="rtl" class="salawat">اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ</p>' +
     tr("<div class=\"brand-title\">Durood-e-Ibrahimi Global</div>", '<div class="brand-title">درودِ ابراہیمی گلوبل</div>') +
-    '</header><section class="auth-inner"><div class="auth-card">' + form +
+    '</header><section class="auth-inner"><div class="auth-card">' +
+    ((screen === 'login' || screen === 'register') ?
+      '<div class="auth-tabs" role="tablist" aria-label="' + tr('Account access','اکاؤنٹ') + '">' +
+      '<button type="button" role="tab" aria-selected="' + (screen === 'login') + '" class="auth-tab" data-action="screen" data-value="login">' + tr('Log in','لاگ اِن') + '</button>' +
+      '<button type="button" role="tab" aria-selected="' + (screen === 'register') + '" class="auth-tab" data-action="screen" data-value="register">' + tr('New User','نیا صارف') + '</button></div>' : '') +
+    form +
     (message ? ur(esc(message),'p','feedback ok section') : '') + '</div>' + extras + '</section></main>';
 }
 
@@ -2928,7 +2939,7 @@ function changeLanguage(value) {
 const registrationChecks = ['male','muslim','oath'];
 
 function updateRegistrationButton() {
-  const form = document.getElementById('register');
+  const form = document.getElementById('account-form');
   if (!form) return;
   const ready = registrationChecks.every(name => form.elements.namedItem(name)?.checked);
   document.getElementById('create-account').disabled = !ready;
@@ -3091,7 +3102,7 @@ async function register(data) {
     return setFeedback('feedback',tr('Enter a valid, unused invite code.','درست اور غیر استعمال شدہ دعوتی کوڈ درج کریں۔'));
   }
   if (registrationChecks.some(field => data.get(field) !== 'yes')) {
-    document.querySelector('#register .oath').open = true;
+    document.querySelector('#account-form .oath').open = true;
     return setFeedback('feedback',tr('Read the pledge and check all three boxes.','حلف پڑھیں اور تینوں خانوں پر نشان لگائیں۔'));
   }
   const verifier = await offlineVerifier(data.get('password'));
@@ -3240,7 +3251,7 @@ app.addEventListener('input',event => {
 
 app.addEventListener('change', event => {
   const input = event.target;
-  if (input.form?.id === 'register' && registrationChecks.includes(input.name)) updateRegistrationButton();
+  if (input.form?.id === 'account-form' && registrationChecks.includes(input.name)) updateRegistrationButton();
   if (input.name === 'ui-theme') saveMemberTheme(input.value);
   if (input.matches('[data-prayer-city]')) updatePrayerCity(input);
   if (input.id !== 'photo' || !input.files.length) return;
@@ -3268,13 +3279,13 @@ app.addEventListener('submit', async event => {
   const data = new FormData(form);
   const person = currentUser();
   switch (form.id) {
-    case 'login': {
+    case 'account-form': {
+      if (screen === 'register') return register(data);
       const match = findLogin(data.get('username'));
       if (!match || !await checkOfflinePassword(match.id,data.get('password'))) return setFeedback('feedback',tr("Incorrect Login ID or password.", 'یوزر آئی ڈی یا پاس ورڈ درست نہیں۔'));
       if (!form.isConnected) return;
       return signIn(match.id);
     }
-    case 'register': return register(data);
     case 'reset': {
       const match = findLogin(data.get('username'));
       if (!match || match.disabled) return setFeedback('feedback',tr("This demo account does not exist.", 'یہ آزمائشی یوزر آئی ڈی موجود نہیں ہے۔'));
