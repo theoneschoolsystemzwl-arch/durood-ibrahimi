@@ -12,7 +12,7 @@ export async function login(usernameOrEmail,password){
   // whose Firebase Authentication identity is a full email may sign in
   // with that exact address. Never truncate the email to 24 characters.
   const email=entered.includes("@")?entered.toLowerCase():aliasEmail(entered);
-  if(email.length>254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){
+  if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     throw Error("Enter a valid Username or full Email address.");
   }
   const credential=await signInWithEmailAndPassword(auth,email,password);
