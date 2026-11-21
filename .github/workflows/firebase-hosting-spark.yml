@@ -10,35 +10,31 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  id-token: write
 jobs:
   hosting:
     runs-on: ubuntu-latest
+    env:
+      FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Verify deployment authorization
-        id: access
-        env:
-          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
-        run: |
-          if [ -n "$FIREBASE_CREDENTIALS" ]; then
-            echo "authorized=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::Firebase Hosting is NOT live: deploy permission is missing. GitHub must not report a successful auto-deploy."
-            exit 1
-          fi
-      - name: Authenticate to Google Cloud
-        if: steps.access.outputs.authorized == 'true'
+      - name: Authenticate using configured GitHub secret
+        if: env.FIREBASE_CREDENTIALS != ''
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+      - name: Authenticate using keyless GitHub OIDC
+        if: env.FIREBASE_CREDENTIALS == ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
       - name: Set up Node.js
-        if: steps.access.outputs.authorized == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Deploy website only, preserving the Firestore rules published in Firebase Console
-        if: steps.access.outputs.authorized == 'true'
         run: |
           npm install -g firebase-tools@15
           firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting --non-interactive
