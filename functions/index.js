@@ -200,3 +200,89 @@ exports.recordRecitations = onCall({region,maxInstances:20}, async request => {
   });
   return {recorded:amount,dayUTC:dateUTC};
 });
+
+
+// Member prayer tracking: one dated document per person in a private server-write collection.
+const prayerNames = ["fajr","dhuhr","asr","maghrib","isha"];
+const prayerModes = ["jamat","solo","made","missed","clear"];
+function validateDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new HttpsError("invalid-argument","Date must be YYYY-MM-DD.");
+  }
+  const date = new Date(value+"T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== value ||
+      date.getTime() > Date.now()+24*60*60*1000 ||
+      date.getTime() < Date.now()-366*24*60*60*1000) {
+    throw new HttpsError("invalid-argument","Invalid or unsupported prayer date.");
+  }
+  return value;
+}
+exports.savePrayerDay = onCall({region,maxInstances:10},async request => {
+  const uid=ensureMember(request);
+  await activeMember(uid);
+  const date=validateDate(request.data?.date);
+  const statuses=request.data?.statuses;
+  if(!statuses || typeof statuses!=="object" || Array.isArray(statuses) ||
+      Object.keys(statuses).some(key=>!prayerNames.includes(key)) ||
+      Object.values(statuses).some(value=>!prayerModes.includes(value))) {
+    throw new HttpsError("invalid-argument","Invalid prayer status.");
+  }
+  await db.doc("memberPrivate/"+uid+"/prayers/"+date).set({
+    date,statuses,updatedAt:FieldValue.serverTimestamp()
+  });
+  return {date,statuses};
+});
+exports.getPrayerMonth = onCall({region,maxInstances:10},async request => {
+  const uid=ensureMember(request);
+  await activeMember(uid);
+  const month=request.data?.month;
+  if(typeof month!=="string" || !/^\d{4}-(0[1-9]|1[012])$/.test(month)) {
+    throw new HttpsError("invalid-argument","Month must be YYYY-MM.");
+  }
+  const start=new Date(month+"-01T00:00:00Z");
+  if(start.getTime()>Date.now()+31*24*3600*1000 ||
+      start.getTime()<Date.now()-366*24*3600*1000) {
+    throw new HttpsError("invalid-argument","Month is out of range.");
+  }
+  const n=new Date(start.getUTCFullYear(),start.getUTCMonth()+1,0).getUTCDate();
+  const refs=Array.from({length:n},(_,i)=>db.doc("memberPrivate/"+uid+"/prayers/"+month+"-"+String(i+1).padStart(2,"0")));
+  const snaps=await db.getAll(...refs);
+  return {month,days:snaps.filter(s=>s.exists).map(s=>({
+    date:s.get("date"),statuses:s.get("statuses")
+  }))};
+});
+exports.getLeaderboard = onCall({region,maxInstances:10},async request => {
+  const uid=ensureMember(request);
+  await activeMember(uid);
+  const snapshots=await db.collection("memberCounts").orderBy("total","desc").limit(10).get();
+  const rows=await Promise.all(snapshots.docs.map(async count => {
+    const profile=await members.doc(count.id).get();
+    if(!profile.exists || profile.get("disabled")===true)return null;
+    const total=count.get("total");
+    return {
+      name:profile.get("name") || "Member",
+      serial:profile.get("serial"),
+      total:Number.isSafeInteger(total)?total:0
+    };
+  }));
+  return {leaders:rows.filter(Boolean)};
+});
+exports.getMyReferrals = onCall({region,maxInstances:10},async request => {
+  const uid=ensureMember(request);
+  await activeMember(uid);
+  const children=await members.where("inviterUid","==",uid).limit(200).get();
+  return {referrals:children.docs.map(doc=>({
+    serial:doc.get("serial"),name:doc.get("name"),disabled:doc.get("disabled")===true
+  })).sort((a,b)=>Number(a.serial?.split("-")[1]||0)-Number(b.serial?.split("-")[1]||0))};
+});
+exports.getCommunitySummary = onCall({region,maxInstances:10},async request => {
+  const uid=ensureMember(request);
+  await activeMember(uid);
+  const [counterSnap,totalsSnap]=await Promise.all([
+    counter.get(),db.doc("publicStats/global").get()
+  ]);
+  return {
+    totalAccounts:Number(counterSnap.get("lastNumber")||0),
+    totalRecitations:Number(totalsSnap.get("totalRecitations")||0)
+  };
+});
