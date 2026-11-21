@@ -16,6 +16,15 @@ assert.ok(!authPanel.includes("DI-1"),"Member number must not appear on login sc
 for(const item of ["function switchTab(","document.querySelector(","await login(","await register("])present(client,item);
 for(const item of ["registerMember","createInvitation","setMemberActive","updateMyProfile","recordRecitations","runTransaction","memberNumber:next","role:\"member\""])present(fn,item);
 present(auth,"signInWithEmailAndPassword");
+present(html,'id="login-identity"');
+present(html,'maxlength="254"');
+present(html,'dir="ltr"');
+present(html,'id="toggle-login-password"');
+present(html,'id="login-identity-preview"');
+present(client,'identityPreview.textContent=fullId');
+present(client,'loginPassword.type=show?"text":"password"');
+present(auth,'entered.includes("@")');
+
 present(auth,"registerSpark");
 present(auth,"invitationSpark");
 const spark=fs.readFileSync("public/spark-data.js","utf8");
