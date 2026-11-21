@@ -1,14 +1,13 @@
 // Additional Firebase-backed member pages: prayers, referrals, leaderboard, about.
 import {auth} from "./firebase-client.js";
-import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-functions.js";
+import {prayerSaveSpark,prayerMonthSpark,rankingSpark,referralsSpark,communitySpark} from "./spark-data.js";
 const $=selector=>document.querySelector(selector);
-const functions=getFunctions(auth.app,"asia-southeast2");
 const api={
-  prayerSave:httpsCallable(functions,"savePrayerDay"),
-  prayerMonth:httpsCallable(functions,"getPrayerMonth"),
-  ranking:httpsCallable(functions,"getLeaderboard"),
-  referrals:httpsCallable(functions,"getMyReferrals"),
-  summary:httpsCallable(functions,"getCommunitySummary")
+  prayerSave:async ({date,statuses})=>({data:await prayerSaveSpark(date,statuses)}),
+  prayerMonth:async ({month})=>({data:await prayerMonthSpark(month)}),
+  ranking:async ()=>({data:await rankingSpark()}),
+  referrals:async ()=>({data:await referralsSpark()}),
+  summary:async ()=>({data:await communitySpark()})
 };
 const prayers=["fajr","dhuhr","asr","maghrib","isha"];
 const modes=[
@@ -26,8 +25,8 @@ function say(selector,text,success=false){
   element.classList.toggle("ok",success);
 }
 const errorText=error=>{
-  if(error?.code==="functions/not-found")return "یہ فیچر ابھی Firebase سرور پر Deploy نہیں ہوا۔";
-  if(error?.code==="functions/unauthenticated")return "دوبارہ لاگ اِن کریں۔";
+  if(error?.code==="permission-denied")return "Firestore کی اجازت یا اکاؤنٹ کی حالت چیک کریں۔";
+  if(error?.code==="unauthenticated")return "دوبارہ لاگ اِن کریں۔";
   return String(error?.message||"سرور سے رابطہ نہیں ہوا۔").slice(0,180);
 };
 function emptyMessage(node,text){
