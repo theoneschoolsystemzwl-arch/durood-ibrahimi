@@ -31,6 +31,10 @@ present(client,'signingIn:false');
 present(client,'appState.signingIn=true');
 present(client,'if(user && (appState.registering || appState.signingIn))return');
 present(client,'Firebase Authentication نے Email یا Password قبول نہیں کیا');
+present(html,'id="forgot-password"');
+present(client,'sendPasswordResetEmail(auth,entered.toLowerCase())');
+present(client,'#forgot-password');
+
 
 
 present(auth,"registerSpark");
