@@ -1223,9 +1223,7 @@ function authMarkup() {
       tr("<button class=\"link\" data-action=\"screen\" data-value=\"register\">Create account</button></div>", '<button class="link" data-action="screen" data-value="register">اکاؤنٹ بنائیں</button></div>');
   } else if (screen === 'register') {
     form = tr("<header class=\"auth-head\"><h1>Create account</h1>", '<header class="auth-head"><h1>اکاؤنٹ بنائیں</h1>') +
-      ur(tr('Registration is for Muslim men. Ask a member for an invite code.', 'یہ رکنیت مسلمان مردوں کے لیے ہے۔ دعوتی کوڈ کسی رکن سے حاصل کریں۔') +
-        ' ' + tr('Demo code','آزمائشی کوڈ') + ' <bdi>' + (invites.has(legacyStarterCode) ? legacyStarterCode : starterCode) + '</bdi>.',
-        'p','muted') + '</header>' +
+      ur(tr('Ask an existing member for an invitation code.', 'دعوتی کوڈ کسی موجودہ رکن سے حاصل کریں۔'),'p','muted') + '</header>' +
       tr("<form class=\"form\" id=\"register\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" autocomplete=\"name\" maxlength=\"60\" placeholder=\"e.g. Ahmed Raza\" required></label>", '<form class="form" id="register"><label class="field">پورا نام<input name="name" dir="auto" autocomplete="name" maxlength="60" placeholder="مثلاً احمد رضا" required></label>') +
       tr("<label class=\"field\">Choose a login ID<input name=\"username\" autocomplete=\"username\" minlength=\"3\" maxlength=\"24\" placeholder=\"e.g. ahmed.raza\" required>", '<label class="field">لاگ اِن آئی ڈی منتخب کریں<input name="username" autocomplete="username" minlength="3" maxlength="24" placeholder="مثلاً ahmed.raza" required>') +
       ur(tr("Use English letters, numbers, periods, hyphens or underscores.", 'انگریزی حروف، اعداد، نقطہ، ڈیش یا انڈراسکور استعمال کریں۔'),'small','muted') + '</label>' +
