@@ -83,6 +83,45 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertFails(updateDoc(doc(newDb,"publicStats","global"),{totalRecitations:1000000}));
   await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{disabled:true,updatedAt:serverTimestamp()}));
   await assertFails(getDoc(doc(newDb,"memberCounts",newId)));
+  // Authorized owner self-repair: DI-1 is profile data, never a login ID.
+  // A guessed email alone cannot grant owner rights; trusted UID or an Admin
+  // custom claim is required in the published Firestore security rules.
+  await env.clearFirestore();
+  const legacyId="ecrykLlmTAbV90llOdQVRSX4OyE3";
+  const legacyDb=env.authenticatedContext(legacyId).firestore();
+  const maliciousDb=env.authenticatedContext("random-email-user").firestore();
+  const profile=uid=>({
+    uid,username:"owner",name:"Original owner",role:"owner",
+    serial:"DI-1",memberNumber:1,disabled:false,inviterUid:null,
+    createdAt:serverTimestamp()
+  });
+  await assertFails(setDoc(doc(maliciousDb,"members","random-email-user"),
+    profile("random-email-user")));
+  await assertFails(setDoc(doc(maliciousDb,"system","membership"),
+    {ownerUid:"random-email-user",lastNumber:1,updatedAt:serverTimestamp()}));
+  await assertFails(setDoc(doc(legacyDb,"members",legacyId),profile(legacyId)));
+  await assertFails(setDoc(doc(legacyDb,"system","membership"),
+    {ownerUid:legacyId,lastNumber:1,updatedAt:serverTimestamp()}));
+  await assertSucceeds(runTransaction(legacyDb,async tx=>{
+    const seqRef=doc(legacyDb,"system","membership");
+    const ownerRef=doc(legacyDb,"members",legacyId);
+    const seq=await tx.get(seqRef),owner=await tx.get(ownerRef);
+    if(seq.exists()||owner.exists())throw Error("expected empty owner records");
+    tx.set(seqRef,{ownerUid:legacyId,lastNumber:1,updatedAt:serverTimestamp()});
+    tx.set(ownerRef,profile(legacyId));
+  }));
+  const first=await getDoc(doc(legacyDb,"members",legacyId));
+  if(!first.exists()||first.data().serial!=="DI-1")throw Error("missing DI-1 profile");
+  await assertFails(updateDoc(doc(legacyDb,"system","membership"),{lastNumber:1}));
+  // Restoring a missing owner profile must preserve an existing sequence.
+  await env.clearFirestore();
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),"system","membership"),
+      {ownerUid:legacyId,lastNumber:17,updatedAt:new Date()});
+  });
+  await assertSucceeds(setDoc(doc(legacyDb,"members",legacyId),profile(legacyId)));
+  const preserved=await getDoc(doc(legacyDb,"system","membership"));
+  if(preserved.data().lastNumber!==17)throw Error("member counter was reset");
   console.log("Spark security tests passed: DI-2 signup, invite consumption, prayer isolation, recitation consistency, owner control.");
  }finally{await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1;});
