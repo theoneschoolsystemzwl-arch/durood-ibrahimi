@@ -45,6 +45,48 @@ service cloud.firestore {
     function validInvite(code) {
       return code is string && code.matches('^[a-z0-9]{6}$');
     }
+    // DI-1 is ONLY the first member serial, not a login identifier.
+    // Recover a missing profile solely for an already trusted Firebase Auth
+    // identity. Public email/password registration cannot grant owner rights.
+    function trustedOwnerIdentity(uid) {
+      return self(uid) &&
+        (legacyIsOwner() || request.auth.token.owner == true);
+    }
+    function initialOwnerProfile(uid) {
+      let m = request.resource.data;
+      return trustedOwnerIdentity(uid) &&
+        m.keys().hasOnly(['uid','username','name','role','memberNumber',
+          'serial','disabled','inviterUid','createdAt']) &&
+        m.keys().hasAll(['uid','username','name','role','memberNumber',
+          'serial','disabled','inviterUid','createdAt']) &&
+        m.uid == uid && m.username == 'owner' &&
+        m.name is string && m.name.size() >= 2 && m.name.size() <= 60 &&
+        m.role == 'owner' && m.memberNumber == 1 && m.serial == 'DI-1' &&
+        m.disabled == false && m.inviterUid == null &&
+        m.createdAt == request.time &&
+        (
+          (exists(sequencePath()) &&
+            get(sequencePath()).data.ownerUid == uid &&
+            get(sequencePath()).data.lastNumber is int &&
+            get(sequencePath()).data.lastNumber >= 1) ||
+          (!exists(sequencePath()) &&
+            getAfter(sequencePath()).data.ownerUid == uid &&
+            getAfter(sequencePath()).data.lastNumber == 1)
+        );
+    }
+    function initialOwnerSequence() {
+      let d = request.resource.data;
+      let uid = request.auth.uid;
+      return signed() && trustedOwnerIdentity(uid) &&
+        d.keys().hasOnly(['ownerUid','lastNumber','updatedAt']) &&
+        d.keys().hasAll(['ownerUid','lastNumber','updatedAt']) &&
+        d.ownerUid == uid && d.lastNumber == 1 &&
+        d.updatedAt == request.time &&
+        getAfter(memberPath(uid)).data.uid == uid &&
+        getAfter(memberPath(uid)).data.role == 'owner' &&
+        getAfter(memberPath(uid)).data.memberNumber == 1 &&
+        getAfter(memberPath(uid)).data.serial == 'DI-1';
+    }
     function allowedMemberCreate(uid) {
       let m = request.resource.data;
       return self(uid) && !exists(memberPath(uid)) &&
@@ -91,7 +133,7 @@ service cloud.firestore {
       allow list: if owner() ||
         (currentMember() && request.query.limit != null &&
          request.query.limit <= 200 && resource.data.inviterUid == request.auth.uid);
-      allow create: if allowedMemberCreate(uid);
+      allow create: if allowedMemberCreate(uid) || initialOwnerProfile(uid);
       allow update: if owner() && uid != request.auth.uid &&
         resource.data.role == 'member' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled','updatedAt']) &&
@@ -107,7 +149,8 @@ service cloud.firestore {
     }
     match /system/{docId} {
       allow get: if docId == 'membership' && signed();
-      allow list, create, delete: if false;
+      allow list, delete: if false;
+      allow create: if docId == 'membership' && initialOwnerSequence();
       allow update: if docId == 'membership' && signupCounter();
     }
     match /usernames/{username} {
