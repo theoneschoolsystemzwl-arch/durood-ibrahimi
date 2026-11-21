@@ -10,10 +10,15 @@ service cloud.firestore {
     function self(uid) {
       return loggedIn() && request.auth.uid == uid;
     }
+    function activeSelf(uid) {
+      return self(uid) &&
+        exists(/databases/$(database)/documents/members/$(uid)) &&
+        get(/databases/$(database)/documents/members/$(uid)).data.disabled != true;
+    }
     // UID is internal Firebase identity; memberNumber "DI-1" is stored in data.
     // Only trusted backend may create member numbers or change owner status.
     match /members/{uid} {
-      allow get: if self(uid) || owner();
+      allow get: if (self(uid) && resource.data.disabled != true) || owner();
       allow list: if owner();
       allow create, update, delete: if false;
     }
@@ -29,11 +34,11 @@ service cloud.firestore {
     }
     // Future per-user private data. Write only through verified callable functions.
     match /memberPrivate/{uid}/{document=**} {
-      allow read: if self(uid) || owner();
+      allow read: if activeSelf(uid) || owner();
       allow write: if false;
     }
     match /memberCounts/{uid} {
-      allow get: if self(uid) || owner();
+      allow get: if activeSelf(uid) || owner();
       allow list: if owner();
       allow write: if false;
     }
