@@ -4,6 +4,7 @@ import {
   login, register, createInvitation, setMemberActive, updateMyProfile, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import {readingsSpark} from "./spark-data.js";
+import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 import {initializeCommunityPages,activateMemberHome} from "./community-pages.js";
@@ -77,6 +78,30 @@ passwordEye.addEventListener("click",()=>{
   passwordEye.title=show?"Hide password":"Show password";
   passwordEye.querySelector(".eye-slash").hidden=!show;
   loginPassword.focus({preventScroll:true});
+});
+
+$("#forgot-password").addEventListener("click",async()=>{
+  if(appState.busy)return;
+  const entered=identityInput.value.trim();
+  if(!entered || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
+    message("#auth-message","Password Reset کے لیے Firebase Users میں درج پوری Email لکھیں۔");
+    identityInput.focus();
+    return;
+  }
+  updateBusy(true);
+  try {
+    await sendPasswordResetEmail(auth,entered.toLowerCase());
+    message("#auth-message","اگر یہ Email Firebase میں موجود ہے تو Password Reset کا لنک بھیج دیا گیا ہے۔ اپنی Email کا Inbox اور Spam چیک کریں۔",true);
+  }catch(error) {
+    if(error?.code==="auth/too-many-requests"){
+      message("#auth-message","Reset کی بہت زیادہ کوششیں ہوئی ہیں؛ کچھ دیر بعد دوبارہ کوشش کریں۔");
+    }else if(error?.code==="auth/network-request-failed"){
+      message("#auth-message","Firebase سے رابطہ نہیں ہو سکا، انٹرنیٹ کنکشن چیک کریں۔");
+    }else{
+      // Do not disclose whether an email is registered.
+      message("#auth-message","Reset درخواست مکمل نہیں ہوئی۔ Firebase Authentication اور Email کی درستگی چیک کریں۔");
+    }
+  }finally{updateBusy(false);}
 });
 
 
