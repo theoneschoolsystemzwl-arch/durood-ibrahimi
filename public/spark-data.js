@@ -52,10 +52,6 @@ export async function registerSpark({name,username,password,inviteCode,pledgeAcc
       }
       const inviterUid=inv.data().byUid;
       if(typeof inviterUid!=="string"||!inviterUid)throw Error("دعوتی کوڈ کا مالک درست نہیں۔");
-      const inviter=await tx.get(memberRef(inviterUid));
-      if(!inviter.exists()||inviter.data().disabled===true){
-        throw Error("دعوت دینے والے ممبر کا اکاؤنٹ غیر فعال ہے۔");
-      }
       const n=seq.data().lastNumber+1;
       if(!Number.isSafeInteger(n))throw Error("ممبر نمبر کی حد مکمل ہو گئی ہے۔");
       const serial="DI-"+n;
