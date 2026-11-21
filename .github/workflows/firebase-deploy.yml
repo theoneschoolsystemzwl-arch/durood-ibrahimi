@@ -1,0 +1,33 @@
+name: Deploy Durood Global to Firebase
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify deployment authorization
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT" ]; then
+            echo "::error::Firebase service account authorization not connected. No deployment attempted."
+            exit 1
+          fi
+      - name: Authenticate as Firebase deploy service account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+      - name: Install Firebase CLI and Functions dependencies
+        run: |
+          npm install --global firebase-tools
+          npm install --prefix functions --no-audit --no-fund
+      - name: Deploy Hosting, Firestore rules and Cloud Functions
+        run: firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore,functions --non-interactive
