@@ -28,6 +28,9 @@ jobs:
           node --check public/app.js
           node --check functions/index.js
           node --check functions/scripts/bootstrap-owner.mjs
+          node --check functions/scripts/check-owner.mjs
+          node --check public/community-pages.js
+          node --check public/password-change.js
       - name: Check application contracts
         run: |
           node tests/contracts.test.cjs
@@ -36,3 +39,14 @@ jobs:
         run: |
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"
           grep -q 'durood-e-ibrahimi-global-c74e0' .firebaserc
+
+      - name: Report Firebase deployment authorization status
+        if: github.event_name != 'pull_request'
+        env:
+          FIREBASE_DEPLOY_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+        run: |
+          if [ -n "$FIREBASE_DEPLOY_CREDENTIALS" ]; then
+            echo "::notice::Firebase deployment authorization is configured in repository secrets."
+          else
+            echo "::notice::Firebase deployment authorization is missing; site cannot be deployed by GitHub Actions until it is connected."
+          fi
