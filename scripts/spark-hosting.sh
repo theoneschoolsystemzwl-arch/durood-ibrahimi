@@ -10,5 +10,6 @@ test -s firebase.json
 echo "Deploying frontend to Firebase Hosting on the existing Spark plan..."
 echo "NOTICE: Firebase Cloud Functions are NOT deployable on Spark."
 echo "Sign-in and registration rely on backend Functions and will need a Spark-compatible backend to work."
-firebase deploy --project "$PROJECT" --only hosting --non-interactive
+echo "If Firebase asks for the first/default Hosting site ID, choose: $PROJECT"
+firebase deploy --project "$PROJECT" --only hosting
 echo "Website frontend deployed: https://$PROJECT.web.app/"
