@@ -1,0 +1,34 @@
+name: Verify web app and Firebase backend
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate HTML entrypoint
+        run: |
+          test -s public/index.html
+          test -s public/styles.css
+          test -s public/firebase-client.js
+          test -s public/member-auth.js
+          test -s public/app.js
+      - name: Check JavaScript syntax
+        run: |
+          node --check public/firebase-client.js
+          node --check public/member-auth.js
+          node --check public/app.js
+          node --check functions/index.js
+          node --check functions/scripts/bootstrap-owner.mjs
+      - name: Check Firebase configuration
+        run: |
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"
+          grep -q 'durood-e-ibrahimi-global-c74e0' .firebaserc
