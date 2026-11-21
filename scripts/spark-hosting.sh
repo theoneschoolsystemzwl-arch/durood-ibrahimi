@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Deploy only Firebase Hosting on the no-cost Spark plan.
+# This never enables billing, creates cloud resources, or deploys Cloud Functions.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+PROJECT="durood-e-ibrahimi-global-c74e0"
+test -s public/index.html
+test -s public/manifest.webmanifest
+test -s firebase.json
+echo "Deploying frontend to Firebase Hosting on the existing Spark plan..."
+echo "NOTICE: Firebase Cloud Functions are NOT deployable on Spark."
+echo "Sign-in and registration rely on backend Functions and will need a Spark-compatible backend to work."
+firebase deploy --project "$PROJECT" --only hosting --non-interactive
+echo "Website frontend deployed: https://$PROJECT.web.app/"
