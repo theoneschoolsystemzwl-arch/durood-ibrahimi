@@ -24,8 +24,17 @@ function message(selector,text,ok=false) {
 function errorText(err) {
   const code=err?.code||"";
   if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
-  if(err?.loginStage==="firestore-profile")
-    return "Firebase نے لاگ اِن قبول کیا ہے لیکن Firestore پروفائل پڑھنے میں مسئلہ ہے۔ Owner کا ممبر ریکارڈ اور Security Rules چیک کریں۔";
+  if(err?.loginStage==="firestore-profile") {
+    if(code==="permission-denied"||code==="firestore/permission-denied")
+      return "Firebase Login درست ہے، مگر Firestore نے Owner پروفائل پڑھنے کی اجازت نہیں دی (permission-denied)۔ Firestore کی Published Security Rules چیک کریں۔";
+    if(code==="not-found"||code==="firestore/not-found")
+      return "Firebase Login درست ہے، مگر Firestore ڈیٹابیس نہیں ملا (not-found)۔ Firebase Console میں Firestore Database کی موجودگی چیک کریں۔";
+    if(code==="failed-precondition"||code==="firestore/failed-precondition")
+      return "Firebase Login درست ہے، مگر Firestore سیٹ اپ مکمل نہیں (failed-precondition)۔ Firestore Database اور Rules چیک کریں۔";
+    if(code==="unavailable"||code==="firestore/unavailable")
+      return "Firebase Login درست ہے، مگر Firestore عارضی طور پر دستیاب نہیں (unavailable)۔ انٹرنیٹ یا سروس چیک کریں۔";
+    return "Firebase Login درست ہے، مگر Firestore پروفائل پڑھنے میں مسئلہ ہے ("+String(code||"unknown")+ ")۔ Firebase Console میں Owner ممبر ریکارڈ اور Published Rules چیک کریں۔";
+  }
   if(code==="auth/invalid-credential"||code==="auth/wrong-password"||code==="auth/user-not-found")
     return "Firebase Authentication نے Email یا Password قبول نہیں کیا۔ Firebase Users میں مکمل Email دیکھیں؛ Reset Password والی Email میں لنک کھول کر نیا پاس ورڈ محفوظ کریں۔";
   if(code==="auth/user-disabled")return "یہ Firebase Authentication اکاؤنٹ غیر فعال ہے۔";
