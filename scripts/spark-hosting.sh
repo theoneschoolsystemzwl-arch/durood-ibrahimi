@@ -7,9 +7,10 @@ PROJECT="durood-e-ibrahimi-global-c74e0"
 test -s public/index.html
 test -s public/manifest.webmanifest
 test -s firebase.json
-echo "Deploying frontend to Firebase Hosting on the existing Spark plan..."
+echo "Deploying frontend and Firestore Security Rules on the free Spark plan..."
 echo "NOTICE: Firebase Cloud Functions are NOT deployable on Spark."
-echo "Sign-in and registration rely on backend Functions and will need a Spark-compatible backend to work."
+echo "This version uses Firebase Authentication and Firestore; Cloud Functions are not required."
+echo "Firestore must already be enabled in the project and owner DI-1 securely initialized."
 echo "If Firebase asks for the first/default Hosting site ID, choose: $PROJECT"
-firebase deploy --project "$PROJECT" --only hosting
+firebase deploy --project "$PROJECT" --only hosting,firestore
 echo "Website frontend deployed: https://$PROJECT.web.app/"
