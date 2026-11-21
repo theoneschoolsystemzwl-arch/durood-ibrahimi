@@ -3,16 +3,15 @@ import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, signOut, onAuthStateChanged
 } from "./member-auth.js";
-import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-functions.js";
+import {readingsSpark} from "./spark-data.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 import {initializeCommunityPages,activateMemberHome} from "./community-pages.js";
 
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
-const appState={tab:"login",profile:null,busy:false,loadingAuth:true};
-const functions=getFunctions(auth.app,"asia-southeast2");
-const saveReadings=httpsCallable(functions,"recordRecitations");
+const appState={tab:"login",profile:null,busy:false,registering:false,loadingAuth:true};
+
 const number=new Intl.NumberFormat("en-US");
 
 function view(selector,visible) {$(selector).hidden=!visible;}
@@ -26,9 +25,9 @@ function errorText(err) {
   if(code==="auth/invalid-credential"||code==="auth/wrong-password"||code==="auth/user-not-found")
     return "یوزر نیم یا پاس ورڈ درست نہیں۔";
   if(code==="auth/too-many-requests")return "بہت زیادہ کوششیں ہوئیں۔ کچھ دیر بعد دوبارہ کوشش کریں۔";
-  if(code==="functions/unavailable")return "سرور دستیاب نہیں۔ Firebase Functions کی تنصیب چیک کریں۔";
-  if(code==="functions/permission-denied")return "اس کام کی اجازت نہیں۔ دعوتی کوڈ یا اکاؤنٹ چیک کریں۔";
-  if(code==="functions/not-found")return "سرور کا فنکشن ابھی Deploy نہیں ہوا۔";
+  if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ یا Firebase Firestore دستیاب نہیں۔";
+  if(code==="permission-denied"||code==="firestore/permission-denied")return "Firebase Security Rules یا ممبر کی اجازت چیک کریں۔";
+  if(code==="not-found"||code==="firestore/not-found")return "Firestore کا ریکارڈ یا ڈیٹابیس نہیں ملا۔";
   return String(err?.message || "درخواست مکمل نہیں ہو سکی۔").replace(/^(FirebaseError|Firebase):\s*/i,"").slice(0,240);
 }
 function updateBusy(on){
@@ -67,13 +66,23 @@ $("#access-form").addEventListener("submit",async event=>{
       const password=String(form.get("password")||"");
       if(password!==String(form.get("confirm")||""))throw Error("دونوں پاس ورڈ ایک جیسے نہیں ہیں۔");
       if(!form.has("male")||!form.has("muslim")||!form.has("pledge"))throw Error("تمام تین خانے منتخب کریں۔");
-      await register({
-        name:form.get("name"),
-        username:form.get("username"),
-        password,
-        inviteCode:form.get("invite"),
-        pledgeAccepted:true
-      });
+      appState.registering=true;
+      try {
+        await register({
+          name:form.get("name"),
+          username:form.get("username"),
+          password,
+          inviteCode:form.get("invite"),
+          pledgeAccepted:true
+        });
+      } finally {
+        appState.registering=false;
+      }
+      // Firebase Auth signs in immediately on account creation. Suppress the
+      // auth-state listener until the same transaction creates the member record.
+      const profile=await loadProfile(auth.currentUser);
+      showSignedIn(profile);
+      refreshCounts().catch(err=>message("#reading-message",errorText(err)));
     }
     event.currentTarget.reset();
     message("#auth-message","اکاؤنٹ کامیابی سے کھل گیا۔",true);
@@ -157,6 +166,7 @@ async function refreshMembers(){
   }
 }
 onAuthStateChanged(auth,async user=>{
+  if(user && appState.registering)return;
   if(!user){showSignedOut();return;}
   view("#loading",true);
   view("#access",false);
@@ -185,7 +195,7 @@ async function addRecitations(amount){
   updateBusy(true);
   message("#reading-message","");
   try{
-    await saveReadings({amount});
+    await readingsSpark(amount);
     await refreshCounts();
     message("#reading-message",number.format(amount)+" درود شمار میں شامل ہو گئے۔",true);
   }catch(err){message("#reading-message",errorText(err));}
