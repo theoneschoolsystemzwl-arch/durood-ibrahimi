@@ -1,38 +1,39 @@
-# Durood-e-Ibrahimi Global — deployment status
+# Durood-e-Ibrahimi Global: free Spark deployment status
 
-**Project ID:** `durood-e-ibrahimi-global-c74e0`
-**Firebase Hosting URL (not yet confirmed deployed):** https://durood-e-ibrahimi-global-c74e0.web.app/
-**Repository:** `theoneschoolsystemzwl-arch/durood-ibrahimi`
+Project ID: `durood-e-ibrahimi-global-c74e0`
+Expected Hosting URL: https://durood-e-ibrahimi-global-c74e0.web.app/
+Repo: `theoneschoolsystemzwl-arch/durood-ibrahimi`
 
-## Current web implementation
-The `public/` directory is the live-build target and contains a new Firebase-backed member portal. It is distinct from `development/index.html`, which is an older local demo copy. Do **not** deploy that demo as the production app.
+## Spark-friendly production architecture
 
-The new web portal provides:
-- Shared Login and New User tabs on one form
-- Username/password account access through Firebase Auth using internal alias emails
-- One-time owner bootstrap with owner member number DI-1 and separate admin custom claim
-- Automatic sequential DI-2 / DI-3 / ... member numbers via server transaction
-- Invite codes, member profiles, authenticated recitation tally and global counts
-- Prayer attendance, referral list, member leaderboard and owner account controls
-- Member password changes requiring current-password reauthentication
+This project is prepared for the **Firebase Spark (no billing)** plan:
 
-**Important scope limitation:** some advanced features of the original 579KB single-file demo (detailed prayer timing, qaza planning, full historical dashboards, other demo-specific preferences) have **not yet been migrated** into the Firebase-backed portal. Preserve the source file; do not call this a pixel-for-pixel or full feature-for-feature conversion.
+- `public/` contains the member website and installable PWA shell.
+- `public/member-auth.js` uses Firebase Authentication and `public/spark-data.js` uses Cloud Firestore transactions instead of paid Cloud Functions.
+- `firestore.rules` enforces member registration, one-use invitation consumption, sequential DI-2 and onward, personal and global recitation counters, prayer privacy and owner permissions.
+- The existing first owner is **DI-1** only if correctly created in Firebase Auth and Firestore. Its role is privileged by an Auth custom claim.
+- GitHub Action `spark-rules.yml` runs an actual local Firestore emulator test of permissions and DI-2 signup. This test does not change the live Firebase project.
+- `scripts/spark-hosting.sh` and `scripts/cloud-shell-setup.sh` deploy **Hosting and Firestore Rules only**. These scripts will not enable Blaze or bill the user.
+- `.github/workflows/firebase-hosting-spark.yml` is set up to automatically deploy Hosting and Firestore on code changes **once** the protected repository secret `FIREBASE_SERVICE_ACCOUNT_DUROOD` is authorized by the Firebase project owner. Without it the publish step is skipped.
+- `.github/workflows/firebase-deploy.yml` offers a Spark-only manual action with the same secret.
 
-## Deployment preparation
-- `.firebaserc`, `firebase.json`, `firestore.rules` and `functions/` are configured.
-- `.github/workflows/verify.yml` validates structure, JavaScript syntax, and interface contracts.
-- `.github/workflows/firebase-deploy.yml` is a **manual** deployment workflow. It requires `FIREBASE_SERVICE_ACCOUNT_DUROOD` in GitHub Actions secrets. This secret has NOT been created by ChatGPT and should never be pasted into a chat.
-- `scripts/cloud-shell-setup.sh` performs preflight checks before deploying. Run only with authorized project access and after reviewing possible Blaze billing charges.
-- `functions/scripts/bootstrap-owner.mjs` stops if any Firebase Auth user, member or sequence record already exists. This guards DI-1 identity; inspect existing data rather than bypassing that check.
+## Required one-time project prerequisites (not completed remotely)
 
-## What is not yet completed
-- No verified Firebase project administration connection exists in this ChatGPT runtime.
-- The original owner account has not been directly created or verified in the target Firebase project by ChatGPT.
-- Firestore existence, Cloud Billing, Cloud Functions deployment and production sign-in tests have not been verified from this runtime.
-- The standard `web.app` address most recently returned **Site Not Found (HTTP 404)**.
-- Android APK delivery is not yet possible without a working verified backend and an Android build.
+1. Firebase default Firestore database is enabled in the correct project.
+2. Firebase Authentication > Email/Password is enabled.
+3. DI-1 has been established and verified in Firebase Authentication and Firestore. The secure owner creation script in `functions/scripts/bootstrap-owner.mjs` checks that **no** existing Auth users or member records are present before creating an owner. It must not be bypassed or rerun blindly.
+4. Authorized Firebase deploy credentials are connected either through the project owner's Cloud Shell or the GitHub Actions repository secret. Do not paste credentials into ChatGPT.
+5. Deploy Hosting and Firestore Security Rules, then confirm the site loads and perform real Auth/Firestore member sign-up/login tests.
 
-A passing GitHub Actions validation workflow only confirms build-contract checks, **not** a successful Firebase deployment.
+**Important:** A green GitHub Actions run is not proof of deployment: the automatic Hosting workflow can finish successfully while skipping deployment when the secret is missing. Always verify the live site.
 
-## Security note
-Firebase public configuration fields (apiKey, projectId, etc.) are not Admin SDK credentials. **Never** commit service account JSON, owner passwords, access tokens or private keys into this repository or the chat. The account owner's permission is required for billing, secure owner bootstrap and deployment authorization.
+## Mobile app updates without APK
+
+`public/manifest.webmanifest`, `public/pwa.js` and `public/service-worker.js` add a standalone web experience with network-first refreshes on new web deployments. These can update a PWA or an Android WebView that loads this hosted URL when it opens. They **cannot** replace native code or bundled HTML inside an existing APK.
+
+## Remaining limitations
+
+- The old demo file under `source/` is preserved; not every feature of that original standalone HTML has been ported.
+- The installable web app includes no mechanism to reset a forgotten password by email because account usernames use Firebase-internal email aliases. Signed-in members can change their passwords.
+- Client-enforced rates cannot prevent every authenticated abuse case within the free Spark quota; more monitoring and hardening are needed before broad public rollout.
+- Actual Cloud Firestore availability, DI-1 owner setup, live registration and deployment remain unverified from ChatGPT because there is no connected Firebase administration credential.
