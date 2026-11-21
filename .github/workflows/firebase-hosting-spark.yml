@@ -6,7 +6,6 @@ on:
       - 'public/**'
       - 'firebase.json'
       - '.firebaserc'
-      - 'firestore.rules'
       - '.github/workflows/firebase-hosting-spark.yml'
   workflow_dispatch:
 permissions:
@@ -38,8 +37,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Deploy website and protected data rules, no Cloud Functions or billing
+      - name: Deploy website only, preserving the Firestore rules published in Firebase Console
         if: steps.access.outputs.authorized == 'true'
         run: |
           npm install -g firebase-tools@15
-          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore --non-interactive
+          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting --non-interactive
