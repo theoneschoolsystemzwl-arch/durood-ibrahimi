@@ -1,7 +1,7 @@
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
-import {signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
@@ -15,7 +15,7 @@ async function restoreTrustedOwnerProfile(user){
   // Only the known owner identity (or a Firebase Admin-issued owner claim) can
   // recover an absent owner profile. No public user can assign themselves DI-1.
   const trusted=user.uid===TRUSTED_LEGACY_OWNER_UID ||
-    (await user.getIdTokenResult()).claims.owner===true;
+    (await getIdTokenResult(user)).claims.owner===true;
   if(!trusted)return;
 
   const memberRef=doc(db,"members",user.uid);
