@@ -19,6 +19,10 @@ present(auth,"signInWithEmailAndPassword");
 present(auth,"httpsCallable");
 for(const id of ["prayer-form","prayer-history","ranking-list","referrals-list","members-count","admin-panel"])present(html,id);
 const memberPages=fs.readFileSync("public/community-pages.js","utf8");
+const changePassword=fs.readFileSync("public/password-change.js","utf8");
+present(html,"id=\"password-form\"");
+present(changePassword,"reauthenticateWithCredential");
+present(changePassword,"updatePassword");
 for(const entry of ["savePrayerDay","getPrayerMonth","getLeaderboard","getMyReferrals","getCommunitySummary"]) {
   present(fn, "exports."+entry+" = onCall");
   present(memberPages, '"'+entry+'"');
@@ -31,7 +35,7 @@ present(rules,"allow read, write: if false;");
 present(config.functions[0].source,"functions");
 assert.equal(config.hosting.public,"public");
 assert.equal(config.firestore.rules,"firestore.rules");
-for(const asset of ["public/index.html","public/app.js","public/member-auth.js","public/firebase-client.js","public/styles.css","public/community-pages.js","functions/scripts/bootstrap-owner.mjs"]){
+for(const asset of ["public/index.html","public/app.js","public/member-auth.js","public/firebase-client.js","public/styles.css","public/community-pages.js","public/password-change.js","functions/scripts/bootstrap-owner.mjs"]){
   assert.ok(fs.statSync(asset).size>0,asset+" must be present");
 }
 console.log("Structural checks passed. Real Firebase auth/rules/deployment still require live tests.");
