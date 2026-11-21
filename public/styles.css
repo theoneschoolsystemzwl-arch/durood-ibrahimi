@@ -44,3 +44,13 @@
   background:transparent;border:0;border-radius:8px;color:#315b48;cursor:pointer}
 .password-eye:hover,.password-eye:focus-visible{background:#edf5ee}
 .password-eye[aria-pressed="true"]{color:#114837}
+
+
+/* Accessible password recovery action, kept within the existing login fieldset. */
+.reset-password-link {
+  align-self:flex-start;direction:ltr;text-align:left;
+  background:transparent;border:0;color:var(--deep);
+  padding:8px 0 12px;text-decoration:underline;text-underline-offset:3px;
+  font:600 .9rem Inter,Arial,sans-serif
+}
+.reset-password-link:hover{color:#237457}
