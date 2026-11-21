@@ -108,6 +108,19 @@ function switchTab(which) {
   $("#access-submit").textContent=registerTab?"Create Account":"Log in";
   message("#auth-message","");
 }
+// Design-only gender wording in the New User oath.
+const genderOathText={
+  male:"میں حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
+  female:"میں حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
+};
+function updateGenderOath(){
+ const chosen=document.querySelector('#register-fields input[name="gender"]:checked')?.value||"male";
+ $("#gender-oath-text").textContent=genderOathText[chosen];
+}
+document.querySelectorAll('#register-fields input[name="gender"]').forEach(el=>el.addEventListener("change",updateGenderOath));
+$("#access-form").addEventListener("reset",()=>queueMicrotask(updateGenderOath));
+updateGenderOath();
+
 $("#tab-login").addEventListener("click",()=>switchTab("login"));
 $("#tab-register").addEventListener("click",()=>switchTab("register"));
 
@@ -178,7 +191,7 @@ $("#access-form").addEventListener("submit",async event=>{
     }else{
       const password=String(form.get("password")||"");
       if(password!==String(form.get("confirm")||""))throw Error("دونوں پاس ورڈ ایک جیسے نہیں ہیں۔");
-      if(!form.has("male")||!form.has("muslim")||!form.has("pledge"))throw Error("تمام تین خانے منتخب کریں۔");
+      if(!["male","female"].includes(form.get("gender"))||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے دونوں خانے قبول کریں۔");
       appState.registering=true;
       try {
         await register({
