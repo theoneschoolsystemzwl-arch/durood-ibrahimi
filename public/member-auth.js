@@ -6,8 +6,16 @@ import {doc,getDoc} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-fir
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js";
-export async function login(username,password){
-  const credential=await signInWithEmailAndPassword(auth,aliasEmail(username),password);
+export async function login(usernameOrEmail,password){
+  const entered=String(usernameOrEmail||"").trim();
+  // Existing members can continue with a short username, while an owner
+  // whose Firebase Authentication identity is a full email may sign in
+  // with that exact address. Never truncate the email to 24 characters.
+  const email=entered.includes("@")?entered.toLowerCase():aliasEmail(entered);
+  if(email.length>254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){
+    throw Error("Enter a valid Username or full Email address.");
+  }
+  const credential=await signInWithEmailAndPassword(auth,email,password);
   const member=await getDoc(doc(db,"members",credential.user.uid));
   if(!member.exists()||member.data().disabled===true){
     await signOut(auth);
