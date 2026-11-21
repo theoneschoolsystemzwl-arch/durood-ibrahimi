@@ -17,9 +17,11 @@ const auth = getAuth();
 const seqRef = db.doc("system/membership");
 const memberCollection = db.collection("members");
 const userRef = db.doc("usernames/" + username);
-const [anyMembers, counter] = await Promise.all([memberCollection.limit(1).get(),seqRef.get()]);
-if (!anyMembers.empty || counter.exists) {
-  throw Error("STOP: member records or sequence already exist. Verify ownership and membership history before setup.");
+const [anyMembers, counter, authUsers] = await Promise.all([
+  memberCollection.limit(1).get(), seqRef.get(), auth.listUsers(1)
+]);
+if (!anyMembers.empty || counter.exists || authUsers.users.length > 0) {
+  throw Error("STOP: existing Firebase Auth users, member records or sequence found. Review account history before assigning DI-1.");
 }
 const email = username + "@" + projectId + ".firebaseapp.com";
 let owner;
