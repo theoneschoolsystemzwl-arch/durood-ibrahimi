@@ -41,20 +41,29 @@ npm install --prefix functions --no-audit --no-fund
 node --check functions/index.js
 node --check public/app.js
 node --check public/member-auth.js
+echo "Checking the existing owner and membership numbering before continuing..."
+if node functions/scripts/check-owner.mjs; then
+  echo "Existing owner verified; retaining current accounts, passwords and DI numbers."
+else
+  status=$?
+  if [[ "$status" != "2" ]]; then
+    echo "STOP: The owner records need review. Deployment cancelled to protect members."
+    exit "$status"
+  fi
+  echo
+  echo "No member records or Auth users found. Preparing the first owner (DI-1)."
+  read -r -p "Owner username (3-24 lowercase letters / numbers / . _ -): " OWNER_USERNAME
+  read -r -p "Owner full name: " OWNER_NAME
+  read -r -s -p "New owner password (not displayed): " OWNER_PASSWORD
+  printf '\n'
+  export OWNER_USERNAME OWNER_NAME OWNER_PASSWORD
+  trap 'unset OWNER_PASSWORD OWNER_USERNAME OWNER_NAME' EXIT
+  node functions/scripts/bootstrap-owner.mjs
+  unset OWNER_PASSWORD OWNER_USERNAME OWNER_NAME
+  trap - EXIT
+fi
 echo
-echo "The first secure owner will be DI-1 ONLY if no existing Auth users or member records exist."
-echo "A previous owner / other member must never be overwritten silently."
-read -r -p "First owner username (letters/numbers, . _ -): " OWNER_USERNAME
-read -r -p "Owner full name: " OWNER_NAME
-read -r -s -p "New owner password (not displayed): " OWNER_PASSWORD
-printf '\n'
-export OWNER_USERNAME OWNER_NAME OWNER_PASSWORD
-trap 'unset OWNER_PASSWORD OWNER_USERNAME OWNER_NAME' EXIT
-node functions/scripts/bootstrap-owner.mjs
-unset OWNER_PASSWORD OWNER_USERNAME OWNER_NAME
-trap - EXIT
-echo
-echo "Owner record initialized. Deploying Hosting, Firestore security rules and Functions..."
+echo "Owner initialized and checked. Deploying Hosting, Firestore security rules and Functions..."
 firebase deploy --project "$PROJECT" --only hosting,firestore,functions --non-interactive
 echo "Deployment command completed. Verify sign-in at:"
 echo "https://$PROJECT.web.app"
