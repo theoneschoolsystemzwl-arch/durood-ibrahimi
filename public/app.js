@@ -53,6 +53,26 @@ function switchTab(which) {
 $("#tab-login").addEventListener("click",()=>switchTab("login"));
 $("#tab-register").addEventListener("click",()=>switchTab("register"));
 
+const identityInput=$("#login-identity");
+const identityPreview=$("#login-identity-preview");
+identityInput.addEventListener("input",()=>{
+  const fullId=identityInput.value.trim();
+  identityPreview.textContent=fullId;
+  identityPreview.hidden=!fullId;
+});
+const loginPassword=$("#login-password");
+const passwordEye=$("#toggle-login-password");
+passwordEye.addEventListener("click",()=>{
+  const show=loginPassword.type==="password";
+  loginPassword.type=show?"text":"password";
+  passwordEye.setAttribute("aria-pressed",String(show));
+  passwordEye.setAttribute("aria-label",show?"Hide password":"Show password");
+  passwordEye.title=show?"Hide password":"Show password";
+  passwordEye.querySelector(".eye-slash").hidden=!show;
+  loginPassword.focus({preventScroll:true});
+});
+
+
 $("#access-form").addEventListener("submit",async event=>{
   event.preventDefault();
   if(appState.busy)return;
