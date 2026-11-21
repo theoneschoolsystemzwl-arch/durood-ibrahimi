@@ -161,15 +161,20 @@ onAuthStateChanged(auth,async user=>{
   view("#loading",true);
   view("#access",false);
   view("#portal",false);
-  try{
-    const profile=await loadProfile(user);
-    showSignedIn(profile);
-    await refreshCounts();
-    if(profile.role==="owner")await refreshMembers();
-  }catch(err){
+  let profile;
+  try {
+    profile=await loadProfile(user);
+  } catch(err) {
     message("#auth-message",errorText(err));
     await signOut(auth).catch(()=>{});
     showSignedOut();
+    return;
+  }
+  // A temporary analytics or directory failure must not log out a valid member.
+  showSignedIn(profile);
+  refreshCounts().catch(err=>message("#reading-message",errorText(err)));
+  if(profile.role==="owner") {
+    refreshMembers().catch(err=>message("#admin-message",errorText(err)));
   }
 });
 $("#signout").addEventListener("click",async()=>{
