@@ -84,12 +84,21 @@
         <button id="signout" type="button" class="secondary">Log out</button>
       </div>
 
-      <div class="stats">
+      <nav class="portal-nav" aria-label="ممبر کے صفحات">
+        <button type="button" class="nav-item" data-view="home" aria-current="page">مرکز</button>
+        <button type="button" class="nav-item" data-view="prayers">نماز</button>
+        <button type="button" class="nav-item" data-view="referrals">دعوتی شجرہ</button>
+        <button type="button" class="nav-item" data-view="ranking">نمایاں ارکان</button>
+        <button type="button" class="nav-item" data-view="profile">پروفائل</button>
+        <button type="button" class="nav-item" data-view="about">تعارف</button>
+        <button type="button" class="nav-item owner-only" data-view="owner" hidden>Owner / Admin</button>
+      </nav>
+      <div class="stats" data-page="home">
         <div class="panel stat"><p>میرے کل درود</p><strong id="personal-total">0</strong></div>
         <div class="panel stat"><p>عالمی مجموعہ</p><strong id="global-total">0</strong></div>
       </div>
 
-      <div class="panel reader">
+      <div class="panel reader" data-page="home">
         <h2>درودِ ابراہیمی — تسبیح</h2>
         <p class="arabic" lang="ar">اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ</p>
         <p class="arabic" lang="ar">اللَّهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ</p>
@@ -107,14 +116,14 @@
         <p id="reading-message" class="message" role="status" aria-live="polite"></p>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-page="referrals">
         <h2>میرا دعوتی کوڈ</h2>
         <p class="muted">ممبر بننے کے خواہشمند شخص کو اپنا کوڈ دیں۔ ہر کوڈ ایک نئے ممبر کے لیے ہے۔</p>
         <div class="invite-line"><output id="invitation-code">—</output><button type="button" class="secondary" id="make-invite">نیا کوڈ بنائیں</button><button type="button" class="secondary" id="copy-invite" hidden>Copy</button></div>
         <p id="invitation-message" class="message" role="status" aria-live="polite"></p>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-page="profile">
         <h2>میری پروفائل</h2>
         <dl class="details">
           <div><dt>Member Number</dt><dd id="profile-serial"></dd></div>
@@ -130,7 +139,46 @@
         <p id="profile-message" class="message" role="status" aria-live="polite"></p>
       </div>
 
-      <section id="admin-panel" class="panel" hidden>
+      <section class="panel" data-page="prayers" hidden>
+        <h2>پانچ وقت نماز کا ریکارڈ</h2>
+        <p class="muted">اپنی نماز کی حالت تاریخ کے حساب سے محفوظ کریں۔ یہ ریکارڈ صرف آپ اور Owner دیکھ سکتے ہیں۔</p>
+        <form id="prayer-form">
+          <label>تاریخ <input name="date" id="prayer-date" type="date" required></label>
+          <div class="prayer-grid">
+            <label>فجر <select name="fajr"></select></label>
+            <label>ظہر <select name="dhuhr"></select></label>
+            <label>عصر <select name="asr"></select></label>
+            <label>مغرب <select name="maghrib"></select></label>
+            <label>عشاء <select name="isha"></select></label>
+          </div>
+          <button class="primary" type="submit">نماز کا ریکارڈ محفوظ کریں</button>
+        </form>
+        <p id="prayer-message" class="message" role="status"></p>
+        <h3>اس ماہ کا ریکارڈ</h3>
+        <div id="prayer-history" class="history-list"></div>
+      </section>
+      <section class="panel" data-page="ranking" hidden>
+        <h2>نمایاں ارکان — Top Members</h2>
+        <p class="muted">مجموعی درود کی بنیاد پر نمایاں ممبرز۔ ممبر نمبر الگ شناخت ہے، لاگ اِن کے لیے استعمال نہیں ہوتا۔</p>
+        <button id="refresh-ranking" type="button" class="secondary">فہرست تازہ کریں</button>
+        <div id="ranking-list" class="history-list"></div>
+        <p id="ranking-message" class="message" role="status"></p>
+      </section>
+      <section class="panel" data-page="referrals" hidden>
+        <h2>میرے دعوتی ممبرز</h2>
+        <p class="muted">جن ممبرز نے آپ کے دعوتی کوڈ سے رجسٹریشن کی ہے، وہ یہاں دکھائے جائیں گے۔</p>
+        <button id="refresh-referrals" type="button" class="secondary">شجرہ تازہ کریں</button>
+        <div id="referrals-list" class="history-list"></div>
+        <p id="referrals-message" class="message" role="status"></p>
+      </section>
+      <section class="panel" data-page="about" hidden>
+        <h2>درودِ ابراہیمی گلوبل — تعارف</h2>
+        <p>اس ایپ کا مقصد درودِ ابراہیمی کی روزانہ تلاوت، درست شمار، نماز کے ریکارڈ اور دعوتِ درود کو منظم کرنا ہے۔</p>
+        <p>بانی: ڈاکٹر شہراز انجم سلہری</p>
+        <p>استادِ محترم: پیر حافظ عبدالوہاب قادری</p>
+        <p class="muted">اپنی تسبیح، نماز اور دعوتی ریکارڈ کو اپنے ممبر اکاؤنٹ کے ذریعے دیکھیں۔</p>
+      </section>
+      <section id="admin-panel" class="panel" data-page="owner" hidden>
         <h2>Owner / Admin — تمام ممبرز</h2>
         <p class="muted">صرف Owner ممبرز کو دیکھ سکتا ہے اور ممبر کا اکاؤنٹ معطل یا بحال کر سکتا ہے۔</p>
         <button type="button" id="refresh-members" class="secondary">ممبرز کی فہرست تازہ کریں</button>
