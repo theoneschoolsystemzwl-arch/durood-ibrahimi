@@ -1,0 +1,39 @@
+name: Auto-update website on Firebase Hosting (Spark)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/firebase-hosting-spark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get published website files
+        uses: actions/checkout@v4
+      - name: Check Firebase Hosting deployment authorization
+        id: firebase_access
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD_E_IBRAHIMI_GLOBAL_C74E0 }}
+        run: |
+          if [ -n "$FIREBASE_CREDENTIALS" ]; then
+            echo "connected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "connected=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Automatic Hosting deploy needs the Firebase Hosting service account secret. No deploy attempted."
+          fi
+      - name: Publish updated web app (Hosting only, no Blaze upgrade)
+        if: steps.firebase_access.outputs.connected == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD_E_IBRAHIMI_GLOBAL_C74E0 }}
+          projectId: durood-e-ibrahimi-global-c74e0
+          channelId: live
