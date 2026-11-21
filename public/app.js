@@ -10,7 +10,7 @@ import {initializeCommunityPages,activateMemberHome} from "./community-pages.js"
 
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
-const appState={tab:"login",profile:null,busy:false,registering:false,loadingAuth:true};
+const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
 
 const number=new Intl.NumberFormat("en-US");
 
@@ -22,8 +22,15 @@ function message(selector,text,ok=false) {
 }
 function errorText(err) {
   const code=err?.code||"";
+  if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
+  if(err?.loginStage==="firestore-profile")
+    return "Firebase نے لاگ اِن قبول کیا ہے لیکن Firestore پروفائل پڑھنے میں مسئلہ ہے۔ Owner کا ممبر ریکارڈ اور Security Rules چیک کریں۔";
   if(code==="auth/invalid-credential"||code==="auth/wrong-password"||code==="auth/user-not-found")
-    return "یوزر نیم یا پاس ورڈ درست نہیں۔";
+    return "Firebase Authentication نے Email یا Password قبول نہیں کیا۔ Firebase Users میں مکمل Email دیکھیں؛ Reset Password والی Email میں لنک کھول کر نیا پاس ورڈ محفوظ کریں۔";
+  if(code==="auth/user-disabled")return "یہ Firebase Authentication اکاؤنٹ غیر فعال ہے۔";
+  if(code==="auth/operation-not-allowed")return "Firebase میں Email/Password Sign-in طریقہ فعال نہیں۔";
+  if(code==="auth/network-request-failed")return "Firebase سے رابطہ نہیں ہو رہا، انٹرنیٹ کنکشن چیک کریں۔";
+  if(code==="auth/unauthorized-domain")return "اس ویب سائٹ کا ڈومین Firebase Authentication میں مجاز نہیں۔";
   if(code==="auth/too-many-requests")return "بہت زیادہ کوششیں ہوئیں۔ کچھ دیر بعد دوبارہ کوشش کریں۔";
   if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ یا Firebase Firestore دستیاب نہیں۔";
   if(code==="permission-denied"||code==="firestore/permission-denied")return "Firebase Security Rules یا ممبر کی اجازت چیک کریں۔";
@@ -81,7 +88,16 @@ $("#access-form").addEventListener("submit",async event=>{
   message("#auth-message","");
   try{
     if(appState.tab==="login"){
-      await login(form.get("loginUsername"),form.get("loginPassword"));
+      // Prevent the auth-state listener from racing the explicit login's profile lookup.
+      appState.signingIn=true;
+      try {
+        const profile=await login(form.get("loginUsername"),form.get("loginPassword"));
+        showSignedIn(profile);
+        refreshCounts().catch(err=>message("#reading-message",errorText(err)));
+        if(profile.role==="owner")refreshMembers().catch(err=>message("#admin-message",errorText(err)));
+      } finally {
+        appState.signingIn=false;
+      }
     }else{
       const password=String(form.get("password")||"");
       if(password!==String(form.get("confirm")||""))throw Error("دونوں پاس ورڈ ایک جیسے نہیں ہیں۔");
@@ -186,7 +202,7 @@ async function refreshMembers(){
   }
 }
 onAuthStateChanged(auth,async user=>{
-  if(user && appState.registering)return;
+  if(user && (appState.registering || appState.signingIn))return;
   if(!user){showSignedOut();return;}
   view("#loading",true);
   view("#access",false);
