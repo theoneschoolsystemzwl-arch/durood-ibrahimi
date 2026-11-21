@@ -25,6 +25,15 @@ const target=await auth.getUserByEmail(email);
 if(target.disabled)throw Error("Target Firebase Authentication user is disabled.");
 if(target.uid===previousUid)throw Error("Owner UID has not changed; investigate the Firestore permissions instead.");
 
+// Do not silently create two usable owner identities.
+let legacyAuthUser=null;
+try{legacyAuthUser=await auth.getUser(previousUid);}
+catch(error){if(error?.code!=="auth/user-not-found")throw error;}
+if(legacyAuthUser && !legacyAuthUser.disabled) {
+ throw Error("Legacy Auth UID still exists and is enabled. Stop: review and disable it securely before transfer.");
+}
+
+
 const legacyMemberRef=db.doc("members/"+previousUid);
 const targetMemberRef=db.doc("members/"+target.uid);
 const legacyCountRef=db.doc("memberCounts/"+previousUid);
@@ -70,7 +79,7 @@ for(const old of sourcePrayers.docs){
 }
 const inspection={
   projectId,oldUid:previousUid,newUid:target.uid,
-  oldOwnerMemberExists:legacyMember.exists,newOwnerMemberExists:targetMember.exists,
+  oldOwnerAuthExists:!!legacyAuthUser,oldOwnerMemberExists:legacyMember.exists,newOwnerMemberExists:targetMember.exists,
   legacyOwnerProfileExists:legacyProfile.exists,
   membershipSequenceExists:sequence.exists,
   membershipOwnerUid:sequence.exists?sequence.get("ownerUid"):null,
