@@ -31,10 +31,7 @@ if(firstPage.pageToken||firstPage.users.length!==1) {
   throw Error("STOP: expected exactly one existing Firebase Auth user. No data changed.");
 }
 const user=firstPage.users[0];
-if(!user.email||!user.providerData && !user.passwordHash) {
-  // Provider data/passwordHash can be unavailable in some credentials contexts.
-  if(!user.email)throw Error("STOP: target account has no Email/Password identity.");
-}
+if(!user.email)throw Error("STOP: target account has no email identity.");
 if(user.disabled||user.uid===legacyUid) {
   throw Error("STOP: current Auth user is disabled or still uses the legacy UID.");
 }
@@ -48,6 +45,13 @@ const [targetExisting,legacyExisting,sequence,oldCount,newCount,oldProfile]=awai
   db.doc("memberCounts/"+legacyUid).get(),db.doc("memberCounts/"+targetUid).get(),
   db.doc("ownerProfiles/DI-1").get()
 ]);
+// A successful previous reset must NEVER wipe new legitimate readings on a retry.
+if(targetExisting.exists&&targetExisting.get("role")==="owner"&&
+ sequence.exists&&sequence.get("ownerUid")===targetUid&&
+ !legacyExisting.exists&&(user.customClaims||{}).owner===true){
+ console.log("Already the Master Owner (DI-1). No data was deleted or reset.");
+ process.exit(0);
+}
 if(sequence.exists &&
  sequence.get("ownerUid")!==legacyUid&&sequence.get("ownerUid")!==targetUid){
  throw Error("STOP: sequence is owned by another UID.");
