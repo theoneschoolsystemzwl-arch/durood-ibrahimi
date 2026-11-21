@@ -1,0 +1,36 @@
+name: Build clean Android Online APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-online/**'
+      - '.github/workflows/android-online-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build tools
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile and sign Android WebView app
+        run: bash android-online/build.sh
+      - name: Upload signed test APK (debug-key signed, not Play Store release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Durood-Ibrahimi-Online-4.0-APK
+          path: android-online/dist/Durood-Ibrahimi-Online-4.0.apk
+          if-no-files-found: error
+          retention-days: 30
