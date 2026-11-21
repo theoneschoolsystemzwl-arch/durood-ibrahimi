@@ -1,4 +1,5 @@
 import {auth,db} from "./firebase-client.js";
+import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, signOut, onAuthStateChanged
 } from "./member-auth.js";
