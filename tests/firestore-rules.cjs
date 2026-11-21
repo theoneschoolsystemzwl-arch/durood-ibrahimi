@@ -31,6 +31,10 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     uid:newId,username:"hacker",role:"owner",name:"Hacker",serial:"DI-1",
     memberNumber:1,disabled:false
   }));
+  // Reading one's own profile must work without a custom owner claim.
+  // This does not grant administrative access or enable creating an owner.
+  const unclaimedOwnerDb=env.authenticatedContext(ownerId).firestore();
+  await assertSucceeds(getDoc(doc(unclaimedOwnerDb,"members",ownerId)));
   await assertSucceeds(getDoc(doc(ownerDb,"members",ownerId)));
   await assertFails(updateDoc(doc(newDb,"members",ownerId),{role:"owner"}));
   await assertSucceeds(runTransaction(newDb,async tx=>{
