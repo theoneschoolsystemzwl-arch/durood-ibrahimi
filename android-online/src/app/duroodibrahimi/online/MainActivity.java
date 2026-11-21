@@ -7,8 +7,6 @@ import android.content.ActivityNotFoundException;
 import android.graphics.Color;
 import android.net.Uri;
 import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceError;
-import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
@@ -18,11 +16,9 @@ import android.widget.FrameLayout;
 import android.view.ViewGroup;
 
 public final class MainActivity extends Activity {
-    private static final String WEB_URL = "https://durood-e-ibrahimi-global-c74e0.web.app/";
-    private static final String WEB_HOST = "durood-e-ibrahimi-global-c74e0.web.app";
-    private static final String BACKUP_URL = "https://durood-ibrahimi.pages.dev/";
-    private static final String BACKUP_HOST = "durood-ibrahimi.pages.dev";
-    private boolean fallbackUsed = false;
+    // Use the published and verified HTTPS website; Firebase Auth/Firestore still run online.
+    private static final String WEB_URL = "https://durood-ibrahimi.pages.dev/";
+    private static final String WEB_HOST = "durood-ibrahimi.pages.dev";
     private WebView web;
     private FrameLayout root;
 
@@ -44,23 +40,10 @@ public final class MainActivity extends Activity {
             settings.setSupportMultipleWindows(false);
             web.setWebChromeClient(new WebChromeClient());
             web.setWebViewClient(new WebViewClient() {
-                private void useBackupIfPrimaryFailed(WebView view, WebResourceRequest request) {
-                    if (request.isForMainFrame() && !fallbackUsed &&
-                        WEB_HOST.equals(request.getUrl().getHost())) {
-                        fallbackUsed = true;
-                        view.loadUrl(BACKUP_URL);
-                    }
-                }
-                @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                    useBackupIfPrimaryFailed(view, request);
-                }
-                @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
-                    if (response.getStatusCode() >= 400) useBackupIfPrimaryFailed(view, request);
-                }
                 @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     if (!request.isForMainFrame()) return false;
                     Uri target = request.getUrl();
-                    if ((WEB_HOST.equals(target.getHost()) || BACKUP_HOST.equals(target.getHost())) && "https".equals(target.getScheme())) {
+                    if (WEB_HOST.equals(target.getHost()) && "https".equals(target.getScheme())) {
                         return false;
                     }
                     String scheme = target.getScheme();
