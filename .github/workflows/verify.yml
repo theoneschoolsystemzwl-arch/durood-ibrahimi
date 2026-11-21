@@ -21,6 +21,9 @@ jobs:
           test -s public/firebase-client.js
           test -s public/member-auth.js
           test -s public/app.js
+          test -s public/pwa.js
+          test -s public/service-worker.js
+          test -s public/manifest.webmanifest
       - name: Check JavaScript syntax
         run: |
           node --check public/firebase-client.js
@@ -31,6 +34,8 @@ jobs:
           node --check functions/scripts/check-owner.mjs
           node --check public/community-pages.js
           node --check public/password-change.js
+          node --check public/pwa.js
+          node --check public/service-worker.js
       - name: Install and smoke-test Firebase Functions
         run: |
           npm install --prefix functions --no-audit --no-fund
@@ -39,10 +44,12 @@ jobs:
         run: |
           node tests/contracts.test.cjs
           bash -n scripts/cloud-shell-setup.sh
+          bash -n scripts/spark-hosting.sh
       - name: Check Firebase configuration
         run: |
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"
           grep -q 'durood-e-ibrahimi-global-c74e0' .firebaserc
+          node -e "const f=require('fs');const html=f.readFileSync('public/index.html','utf8');if(!html.includes('/manifest.webmanifest')||!html.includes('./pwa.js'))process.exit(1);const man=JSON.parse(f.readFileSync('public/manifest.webmanifest'));if(man.display!=='standalone')process.exit(1);"
 
       - name: Report Firebase deployment authorization status
         if: github.event_name != 'pull_request'
