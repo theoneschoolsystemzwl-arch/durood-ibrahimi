@@ -5,6 +5,9 @@ import {
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-functions.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
+import {initializeCommunityPages,activateMemberHome} from "./community-pages.js";
+
+initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,loadingAuth:true};
 const functions=getFunctions(auth.app,"asia-southeast2");
@@ -103,6 +106,7 @@ function showSignedIn(profile){
   $("#profile-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
+  activateMemberHome(profile);
 }
 async function refreshCounts(){
   if(!auth.currentUser)return;
