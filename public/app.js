@@ -1,7 +1,7 @@
 import {auth,db} from "./firebase-client.js";
 import "./password-change.js";
 import {
-  login, register, createInvitation, setMemberActive, updateMyProfile, signOut, onAuthStateChanged
+  login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import {readingsSpark} from "./spark-data.js";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -65,6 +65,7 @@ function message(selector,text,ok=false) {
 function errorText(err) {
   const code=err?.code||"";
   if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
+  if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
     if(code==="permission-denied"||code==="firestore/permission-denied")
       return "Firebase Login درست ہے، مگر Firestore نے Owner پروفائل پڑھنے کی اجازت نہیں دی (permission-denied)۔ Firestore کی Published Security Rules چیک کریں۔";
@@ -219,9 +220,8 @@ $("#access-form").addEventListener("submit",async event=>{
 });
 
 async function loadProfile(user){
-  const snap=await getDoc(doc(db,"members",user.uid));
-  if(!snap.exists()||snap.get("disabled")===true)throw Error("یہ اکاؤنٹ غیر فعال ہے یا پروفائل ابھی بنائی نہیں گئی۔");
-  return snap.data();
+  // Works after a page refresh too, not only during the first login attempt.
+  return loadMemberProfile(user);
 }
 function showSignedOut() {
   appState.profile=null;
