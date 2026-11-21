@@ -18,3 +18,29 @@
 .history-item small{color:#61766a}
 .history-item .count{font:700 1.07rem Inter,sans-serif;direction:ltr}
 @media(max-width:540px){.portal-nav{margin-inline:-6px;padding-inline:6px}.history-item{flex-wrap:wrap}}
+
+
+/* Login: show full long IDs, use English LTR inputs even on an Urdu page. */
+#login-fields{display:flex;flex-direction:column;align-items:stretch;gap:3px;min-width:0}
+#login-fields[hidden]{display:none!important}
+#login-fields label[for]{margin:0 0 2px;display:block}
+#login-fields input{width:100%;min-width:0;box-sizing:border-box}
+.latin-input,#login-password,#register-fields input[name="password"],#register-fields input[name="confirm"]{
+  direction:ltr!important;text-align:left!important;
+  font-family:Inter,Arial,sans-serif;font-size:16px;
+  unicode-bidi:plaintext;letter-spacing:normal
+}
+#login-identity{white-space:nowrap;overflow-x:auto;min-height:50px}
+.field-help{font-size:.82rem;color:#61776d;line-height:1.45}
+.full-email-preview{display:block;min-width:0;max-width:100%;padding:9px 11px;margin:3px 0 10px;
+  background:#eff6ef;color:#184b35;border:1px solid #d7e8dc;border-radius:9px;
+  font:500 .83rem/1.55 Inter,Arial,sans-serif;text-align:left;direction:ltr;
+  overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+.full-email-preview[hidden]{display:none!important}
+.password-field{position:relative;direction:ltr;margin-bottom:14px}
+.password-field input{width:100%;padding-right:54px!important}
+.password-eye{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  display:flex;align-items:center;justify-content:center;width:44px;height:42px;
+  background:transparent;border:0;border-radius:8px;color:#315b48;cursor:pointer}
+.password-eye:hover,.password-eye:focus-visible{background:#edf5ee}
+.password-eye[aria-pressed="true"]{color:#114837}
