@@ -330,16 +330,22 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   }));
   console.log("W1_RULE_TEST_STEP_41");await assertSucceeds(updateDoc(privateRef,{
     continueStartDate:"2026-11-24",continueDailyGoal:9,
-    continueBaseTotal:beforeContinue.total,updatedAt:serverTimestamp()
+    continueBaseTotal:beforeContinue.total,continueGoalHistory:{"2026-11-24":9},
+    updatedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(privateRef,{endDate:"2026-12-31",updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{goal:90,updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{continueBaseTotal:0,updatedAt:serverTimestamp()}));
-  console.log("W1_RULE_TEST_STEP_42");await assertSucceeds(updateDoc(privateRef,{continueDailyGoal:12,updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_42");await assertSucceeds(updateDoc(privateRef,{
+   continueDailyGoal:12,continueGoalHistory:{"2026-11-24":12},
+   updatedAt:serverTimestamp()
+  }));
   console.log("W1_RULE_TEST_STEP_43");await assertSucceeds(runTransaction(member,async tx=>{
     const snap=await tx.get(privateRef),d=snap.data();
     tx.update(privateRef,{total:d.total+2,day:"2026-11-24",today:2,
-      dailyLedger:{...d.dailyLedger,["2026-11-24"]:{count:2,durationMs:1700,intervals:1}},
+      dailyLedger:{...d.dailyLedger,["2026-11-24"]:{
+       count:2,durationMs:1700,intervals:1,tasbihCount:2,manualCount:0}},
+      lastReadingDay:"2026-11-24",lastReadingSource:"tasbih",
       updatedAt:serverTimestamp()});
   }));
   const afterContinue=(await getDoc(privateRef)).data();

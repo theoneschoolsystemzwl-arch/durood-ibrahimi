@@ -601,8 +601,9 @@ async function saveForm(form){
      if(existing&&existing.kind==="fixed"&&kind==="daily"&&fixedExpired(existing)){
        if(!valid(dailyGoal))throw Error("درست روزانہ ہدف درج کریں۔");
        const already=hasContinuation(existing),start=addDays(existing.endDate,1),today=readingDay();
+       const effectiveDay=today<start?start:today;
        const change=already?{continueDailyGoal:dailyGoal,
-        continueGoalHistory:{...(existing.continueGoalHistory||{[start]:existing.continueDailyGoal}),[today]:dailyGoal},
+        continueGoalHistory:{...(existing.continueGoalHistory||{[start]:existing.continueDailyGoal}),[effectiveDay]:dailyGoal},
         updatedAt:serverTimestamp()}:
         {continueStartDate:start,continueDailyGoal:dailyGoal,
          continueBaseTotal:Number(existing.total||0),continueGoalHistory:{[start]:dailyGoal},
