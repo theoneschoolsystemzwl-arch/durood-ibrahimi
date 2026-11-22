@@ -407,7 +407,9 @@ onAuthStateChanged(auth,async user=>{
   }
   clearTimeout(nullAuthTimer);
   if(appState.profile?.uid===user.uid){
-    // A token refresh / iframe startup must not reset a working dashboard.
+    // Restore the visible portal too: a transient null callback might have
+    // displayed the "reconnecting" screen without clearing the member.
+    showSignedIn(appState.profile);
     return;
   }
   view("#loading",true);
