@@ -145,8 +145,8 @@ export async function readingsSpark(amount){
     const personal=doc(db,"memberCounts",uid);
     const global=doc(db,"publicStats","global");
     const profileRef=memberRef(uid);
-    const [p,g,profile]=await Promise.all([
-      tx.get(personal),tx.get(global),tx.get(profileRef)
+    const [p,profile]=await Promise.all([
+      tx.get(personal),tx.get(profileRef)
     ]);
     if(!profile.exists()||profile.data().disabled===true||profile.data().deleted===true){
       throw Error("اکاؤنٹ فعال نہیں ہے۔");
@@ -155,12 +155,13 @@ export async function readingsSpark(amount){
     const sideRef=doc(db,"genderStats",gender);
     const sideSnap=await tx.get(sideRef);
     const ownTotal=p.exists()?p.data().total||0:0;
-    const globalTotal=g.exists()?g.data().totalRecitations||0:0;
     const sideTotal=sideSnap.exists()?sideSnap.data().totalRecitations||0:0;
     if(!Number.isSafeInteger(sideTotal)||sideTotal<0)throw Error("Gender totals invalid.");
-    if(!Number.isSafeInteger(ownTotal)||!Number.isSafeInteger(globalTotal))throw Error("شمار کا ڈیٹا درست نہیں۔");
+    if(!Number.isSafeInteger(ownTotal)||ownTotal<0)throw Error("شمار کا ڈیٹا درست نہیں۔");
     tx.set(personal,{memberUid:uid,gender,total:ownTotal+amount,lastEntryAmount:amount,updatedAt:serverTimestamp()});
-    tx.set(global,{totalRecitations:globalTotal+amount,lastEntryAmount:amount,lastEntryUid:uid,updatedAt:serverTimestamp()});
+    // Blind atomic increment: users cannot read the cross-gender legacy aggregate.
+    tx.set(global,{totalRecitations:increment(amount),lastEntryAmount:amount,
+      lastEntryUid:uid,updatedAt:serverTimestamp()},{merge:true});
     tx.set(sideRef,{
       gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,
       lastEntryUid:uid,updatedAt:serverTimestamp()
