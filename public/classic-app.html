@@ -1146,6 +1146,18 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
 .owner-sections{display:flex;justify-content:center;gap:4px;padding:2px 6px;background:var(--paper,#fff)}
 .owner-sections button{padding:2px 10px;min-height:32px;border:1px solid #146438;border-radius:6px;background:#fff;color:#145535;font:inherit;font-size:.82rem}
 .owner-sections button:focus-visible{outline:2px solid #146438;outline-offset:2px}
+
+body { background:linear-gradient(145deg,hsl(var(--theme-hue) 42% 91%),hsl(var(--theme-accent) 56% 96%)); background-attachment:fixed; }
+.panel,.auth-card { background-color:hsl(var(--theme-hue) 40% 97%); }
+.recitation-banner { display:grid; gap:8px; border-radius:20px; padding:clamp(18px,4vw,32px); text-align:right; color:white; background:linear-gradient(115deg,hsl(var(--theme-hue) 38% 33%),hsl(var(--theme-hue) 50% 19%)); border-inline-end:4px solid var(--gold); }
+.recitation-banner h2,.recitation-period h2 { font-size:1rem; margin:0; color:inherit; }
+.recitation-banner strong { font-size:clamp(2rem,6vw,3.6rem); line-height:1.25; }
+.recitation-periods { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+.recitation-period { --card-hue:var(--theme-hue); padding:14px; background:hsl(var(--card-hue) 55% 92%); color:hsl(var(--card-hue) 44% 22%); border-top:3px solid hsl(var(--card-hue) 43% 52%); border-radius:14px; overflow-wrap:anywhere; }
+.recitation-period:nth-child(2){--card-hue:210}.recitation-period:nth-child(3){--card-hue:284}.recitation-period:nth-child(4){--card-hue:38}
+.recitation-period strong { font-size:clamp(1.4rem,4vw,2.4rem); font-variant-numeric:tabular-nums; }
+.period-note { font-size:.78rem; }
+@media(min-width:700px){.recitation-periods{grid-template-columns:repeat(4,minmax(0,1fr));}}
 </style>
 </head>
 <body>
@@ -1668,14 +1680,18 @@ function liveFeed() {
     formatNumber(item.amount) + '</strong></li>').join('');
 }
 
+let periodCounts=null;
+function periodLabels(){
+  return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
+    ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this year','اس سال کا کل درود')]];
+}
 function overview() {
   return heading(ownerViewingWomen() ? tr('Women’s dashboard','خواتین کا مرکز') : tr("Dashboard", 'مرکز'),tr("The shared Durood goal and the all-time total.", 'درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔')) +
-    tr("<div class=\"metric-grid\"><section class=\"panel metric goal\"><h2>Community goal</h2><strong>", '<div class="metric-grid"><section class="panel metric goal"><h2>اجتماعی ہدف</h2><strong>') +
-    displayNumber(communityGoal) + '</strong>' + ur(tr("Community goal", 'اجتماعی ہدف'),'span','muted') + '</section>' +
-    tr("<section class=\"panel metric\"><h2>All-time Durood</h2><strong id=\"global-total\">", '<section class="panel metric"><h2>اب تک کا مجموعی درود</h2><strong id="global-total">') +
-    displayNumber(globalTotal) + '</strong>' + ur(tr("Total Durood recorded to date", 'آج تک محفوظ مجموعی درود'),'span','muted') + '</section></div>' +
+    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+'</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>' +
+    '<div class="recitation-periods">'+periodLabels().map(([key,label])=>'<section class="recitation-period"><h2>'+label+'</h2><strong data-period="'+key+'">'+(periodCounts ? displayNumber(periodCounts[key]) : '—')+'</strong></section>').join('')+'</div>' +
+    '<p class="muted period-note">'+tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>' +
     tr("<div class=\"goal-progress\"><div><small class=\"muted\">Goal progress</small>", '<div class="goal-progress"><div><small class="muted">ہدف کی پیش رفت</small>') +
-    '<strong id="goal-percent">' + progressPercent() + '%</strong></div>' +
+    displayNumber(communityGoal) + '<strong id="goal-percent">' + progressPercent() + '%</strong></div>' +
     tr("<progress id=\"goal-progress\" aria-label=\"Community goal progress\" max=\"", '<progress id="goal-progress" aria-label="اجتماعی ہدف کی پیش رفت" max="') + communityGoal + '" value="' +
     Math.min(communityGoal,globalTotal) + '"></progress></div>' +
     tr("<section class=\"panel section live-panel\"><div class=\"panel-head\"><div><h2>Live count</h2>", '<section class="panel section live-panel"><div class="panel-head"><div><h2>براہِ راست محفوظ شمار</h2>') +
@@ -1963,7 +1979,7 @@ function tapDurood() {
   live.lastTap = now;
   live.count++;
   readingDay.taps++;
-  if(!ownerViewingWomen())globalTotal++;
+  
   savedReading(tr("One Durood saved automatically.", 'ایک درود خودکار محفوظ ہو گیا۔'));
   if (soundEnabled) playTapSound();
   if (prayerPrefs(person.id).readerVibrate) touchVibration(35);
@@ -2082,7 +2098,7 @@ function submitManual(form,data) {
   readingDay.manual += amount;
   if (pace) readingDay.estimate += Math.round(pace * amount);
   else readingDay.unestimated += amount;
-  if(!ownerViewingWomen())globalTotal += amount;
+  
   form.closest('dialog').close();
   savedReading(tr("Offline Durood saved automatically.", 'آف لائن درود خودکار محفوظ ہو گیا۔'));
 }
@@ -3562,7 +3578,21 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  periodTotals(values){
+    periodCounts=values;
+    document.querySelectorAll('[data-period]').forEach(el=>{el.textContent=values ? formatNumber(values[el.dataset.period]) : '—';});
+  },
+  allTime(value){
+    globalTotal=value;
+    const el=document.getElementById("global-total");
+    if(el)el.textContent=formatNumber(value);
+    const progress=document.getElementById("goal-progress");
+    if(progress)progress.value=Math.min(value,communityGoal);
+    const percent=document.getElementById("goal-percent");
+    if(percent)percent.textContent=progressPercent()+"%";
+  },
   enter(profile,rows,totals){
+    periodCounts=null;
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
@@ -3671,9 +3701,9 @@ document.addEventListener('keydown',event => {
 import "./profile-contacts.js";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
-import {readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=period-counts";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
@@ -3693,6 +3723,37 @@ async function refreshGroupChat(){
   bridge.showMessages(result.messages);
   const input=ui.querySelector(selector);
   if(input && draft)input.value=draft;
+}
+let stopCounters=()=>{};
+function observeCounters(side){
+  stopCounters();
+  const sideRef=doc(db,"genderStats",side);
+  const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
+  let stopDays=()=>{},timer;
+  function watchDays(){
+    stopDays();
+    const now=new Date(),today=localReadingDate(now);
+    const monday=new Date(now);
+    monday.setDate(now.getDate()-(now.getDay()+6)%7);
+    const week=localReadingDate(monday),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
+    const days=query(collection(sideRef,"days"),where("day",">=",week<year?week:year),where("day","<=",today));
+    stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
+      if(snap.metadata.fromCache && snap.empty){bridge.periodTotals(null);return;}
+      const totals={today:0,week:0,month:0,year:0};
+      snap.forEach(item=>{
+        const {day,total}=item.data();
+        if(day===today)totals.today+=total;
+        if(day>=week)totals.week+=total;
+        if(day>=month)totals.month+=total;
+        if(day>=year)totals.year+=total;
+      });
+      bridge.periodTotals(totals);
+    },err=>{bridge.periodTotals(null);console.warn("Period totals unavailable",err.code);});
+    const tomorrow=new Date(now);tomorrow.setHours(24,0,0,0);
+    timer=setTimeout(watchDays,tomorrow-now+50);
+  }
+  watchDays();
+  stopCounters=()=>{stopTotal();stopDays();clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
@@ -3767,6 +3828,7 @@ async function hydrate(){
     global:sideTotal.exists()?Number(sideTotal.get("totalRecitations")||0):0,
     memberCounts
   });
+  observeCounters(side);
   currentProfile=profile;
   if(window.parent!==window){
     window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
@@ -3928,12 +3990,12 @@ ui.addEventListener("submit",event=>{
   if(form.id==="manual-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const d=new FormData(form),amount=Number(d.get("amount")),day=String(d.get("day")||"");
-    if(!Number.isSafeInteger(amount)||amount<1||amount>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day)||day>new Date().toISOString().slice(0,10)){
+    if(!Number.isSafeInteger(amount)||amount<1||amount>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day)||day>localReadingDate()){
       bridge.status("manual-feedback","درست تاریخ اور 1 تا 10000 تعداد درج کریں۔");return;
     }
     const button=form.querySelector('button[type="submit"],button:not([type])');
     if(button)button.disabled=true;
-    readingsSpark(amount).then(()=>bridge.manual(form,d))
+    readingsSpark(amount,day).then(()=>bridge.manual(form,d))
       .catch(e=>bridge.status("manual-feedback",errorText(e),false))
       .finally(()=>{if(button?.isConnected)button.disabled=false;});
   }else if(form.id==="profile-form"){

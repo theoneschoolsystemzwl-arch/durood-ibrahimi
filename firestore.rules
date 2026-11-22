@@ -375,9 +375,12 @@ service cloud.firestore {
       return validGender(gender) && currentMember() &&
         myGender() == gender &&
         d.keys().hasOnly(['gender','totalRecitations','lastEntryUid',
-          'lastEntryAmount','updatedAt']) &&
+          'lastEntryAmount','updatedAt','lastEntryDay']) &&
         d.keys().hasAll(['gender','totalRecitations','lastEntryUid',
           'lastEntryAmount','updatedAt']) &&
+        (!('lastEntryDay' in d) ||
+          (d.lastEntryDay is string && d.lastEntryDay.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') &&
+           getAfter(/databases/$(database)/documents/genderStats/$(gender)/days/$(d.lastEntryDay)).data.updatedAt == request.time)) &&
         d.gender == gender && d.lastEntryUid == uid &&
         amount is int && amount >= 1 && amount <= 10000 &&
         d.totalRecitations is int &&
@@ -448,6 +451,19 @@ service cloud.firestore {
         (owner() || (currentMember() && myGender() == gender));
       allow list, delete: if false;
       allow create, update: if updatedSide(gender);
+    }
+    match /genderStats/{gender}/days/{day} {
+      function validDayIncrement(previous) {
+        let side=getAfter(genderStatsPath(gender)).data;
+        let data=request.resource.data;
+        return currentMember() && myGender()==gender && side.lastEntryUid==request.auth.uid &&
+          side.updatedAt==request.time && side.lastEntryDay==day &&
+          data.keys().hasOnly(['day','total','updatedAt']) && data.day==day &&
+          data.total is int && data.total==previous+side.lastEntryAmount && data.updatedAt==request.time;
+      }
+      allow read: if validGender(gender) && (owner() || (currentMember() && myGender()==gender));
+      allow create: if validDayIncrement(0);
+      allow update: if validDayIncrement(resource.data.total);
     }
     function allowedChatSide(gender) {
       return validGender(gender) &&

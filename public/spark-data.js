@@ -171,7 +171,12 @@ export async function profileNameSpark(name){
   if(clean.length<2||clean.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
   await updateDoc(memberRef(uid),{name:clean,updatedAt:serverTimestamp()});
 }
-export async function readingsSpark(amount){
+export function localReadingDate(date=new Date()){
+  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
+}
+export async function readingsSpark(amount,day=localReadingDate()){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
+    localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
   const uid=requireUser();
   if(!Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("1 سے 10000 تک مکمل عدد درج کریں۔");
   await runTransaction(db,async tx=>{
@@ -196,9 +201,10 @@ export async function readingsSpark(amount){
     tx.set(global,{totalRecitations:increment(amount),lastEntryAmount:amount,
       lastEntryUid:uid,updatedAt:serverTimestamp()},{merge:true});
     tx.set(sideRef,{
-      gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,
+      gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,lastEntryDay:day,
       lastEntryUid:uid,updatedAt:serverTimestamp()
     });
+    tx.set(doc(sideRef,"days",day),{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
   });
   return {recorded:amount};
 }

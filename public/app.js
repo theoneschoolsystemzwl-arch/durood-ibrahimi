@@ -5,7 +5,7 @@ import {
   claimDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import "./profile-contacts.js";
-import {generatedUsername,readingsSpark} from "./spark-data.js";
+import {generatedUsername,readingsSpark} from "./spark-data.js?release=period-counts";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
@@ -289,7 +289,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app?release=dashboard-photo-1";
+  frame.src="./classic-app?release=period-counts";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
