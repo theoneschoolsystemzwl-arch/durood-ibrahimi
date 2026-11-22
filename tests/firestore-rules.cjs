@@ -87,7 +87,8 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   // A guessed email alone cannot grant owner rights; trusted UID or an Admin
   // custom claim is required in the published Firestore security rules.
   await env.clearFirestore();
-  const legacyId="ecrykLlmTAbV90llOdQVRSX4OyE3";
+  const legacyId="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
+  const deletedOwnerId="ecrykLlmTAbV90llOdQVRSX4OyE3";
   const legacyDb=env.authenticatedContext(legacyId).firestore();
   const maliciousDb=env.authenticatedContext("random-email-user").firestore();
   const profile=uid=>({
@@ -122,6 +123,29 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertSucceeds(setDoc(doc(legacyDb,"members",legacyId),profile(legacyId)));
   const preserved=await getDoc(doc(legacyDb,"system","membership"));
   if(preserved.data().lastNumber!==17)throw Error("member counter was reset");
+  // Repair a deleted TEST Owner: transfer only the abandoned sequence to the
+  // new verified Auth UID and keep the last issued serial intact.
+  await env.clearFirestore();
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),"system","membership"),{
+      ownerUid:deletedOwnerId,lastNumber:17,updatedAt:new Date()
+    });
+  });
+  await assertSucceeds(runTransaction(legacyDb,async tx=>{
+    const seqRef=doc(legacyDb,"system","membership");
+    const ownRef=doc(legacyDb,"members",legacyId);
+    const [seq,own]=await Promise.all([tx.get(seqRef),tx.get(ownRef)]);
+    if(!seq.exists()||own.exists()||seq.get("ownerUid")!==deletedOwnerId)
+      throw Error("bad test-owner migration seed");
+    tx.update(seqRef,{ownerUid:legacyId,updatedAt:serverTimestamp()});
+    tx.set(ownRef,profile(legacyId));
+  }));
+  const transferred=await getDoc(doc(legacyDb,"system","membership"));
+  if(transferred.get("ownerUid")!==legacyId||transferred.get("lastNumber")!==17)
+    throw Error("test owner transfer failed or reused serial numbers");
+  const removedAccountDb=env.authenticatedContext(deletedOwnerId).firestore();
+  await assertFails(setDoc(doc(removedAccountDb,"members",deletedOwnerId),profile(deletedOwnerId)));
+  await assertFails(updateDoc(doc(removedAccountDb,"system","membership"),{lastNumber:1}));
   console.log("Spark security tests passed: DI-2 signup, invite consumption, prayer isolation, recitation consistency, owner control.");
  }finally{await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1;});
