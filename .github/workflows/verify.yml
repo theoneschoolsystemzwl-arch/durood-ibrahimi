@@ -52,6 +52,7 @@ jobs:
           bash -n scripts/cloud-shell-setup.sh
           bash -n scripts/spark-hosting.sh
           bash -n scripts/guard-firebase-rules.sh
+          bash -n scripts/deploy-firestore-rules.sh
       - name: Check Firebase configuration
         run: |
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"
