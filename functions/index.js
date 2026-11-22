@@ -93,6 +93,8 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
       const invite = await tx.get(inviteRef);
       const usernameDoc = await tx.get(usernameRef);
       const seq = await tx.get(counter);
+      const sideRef = db.doc("genderMembers/" + gender);
+      const sideMembers = await tx.get(sideRef);
       if (!invite.exists || invite.get("used") === true || invite.get("revoked") === true) {
         throw new HttpsError("permission-denied","Invitation already used.");
       }
@@ -116,8 +118,13 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
       const next = seq.get("lastNumber") + 1;
       if (!Number.isSafeInteger(next)) throw new HttpsError("resource-exhausted","Member numbering limit reached.");
       const serial = "DI-" + next;
+      const oldSide = sideMembers.exists ? Number(sideMembers.get("totalMembers")) : 0;
+      if (!Number.isSafeInteger(oldSide) || oldSide < 0) {
+        throw new HttpsError("failed-precondition","Gender member count invalid.");
+      }
       tx.update(counter,{lastNumber:next,updatedAt:FieldValue.serverTimestamp()});
       tx.create(usernameRef,{uid:user.uid,createdAt:FieldValue.serverTimestamp()});
+      tx.set(sideRef,{gender,totalMembers:oldSide+1,updatedAt:FieldValue.serverTimestamp()});
       tx.update(inviteRef,{used:true,usedByUid:user.uid,usedAt:FieldValue.serverTimestamp()});
       tx.create(memberRef,{
         uid:user.uid,username,name,role:"member",gender,memberNumber:next,serial,
@@ -167,7 +174,8 @@ exports.setMemberActive = onCall({region,maxInstances:10},async request => {
   await db.runTransaction(async tx => {
     const member = await tx.get(ref);
     if (!member.exists || member.get("role") === "owner") throw new HttpsError("permission-denied","Cannot modify owner.");
-    tx.update(ref,{disabled:!active,updatedAt:FieldValue.serverTimestamp()});
+    tx.update(ref,{disabled:!active,...(active?{deleted:false}:{}),
+      updatedAt:FieldValue.serverTimestamp()});
   });
   await getAuth().updateUser(uid,{disabled:!active});
   return {uid,active};
@@ -203,7 +211,13 @@ exports.recordRecitations = onCall({region,maxInstances:20}, async request => {
     if (!member.exists || member.get("disabled") === true) {
       throw new HttpsError("permission-denied","Account is not active.");
     }
-    // Server-side updates keep aggregate totals consistent across concurrent readers.
+    const sideRef = db.doc("genderStats/" + genderOf(member.data()));
+    // Firestore Admin calls may bypass client rules, but still update BOTH side
+    // and global totals to maintain the same data integrity invariants.
+    tx.set(sideRef,{gender:genderOf(member.data()),
+      totalRecitations:FieldValue.increment(amount),
+      updatedAt:FieldValue.serverTimestamp()
+    },{merge:true});
     tx.set(countRef,{
       memberUid:uid,gender:genderOf(member.data()),
       total:FieldValue.increment(amount),
@@ -301,12 +315,14 @@ exports.getMyReferrals = onCall({region,maxInstances:10},async request => {
 });
 exports.getCommunitySummary = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await ensureLiveSession(request,uid);
+  const member=await ensureLiveSession(request,uid);
+  const gender=member.get("role")==="owner" && validGender(request.data?.gender)?
+    request.data.gender:genderOf(member.data());
   const [counterSnap,totalsSnap]=await Promise.all([
-    counter.get(),db.doc("publicStats/global").get()
+    db.doc("genderMembers/"+gender).get(),db.doc("genderStats/"+gender).get()
   ]);
   return {
-    totalAccounts:Number(counterSnap.get("lastNumber")||0),
+    gender,totalAccounts:Number(counterSnap.get("totalMembers")||0),
     totalRecitations:Number(totalsSnap.get("totalRecitations")||0)
   };
 });
