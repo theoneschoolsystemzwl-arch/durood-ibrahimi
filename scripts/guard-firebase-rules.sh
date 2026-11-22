@@ -113,12 +113,15 @@ const beforeHeroRedesign=cp.execFileSync('git',['show','1d7041c709a3df502647f5c0
 const beforeFixedDaily=cp.execFileSync('git',['show','46bc214724a4946e00e0de124feadf8371e639be:firestore.rules'],{encoding:'utf8'});
 // Confirmed exact Wazifa source in main immediately before this dated Save upgrade.
 const beforeDatedSave=cp.execFileSync('git',['show','fd8bad24e68f3faad03f365028cf1f90cbdf6739:firestore.rules'],{encoding:'utf8'});
+// Published W1 dated Save rules from the preceding confirmed Hosting deployment.
+const beforeRuleRepair=cp.execFileSync('git',['show','885869ff2e34141720630feb63812d4f4862edf2:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
    normalize(existing.content)!==normalize(beforeFemaleSerial) &&
    normalize(existing.content)!==normalize(beforeHeroRedesign) &&
    normalize(existing.content)!==normalize(beforeFixedDaily) &&
-   normalize(existing.content)!==normalize(beforeDatedSave)){
+   normalize(existing.content)!==normalize(beforeDatedSave) &&
+   normalize(existing.content)!==normalize(beforeRuleRepair)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);

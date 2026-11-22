@@ -824,59 +824,71 @@ service cloud.firestore {
         entry.intervals <= old.intervals + amount &&
         entry.intervals <= entry.count;
     }
+    // Choose one write shape before any detailed checks.  This avoids
+    // evaluating every mutually-exclusive branch for each Firebase write.
+    function validWzRegularEdit(d,changed) {
+      return changed.hasOnly(['title','arabic','instructions','purpose','kind',
+                              'goal','startDate','endDate','durationDays','updatedAt']) &&
+        (!resource.data.keys().hasAny(['continueStartDate']) ||
+          (d.kind == resource.data.kind &&
+           d.goal == resource.data.goal &&
+           d.startDate == resource.data.startDate &&
+           d.endDate == resource.data.endDate &&
+           d.get('durationDays',0) == resource.data.get('durationDays',0)));
+    }
+    function validWzContinuingEdit(d,changed) {
+      return
+        (changed.hasOnly(['continueStartDate','continueDailyGoal','continueBaseTotal',
+                          'continueGoalHistory','updatedAt']) &&
+         !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+         d.kind == 'fixed' && d.continueBaseTotal == resource.data.total &&
+         d.total == resource.data.total && d.today == resource.data.today &&
+         d.day == resource.data.day &&
+         d.get('continueGoalHistory',{}) is map &&
+         d.get('continueGoalHistory',{}).get(d.continueStartDate,0) == d.continueDailyGoal) ||
+        (changed.hasOnly(['continueDailyGoal','continueGoalHistory','updatedAt']) &&
+         resource.data.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+         d.continueStartDate == resource.data.continueStartDate &&
+         d.continueBaseTotal == resource.data.continueBaseTotal &&
+         validWzGoalHistoryChange());
+    }
+    function validWzOldCount(d,changed,amount) {
+      return changed.hasOnly(['total','today','day','updatedAt','dailyLedger']) &&
+        !resource.data.keys().hasAny(['lastReadingDay','lastReadingSource']) &&
+        amount is int && amount >= 1 && amount <= 1000 &&
+        d.day >= resource.data.day && d.day >= d.startDate &&
+        (d.kind != 'fixed' || d.day <= d.endDate ||
+          (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+           d.day >= d.continueStartDate)) &&
+        d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount &&
+        (!changed.hasAny(['dailyLedger']) || validWzLegacyLedgerIncrement(amount));
+    }
+    function validWzDatedCount(d,changed,amount) {
+      let savedDay=d.get('lastReadingDay','');
+      return changed.hasOnly(['total','today','day','updatedAt','dailyLedger',
+                              'lastReadingDay','lastReadingSource']) &&
+        amount is int && amount != 0 && amount >= -1000 && amount <= 1000 &&
+        d.day >= resource.data.day && savedDay >= d.startDate &&
+        d.day >= savedDay &&
+        (d.kind != 'fixed' || savedDay <= d.endDate ||
+          (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+           savedDay >= d.continueStartDate)) &&
+        d.day == (savedDay > resource.data.day ? savedDay : resource.data.day) &&
+        d.today == (savedDay == d.day ?
+          (d.day == resource.data.day ? resource.data.today : 0) + amount :
+           resource.data.today) &&
+        validWzLedgerIncrement(amount);
+    }
     function validWzPrivateChange() {
       let d=request.resource.data;
-      let diff=d.diff(resource.data).affectedKeys();
+      let changed=d.diff(resource.data).affectedKeys();
       let amount=d.total - resource.data.total;
-      let historyDay=d.get('lastReadingDay','');
       return d.createdAt == resource.data.createdAt &&
-        (
-          // After converting from 41 fixed days, keep the original stage immutable.
-          (diff.hasOnly(['title','arabic','instructions','purpose','kind',
-                         'goal','startDate','endDate','durationDays','updatedAt']) &&
-           (!resource.data.keys().hasAny(['continueStartDate']) ||
-             (d.kind == resource.data.kind &&
-              d.goal == resource.data.goal &&
-              d.startDate == resource.data.startDate &&
-              d.endDate == resource.data.endDate &&
-              d.get('durationDays', 0) == resource.data.get('durationDays', 0)))) ||
-          (diff.hasOnly(['continueStartDate','continueDailyGoal','continueBaseTotal',
-                         'continueGoalHistory','updatedAt']) &&
-           !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-           d.kind == 'fixed' && d.continueBaseTotal == resource.data.total &&
-           d.total == resource.data.total && d.today == resource.data.today &&
-           d.day == resource.data.day &&
-           d.continueGoalHistory is map &&
-           d.continueGoalHistory.get(d.continueStartDate,0) == d.continueDailyGoal) ||
-          (diff.hasOnly(['continueDailyGoal','continueGoalHistory','updatedAt']) &&
-           resource.data.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-           d.continueStartDate == resource.data.continueStartDate &&
-           d.continueBaseTotal == resource.data.continueBaseTotal &&
-           validWzGoalHistoryChange()) ||
-          (diff.hasOnly(['total','today','day','updatedAt','dailyLedger']) &&
-           !resource.data.keys().hasAny(['lastReadingDay','lastReadingSource']) &&
-           amount is int && amount >= 1 && amount <= 1000 &&
-           d.day >= resource.data.day && d.day >= d.startDate &&
-           (d.kind != 'fixed' || d.day <= d.endDate ||
-             (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-              d.day >= d.continueStartDate)) &&
-           d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount &&
-           (!diff.hasAny(['dailyLedger']) || validWzLegacyLedgerIncrement(amount))) ||
-          // Source-tagged additions/corrections can be assigned to previous
-          // dates, but the newest-day summary and lifetime total stay consistent.
-          (diff.hasOnly(['total','today','day','updatedAt','dailyLedger','lastReadingDay','lastReadingSource']) &&
-           amount is int && amount != 0 && amount >= -1000 && amount <= 1000 &&
-           d.day >= resource.data.day && d.day >= historyDay &&
-           historyDay >= d.startDate &&
-           (d.kind != 'fixed' || historyDay <= d.endDate ||
-             (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-              historyDay >= d.continueStartDate)) &&
-           d.day == (historyDay > resource.data.day ? historyDay : resource.data.day) &&
-           d.today == (historyDay == d.day ?
-             (d.day == resource.data.day ? resource.data.today : 0) + amount :
-              resource.data.today) &&
-           validWzLedgerIncrement(amount))
-        );
+        (changed.hasAny(['total','today','dailyLedger','lastReadingDay','lastReadingSource']) ?
+           (changed.hasAny(['lastReadingDay','lastReadingSource']) ?
+             validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
+           (changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
+             validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
     }
     // One monotonic W-1, W-2, ... counter per authenticated member.
     // The counter and the new/legacy personal item must be written in one
