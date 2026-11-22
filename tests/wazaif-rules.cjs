@@ -71,6 +71,45 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
       dailyLedger:{[day]:{count:prior.count+1,durationMs:prior.durationMs+900,intervals:prior.intervals+1}},
       updatedAt:serverTimestamp()});
   }));
+  // New source-aware history: current tasbih is green, manual is yellow,
+  // and a past-day save must leave the newest-day summary unchanged.
+  await assertSucceeds(updateDoc(privateRef,{startDate:"2026-11-20",updatedAt:serverTimestamp()}));
+  await assertSucceeds(runTransaction(member,async tx=>{
+   const snap=await tx.get(privateRef),d=snap.data(),old=d.dailyLedger[day];
+   tx.update(privateRef,{
+    total:d.total+1,today:d.today+1,day,
+    dailyLedger:{...d.dailyLedger,[day]:{
+      ...old,count:old.count+1,durationMs:old.durationMs+2000,
+      intervals:old.intervals+1,tasbihCount:1,manualCount:0
+    }},
+    lastReadingDay:day,lastReadingSource:"tasbih",updatedAt:serverTimestamp()
+   });
+  }));
+  const priorDay="2026-11-22";
+  const beforePast=(await getDoc(privateRef)).data();
+  await assertSucceeds(runTransaction(member,async tx=>{
+   const snap=await tx.get(privateRef),d=snap.data();
+   tx.update(privateRef,{total:d.total+500,today:d.today,day:d.day,
+    dailyLedger:{...d.dailyLedger,[priorDay]:{
+     count:500,durationMs:600000,intervals:0,tasbihCount:0,manualCount:500
+    }},lastReadingDay:priorDay,lastReadingSource:"manual",updatedAt:serverTimestamp()});
+  }));
+  const afterPast=(await getDoc(privateRef)).data();
+  if(afterPast.day!==day||afterPast.today!==beforePast.today||
+     afterPast.dailyLedger[priorDay].manualCount!==500)
+    throw Error("Backdated manual save changed the current daily summary");
+  await assertSucceeds(runTransaction(member,async tx=>{
+   const snap=await tx.get(privateRef),d=snap.data(),entry=d.dailyLedger[priorDay];
+   tx.update(privateRef,{total:d.total-100,today:d.today,day:d.day,
+    dailyLedger:{...d.dailyLedger,[priorDay]:{...entry,count:400,manualCount:400}},
+    lastReadingDay:priorDay,lastReadingSource:"manual",updatedAt:serverTimestamp()});
+  }));
+  const corrected=(await getDoc(privateRef)).data();
+  if(corrected.dailyLedger[priorDay].tasbihCount!==0||
+     corrected.dailyLedger[priorDay].durationMs!==600000||
+     corrected.dailyLedger[priorDay].manualCount!==400)
+    throw Error("Manual-only correction changed the verified timer or tasbih count");
+  await assertFails(updateDoc(privateRef,{lastReadingSource:"tasbih",updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{total:999999,today:999999,updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{dailyLedger:{[day]:{count:999,durationMs:999,intervals:999}},updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{durationDays:99999,updatedAt:serverTimestamp()}));

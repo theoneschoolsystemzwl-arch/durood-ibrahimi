@@ -63,7 +63,7 @@ curl --fail --silent --show-error --header "Authorization: Bearer $token" \
   "https://firebaserules.googleapis.com/v1/$ruleset" > /tmp/durood-firebase-active-rules.json
 # GitHub checkout is shallow by default. Fetch history strictly for the
 # read-only source comparison; never attempt a rule update without it.
-git fetch --quiet --no-tags --depth=30 origin main
+git fetch --quiet --no-tags --depth=90 origin main
 node <<'NODE'
 const fs=require('fs'),cp=require('child_process');
 const response=JSON.parse(fs.readFileSync('/tmp/durood-firebase-active-rules.json','utf8'));
@@ -111,11 +111,14 @@ const beforeHeroRedesign=cp.execFileSync('git',['show','1d7041c709a3df502647f5c0
  // The verified live, audited Wazifa daily-ledger rules immediately before
  // the optional fixed-to-daily upgrade. Match the complete source exactly.
 const beforeFixedDaily=cp.execFileSync('git',['show','46bc214724a4946e00e0de124feadf8371e639be:firestore.rules'],{encoding:'utf8'});
+// Confirmed exact Wazifa source in main immediately before this dated Save upgrade.
+const beforeDatedSave=cp.execFileSync('git',['show','fd8bad24e68f3faad03f365028cf1f90cbdf6739:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
    normalize(existing.content)!==normalize(beforeFemaleSerial) &&
    normalize(existing.content)!==normalize(beforeHeroRedesign) &&
-   normalize(existing.content)!==normalize(beforeFixedDaily)){
+   normalize(existing.content)!==normalize(beforeFixedDaily) &&
+   normalize(existing.content)!==normalize(beforeDatedSave)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);

@@ -44,37 +44,55 @@ export async function recordGroupWazifaOnly(amount=1,day=readingDay()){
     await addGroupCountsToTransaction(tx,user.uid,amount,day,{durood:false});
   });
 }
-export async function recordPersonalWazifa(id,amount=1,day=readingDay(),{durationMs=0,intervals=0}={}){
-  const user=auth.currentUser;
-  if(!user)throw Error("لاگ اِن ضروری ہے۔");
-  if(typeof id!=="string"||!/^[A-Za-z0-9]{10,30}$/.test(id)||
-     !Number.isSafeInteger(amount)||amount<1||amount>1000 ||
-     !Number.isSafeInteger(durationMs)||durationMs<0||durationMs>amount*15000 ||
-     !Number.isSafeInteger(intervals)||intervals<0||intervals>amount)
-    throw Error("اندراج یا دورانیہ درست نہیں۔");
-  return runTransaction(db,async tx=>{
-    const ref=doc(db,"memberWazaif",user.uid,"items",id);
-    const snap=await tx.get(ref);
-    if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
-    const w=snap.data();
-    const continuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
-      Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
-      day>=w.continueStartDate&&w.continueStartDate>w.endDate;
-    if(day<w.startDate || (w.kind==="fixed"&&day>w.endDate&&!continuation))
-      throw Error("فکس وظیفے کی مدت مکمل ہے؛ پہلے روزانہ جاری رکھنے کا آپشن فعال کریں۔");
-    const previous=Number(w.total||0);
-    if(!Number.isSafeInteger(previous)||previous<0)throw Error("سابقہ شمار درست نہیں۔");
-    const ledger=w.dailyLedger&&typeof w.dailyLedger==="object"?w.dailyLedger:{};
-    const old=ledger[day]||{count:0,durationMs:0,intervals:0};
-    const dailyLedger={...ledger,[day]:{
-      count:Number(old.count||0)+amount,
-      durationMs:Number(old.durationMs||0)+durationMs,
-      intervals:Number(old.intervals||0)+intervals
-    }};
-    if(Object.keys(dailyLedger).length>3660)throw Error("روزانہ ریکارڈ کی زیادہ سے زیادہ حد پوری ہوگئی۔");
-    tx.update(ref,{
-      total:previous+amount,day,today:(w.day===day?Number(w.today||0):0)+amount,
-      dailyLedger,updatedAt:serverTimestamp()
-    });
+// Each Save is one atomic addition/correction on the selected day.
+// The latest-day summary never rewinds when a previous date is saved.
+export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
+  {durationMs=0,intervals=0,source="tasbih"}={}){
+ const user=auth.currentUser;
+ if(!user)throw Error("لاگ اِن ضروری ہے۔");
+ if(typeof id!=="string"||!/^[A-Za-z0-9]{10,30}$/.test(id)||
+    !Number.isSafeInteger(amount)||amount===0||amount < -1000||amount>1000||
+    !["tasbih","manual"].includes(source)||(amount<0&&source!=="manual")||
+    !Number.isSafeInteger(durationMs)||durationMs<0||durationMs>86400000||
+    (amount<0&&durationMs!==0)||
+    !Number.isSafeInteger(intervals)||intervals<0||intervals>Math.max(0,amount)||
+    !/^\d{4}-\d{2}-\d{2}$/.test(day)||day>readingDay()||
+    readingDay(new Date(day+"T12:00:00"))!==day)
+  throw Error("تعداد، وقت یا تاریخ درست نہیں۔");
+ return runTransaction(db,async tx=>{
+  const ref=doc(db,"memberWazaif",user.uid,"items",id);
+  const snap=await tx.get(ref);
+  if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
+  const w=snap.data();
+  const continuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
+   Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
+   day>=w.continueStartDate&&w.continueStartDate>w.endDate;
+  if(day<w.startDate||(w.kind==="fixed"&&day>w.endDate&&!continuation))
+   throw Error("منتخب تاریخ وظیفے کی مدت میں نہیں ہے۔");
+  const previous=Number(w.total||0);
+  if(!Number.isSafeInteger(previous)||previous<0||previous+amount<0)
+   throw Error("سابقہ شمار درست نہیں۔");
+  const ledger=w.dailyLedger&&typeof w.dailyLedger==="object"?w.dailyLedger:{};
+  const old=ledger[day]||{count:0,durationMs:0,intervals:0};
+  const prevManual=Number(old.manualCount||0);
+  const newManual=prevManual+(source==="manual"?amount:0);
+  const newCount=Number(old.count||0)+amount;
+  if(newCount<0||newManual<0)throw Error("دستی اندراج میں اتنی تعداد نہیں۔");
+  const nextEntry={
+   count:newCount,
+   durationMs:Number(old.durationMs||0)+durationMs,
+   intervals:Number(old.intervals||0)+intervals,
+   tasbihCount:Number(old.tasbihCount||0)+(source==="tasbih"?amount:0),
+   manualCount:newManual
+  };
+  const dailyLedger={...ledger,[day]:nextEntry};
+  if(Object.keys(dailyLedger).length>3660)throw Error("روزانہ ریکارڈ کی حد پوری ہوگئی۔");
+  const latestDay=w.day>day?w.day:day;
+  const newToday=latestDay===w.day?Number(w.today||0)+(day===latestDay?amount:0):amount;
+  if(newToday<0)throw Error("روزانہ شمار درست نہیں۔");
+  tx.update(ref,{
+   total:previous+amount,day:latestDay,today:newToday,dailyLedger,
+   lastReadingDay:day,lastReadingSource:source,updatedAt:serverTimestamp()
   });
+ });
 }
