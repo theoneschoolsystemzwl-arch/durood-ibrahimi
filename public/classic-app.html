@@ -1133,7 +1133,6 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
 }
 /* Side switch, invite badge and group messages reuse the original classic theme. */
 .profile-copy .direct-invites{display:block;font-size:.72rem;line-height:1.4;margin:2px 0;white-space:nowrap}
-.switch-side{min-height:30px!important;max-width:140px;padding:3px 6px!important;font-size:.69rem!important;white-space:normal}
 .group-chat-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding:6px 0;margin-bottom:12px}
 .chat-bubble{background:var(--mint);border:1px solid var(--line);border-radius:10px;padding:9px}
 .chat-bubble strong{font-size:.83rem}
@@ -1146,7 +1145,7 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
 .node-dot.level-1{background:#146438}
 .owner-sections{display:flex;justify-content:center;gap:4px;padding:2px 6px;background:var(--paper,#fff)}
 .owner-sections button{padding:2px 10px;min-height:32px;border:1px solid #146438;border-radius:6px;background:#fff;color:#145535;font:inherit;font-size:.82rem}
-.owner-sections button[aria-pressed="true"]{background:#146438;color:white}
+.owner-sections button:focus-visible{outline:2px solid #146438;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -1260,6 +1259,9 @@ function generationLetter(id) {
   }
   return prefix;
 }
+
+const ownerViewingWomen = () => currentUserId === 1 && window.duroodCurrentSide === 'female';
+const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && person.id !== 1) : users;
 
 function groupName(id) {
   return generationLetter(id);
@@ -1402,8 +1404,7 @@ function rankCard(entry, index) {
 }
 
 function ranking() {
-  const top = users.filter(person => !person.disabled &&
-    !(window.duroodCurrentSide === 'female' && person.id === 1))
+  const top = visibleMembers().filter(person => !person.disabled)
     .map(person => ({person, total:score(person, selectedPeriod, record)}))
     .filter(entry => entry.total > 0)
     .sort((first, second) => second.total - first.total || first.person.id - second.person.id).slice(0,10);
@@ -1440,9 +1441,13 @@ function stat(label, value) {
 }
 
 function tree(person) {
-  const root = getUser(groupFilter) || person;
+  const root = ownerViewingWomen() ? visibleMembers().find(member => member.id === groupFilter) : getUser(groupFilter) || person;
+  if (!root) return groups();
   const children = directMembers(root.id);
-  const back = root.id !== person.id
+  const back = ownerViewingWomen()
+    ? '<div class="branch-nav"><button class="button secondary" data-action="nav" data-value="groups">' +
+      tr('Back to groups','گروپس پر واپس') + '</button></div>'
+    : root.id !== person.id
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.id === 1 ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
@@ -1459,9 +1464,10 @@ function tree(person) {
 
 function groups() {
   return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
-    '<div class="groups">' + users.filter(person =>
-      !(window.duroodCurrentSide === 'female' && person.id === 1) &&
-      (person.id === 1 || directMembers(person.id).length)).map(person =>
+    '<div class="groups">' + visibleMembers().filter(person =>
+      ownerViewingWomen()
+        ? person.inviter === 1 || !person.inviter || directMembers(person.id).length
+        : person.id === 1 || directMembers(person.id).length).map(person =>
       '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
@@ -1483,7 +1489,9 @@ function groupMessagesPage() {
       esc(row.senderName||'Member')+'</strong><p dir="auto">'+
       esc(row.body||'')+'</p><small class="muted">'+
       esc(row.createdAt?new Date(row.createdAt).toLocaleString():'')+
-      '</small></article>').join(''):
+      '</small>'+ (ownerViewingWomen() && row.senderUid!==currentUser()?.uid ?
+      '<button type="button" class="button secondary" data-action="chat-reply" data-value="'+esc(row.id)+'">'+
+      tr('Reply','جواب دیں')+'</button>' : '') + '</article>').join(''):
       '<p class="muted">'+tr('No messages yet.','ابھی کوئی پیغام نہیں۔')+'</p>')+
     '</div><form id="group-message-form" class="form"><label class="field">'+
     tr('Write a message','پیغام لکھیں')+
@@ -1494,9 +1502,8 @@ function groupMessagesPage() {
 
 function directory() {
   return heading(tr("Registered Users", 'تمام رجسٹرڈ صارفین'),tr("Members are listed in permanent ID order.", 'ممبرز مستقل آئی ڈی کے لحاظ سے سیریل وار ترتیب میں ہیں۔')) +
-    '<div class="panel-head"><span class="pill">' + displayNumber(users.length) + tr(" Users</span></div>", ' صارفین</span></div>') +
-    '<div class="directory">' + users.filter(person =>
-      !(window.duroodCurrentSide === 'female' && person.id === 1))
+    '<div class="panel-head"><span class="pill">' + displayNumber(visibleMembers().length) + tr(" Users</span></div>", ' صارفین</span></div>') +
+    '<div class="directory">' + visibleMembers()
       .map(person =>
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
@@ -1529,7 +1536,8 @@ function profileDetails(person) {
       '</button><button class="button secondary" data-action="reset-session" data-value="' + person.id +
       '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
-      tr("\">Delete member</button></div></section>", '">رکن حذف کریں</button></div></section>') + managementDialog(person));
+      tr('">Delete member</button></div>', '">رکن حذف کریں</button></div>') +
+      '</section>' + managementDialog(person));
 }
 
 let genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
@@ -1608,7 +1616,6 @@ function settings(person) {
 function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
   const inviteCount = person.id === 1 ? Number(window.duroodOwnerInviteTotal || 0) : directMembers(person.id).length;
-  const femaleSide = person.id === 1 && window.duroodCurrentSide === 'female';
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
@@ -1617,9 +1624,6 @@ function profileCard(person) {
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
-    (person.id === 1 ? '<button type="button" class="button secondary switch-side" data-action="switch-side">' +
-      (femaleSide ? tr('Go to Male Side','مرد سائیڈ پر جائیں') :
-        tr('Go to Female Side','خواتین سائیڈ پر جائیں')) + '</button>' : '') +
     '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' ' + memberLevel(person) +
     '</span></div></section></header>';
@@ -1654,7 +1658,7 @@ function overview() {
 }
 
 function simulateSave() {
-  if (!liveRunning || section !== 'overview' || !currentUser() || document.hidden) return;
+  if (ownerViewingWomen() || !liveRunning || section !== 'overview' || !currentUser() || document.hidden) return;
   const active = users.filter(person => !person.disabled && person.id !== currentUserId);
   if (!active.length) return;
   const amount = demoAmounts[saveIndex % demoAmounts.length];
@@ -3010,14 +3014,20 @@ function dashboard(person) {
   const owner = person.id === 1;
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
+  const women = ownerViewingWomen();
+  const availableLinks = women ? links.filter(([key]) => !['tasbih','namaz','settings'].includes(key)) : links;
   const active = section === 'profile' ? 'directory' : section;
   const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
-  return '<div class="shell">' + profileCard(person) +
+  return '<div class="shell">' + (women ? '' : profileCard(person)) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
-    prayerAlertMarkup() + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
-    (screens[section] || overview)() + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
-    links.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
+    (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
+    (women && section === 'overview' ? heading(tr('Women’s activity','خواتین کی سرگرمی')) +
+      '<div class="stats">' + stat(tr('Members','ارکان'),displayNumber(visibleMembers().length)) +
+      stat(tr('All-time Durood','درود کا مجموعی شمار'),displayNumber(globalTotal)) + '</div>'
+      : women && ['tasbih','namaz','settings'].includes(section) ? directory()
+      : (screens[section] || overview)()) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
+    availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span aria-hidden="true">' + icon + '</span>' + label + '</button>').join('') +
     '</div></nav></div>';
 }
@@ -3066,6 +3076,11 @@ function refreshLocale() {
 
 function topBar() {
   const person = currentUser();
+  const toMale = window.duroodCurrentSide === 'female';
+  const destination = toMale ? 'male' : 'female';
+  const destinationLabel = toMale ? tr('Male','مرد') : tr('Female','خواتین');
+  const switchLabel = toMale ? tr('Go to Male section','مردوں کے سیکشن پر جائیں')
+    : tr('Go to Female section','خواتین کے سیکشن پر جائیں');
   const isAbout = person ? section === 'about' : screen === 'about';
   return '<header class="utility-bar"><div class="utility-inner"><span class="utility-brand">' +
     '<span aria-hidden="true">✧</span> ' + tr('Durood Global','درود گلوبل') + '</span><div class="utility-actions">' +
@@ -3074,9 +3089,10 @@ function topBar() {
     '<div class="locale-switch" role="group" aria-label="' + tr('App language','ایپ کی زبان') + '">' +
     '<button type="button" lang="en" data-action="language" data-value="en" aria-pressed="' + (language === 'en') + '">English</button>' +
     '<button type="button" lang="ur" data-action="language" data-value="ur" aria-pressed="' + (language === 'ur') + '">اردو</button></div>' +
-    '</div></div>' + (person?.id===1 ? '<div class="owner-sections" role="group" aria-label="'+tr('Member sections','ممبر سیکشن')+'">' +
-      ['male','female'].map(side=>'<button type="button" data-action="switch-side" data-side="'+side+'" aria-pressed="'+
-        ((window.duroodCurrentSide||'male')===side)+'">'+(side==='female'?tr('Women','خواتین'):tr('Men','مرد'))+'</button>').join('')+'</div>' : '') + '</header>';
+    '</div></div>' + (person?.id === 1 ? '<div class="owner-sections">' +
+      '<button type="button" data-action="switch-side" data-side="' + destination +
+      '" aria-label="' + switchLabel + '">' + destinationLabel +
+      ' <span aria-hidden="true">' + tr('→','←') + '</span></button></div>' : '') + '</header>';
 }
 
 function changeLanguage(value) {
@@ -3394,13 +3410,14 @@ app.addEventListener('click', event => {
   }
   if (action === 'record') record = value;
   if (action === 'period') selectedPeriod = value;
-  if (action === 'profile' && currentUserId === 1) {
+  if (action === 'profile' && currentUserId === 1 && visibleMembers().some(member => member.id === Number(value))) {
     profileId = Number(value);
     section = 'profile';
   }
   if (action === 'branch') {
     const targetId = Number(value);
-    if (targetId !== currentUserId && !descendants(currentUserId).has(targetId)) return;
+    if (ownerViewingWomen() ? !visibleMembers().some(member => member.id === targetId)
+      : targetId !== currentUserId && !descendants(currentUserId).has(targetId)) return;
     groupFilter = targetId === currentUserId ? null : targetId;
     section = 'tree';
   }
@@ -3637,7 +3654,12 @@ async function refreshGroupChat(){
   const side=window.duroodCurrentSide;
   if(!side)return;
   const result=await groupMessagesSpark(side);
-  if(side===window.duroodCurrentSide)bridge.showMessages(result.messages);
+  if(side!==window.duroodCurrentSide)return;
+  const selector='#group-message-form textarea';
+  const draft=ui.querySelector(selector)?.value;
+  bridge.showMessages(result.messages);
+  const input=ui.querySelector(selector);
+  if(input && draft)input.value=draft;
 }
 async function hydrate(){
   const user=auth.currentUser;
@@ -3646,8 +3668,6 @@ async function hydrate(){
   const owner=profile.role==="owner";
   const side=owner && window.duroodOwnerSide==="female"?"female":
     (!owner && profile.gender==="female"?"female":"male");
-  window.duroodCurrentSide=side;
-  window.duroodChatRows=[];
   const docs=new Map([[profile.uid,profile]]);
   if(owner){
     const snap=await getDocs(collection(db,"members"));
@@ -3704,6 +3724,8 @@ async function hydrate(){
     catch(error){console.warn("Profile photo unavailable",error.code);}
   }
   if(auth.currentUser?.uid!==profile.uid)return;
+  window.duroodCurrentSide=side;
+  window.duroodChatRows=[];
   bridge.enter(profile,rows,{
     global:sideTotal.exists()?Number(sideTotal.get("totalRecitations")||0):0,
     memberCounts
@@ -3712,10 +3734,13 @@ async function hydrate(){
   if(window.parent!==window){
     window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
+  if(owner && side==="female")return;
   try{
     const month=new Date().toISOString().slice(0,7);
     const result=await prayerMonthSpark(month);
-    bridge.loadPrayerDays(result.days||[]);
+    if(auth.currentUser?.uid===profile.uid && window.duroodCurrentSide===side){
+      bridge.loadPrayerDays(result.days||[]);
+    }
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
 onAuthStateChanged(auth,async user=>{
@@ -3741,8 +3766,25 @@ ui.addEventListener("click",event=>{
     if(next===window.duroodCurrentSide)return;
     switchingSide=true;button.disabled=true;
     window.duroodOwnerSide=next;
-    try{localStorage.setItem("durood-owner-side",next);}catch{}
-    hydrate().catch(e=>bridge.notice(errorText(e))).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
+    hydrate().then(()=>{
+      try{localStorage.setItem("durood-owner-side",next);}catch{}
+    }).catch(e=>{
+      window.duroodOwnerSide=window.duroodCurrentSide;
+      bridge.notice(errorText(e));
+    }).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
+    return;
+  }
+  if(action==="chat-reply"){
+    event.stopImmediatePropagation();event.preventDefault();
+    if(currentProfile.role!=="owner" || window.duroodCurrentSide!=="female")return;
+    const row=window.duroodChatRows.find(entry=>entry.id===button.dataset.value);
+    const input=ui.querySelector('#group-message-form textarea');
+    if(!row || !input)return;
+    const excerpt=String(row.body||"").replace(/\s+/g," ").slice(0,160);
+    const quote="↪ "+String(row.senderName||"Member").slice(0,60)+": "+excerpt+"\n";
+    if(input.value.length+quote.length<=input.maxLength)input.value=quote+input.value;
+    input.focus();
+    input.setSelectionRange(input.value.length,input.value.length);
     return;
   }
   if(action==="chat-refresh" || (action==="nav"&&button.dataset.value==="messages")){
@@ -3816,6 +3858,10 @@ ui.addEventListener("click",event=>{
       bridge.tap();
     }).catch(e=>bridge.notice("درود محفوظ نہیں ہو سکا: "+errorText(e)));
     return;
+  }
+  if(currentProfile.role==="owner" && window.duroodCurrentSide==="female" &&
+     (action==="namaz-mark" || action==="qaza-record")){
+    event.preventDefault();event.stopImmediatePropagation();return;
   }
   if(action==="namaz-mark"||action==="qaza-record"){
     const day=button.dataset.day;
