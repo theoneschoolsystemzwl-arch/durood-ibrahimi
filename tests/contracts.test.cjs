@@ -32,7 +32,12 @@ present(auth,'loginStage="firestore-profile"');
 present(auth,'loginStage="missing-member-profile"');
 present(client,'signingIn:false');
 present(client,'appState.signingIn=true');
-present(client,'if(user && (appState.registering || appState.signingIn))return');
+present(client,'if(appState.registering || appState.signingIn)return');
+// A null auth-state notification during first sign-in must not bounce to login.
+assert.ok(!client.includes('if(user && (appState.registering || appState.signingIn))return'));
+present(client,'durood-classic-auth-pending');
+present(client,'classicFrameRequested=false;');
+
 present(client,'آئی ڈی یا پاس ورڈ غلط ہے');
 present(html,'id="remember-login"');
 present(auth,"browserLocalPersistence");
@@ -93,6 +98,11 @@ for(const item of ["match /genderMembers/{gender}","match /genderStats/{gender}"
  "allow update: if false;","invitationMatches"]){
   present(rules,item);
 }
+// Newly requested timer and counter behavior must remain in the classic app.
+for(const contract of ['queueTasbihTap','flushTasbihTaps','readerJournalKey',
+  'persistReaderJournal','manual-yellow','top-corners','boxed-headline',
+  'dialFloating','suppressNextDialClick','15000','--ring-progress'])present(classic,contract);
+assert.ok(!classic.includes('type:"durood-use-top"'),"Classic must not bounce authenticated parent to login");
 // Classic HTML contains two large inline JS bundles. Validate BOTH using
 // Node's parser, including the module that loads Firebase in the iframe.
 const {spawnSync}=require("node:child_process");
