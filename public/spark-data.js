@@ -42,8 +42,10 @@ export async function registerSpark({name,username,password,inviteCode,gender,pl
       const invitation=doc(db,"invitations",invite);
       const usernameDoc=doc(db,"usernames",clean);
       const currentUser=memberRef(uid);
-      const [seq,inv,existing,already]=await Promise.all([
-        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser)
+      const sideMembers=doc(db,"genderMembers",gender);
+      const [seq,inv,existing,already,side]=await Promise.all([
+        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser),
+        tx.get(sideMembers)
       ]);
       if(!seq.exists()||!Number.isSafeInteger(seq.data().lastNumber) || seq.data().lastNumber<1){
         throw Error("Owner اکاؤنٹ ابھی قائم نہیں ہوا۔");
@@ -62,12 +64,16 @@ export async function registerSpark({name,username,password,inviteCode,gender,pl
       if(invitedGender!==gender && !(ownerInvite&&invitedGender==="any")){
         throw Error("یہ دعوتی کوڈ منتخب Gender کے لیے نہیں ہے۔");
       }
+      const priorSideMembers=side.exists()?Number(side.get("totalMembers")):0;
+      if(!Number.isSafeInteger(priorSideMembers)||priorSideMembers<0)
+        throw Error("Gender member sequence invalid.");
       const n=seq.data().lastNumber+1;
       if(!Number.isSafeInteger(n))throw Error("ممبر نمبر کی حد مکمل ہو گئی ہے۔");
       const serial="DI-"+n;
       tx.update(sequence,{lastNumber:n,lastMemberUid:uid,updatedAt:serverTimestamp()});
       tx.update(invitation,{used:true,usedByUid:uid,usedAt:serverTimestamp()});
       tx.set(usernameDoc,{uid,createdAt:serverTimestamp()});
+      tx.set(sideMembers,{gender,totalMembers:priorSideMembers+1,updatedAt:serverTimestamp()});
       tx.set(currentUser,{
         uid,username:clean,name:fullName,role:"member",gender,memberNumber:n,serial,
         inviterUid,inviteCode:invite,disabled:false,
@@ -208,10 +214,10 @@ export async function communitySpark(genderChoice){
   if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں۔");
   const gender=profile.data().role==="owner"&&isGender(genderChoice)?
     genderChoice:memberGender(profile.data());
-  const [counter,total]=await Promise.all([
-    getDoc(doc(db,"system","membership")),getDoc(doc(db,"genderStats",gender))
+  const [members,total]=await Promise.all([
+    getDoc(doc(db,"genderMembers",gender)),getDoc(doc(db,"genderStats",gender))
   ]);
-  return {gender,totalAccounts:counter.exists()?counter.data().lastNumber||0:0,
+  return {gender,totalAccounts:members.exists()?members.data().totalMembers||0:0,
     totalRecitations:total.exists()?total.data().totalRecitations||0:0};
 }
 
