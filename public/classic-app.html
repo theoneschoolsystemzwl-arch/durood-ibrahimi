@@ -3589,41 +3589,66 @@ async function hydrate(){
   const user=auth.currentUser;
   if(!user){window.location.replace("/");return;}
   const profile=await loadMemberProfile(user);
+  const owner=profile.role==="owner";
+  const side=owner && window.duroodOwnerSide==="female"?"female":
+    (!owner && profile.gender==="female"?"female":"male");
+  window.duroodCurrentSide=side;
+  window.duroodChatRows=[];
   const docs=new Map([[profile.uid,profile]]);
-  if(profile.role==="owner"){
+  if(owner){
     const snap=await getDocs(collection(db,"members"));
-    snap.docs.forEach(x=>docs.set(x.id,x.data()));
+    // Count the Owner's own invites across BOTH sides without counting
+    // invitations created by the wife or another member.
+    window.duroodOwnerInviteTotal=snap.docs.filter(x=>x.data().inviterUid===profile.uid).length;
+    for(const x of snap.docs){
+      const data=x.data();
+      const gender=data.gender==="female"?"female":"male";
+      if(x.id===profile.uid || gender===side)docs.set(x.id,data);
+    }
   }else{
-    const invited=await getDocs(query(collection(db,"members"),where("inviterUid","==",profile.uid),limit(200)));
-    invited.docs.forEach(x=>docs.set(x.id,x.data()));
+    window.duroodOwnerInviteTotal=0;
+    const invited=await getDocs(query(collection(db,"members"),
+      where("inviterUid","==",profile.uid),limit(200)));
+    invited.docs.forEach(x=>{
+      const d=x.data();
+      if((d.gender==="female"?"female":"male")===side)docs.set(x.id,d);
+    });
   }
-  // Rankings include real members, never fabricated demonstration accounts.
+  // Only fetch the selected side; the Firebase Rules also validate gender.
+  const counts=new Map();
   try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const x of ranked.docs){
-      if(!docs.has(x.id)){
-        const member=await getDoc(doc(db,"members",x.id));
-        if(member.exists())docs.set(x.id,member.data());
+    const ranked=await getDocs(query(collection(db,"memberCounts"),
+      where("gender","==",side),limit(200)));
+    for(const item of ranked.docs){
+      counts.set(item.id,Number(item.get("total")||0));
+    }
+    const top=[...ranked.docs].sort((a,b)=>
+      Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10);
+    for(const item of top){
+      if(!docs.has(item.id)){
+        const member=await getDoc(doc(db,"members",item.id));
+        if(member.exists())docs.set(item.id,member.data());
       }
     }
-  }catch(e){console.warn("Ranking lookup unavailable",e.code||e);}
-  const [global,count]=await Promise.all([
-    getDoc(doc(db,"publicStats","global")),
+  }catch(e){console.warn("Side ranking unavailable",e.code||e);}
+  const [sideTotal,count]=await Promise.all([
+    getDoc(doc(db,"genderStats",side)),
     getDoc(doc(db,"memberCounts",profile.uid))
   ]);
-  const rows=[...docs.values()].map(d=>({
-    uid:d.uid,name:d.name,username:d.username,memberNumber:d.memberNumber,
-    disabled:d.disabled===true,inviterUid:d.inviterUid||null,
-    joined:d.createdAt?.toDate?.()||new Date()
-  }));
-  const memberCounts={[profile.uid]:count.exists()?Number(count.get("total")||0):0};
-  try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const d of ranked.docs)memberCounts[d.id]=Number(d.get("total")||0);
-  }catch{}
-  bridge.enter(profile,rows,{global:global.exists()?global.get("totalRecitations")||0:0,memberCounts});
+  const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
+    (d.gender==="female"?"female":"male")===side).map(d=>({
+      uid:d.uid,name:d.name,username:d.username,gender:d.gender,
+      memberNumber:d.memberNumber,deleted:d.deleted===true,
+      disabled:d.disabled===true,inviterUid:d.inviterUid||null,
+      joined:d.createdAt?.toDate?.()||new Date()
+    }));
+  const memberCounts=Object.fromEntries(counts);
+  if(side==="male")memberCounts[profile.uid]=count.exists()?Number(count.get("total")||0):0;
+  bridge.enter(profile,rows,{
+    global:sideTotal.exists()?Number(sideTotal.get("totalRecitations")||0):0,
+    memberCounts
+  });
   currentProfile=profile;
-  // Parent hides its working portal only after the original dashboard is ready.
   if(window.parent!==window){
     window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
