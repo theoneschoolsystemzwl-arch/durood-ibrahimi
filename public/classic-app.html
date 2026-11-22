@@ -1820,8 +1820,11 @@ function restoreMemberPrivateSettings(uid,id) {
       for(const prayer of ['fajr','dhuhr','asr','maghrib','isha']){
         const days=qazaCandidate.done?.[prayer];
         if(!days||typeof days!=='object'||Array.isArray(days))continue;
+        // Never silently throw away a member's old paid-prayer dates.
+        // Oversized plans stay locally recoverable; Firestore will report
+        // that an archival migration is required instead of losing entries.
         const valid=Object.entries(days).filter(([day,value])=>
-          /^(19|20)\d{2}-\d{2}-\d{2}$/.test(day)&&value===true).slice(0,3000);
+          /^(19|20)\d{2}-\d{2}-\d{2}$/.test(day)&&value===true);
         if(valid.length)done[prayer]=Object.fromEntries(valid);
       }
       recoveredLegacyQaza={start:validStart?start:'',target:Number.isSafeInteger(target)&&target>=0&&target<=1000000?target:0,done};
