@@ -1194,6 +1194,10 @@ let groupFilter = null;
 let profileId = null;
 let recoveryUserId = null;
 let photoDraft = null;
+let pendingPhoto = null;
+function currentPhotoSelection(){
+  return pendingPhoto?.uid===currentUser()?.uid ? pendingPhoto : null;
+}
 let message = '';
 const peekTimers = new WeakMap();
 const communityGoal = 125000;
@@ -1573,7 +1577,7 @@ function settings(person) {
     (person.id === 1 ? tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Owner settings</h2>", '<section class="panel section"><div class="panel-head"><h2>مالک کی ترتیبات</h2>') +
       tr("<button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Manage users</button></div>", '<button class="button secondary" data-action="nav" data-value="directory">صارفین کا انتظام</button></div>') +
       ur(tr("Select a member to suspend, restore or delete their account.", 'ممبر منتخب کر کے اس کا اکاؤنٹ بند، بحال یا حذف کریں۔'),'p','muted') + '</section><div class="section"></div>' : '') +
-    '<section class="panel"><div class="profile-title"><span id="photo-view">' + avatar(person,true) + tr("</span><div><strong>Profile photo</strong>", '</span><div><strong>پروفائل کی تصویر</strong>') +
+    '<section class="panel"><div class="profile-title"><span id="photo-view">' + avatar(photoDraft && currentPhotoSelection()?{...person,photo:photoDraft}:person,true) + tr("</span><div><strong>Profile photo</strong>", '</span><div><strong>پروفائل کی تصویر</strong>') +
     tr("<small class=\"muted\">Shown on your profile</small><br><label class=\"button secondary\">Upload photo<input class=\"visually-hidden\" type=\"file\" id=\"photo\" accept=\"image/*\"></label></div></div>", '<small class="muted">آپ کے پروفائل پر دکھائی جائے گی</small><br><label class="button secondary">تصویر اپ لوڈ کریں<input class="visually-hidden" type="file" id="photo" accept="image/*"></label></div></div>') +
     tr("<form id=\"profile-form\" class=\"form\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" value=\"", '<form id="profile-form" class="form"><label class="field">پورا نام<input name="name" dir="auto" value="') + esc(memberName(person)) +
     tr("\" maxlength=\"60\" required></label><label class=\"field\">Member ID and Login ID<input readonly value=\"", '" maxlength="60" required></label><label class="field">رکنیت نمبر اور لاگ اِن آئی ڈی<input readonly value="') + serial(person.id) + ' | ' +
@@ -3344,6 +3348,7 @@ app.addEventListener('click', event => {
   if (action === 'demo-login') return signIn(Number(value));
   if (action === 'logout') {
     currentUserId = null;
+    pendingPhoto=null;
     readingSession = {};
     photoDraft = null;
     screen = 'login';
@@ -3378,7 +3383,7 @@ app.addEventListener('click', event => {
     if (section === 'tasbih' && value !== 'tasbih') readingSession.lastTap = null;
     section = value;
     groupFilter = null;
-    photoDraft = null;
+    if(!currentPhotoSelection())photoDraft=null;
   }
   if (action === 'record') record = value;
   if (action === 'period') selectedPeriod = value;
@@ -3416,14 +3421,15 @@ app.addEventListener('change', event => {
   if (input.id !== 'photo' || !input.files.length) return;
   const file = input.files[0];
   photoDraft=null;
-  const task=prepareProfilePhoto(file);
-  input.photoTask=task;
-  task.then(image=>{
-    if(!input.isConnected||input.files[0]!==file)return;
+  const selection={uid:currentUser().uid,task:prepareProfilePhoto(file)};
+  pendingPhoto=selection;
+  selection.task.then(image=>{
+    if(currentPhotoSelection()!==selection)return;
     photoDraft=image;
-    document.getElementById("photo-view").innerHTML=avatar({...currentUser(),photo:image},true);
+    const view=document.getElementById("photo-view");
+    if(view)view.innerHTML=avatar({...currentUser(),photo:image},true);
     setFeedback("profile-feedback","تصویر منتخب ہے۔ محفوظ کرنے کے لیے پروفائل محفوظ کریں دبائیں۔",true);
-  }).catch(()=>{if(input.isConnected && input.files[0]===file)setFeedback("profile-feedback","تصویر نہیں کھل سکی۔ 20 MB سے چھوٹی JPG یا PNG تصویر منتخب کریں۔");});
+  }).catch(()=>{if(currentPhotoSelection()===selection)setFeedback("profile-feedback","تصویر نہیں کھل سکی۔ JPG یا PNG تصویر دوبارہ منتخب کریں۔");});
 });
 
 app.addEventListener('submit', async event => {
@@ -3552,9 +3558,10 @@ window.duroodClassicBridge = {
     p.disabled=disabled;render({keepScroll:true});
   },
   userForCurrent(){return currentUser()?.uid||null;},
-  setName(value,image){
+  photoSelection:currentPhotoSelection,
+  setName(value,image,selection){
     const p=currentUser();if(!p)return;
-    if(image){p.photo=image;photoDraft=null;}
+    if(image){p.photo=image;if(pendingPhoto===selection){pendingPhoto=null;photoDraft=null;}}
     p.name=value;render({keepScroll:true});
     setFeedback("profile-feedback",tr("Profile saved.","پروفائل محفوظ ہو گیا۔"),true);
   },
@@ -3845,14 +3852,14 @@ ui.addEventListener("submit",event=>{
   }else if(form.id==="profile-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const name=String(new FormData(form).get("name")||"").trim();
-    const picker=document.getElementById("photo");
+    const selection=bridge.photoSelection();
     const button=form.querySelector('button[type="submit"],button:not([type])');
     if(button?.disabled)return;
     if(button)button.disabled=true;
     const uid=auth.currentUser?.uid;
-    Promise.resolve(picker?.files?.length?picker.photoTask:null).then(async image=>{
+    Promise.resolve(selection?.task).then(async image=>{
       if(!uid||auth.currentUser?.uid!==uid)throw Error("دوبارہ لاگ اِن کریں۔");
-      if(picker?.files?.length&&!image)throw Error("تصویر دوبارہ منتخب کریں۔");
+      if(selection && (!image || selection.uid!==uid))throw Error("تصویر دوبارہ منتخب کریں۔");
       if(image){
         if(name.length<2||name.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
         const batch=writeBatch(db);
@@ -3860,7 +3867,7 @@ ui.addEventListener("submit",event=>{
         batch.set(doc(db,"memberPhotos",uid),{image});
         await batch.commit();
       }else await profileNameSpark(name);
-      if(auth.currentUser?.uid===uid)bridge.setName(name,image);
+      if(auth.currentUser?.uid===uid)bridge.setName(name,image,selection);
     }).catch(e=>bridge.status("profile-feedback",errorText(e),false))
       .finally(()=>{if(button?.isConnected)button.disabled=false;});
   }else if(form.id==="password-form"){

@@ -39,6 +39,14 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   const unclaimedOwnerDb=env.authenticatedContext(ownerId).firestore();
   await assertSucceeds(getDoc(doc(unclaimedOwnerDb,"members",ownerId)));
   await assertSucceeds(getDoc(doc(ownerDb,"members",ownerId)));
+  const ownerImage="data:image/jpeg;base64,"+"A".repeat(120000);
+  const photoRef=doc(ownerDb,"memberPhotos",ownerId);
+  await assertSucceeds(runTransaction(ownerDb,async tx=>{
+    tx.update(doc(ownerDb,"members",ownerId),{name:"Original owner",updatedAt:serverTimestamp()});
+    tx.set(photoRef,{image:ownerImage});
+  }));
+  if((await getDoc(photoRef)).get("image")!==ownerImage)throw Error("Saved owner photo did not persist");
+  await assertFails(getDoc(doc(newDb,"memberPhotos",ownerId)));
   await assertFails(updateDoc(doc(newDb,"members",ownerId),{role:"owner"}));
   await assertSucceeds(runTransaction(newDb,async tx=>{
     const seqRef=doc(newDb,"system","membership");

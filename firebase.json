@@ -61,6 +61,24 @@
             "value": "no-cache, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "/classic-app",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/classic-app.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          }
+        ]
       }
     ]
   },
