@@ -28,6 +28,19 @@ public final class MainActivity extends Activity {
         getWindow().setNavigationBarColor(Color.BLACK);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
+        // Android 15/16 force edge-to-edge for target SDK 35. Without explicit
+        // window insets, the WebView header is drawn under the clock/status
+        // icons and the bottom tabs under system navigation gestures.
+        // Earlier Android versions already fit the content within both bars.
+        if (android.os.Build.VERSION.SDK_INT >= 35) {
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(
+                        android.view.WindowInsets.Type.systemBars()
+                        | android.view.WindowInsets.Type.displayCutout());
+                root.setPadding(0, Math.max(0, bars.top), 0, Math.max(0, bars.bottom));
+                return insets;
+            });
+        }
         setContentView(root);
         try {
             web = new WebView(this);
