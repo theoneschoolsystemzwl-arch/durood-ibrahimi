@@ -132,14 +132,32 @@ export async function loadMemberProfile(user){
     failure.loginStage="missing-member-profile";
     throw failure;
   }
+  rememberOwnerEmail(user);
   return {uid:user.uid,...member.data()};
+}
+
+const OWNER_LOGIN="sherazanjum";
+const OWNER_EMAIL_KEY="durood-owner-login-email-v1";
+
+function knownOwnerEmail(){
+  try{return sessionStorage.getItem(OWNER_EMAIL_KEY)||localStorage.getItem(OWNER_EMAIL_KEY);}catch{return null;}
+}
+function rememberOwnerEmail(user,persist){
+  if(user?.uid!==TRUSTED_OWNER_UID || !user.email)return;
+  try{
+    sessionStorage.setItem(OWNER_EMAIL_KEY,user.email);
+    if(persist===true)localStorage.setItem(OWNER_EMAIL_KEY,user.email);
+    if(persist===false)localStorage.removeItem(OWNER_EMAIL_KEY);
+  }catch{}
 }
 
 export async function login(usernameOrEmail,password,{remember=true}={}){
   const entered=String(usernameOrEmail||"").trim();
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
-  const email=entered.includes("@")?entered.toLowerCase():aliasEmail(entered);
+  const ownerLogin=entered.toLowerCase()===OWNER_LOGIN;
+  const email=ownerLogin?knownOwnerEmail():(entered.includes("@")?entered.toLowerCase():aliasEmail(entered));
+  if(ownerLogin && !email)throw Error("اس ڈیوائس پر پہلی مرتبہ اپنی مالک والی ای میل اور پاس ورڈ سے لاگ اِن کریں۔ پھر sherazanjum استعمال کر سکتے ہیں۔");
   if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     throw Error("Enter a valid Username or full Email address.");
   }
@@ -147,6 +165,11 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   try {
     await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
     credential=await signInWithEmailAndPassword(auth,email,password);
+    if(ownerLogin && credential.user.uid!==TRUSTED_OWNER_UID){
+      await firebaseSignOut(auth);
+      throw Error("مالک کی موجودہ ای میل سے دوبارہ لاگ اِن کریں۔");
+    }
+    rememberOwnerEmail(credential.user,remember);
   } catch(error) {
     error.loginStage="firebase-auth";
     throw error;

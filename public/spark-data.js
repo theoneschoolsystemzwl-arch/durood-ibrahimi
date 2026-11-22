@@ -29,6 +29,7 @@ export function aliasEmail(username){
 export async function registerSpark({name,username,password,inviteCode,gender,pledgeAccepted}){
   const clean=normalize(username),invite=normalize(inviteCode);
   const fullName=String(name||"").trim();
+  if(clean==="sherazanjum")throw Error("یہ یوزرنیم پہلے سے استعمال ہو رہا ہے۔");
   aliasEmail(clean);
   if(fullName.length<2||fullName.length>60||password.length<8||password.length>128||
      !invitePattern.test(invite)||!isGender(gender)||pledgeAccepted!==true){
