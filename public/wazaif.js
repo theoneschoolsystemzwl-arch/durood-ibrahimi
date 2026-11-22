@@ -159,9 +159,9 @@ function personalCard(task){
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(task.id)+'">حذف کریں</button>'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(stateText!=="جاری"?'disabled':'')+'>تسبیح کریں</button></div>'+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً DI-2)</label>'+
- '<div class="wz-share-row"><input id="wz-share-target" placeholder="DI-2" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
+ '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"D2":"DI-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
- '<p class="wz-help">مرد صرف مرد کو، خواتین صرف خواتین کو بھیج سکتی ہیں۔</p></div>':'')+
+ '<p class="wz-help">مردوں کی شناخت DI-1، DI-2 اور خواتین کی D1، D2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔</p></div>':'')+
  (state.panel===task.id?renderAccounting(false,task):'')+'</article>';
 }
 function inboxMarkup(){
