@@ -40,6 +40,8 @@ jobs:
           node --check public/password-change.js
           node --check public/pwa.js
           node --check public/service-worker.js
+          node --check public/wazaif.js
+          node --check public/wazaif-counter.js
       - name: Install and smoke-test Firebase Functions
         run: |
           npm install --prefix functions --no-audit --no-fund
