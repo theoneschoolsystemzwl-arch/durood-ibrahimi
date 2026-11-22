@@ -1880,7 +1880,7 @@ function restoreReaderJournal(uid,id){
     const ledger=readingFor(id);
     if(Number.isSafeInteger(saved.goal)&&saved.goal>=1&&saved.goal<=1000000)ledger.goal=saved.goal;
     for(const [day,item] of Object.entries(saved.days)){
-      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)||!item||typeof item!=='object')continue;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!item||typeof item!=='object')continue;
       const record=getReadingDay(id,day);
       for(const field of ['taps','manual','ms','intervals','estimate','unestimated']){
         const n=Number(item[field]||0);
@@ -1894,7 +1894,7 @@ function persistReaderJournal(pending={}){
   try{
     const ledger=readingFor(person.id),days={};
     for(const [day,item] of Object.entries(ledger.days)){
-      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day))continue;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(day))continue;
       days[day]={...item,taps:Math.max(0,(item.taps||0)-(pending[day]||0))};
     }
     localStorage.setItem(readerJournalKey(person.uid),JSON.stringify({schema:2,goal:ledger.goal,days}));
