@@ -266,11 +266,11 @@ service cloud.firestore {
       let s=request.resource.data;
       return self(uid) && active(uid) &&
         request.auth.token.auth_time is int &&
-        s.keys().hasOnly(['authTime','deviceId','claimedAt']) &&
-        s.keys().hasAll(['authTime','deviceId','claimedAt']) &&
+        s.keys().hasOnly(['authTime','sessionId','claimedAt']) &&
+        s.keys().hasAll(['authTime','sessionId','claimedAt']) &&
         s.authTime == request.auth.token.auth_time &&
-        s.deviceId is string &&
-        s.deviceId.size() >= 16 && s.deviceId.size() <= 128 &&
+        s.sessionId is string &&
+        s.sessionId.size() >= 16 && s.sessionId.size() <= 128 &&
         s.claimedAt == request.time;
     }
     match /activeLogins/{uid} {
