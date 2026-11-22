@@ -79,6 +79,12 @@ const expected=cp.execFileSync('git',['show','bcf9beace253b59bd92d89ab95f336ab34
 const normalize=s=>s.replace(/\r\n/g,'\n').trim();
 if(normalize(existing.content)!==normalize(expected)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
+  // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
+  fs.writeFileSync('/tmp/durood-expected.rules',expected);
+  fs.writeFileSync('/tmp/durood-actual.rules',existing.content);
+  const diff=cp.spawnSync('diff',['-u','-U1','/tmp/durood-expected.rules','/tmp/durood-actual.rules'],{encoding:'utf8'});
+  console.error('Rules source difference (first 180 lines):\\n'+(diff.stdout||'')
+    .split('\\n').slice(0,180).join('\\n'));
   process.exit(1);
 }
 console.log('Live Firebase rules match the backed-up baseline. A rules-only update is safe to attempt.');
