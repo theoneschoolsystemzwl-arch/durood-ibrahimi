@@ -61,17 +61,31 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
-  // Second sign-in has a different server-issued auth_time. It cannot read
-  // or write old session data until it claims the lease; then the old token
-  // can no longer access those documents.
+  // Another valid password sign-in must NOT replace the first active session.
+  // Once the first device explicitly logs out, the second may claim it.
   const newPhone=env.authenticatedContext(newId,{auth_time:1700000001}).firestore();
   await assertFails(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertFails(setDoc(doc(newPhone,"activeLogins",newId),{
+    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
+  }));
+  // Original device retains full access after the rejected attempt.
+  await assertSucceeds(getDoc(doc(newDb,"members",newId)));
+  await assertSucceeds(getDoc(doc(newDb,"activeLogins",newId)));
+  await assertSucceeds(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds((async()=>{
+    const r=doc(newDb,"activeLogins",newId);
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(r);
+  })());
   await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
-    authTime:1700000001,sessionId:"test-device-second-phone",claimedAt:serverTimestamp()
+    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
   }));
   await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
-  await assertSucceeds(getDoc(doc(newPhone,"members",newId)));
-  // Restore the first sign-in to complete the pre-existing recitation tests.
+  // Restore original lease for the rest of the historic tests.
+  await assertSucceeds((async()=>{
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(doc(newPhone,"activeLogins",newId));
+  })());
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
