@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const PROJECT="durood-e-ibrahimi-global-c74e0";
-const usernamePattern=/^[a-z0-9._-]{3,24}$/;
+const usernamePattern=/^[\p{L}\p{M}\p{N}._-]{1,60}$/u;
 const invitePattern=/^[a-z0-9]{6}$/;
 const prayers=["fajr","dhuhr","asr","maghrib","isha"];
 const modes=new Set(["jamat","solo","made","missed","clear"]);
@@ -17,23 +17,37 @@ function requireUser(){
   if(!auth.currentUser)throw Error("پہلے اپنے اکاؤنٹ میں لاگ اِن کریں۔");
   return auth.currentUser.uid;
 }
-export function aliasEmail(username){
-  const cleaned=normalize(username);
-  if(!usernamePattern.test(cleaned)||/^di-\d+$/i.test(cleaned)) {
-    throw Error("Username میں 3 تا 24 حروف، ہندسے، نقطہ یا ڈیش لکھیں۔ DI نمبر استعمال نہ کریں۔");
-  }
-  return cleaned+"@"+PROJECT+".firebaseapp.com";
+export function generatedUsername(name){
+  const base=Array.from(String(name||"").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu,"")).slice(0,48).join("");
+  return ["owner","sherazanjum"].includes(base)?base+"2":base;
 }
-export async function registerSpark({name,username,password,inviteCode,pledgeAccepted}){
-  const clean=normalize(username),invite=normalize(inviteCode);
-  const fullName=String(name||"").trim();
-  if(clean==="sherazanjum")throw Error("یہ یوزرنیم پہلے سے استعمال ہو رہا ہے۔");
-  aliasEmail(clean);
+export async function aliasEmail(username){
+  const id=normalize(username).normalize("NFKC");
+  if(!usernamePattern.test(id)||/^di-\d+$/i.test(id))throw Error("درست لاگ اِن آئی ڈی لکھیں۔");
+  let key=id;
+  if(!/^[a-z0-9._-]+$/.test(id)){
+    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(id));
+    key="u~"+Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,"0")).join("").slice(0,56);
+  }
+  return key+"@"+PROJECT+".firebaseapp.com";
+}
+export async function registerSpark({name,password,inviteCode,pledgeAccepted}){
+  const fullName=String(name||"").trim(),invite=normalize(inviteCode);
+  const base=generatedUsername(fullName);
+  if(!base)throw Error("اپنا نام حروف میں لکھیں۔");
   if(fullName.length<2||fullName.length>60||password.length<8||password.length>128||
      !invitePattern.test(invite)||pledgeAccepted!==true){
     throw Error("رجسٹریشن کے نام، دعوتی کوڈ، حلف یا پاس ورڈ میں غلطی ہے۔");
   }
-  const credential=await createUserWithEmailAndPassword(auth,aliasEmail(clean),password);
+  let clean=base,credential;
+  for(let attempt=1;attempt<=100;attempt++){
+    if(attempt>1)clean=base+(attempt<=10?attempt:crypto.getRandomValues(new Uint32Array(1))[0].toString(36));
+    try{
+      credential=await createUserWithEmailAndPassword(auth,await aliasEmail(clean),password);
+      break;
+    }catch(err){if(err.code!=="auth/email-already-in-use")throw err;}
+  }
+  if(!credential)throw Error("لاگ اِن آئی ڈی نہیں بن سکی۔ دوبارہ کوشش کریں۔");
   const uid=credential.user.uid;
   try{
     const profile=await runTransaction(db,async tx=>{

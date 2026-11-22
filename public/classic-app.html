@@ -1517,9 +1517,9 @@ function settings(person) {
     tr("<label class=\"field\">Date of birth<input name=\"birthDate\" type=\"date\" value=\"", '<label class="field">تاریخِ پیدائش<input name="birthDate" type="date" value="') + esc(person.birthDate) + '"></label>' +
     tr("<label class=\"field\">Age<input name=\"age\" type=\"number\" min=\"1\" max=\"120\" value=\"", '<label class="field">عمر<input name="age" type="number" min="1" max="120" value="') + esc(person.age) + '"></label>' +
     genderField(person.gender) +
-    tr("<label class=\"field\">Mobile / WhatsApp number<input name=\"phone\" type=\"tel\" maxlength=\"25\" value=\"", '<label class="field">موبائل / واٹس ایپ نمبر<input name="phone" type="tel" maxlength="25" value="') + esc(person.phone) + '"></label></div>' +
     tr("<label class=\"field\">Full address<input name=\"address\" maxlength=\"240\" dir=\"auto\" placeholder=\"City and country\" value=\"", '<label class="field">مکمل پتہ<input name="address" maxlength="240" dir="auto" placeholder="شہر اور ملک" value="') + esc(person.address) + '"></label>' +
     feedback('profile-feedback') + tr("<div><button class=\"button\">Save profile</button></div></form></section>", '<div><button class="button">پروفائل محفوظ کریں</button></div></form></section>') +
+    '<profile-contacts></profile-contacts>' +
     tr("<section class=\"panel section\"><h2>Change password</h2><form id=\"password-form\" class=\"form\">", '<section class="panel section"><h2>پاس ورڈ تبدیل کریں</h2><form id="password-form" class="form">') +
     passwordField('old',tr("Current password", 'موجودہ پاس ورڈ'),'current-password') + '<div class="form-grid">' +
     passwordField('password',tr("New password", 'نیا پاس ورڈ')) + passwordField('confirm',tr("Confirm new password", 'نئے پاس ورڈ کی تصدیق')) + '</div>' +
@@ -1537,6 +1537,7 @@ function profileCard(person) {
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
+    '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
     '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
@@ -3411,7 +3412,7 @@ app.addEventListener('submit', async event => {
     }
     case 'profile-form': {
       if (!person || !data.get('name').trim()) return setFeedback('profile-feedback',tr("Enter your name.", 'نام درج کریں۔'));
-      for (const key of ['name','age','birthDate','phone','address']) person[key] = data.get(key).trim();
+      for (const key of ['name','age','birthDate','address']) person[key] = data.get(key).trim();
       if (photoDraft) person.photo = photoDraft;
       photoDraft = null;
       saveOfflineState();
@@ -3531,6 +3532,7 @@ document.addEventListener('keydown',event => {
 </script>
 
 <script type="module">
+import "./profile-contacts.js";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
 import {readingsSpark,invitationSpark,memberActiveSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark} from "./spark-data.js";

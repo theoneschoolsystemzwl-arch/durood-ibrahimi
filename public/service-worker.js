@@ -4,7 +4,7 @@ const SHELL_CACHE="durood-global-shell-v2";
 const ALLOWED=new Set([
   "/","/index.html","/styles.css","/app.js","/community-pages.js",
   "/password-change.js","/member-auth.js","/firebase-client.js",
-  "/spark-data.js","/classic-app.html",
+  "/spark-data.js","/profile-contacts.js","/classic-app.html",
   "/manifest.webmanifest","/app-icon.svg"
 ]);
 self.addEventListener("install",()=>self.skipWaiting());
