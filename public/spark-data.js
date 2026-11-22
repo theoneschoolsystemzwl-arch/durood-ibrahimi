@@ -221,6 +221,12 @@ export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,g
       tx.set(reader,{name:profile.data().name,total:increment(amount),lastTap:serverTimestamp(),seen:serverTimestamp()},{merge:true});
     }
     tx.set(doc(sideRef,"days",day),{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
+    // Privacy-safe shared daily total (male + female). This is updated in
+    // the same atomic transaction, never by trusting a separate client count.
+    tx.set(doc(db,"wazaifGroupDays",day),{
+      day,total:increment(amount),lastEntryUid:uid,lastEntryAmount:amount,
+      updatedAt:serverTimestamp()
+    },{merge:true});
   });
   return {recorded:amount};
 }
