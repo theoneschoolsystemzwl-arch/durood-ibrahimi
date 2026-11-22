@@ -72,3 +72,23 @@
 .wz-tasbih-cta{display:block;width:100%;min-height:64px;font-family:var(--ur,serif);font-size:clamp(1.1rem,4.6vw,1.5rem);font-weight:800;line-height:1.9;text-align:center;border:2px solid #65f9a0;border-radius:16px;background:linear-gradient(110deg,#057e37,#10b953);color:#fff;box-shadow:0 5px 18px #00180d80,inset 0 1px 0 #e7ffe633}
 .wz-tasbih-cta:not(:disabled):active{filter:brightness(1.15)}
 .wz-tasbih-cta:focus-visible{outline:3px solid #faffb7;outline-offset:3px}
+
+/* Fixed-duration plan — dated tiles, number/day progress, and live reader speed. */
+.wz-fixed-plan{margin:12px 0;padding:11px;border:1px solid #288f69;border-radius:16px;background:linear-gradient(155deg,#064334,#002e25)}
+.wz-plan-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.wz-stat{min-width:0;background:#09543f;border:1px solid #307d64;border-radius:12px;padding:9px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center}
+.wz-stat small{font:700 clamp(.72rem,2.6vw,.93rem)/1.8 var(--ur,serif);color:#c2f7db}
+.wz-stat strong{font:800 clamp(.9rem,3.7vw,1.25rem)/1.5 system-ui,sans-serif;color:white;overflow-wrap:anywhere;max-width:100%}
+.wz-plan-bar-label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 2px 3px;font:700 .92rem/1.8 var(--ur,serif);color:#e7ffe9}
+.wz-plan-progress{width:100%;height:14px;display:block;accent-color:#12cc7a}
+.wz-days-progress{accent-color:#78d6b0}
+.wz-plan-foot{font:700 .83rem/1.8 var(--ur,serif);color:#bff4db;margin:8px 3px 0;text-align:center}
+.wz-fixed-days{display:grid!important;gap:5px}
+.wz-fixed-days[hidden]{display:none!important}
+.wz-date-preview .wz-plan-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+.wz-speed-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
+.wz-speed-stats>div{display:grid;text-align:center;gap:2px;background:#07513d;border:1px solid #32876a;border-radius:12px;padding:8px 4px}
+.wz-speed-stats small{font:.79rem/1.7 var(--ur,serif);color:#d1f6df}
+.wz-speed-stats strong{font:800 1.1rem/1.4 system-ui,sans-serif;color:#fff}
+.wz-dial .wz-dial-plus{font:300 clamp(2rem,8vw,3.4rem)/1 system-ui,sans-serif;color:#e9fff6}
+@media(max-width:350px){.wz-plan-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
