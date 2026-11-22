@@ -157,10 +157,10 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
     return profile;
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
-    // Do not leave an authenticated but profile-less session behind.
-    // A rejected login has never acquired the current member lease;
-    // log out locally without trying to release the first device's lock.
-    await firebaseSignOut(auth).catch(()=>{});
+    // Keep a valid credential while the profile service is unavailable.
+    if(error.loginStage!=="firestore-profile" || ["permission-denied","firestore/permission-denied","unauthenticated","firestore/unauthenticated"].includes(error.code)){
+      if(auth.currentUser?.uid===credential.user.uid)await firebaseSignOut(auth);
+    }
     throw error;
   }
 }

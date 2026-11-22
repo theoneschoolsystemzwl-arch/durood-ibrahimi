@@ -1,0 +1,86 @@
+name: Read-only production Firestore preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/firestore-safe-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to existing project via GitHub OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect member records without modifying Firestore
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          export ACCESS_TOKEN
+          node <<'NODE'
+          const PROJECT="durood-e-ibrahimi-global-c74e0";
+          const OWNER="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
+          const base="https://firestore.googleapis.com/v1/projects/"+PROJECT+"/databases/(default)/documents/";
+          const headers={Authorization:"Bearer "+process.env.ACCESS_TOKEN};
+          const field=(doc,name)=>doc?.fields?.[name];
+          const str=(doc,name)=>field(doc,name)?.stringValue||"";
+          const num=(doc,name)=>Number(field(doc,name)?.integerValue||0);
+          async function get(path){
+            const res=await fetch(base+encodeURI(path),{headers});
+            if(res.status===404)return null;
+            if(!res.ok)throw Error("Firestore HTTP "+res.status+" reading "+path+" (IAM read access may be missing)");
+            return res.json();
+          }
+          async function list(path){
+            let out=[],pageToken="";
+            do{
+              const u=new URL(base+encodeURI(path));u.searchParams.set("pageSize","300");
+              if(pageToken)u.searchParams.set("pageToken",pageToken);
+              const r=await fetch(u,{headers});
+              if(!r.ok)throw Error("Firestore HTTP "+r.status+" listing "+path+" (IAM read access may be missing)");
+              const data=await r.json();out.push(...(data.documents||[]));
+              pageToken=data.nextPageToken||"";
+              if(out.length>20000)throw Error("Too many documents to audit safely");
+            }while(pageToken);
+            return out;
+          }
+          (async()=>{
+            const [members,memberCounts,invites,sequence,stats,sideMale,sideFemale]=await Promise.all([
+              list("members"),list("memberCounts"),list("invitations"),
+              get("system/membership"),get("publicStats/global"),
+              get("genderStats/male"),get("genderStats/female")
+            ]);
+            const uidOf=doc=>decodeURIComponent(doc.name.split("/").at(-1));
+            const owner=members.find(x=>uidOf(x)===OWNER);
+            const others=members.filter(x=>uidOf(x)!==OWNER);
+            const historicalGlobal=num(stats,"totalRecitations");
+            const recordedPersonal=memberCounts.reduce((a,x)=>a+num(x,"total"),0);
+            const result={
+              expectedProject:PROJECT,
+              ownerPresent:!!owner,
+              ownerRoleCorrect:str(owner,"role")==="owner",
+              ownerUidCorrect:str(sequence,"ownerUid")===OWNER,
+              membershipLastNumber:num(sequence,"lastNumber"),
+              otherMemberCount:others.length,
+              existingPersonalCountDocuments:memberCounts.length,
+              sumPersonalRecitations:recordedPersonal,
+              historicalGlobalRecitations:historicalGlobal,
+              pendingInvitationCount:invites.filter(x=>x.fields?.used?.booleanValue!==true).length,
+              genderTotalsExisting:!!sideMale||!!sideFemale,
+              safeForFreshSideBootstrap:!!owner&&str(owner,"role")==="owner"&&str(sequence,"ownerUid")===OWNER&&
+                others.length===0&&recordedPersonal===0&&historicalGlobal===0
+            };
+            console.log("READ-ONLY FIRESTORE AUDIT (NO MEMBER NAMES OR EMAILS):\n"+JSON.stringify(result,null,2));
+            if(!result.safeForFreshSideBootstrap)process.exitCode=2;
+          })().catch(err=>{console.error("READ-ONLY AUDIT FAILED:",err.message);process.exitCode=1;});
+          NODE

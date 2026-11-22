@@ -36,5 +36,5 @@ jobs:
           node-version: '22'
       - name: Deploy website only, preserving the Firestore rules published in Firebase Console
         run: |
-          npm install -g firebase-tools@15
+          npm install -g firebase-tools@15.22.1
           firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting --non-interactive

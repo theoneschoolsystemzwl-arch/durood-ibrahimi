@@ -84,3 +84,5 @@ body.classic-active .classic-frame{
   opacity:1;visibility:visible;pointer-events:auto
 }
 body.classic-active #portal>:not(.classic-frame){display:none!important}
+
+body.classic-pending #portal>:not(.classic-frame){display:none!important}

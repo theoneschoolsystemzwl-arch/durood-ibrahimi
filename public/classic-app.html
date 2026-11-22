@@ -1474,8 +1474,13 @@ function directory() {
     ).join('') + '</div>';
 }
 
+function memberLevel(person) {
+  if(person.id === 1 || person.isFoundingSpouse) return 1;
+  return directMembers(person.id).length > 0 ? 1 : 0;
+}
+
 function profileDetails(person) {
-  const values = [[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),groupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
+  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),groupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
     [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Mobile / WhatsApp", 'موبائل / واٹس ایپ'),person.phone],[tr("Address", 'پتہ'),person.address],
     [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),person.inviter ? memberName(getUser(person.inviter)) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
   return heading(tr("Member Profile", 'رکن کی پروفائل')) + '<section class="panel"><div class="panel-head"><div class="identity">' +
@@ -1583,6 +1588,7 @@ function profileCard(person) {
       (femaleSide ? tr('Go to Male Side','مرد سائیڈ پر جائیں') :
         tr('Go to Female Side','خواتین سائیڈ پر جائیں')) + '</button>' : '') +
     '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
+    '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' ' + memberLevel(person) +
     '</span></div></section></header>';
 }
 
@@ -3490,6 +3496,7 @@ window.duroodClassicBridge = {
       const memberId=Number(x.memberNumber);
       users.push({
         id:memberId,uid:x.uid,name:x.name||"Member",username:x.username||"",
+        isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":

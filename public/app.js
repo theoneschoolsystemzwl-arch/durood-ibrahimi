@@ -14,6 +14,7 @@ initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
 let classicFrameRequested=false;
+let dashboardTimer;
 
 // This local courtesy pause reduces accidental repeat attempts.
 // It does not override Firebase's server-side rate limiting.
@@ -176,7 +177,8 @@ $("#forgot-password").addEventListener("click",async()=>{
 $("#access-form").addEventListener("submit",async event=>{
   event.preventDefault();
   if(appState.busy)return;
-  const form=new FormData(event.currentTarget);
+  const accessForm=event.currentTarget;
+  const form=new FormData(accessForm);
   updateBusy(true);
   message("#auth-message","");
   try{
@@ -188,8 +190,6 @@ $("#access-form").addEventListener("submit",async event=>{
         const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{remember:$("#remember-login").checked});
         clearLoginRetry();
         showSignedIn(profile);
-        refreshCounts().catch(err=>message("#reading-message",errorText(err)));
-        if(profile.role==="owner")refreshMembers().catch(err=>message("#admin-message",errorText(err)));
       } finally {
         appState.signingIn=false;
       }
@@ -215,15 +215,16 @@ $("#access-form").addEventListener("submit",async event=>{
       const profile=await loadProfile(auth.currentUser);
       await claimDeviceSession(auth.currentUser,profile);
       showSignedIn(profile);
-      refreshCounts().catch(err=>message("#reading-message",errorText(err)));
     }
-    event.currentTarget.reset();
+    accessForm.reset();
     message("#auth-message","اکاؤنٹ کامیابی سے کھل گیا۔",true);
   }catch(err){
-    if(appState.tab==="login"){
-      rememberLoginFailure(err);
+    if(appState.tab==="login")rememberLoginFailure(err);
+    if(err.loginStage==="firestore-profile" && auth.currentUser){
+      showProfileRetry(err);
+    }else{
+      message("#auth-message",errorText(err));
     }
-    message("#auth-message",errorText(err));
   }finally{updateBusy(false);}
 });
 
@@ -231,7 +232,17 @@ async function loadProfile(user){
   // Works after a page refresh too, not only during the first login attempt.
   return loadMemberProfile(user);
 }
+function showProfileRetry(err){
+  view("#access",false);
+  view("#portal",false);
+  view("#loading",true);
+  $("#loading-copy").textContent=errorText(err);
+  $("#loading-retry").hidden=false;
+}
 function showSignedOut() {
+  clearTimeout(dashboardTimer);
+  document.body.classList.remove("classic-pending");
+  $("#loading-retry").hidden=true;
   appState.profile=null;
   classicFrameRequested=false;
   document.body.classList.remove("classic-active");
@@ -255,18 +266,21 @@ function showSignedIn(profile){
   $("#profile-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
-  activateMemberHome(profile);
-  // Keep the working Firebase UI visible until the original dashboard
-  // is actually deployed. A hosting fallback must never show a nested login.
-  showOriginalDashboardIfReady().catch(()=>{});
+  showOriginalDashboardIfReady();
 }
-async function showOriginalDashboardIfReady(){
+function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
   if(!frame||!appState.profile||!auth.currentUser||classicFrameRequested)return;
   // Load the original UI just once. Do not download its 580 KB HTML twice.
   // Its Firebase data is loaded in the frame and must not be simulated here.
   classicFrameRequested=true;
-  // Pre-size the invisible iframe to the mobile viewport before it loads.
+  document.body.classList.add("classic-pending");
+  view("#loading",true);
+  $("#loading-copy").textContent="ڈیش بورڈ کھل رہا ہے…";
+  $("#loading-retry").hidden=true;
+  dashboardTimer=setTimeout(()=>{$("#loading-retry").hidden=false;},15000);
+  // Give the iframe its full viewport layout before hydration, but keep it
+  // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
   frame.src="./classic-app.html";
 }
@@ -278,11 +292,20 @@ window.addEventListener("message",event=>{
   if(event.data?.type==="durood-classic-ready" &&
      appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
     frame.hidden=false;
+    clearTimeout(dashboardTimer);
+    view("#loading",false);
+    document.body.classList.remove("classic-pending");
     document.body.classList.add("classic-active");
   }else if(event.data?.type==="durood-classic-error"){
     frame.hidden=true;
-    document.body.classList.remove("classic-active");
-    // The working Firebase portal remains usable if classic data cannot load.
+    clearTimeout(dashboardTimer);
+    view("#loading",false);
+    document.body.classList.remove("classic-active","classic-pending");
+    if(appState.profile && auth.currentUser?.uid===appState.profile.uid){
+      activateMemberHome(appState.profile);
+      refreshCounts().catch(err=>message("#reading-message",errorText(err)));
+      if(appState.profile.role==="owner")refreshMembers().catch(err=>message("#admin-message",errorText(err)));
+    }
   }
 });
 async function refreshCounts(){
@@ -344,19 +367,15 @@ onAuthStateChanged(auth,async user=>{
     profile=await loadProfile(user);
     await claimDeviceSession(user,profile);
   } catch(err) {
-    // A failed network or Firestore read must never sign out a member.
-    // Keep the persisted Firebase Auth session and allow a manual retry.
+    if(auth.currentUser?.uid!==user.uid)return;
     $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
     $("#loading-retry").hidden=false;
     console.warn("Session restoration delayed:",err?.code||err?.message);
     return;
   }
+  if(auth.currentUser?.uid!==user.uid)return;
   // A temporary analytics or directory failure must not log out a valid member.
   showSignedIn(profile);
-  refreshCounts().catch(err=>message("#reading-message",errorText(err)));
-  if(profile.role==="owner") {
-    refreshMembers().catch(err=>message("#admin-message",errorText(err)));
-  }
 });
 $("#signout").addEventListener("click",async()=>{
   try{await signOut(auth);}catch(err){message("#reading-message",errorText(err));}
