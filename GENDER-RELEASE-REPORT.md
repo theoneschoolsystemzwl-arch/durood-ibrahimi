@@ -28,6 +28,7 @@ Date: 22 November 2026
 6. Both sides use the SAME original classic UI. Owner can switch views via the profile card and administer accounts on either side.
 7. Group messages live in `groupChats/male/messages` and `groupChats/female/messages` with server-side cross-gender permission checks and sender attribution.
 8. Owner can suspend, restore, and reversibly soft-delete members (no irreversible Auth deletion, no DI number recycling).
+   Owner may explicitly clear a lost-phone login lock; a second device cannot reset the first device's lease.
 9. Owner can explicitly classify old gender-less profiles once; the app must not guess the gender of existing users.
 10. Member first-device-wins session: later login attempts are refused; the original session cannot be replaced by the other phone. Explicit logout releases its lease. Owner has multiple device access.
 11. New per-side aggregates: `genderMembers/{male|female}` and `genderStats/{male|female}`, with atomic transactions.
@@ -62,7 +63,9 @@ Date: 22 November 2026
 3. Audit legacy members; obtain explicit gender assignments; run the safe migration only after approval and backup verification.
 4. Deploy the composite Firestore index and wait for it to become ready.
 5. Coordinate an outage-minimizing rules/client cutover and test actual male/female account creation, referral totals, chat and owner switching.
-6. Test two real phones: original stays logged in; second is rejected; original manually logs out; second logs in; owner works on both. Check app relaunch and navbar stability.
+6. Test two real phones: original stays logged in; second is rejected; original manually logs out; second logs in; owner works on both. Check app relaunch and navbar stability. Include a lost-phone recovery test initiated only by the Owner.
 7. Record the deployment commit and retain an audited rollback.
+
+**Note:** 22 November 2026: No authenticated Firebase Admin access has been provided to this chat. The latest GitHub Firebase Hosting run failed at `google-github-actions/auth` with `invalid_target` for the Google Workload Identity provider. The successful emulator tests do not authorize production deployment.
 
 **Do not merge draft PR #3 or ask the user to register the wife until these conditions are met.**
