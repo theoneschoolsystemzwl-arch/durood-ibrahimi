@@ -12,6 +12,8 @@ const invitePattern=/^[a-z0-9]{6}$/;
 const prayers=["fajr","dhuhr","asr","maghrib","isha"];
 const modes=new Set(["jamat","solo","made","missed","clear"]);
 const normalize=value=>String(value||"").trim().toLowerCase();
+const memberGender=profile=>profile?.gender==="female"?"female":"male";
+const isGender=gender=>gender==="male"||gender==="female";
 const memberRef=uid=>doc(db,"members",uid);
 function requireUser(){
   if(!auth.currentUser)throw Error("پہلے اپنے اکاؤنٹ میں لاگ اِن کریں۔");
@@ -24,12 +26,12 @@ export function aliasEmail(username){
   }
   return cleaned+"@"+PROJECT+".firebaseapp.com";
 }
-export async function registerSpark({name,username,password,inviteCode,pledgeAccepted}){
+export async function registerSpark({name,username,password,inviteCode,gender,pledgeAccepted}){
   const clean=normalize(username),invite=normalize(inviteCode);
   const fullName=String(name||"").trim();
   aliasEmail(clean);
   if(fullName.length<2||fullName.length>60||password.length<8||password.length>128||
-     !invitePattern.test(invite)||pledgeAccepted!==true){
+     !invitePattern.test(invite)||!isGender(gender)||pledgeAccepted!==true){
     throw Error("رجسٹریشن کے نام، دعوتی کوڈ، حلف یا پاس ورڈ میں غلطی ہے۔");
   }
   const credential=await createUserWithEmailAndPassword(auth,aliasEmail(clean),password);
@@ -52,6 +54,14 @@ export async function registerSpark({name,username,password,inviteCode,pledgeAcc
       }
       const inviterUid=inv.data().byUid;
       if(typeof inviterUid!=="string"||!inviterUid)throw Error("دعوتی کوڈ کا مالک درست نہیں۔");
+      // New registrants cannot read another member's private profile.
+      // Firestore Rules validate the inviter's identity, active status and
+      // gender atomically; the client only checks the code's declared scope.
+      const ownerInvite=inviterUid===seq.data().ownerUid;
+      const invitedGender=inv.data().gender||(ownerInvite?"any":"male");
+      if(invitedGender!==gender && !(ownerInvite&&invitedGender==="any")){
+        throw Error("یہ دعوتی کوڈ منتخب Gender کے لیے نہیں ہے۔");
+      }
       const n=seq.data().lastNumber+1;
       if(!Number.isSafeInteger(n))throw Error("ممبر نمبر کی حد مکمل ہو گئی ہے۔");
       const serial="DI-"+n;
@@ -59,11 +69,11 @@ export async function registerSpark({name,username,password,inviteCode,pledgeAcc
       tx.update(invitation,{used:true,usedByUid:uid,usedAt:serverTimestamp()});
       tx.set(usernameDoc,{uid,createdAt:serverTimestamp()});
       tx.set(currentUser,{
-        uid,username:clean,name:fullName,role:"member",memberNumber:n,serial,
+        uid,username:clean,name:fullName,role:"member",gender,memberNumber:n,serial,
         inviterUid,inviteCode:invite,disabled:false,
         pledgeAcceptedAt:serverTimestamp(),createdAt:serverTimestamp()
       });
-      return {uid,serial,memberNumber:n,username:clean,name:fullName};
+      return {uid,serial,memberNumber:n,username:clean,name:fullName,gender};
     });
     return profile;
   }catch(error){
@@ -74,13 +84,16 @@ export async function registerSpark({name,username,password,inviteCode,pledgeAcc
 }
 export async function invitationSpark(){
   const uid=requireUser(),chars="abcdefghijklmnopqrstuvwxyz0123456789";
+  const profile=await getDoc(memberRef(uid));
+  if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں ہے۔");
+  const gender=profile.data().role==="owner"?"any":memberGender(profile.data());
   const buf=new Uint8Array(6);
   for(let attempt=0;attempt<8;attempt++){
     crypto.getRandomValues(buf);
     const code=Array.from(buf,v=>chars[v%chars.length]).join("");
     try{
       await setDoc(doc(db,"invitations",code),{
-        byUid:uid,createdAt:serverTimestamp(),used:false,revoked:false
+        byUid:uid,gender,createdAt:serverTimestamp(),used:false,revoked:false
       });
       return code;
     }catch(err){
@@ -110,8 +123,11 @@ export async function readingsSpark(amount){
     const [p,g]=await Promise.all([tx.get(personal),tx.get(global)]);
     const ownTotal=p.exists()?p.data().total||0:0;
     const globalTotal=g.exists()?g.data().totalRecitations||0:0;
+    const profile=await tx.get(memberRef(uid));
+    if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں ہے۔");
+    const gender=memberGender(profile.data());
     if(!Number.isSafeInteger(ownTotal)||!Number.isSafeInteger(globalTotal))throw Error("شمار کا ڈیٹا درست نہیں۔");
-    tx.set(personal,{memberUid:uid,total:ownTotal+amount,lastEntryAmount:amount,updatedAt:serverTimestamp()});
+    tx.set(personal,{memberUid:uid,gender,total:ownTotal+amount,lastEntryAmount:amount,updatedAt:serverTimestamp()});
     tx.set(global,{totalRecitations:globalTotal+amount,lastEntryAmount:amount,lastEntryUid:uid,updatedAt:serverTimestamp()});
   });
   return {recorded:amount};
@@ -133,12 +149,17 @@ export async function prayerMonthSpark(month){
   return {days:result.docs.map(d=>d.data())};
 }
 export async function rankingSpark(){
-  requireUser();
-  const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-  const profiles=await Promise.all(ranked.docs.map(d=>getDoc(memberRef(d.id))));
-  return {leaders:ranked.docs.flatMap((item,i)=>{
+  const uid=requireUser();
+  const member=await getDoc(memberRef(uid));
+  if(!member.exists()||member.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں۔");
+  const gender=memberGender(member.data());
+  // Never list other gender's count documents. No composite index required.
+  const ranked=await getDocs(query(collection(db,"memberCounts"),where("gender","==",gender),limit(200)));
+  const top=[...ranked.docs].sort((a,b)=>Number(b.data().total||0)-Number(a.data().total||0)).slice(0,10);
+  const profiles=await Promise.all(top.map(d=>getDoc(memberRef(d.id))));
+  return {leaders:top.flatMap((item,i)=>{
     const profile=profiles[i];
-    if(!profile.exists()||profile.data().disabled===true)return [];
+    if(!profile.exists()||profile.data().disabled===true||memberGender(profile.data())!==gender)return [];
     return [{name:profile.data().name||"Member",serial:profile.data().serial,total:item.data().total||0}];
   })};
 }

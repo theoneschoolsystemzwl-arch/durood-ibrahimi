@@ -1,7 +1,8 @@
 import {auth,db} from "./firebase-client.js";
 import "./password-change.js";
 import {
-  login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile, signOut, onAuthStateChanged
+  login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
+  claimDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import {readingsSpark} from "./spark-data.js";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -65,26 +66,22 @@ function message(selector,text,ok=false) {
 }
 function errorText(err) {
   const code=err?.code||"";
-  if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
+  if(code==="member/already-online")return "User already logged in۔ پہلے والی ڈیوائس سے Log out کریں۔";
+  if(err?.loginStage==="missing-member-profile")return "یوزر موجود نہیں یا اکاؤنٹ غیر فعال ہے۔";
   if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
-    if(code==="permission-denied"||code==="firestore/permission-denied")
-      return "Firebase Login درست ہے، مگر Firestore نے Owner پروفائل پڑھنے کی اجازت نہیں دی (permission-denied)۔ Firestore کی Published Security Rules چیک کریں۔";
-    if(code==="not-found"||code==="firestore/not-found")
-      return "Firebase Login درست ہے، مگر Firestore ڈیٹابیس نہیں ملا (not-found)۔ Firebase Console میں Firestore Database کی موجودگی چیک کریں۔";
-    if(code==="failed-precondition"||code==="firestore/failed-precondition")
-      return "Firebase Login درست ہے، مگر Firestore سیٹ اپ مکمل نہیں (failed-precondition)۔ Firestore Database اور Rules چیک کریں۔";
-    if(code==="unavailable"||code==="firestore/unavailable")
-      return "Firebase Login درست ہے، مگر Firestore عارضی طور پر دستیاب نہیں (unavailable)۔ انٹرنیٹ یا سروس چیک کریں۔";
-    return "Firebase Login درست ہے، مگر Firestore پروفائل پڑھنے میں مسئلہ ہے ("+String(code||"unknown")+ ")۔ Firebase Console میں Owner ممبر ریکارڈ اور Published Rules چیک کریں۔";
+    if(code==="permission-denied"||code==="firestore/permission-denied")return "اکاؤنٹ تک رسائی نہیں۔";
+    if(code==="not-found"||code==="firestore/not-found")return "یوزر کا ریکارڈ موجود نہیں۔";
+    if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ سے رابطہ نہیں ہو رہا۔";
+    return "لاگ اِن مکمل نہیں ہوا۔ دوبارہ کوشش کریں۔";
   }
   if(code==="auth/invalid-credential"||code==="auth/wrong-password"||code==="auth/user-not-found")
-    return "Firebase Authentication نے Email یا Password قبول نہیں کیا۔ Firebase Users میں مکمل Email دیکھیں؛ Reset Password والی Email میں لنک کھول کر نیا پاس ورڈ محفوظ کریں۔";
+    return "آئی ڈی یا پاس ورڈ غلط ہے، یا یوزر موجود نہیں۔";
   if(code==="auth/user-disabled")return "یہ Firebase Authentication اکاؤنٹ غیر فعال ہے۔";
-  if(code==="auth/operation-not-allowed")return "Firebase میں Email/Password Sign-in طریقہ فعال نہیں۔";
+  if(code==="auth/operation-not-allowed")return "اس وقت لاگ اِن دستیاب نہیں۔";
   if(code==="auth/network-request-failed")return "Firebase سے رابطہ نہیں ہو رہا، انٹرنیٹ کنکشن چیک کریں۔";
-  if(code==="auth/unauthorized-domain")return "اس ویب سائٹ کا ڈومین Firebase Authentication میں مجاز نہیں۔";
-  if(code==="auth/too-many-requests")return "Firebase نے بار بار کوششوں کی وجہ سے Login عارضی طور پر روک دیا ہے۔ دوبارہ بار بار Login نہ دبائیں؛ کچھ وقفے کے بعد درست Email اور Password سے ایک بار کوشش کریں۔";
+  if(code==="auth/unauthorized-domain")return "اس ویب سائٹ سے لاگ اِن ممکن نہیں۔";
+  if(code==="auth/too-many-requests")return "زیادہ کوششیں ہو گئیں۔ کچھ دیر بعد لاگ اِن کریں۔";
   if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ یا Firebase Firestore دستیاب نہیں۔";
   if(code==="permission-denied"||code==="firestore/permission-denied")return "Firebase Security Rules یا ممبر کی اجازت چیک کریں۔";
   if(code==="not-found"||code==="firestore/not-found")return "Firestore کا ریکارڈ یا ڈیٹابیس نہیں ملا۔";
@@ -112,12 +109,17 @@ function switchTab(which) {
 }
 // Design-only gender wording in the New User oath.
 const genderOathText={
-  male:"میں حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
-  female:"میں حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
+  male:"میں مرد ہوں اور حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
+  female:"میں عورت ہوں اور حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
 };
 function updateGenderOath(){
  const chosen=document.querySelector('#register-fields input[name="gender"]:checked')?.value||"male";
  $("#gender-oath-text").textContent=genderOathText[chosen];
+ $("#gender-oath-check-label").textContent=chosen==="female"
+   ?"میں عورت ہوں اور اس حلف کی تصدیق کرتی ہوں"
+   :"میں مرد ہوں اور اس حلف کی تصدیق کرتا ہوں";
+ const checked=document.querySelector('#register-fields input[name="genderOath"]');
+ if(checked)checked.checked=false;
 }
 document.querySelectorAll('#register-fields input[name="gender"]').forEach(el=>el.addEventListener("change",updateGenderOath));
 $("#access-form").addEventListener("reset",()=>queueMicrotask(updateGenderOath));
@@ -134,6 +136,7 @@ identityInput.addEventListener("input",()=>{
   identityPreview.hidden=!fullId;
 });
 const loginPassword=$("#login-password");
+
 const passwordEye=$("#toggle-login-password");
 passwordEye.addEventListener("click",()=>{
   const show=loginPassword.type==="password";
@@ -182,7 +185,7 @@ $("#access-form").addEventListener("submit",async event=>{
       appState.signingIn=true;
       try {
         checkLoginRetry();
-        const profile=await login(form.get("loginUsername"),form.get("loginPassword"));
+        const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{remember:$("#remember-login").checked});
         clearLoginRetry();
         showSignedIn(profile);
         refreshCounts().catch(err=>message("#reading-message",errorText(err)));
@@ -193,12 +196,13 @@ $("#access-form").addEventListener("submit",async event=>{
     }else{
       const password=String(form.get("password")||"");
       if(password!==String(form.get("confirm")||""))throw Error("دونوں پاس ورڈ ایک جیسے نہیں ہیں۔");
-      if(!["male","female"].includes(form.get("gender"))||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے دونوں خانے قبول کریں۔");
+      if(!["male","female"].includes(form.get("gender"))||!form.has("genderOath")||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے تمام خانے قبول کریں۔");
       appState.registering=true;
       try {
         await register({
           name:form.get("name"),
           username:form.get("username"),
+          gender:form.get("gender"),
           password,
           inviteCode:form.get("invite"),
           pledgeAccepted:true
@@ -209,13 +213,16 @@ $("#access-form").addEventListener("submit",async event=>{
       // Firebase Auth signs in immediately on account creation. Suppress the
       // auth-state listener until the same transaction creates the member record.
       const profile=await loadProfile(auth.currentUser);
+      await claimDeviceSession(auth.currentUser,profile);
       showSignedIn(profile);
       refreshCounts().catch(err=>message("#reading-message",errorText(err)));
     }
     event.currentTarget.reset();
     message("#auth-message","اکاؤنٹ کامیابی سے کھل گیا۔",true);
   }catch(err){
-    if(appState.tab==="login")rememberLoginFailure(err);
+    if(appState.tab==="login"){
+      rememberLoginFailure(err);
+    }
     message("#auth-message",errorText(err));
   }finally{updateBusy(false);}
 });
@@ -332,10 +339,13 @@ onAuthStateChanged(auth,async user=>{
   let profile;
   try {
     profile=await loadProfile(user);
+    await claimDeviceSession(user,profile);
   } catch(err) {
-    message("#auth-message",errorText(err));
-    await signOut(auth).catch(()=>{});
-    showSignedOut();
+    // A failed network or Firestore read must never sign out a member.
+    // Keep the persisted Firebase Auth session and allow a manual retry.
+    $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
+    $("#loading-retry").hidden=false;
+    console.warn("Session restoration delayed:",err?.code||err?.message);
     return;
   }
   // A temporary analytics or directory failure must not log out a valid member.

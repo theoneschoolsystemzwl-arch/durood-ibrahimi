@@ -30,7 +30,7 @@ present(auth,'loginStage="missing-member-profile"');
 present(client,'signingIn:false');
 present(client,'appState.signingIn=true');
 present(client,'if(user && (appState.registering || appState.signingIn))return');
-present(client,'Firebase Authentication نے Email یا Password قبول نہیں کیا');
+present(client,'آئی ڈی یا پاس ورڈ غلط ہے');
 present(html,'id="forgot-password"');
 present(client,'sendPasswordResetEmail(auth,entered.toLowerCase())');
 present(client,'#forgot-password');
@@ -38,6 +38,19 @@ present(client,'#forgot-password');
 
 
 present(auth,"registerSpark");
+present(auth,"claimDeviceSession");
+present(auth,"browserLocalPersistence");
+present(auth,"browserSessionPersistence");
+present(html,'id="remember-login"');
+present(auth,"member/already-online");
+present(client,'$("#remember-login").checked');
+assert.ok(!client.includes("takeoverPending"),"Takeover must not be allowed");
+present(rules,"allow update: if false");
+present(client,"gender:form.get");
+present(html,'name="genderOath"');
+present(rules,"invitationMatches");
+present(rules,"match /activeLogins/{uid}");
+present(rules,"activeLogin()");
 present(auth,"invitationSpark");
 const spark=fs.readFileSync("public/spark-data.js","utf8");
 for(const api of ["registerSpark","invitationSpark","memberActiveSpark","profileNameSpark","readingsSpark","prayerSaveSpark","prayerMonthSpark","rankingSpark","referralsSpark","communitySpark"])present(spark,api);
@@ -53,7 +66,7 @@ for(const entry of ["savePrayerDay","getPrayerMonth","getLeaderboard","getMyRefe
 }
 present(client, "initializeCommunityPages");
 present(client, "activateMemberHome");
-present(rules,"request.auth.token.owner == true");
+present(rules,"request.auth.token.get('owner', false) == true");
 present(rules,"getAfter(");
 present(rules,"allowedMemberCreate");
 present(rules,"allow read, write: if false;");

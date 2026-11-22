@@ -3528,8 +3528,8 @@ async function hydrate(){
   }
   // Rankings include real members, never fabricated demonstration accounts.
   try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const x of ranked.docs){
+    const ranked=await getDocs(query(collection(db,"memberCounts"),where("gender","==",profile.gender==="female"?"female":"male"),limit(200)));
+    for(const x of ranked.docs.sort((a,b)=>Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10)){
       if(!docs.has(x.id)){
         const member=await getDoc(doc(db,"members",x.id));
         if(member.exists())docs.set(x.id,member.data());
@@ -3540,15 +3540,15 @@ async function hydrate(){
     getDoc(doc(db,"publicStats","global")),
     getDoc(doc(db,"memberCounts",profile.uid))
   ]);
-  const rows=[...docs.values()].map(d=>({
+  const rows=[...docs.values()].filter(d=> (d.gender==="female"?"female":"male") === (profile.gender==="female"?"female":"male")).map(d=>({
     uid:d.uid,name:d.name,username:d.username,memberNumber:d.memberNumber,
     disabled:d.disabled===true,inviterUid:d.inviterUid||null,
     joined:d.createdAt?.toDate?.()||new Date()
   }));
   const memberCounts={[profile.uid]:count.exists()?Number(count.get("total")||0):0};
   try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const d of ranked.docs)memberCounts[d.id]=Number(d.get("total")||0);
+    const ranked=await getDocs(query(collection(db,"memberCounts"),where("gender","==",profile.gender==="female"?"female":"male"),limit(200)));
+    for(const d of ranked.docs.sort((a,b)=>Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10))memberCounts[d.id]=Number(d.get("total")||0);
   }catch{}
   bridge.enter(profile,rows,{global:global.exists()?global.get("totalRecitations")||0:0,memberCounts});
   currentProfile=profile;

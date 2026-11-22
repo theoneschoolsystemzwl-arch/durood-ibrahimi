@@ -9,6 +9,14 @@ on:
       - 'public/member-auth.js'
       - 'tests/firestore-rules.cjs'
       - '.github/workflows/spark-rules.yml'
+  pull_request:
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'public/spark-data.js'
+      - 'public/member-auth.js'
+      - 'tests/firestore-rules.cjs'
+      - '.github/workflows/spark-rules.yml'
   workflow_dispatch:
 permissions:
   contents: read
