@@ -108,10 +108,14 @@ const beforeFemaleSerial=cp.execFileSync('git',['show','76bfc2c07f21b7708e5d38f8
  // Compare live rules against the immutable pre-redesign commit before allowing
  // any new Wazifa ledger rule change; never accept arbitrary Console edits.
 const beforeHeroRedesign=cp.execFileSync('git',['show','1d7041c709a3df502647f5c04c62750a0b3fea80:firestore.rules'],{encoding:'utf8'});
+ // The verified live, audited Wazifa daily-ledger rules immediately before
+ // the optional fixed-to-daily upgrade. Match the complete source exactly.
+const beforeFixedDaily=cp.execFileSync('git',['show','46bc214724a4946e00e0de124feadf8371e639be:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
    normalize(existing.content)!==normalize(beforeFemaleSerial) &&
-   normalize(existing.content)!==normalize(beforeHeroRedesign)){
+   normalize(existing.content)!==normalize(beforeHeroRedesign) &&
+   normalize(existing.content)!==normalize(beforeFixedDaily)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);

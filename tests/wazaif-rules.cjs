@@ -273,6 +273,47 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   }));
   if((await getDoc(nextW)).data().wNumber!==2)
     throw Error("W-1 was reused after deleting a saved Wazifa");
+  // An expired fixed plan remains locked until its member explicitly
+  // opts into a new daily goal. Original fixed dates, counts and W-number
+  // remain immutable across the opt-in and future days.
+  await assertSucceeds(updateDoc(privateRef,{
+    kind:"fixed",goal:41,startDate:day,endDate:day,durationDays:1,
+    updatedAt:serverTimestamp()
+  }));
+  const beforeContinue=(await getDoc(privateRef)).data();
+  await assertFails(updateDoc(privateRef,{
+    continueStartDate:"2026-11-24",continueDailyGoal:9,
+    continueBaseTotal:beforeContinue.total+1,updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(privateRef,{
+    continueStartDate:day,continueDailyGoal:9,
+    continueBaseTotal:beforeContinue.total,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(privateRef,{
+    continueStartDate:"2026-11-24",continueDailyGoal:9,
+    continueBaseTotal:beforeContinue.total,updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(privateRef,{endDate:"2026-12-31",updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(privateRef,{goal:90,updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(privateRef,{continueBaseTotal:0,updatedAt:serverTimestamp()}));
+  await assertSucceeds(updateDoc(privateRef,{continueDailyGoal:12,updatedAt:serverTimestamp()}));
+  await assertSucceeds(runTransaction(member,async tx=>{
+    const snap=await tx.get(privateRef),d=snap.data();
+    tx.update(privateRef,{total:d.total+2,day:"2026-11-24",today:2,
+      dailyLedger:{...d.dailyLedger,["2026-11-24"]:{count:2,durationMs:1700,intervals:1}},
+      updatedAt:serverTimestamp()});
+  }));
+  const afterContinue=(await getDoc(privateRef)).data();
+  if(afterContinue.continueBaseTotal!==beforeContinue.total||
+     afterContinue.total!==beforeContinue.total+2||
+     afterContinue.continueDailyGoal!==12||afterContinue.kind!=="fixed"||
+     afterContinue.endDate!==day||afterContinue.wNumber!==beforeContinue.wNumber){
+    throw Error("Fixed-to-daily continuation changed original 41-day accounting.");
+  }
+  await assertFails(updateDoc(privateRef,{
+    continueDailyGoal:0,updatedAt:serverTimestamp()
+  }));
+  console.log("Fixed-to-daily continuation tests passed: opt-in, next-day counting, immutable history, safe daily goal.");
   console.log("W serial and share tests passed: per-UID W-1, migration, same-gender DI lookup, inbox accept/reject, never-reused serials.");
   console.log("Qaza security tests passed: per-UID date retention, Owner isolation, valid goals and paid records.");
   console.log("Wazaif security tests passed: owner-only group settings, personal privacy, group accounting and inactive blocking.");

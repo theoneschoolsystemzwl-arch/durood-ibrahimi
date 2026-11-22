@@ -225,3 +225,32 @@
  .wz-history-row{grid-template-columns:1fr 1fr;gap:6px}
  .wz-history-date,.wz-history-count,.wz-history-time{border:0}
 }
+
+/* Post-fixed-period opt-in: preserve the original fixed ledger and continue
+   in the same Wazifa with a fresh daily goal, without freezing its card. */
+.wz-continuation-offer,.wz-continuation-active{margin:13px 0;padding:13px 12px;border:1px solid #d1b86e;border-radius:16px;
+ background:linear-gradient(140deg,#0b5440,#003b2e);color:#f5fff8;box-shadow:inset 0 0 17px #31dfa91c}
+.wz-continuation-active{border-color:#35d4a3;background:linear-gradient(130deg,#08664b,#00392e)}
+.wz-continuation-offer h4,.wz-continuation-active h4{font:800 clamp(1.04rem,4vw,1.4rem)/2 var(--ur,serif);
+ text-align:center;color:#fff3bf;margin:0 0 6px}
+.wz-continuation-active h4{color:#b7ffdc}
+.wz-continuation-offer p,.wz-continuation-active p{font:600 .85rem/2 var(--ur,serif);text-align:center;margin:7px 0;color:#d6f5e7}
+.wz-continuation-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin:10px 0 4px}
+.wz-continuation-actions .wz-button{flex:1;min-width:min(100%,145px)}
+.wz-continuation-form{display:grid;gap:10px;padding:11px;margin-top:13px;border-radius:12px;
+ background:#003428;border:1px solid #2aa382}
+.wz-continuation-form label{display:grid;gap:5px;color:#e9fff2;font:800 .94rem/2 var(--ur,serif)}
+.wz-continuation-form input{display:block;width:100%;min-height:46px;box-sizing:border-box;border-radius:9px;
+ border:1px solid #34bf95;background:#092e27;color:#fff;padding:7px 11px;text-align:center;font:800 1.2rem/1.5 system-ui,sans-serif}
+.wz-continuation-active .wz-continuation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.wz-continuation-grid>div{display:grid;place-items:center;gap:3px;min-width:0;border-radius:11px;background:#004032;
+ border:1px solid #258d6f;padding:7px 3px}
+.wz-continuation-grid small{font:700 .78rem/1.8 var(--ur,serif);text-align:center;color:#c8f5da}
+.wz-continuation-grid strong{font:800 1.22rem/1.45 system-ui,sans-serif;color:#fff}
+.wz-continuation-progress{display:flex;align-items:center;gap:10px;margin:10px 2px}
+.wz-continuation-progress span{white-space:nowrap;font:700 .86rem/1.8 var(--ur,serif)}
+.wz-continuation-progress progress{width:100%;height:13px;accent-color:#18dba0}
+.wz-continuation-edit{width:100%;margin:0 0 10px;border-color:#4addaa}
+.wz-hero-continuing{margin:-2px 0 9px;padding:4px;border:1px solid #36be9e;border-radius:12px;
+ color:#b8ffe3;background:#004132;text-align:center;font:800 clamp(.77rem,3vw,1rem)/1.9 var(--ur,serif)}
+@media(max-width:360px){.wz-continuation-offer,.wz-continuation-active{padding:9px 7px}.wz-continuation-actions{gap:5px}}

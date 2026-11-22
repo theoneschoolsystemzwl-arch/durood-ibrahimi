@@ -724,7 +724,7 @@ service cloud.firestore {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
         d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
-          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger']) &&
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger','continueStartDate','continueDailyGoal','continueBaseTotal']) &&
         d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
           'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
         (!('wNumber' in d) || (d.wNumber is int && d.wNumber >= 1 && d.wNumber <= 1000000000)) &&
@@ -737,6 +737,14 @@ service cloud.firestore {
         d.today is int && d.today >= 0 &&
         (!('durationDays' in d) || (d.durationDays is int && d.durationDays >= 0 && d.durationDays <= 3650)) &&
         (!('dailyLedger' in d) || (d.dailyLedger is map && d.dailyLedger.size() <= 3660)) &&
+        ( (!d.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal'])) ||
+          (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+           d.kind == 'fixed' && wzDate(d.continueStartDate) &&
+           d.continueStartDate > d.endDate &&
+           d.continueDailyGoal is int && d.continueDailyGoal >= 1 &&
+           d.continueDailyGoal <= 1000000000 &&
+           d.continueBaseTotal is int && d.continueBaseTotal >= 0 &&
+           d.continueBaseTotal <= d.total) ) &&
         wzDate(d.day) && d.createdAt is timestamp &&
         d.updatedAt == request.time;
     }
@@ -768,14 +776,38 @@ service cloud.firestore {
       let diff=d.diff(resource.data).affectedKeys();
       let amount=d.total - resource.data.total;
       return d.createdAt == resource.data.createdAt &&
-        (diff.hasOnly(['title','arabic','instructions','purpose','kind',
-                       'goal','startDate','endDate','durationDays','updatedAt']) ||
+        (
+          // Existing fixed stage may be edited before opting in; once
+          // continuing, the original 41-day dates and goal are immutable.
+          (diff.hasOnly(['title','arabic','instructions','purpose','kind',
+                         'goal','startDate','endDate','durationDays','updatedAt']) &&
+           (!resource.data.keys().hasAny(['continueStartDate']) ||
+             (d.kind == resource.data.kind &&
+              d.goal == resource.data.goal &&
+              d.startDate == resource.data.startDate &&
+              d.endDate == resource.data.endDate &&
+              d.get('durationDays', 0) == resource.data.get('durationDays', 0)))) ||
+          // Opt-in is a one-time owner-of-record action; the original
+          // totals stay unchanged, and the new daily period is separate.
+          (diff.hasOnly(['continueStartDate','continueDailyGoal','continueBaseTotal','updatedAt']) &&
+           !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+           d.kind == 'fixed' && d.continueBaseTotal == resource.data.total &&
+           d.total == resource.data.total &&
+           d.today == resource.data.today && d.day == resource.data.day) ||
+          // After opt-in, a member may revise only the *future* daily goal.
+          (diff.hasOnly(['continueDailyGoal','updatedAt']) &&
+           resource.data.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+           d.continueStartDate == resource.data.continueStartDate &&
+           d.continueBaseTotal == resource.data.continueBaseTotal) ||
           (diff.hasOnly(['total','today','day','updatedAt','dailyLedger']) &&
            amount is int && amount >= 1 && amount <= 1000 &&
            d.day >= resource.data.day && d.day >= d.startDate &&
-           (d.kind != 'fixed' || d.day <= d.endDate) &&
+           (d.kind != 'fixed' || d.day <= d.endDate ||
+             (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+              d.day >= d.continueStartDate)) &&
            d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount &&
-           (!diff.hasAny(['dailyLedger']) || validWzLedgerIncrement(amount))));
+           (!diff.hasAny(['dailyLedger']) || validWzLedgerIncrement(amount)))
+        );
     }
     // One monotonic W-1, W-2, ... counter per authenticated member.
     // The counter and the new/legacy personal item must be written in one

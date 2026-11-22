@@ -57,7 +57,11 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),{duratio
     const snap=await tx.get(ref);
     if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
     const w=snap.data();
-    if(day<w.startDate || (w.kind==="fixed"&&day>w.endDate))throw Error("وظیفے کی تاریخ ابھی فعال نہیں ہے۔");
+    const continuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
+      Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
+      day>=w.continueStartDate&&w.continueStartDate>w.endDate;
+    if(day<w.startDate || (w.kind==="fixed"&&day>w.endDate&&!continuation))
+      throw Error("فکس وظیفے کی مدت مکمل ہے؛ پہلے روزانہ جاری رکھنے کا آپشن فعال کریں۔");
     const previous=Number(w.total||0);
     if(!Number.isSafeInteger(previous)||previous<0)throw Error("سابقہ شمار درست نہیں۔");
     const ledger=w.dailyLedger&&typeof w.dailyLedger==="object"?w.dailyLedger:{};
