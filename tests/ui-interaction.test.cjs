@@ -65,7 +65,9 @@ function nav(app,section){
    submit(app,"#qaza-target-form");
    assert.equal(app.document.querySelector("#qaza-target").value,"15");
    const todayQaza=app.document.querySelector('button[data-action="qaza-record"]');
+   let paidDay=null,paidPrayer=null;
    if(todayQaza){
+     paidDay=todayQaza.dataset.day;paidPrayer=todayQaza.dataset.value;
      click(app,'button[data-action="qaza-record"]');
      assert(app.document.querySelector("#qaza-title"),"Qaza screen did not survive paid button tap");
    }
@@ -75,6 +77,16 @@ function nav(app,section){
    const ownerData=JSON.parse(ownerSaved);
    assert.equal(ownerData.qaza.start,"2010-05-15");
    assert.equal(ownerData.qaza.target,15);
+   if(paidDay)assert.equal(ownerData.qaza.done?.[paidPrayer]?.[paidDay],true,
+     "Paid Qaza did not persist on device");
+   nav(app,"settings");
+   const themeInput=app.document.querySelector('input[name="ui-theme"][value="navy-silver"]');
+   assert(themeInput,"Profile theme radio button missing");
+   themeInput.checked=true;
+   themeInput.dispatchEvent(new app.window.Event("change",{bubbles:true}));
+   assert.equal(app.document.documentElement.dataset.theme,"navy-silver",
+     "Changing profile theme did not apply");
+
 
    // Same browser, different member: no Owner date should leak.
    enter(app,"test-member",2,"member");
@@ -92,8 +104,12 @@ function nav(app,section){
      click(restored,'button[data-action="prayer-view"][data-value="qaza"]');
      assert.equal(restored.document.querySelector("#qaza-start").value,"2010-05-15");
      assert.equal(restored.document.querySelector("#qaza-target").value,"15");
+     if(paidDay)assert.equal(JSON.parse(restored.window.localStorage.getItem(ownerPrivateKey))
+       .qaza.done?.[paidPrayer]?.[paidDay],true,"Paid Qaza was lost after reload");
+     assert.equal(restored.document.documentElement.dataset.theme,"navy-silver",
+       "Owner theme was lost after reload");
      assert.equal(restored.errors.length,0,restored.errors.map(String).join("\n"));
    }finally{restored.dom.window.close();}
-   console.log("UI smoke test passed: 9 dashboard tabs, 3 prayer sub-tabs, Qaza forms and private reload recovery.");
+   console.log("UI smoke test passed: 9 dashboard tabs, 3 prayer views, Qaza forms/paid taps, member isolation and owner theme reload.");
  }finally{app.dom.window.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
