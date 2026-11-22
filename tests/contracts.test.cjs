@@ -39,9 +39,13 @@ present(client,'#forgot-password');
 
 present(auth,"registerSpark");
 present(auth,"claimDeviceSession");
-present(auth,"watchDeviceSession");
+present(auth,"browserLocalPersistence");
+present(auth,"browserSessionPersistence");
+present(html,'id="remember-login"');
 present(auth,"member/already-online");
-present(client,"appState.takeoverPending");
+present(client,'$("#remember-login").checked');
+assert.ok(!client.includes("takeoverPending"),"Takeover must not be allowed");
+present(rules,"allow update: if false");
 present(client,"gender:form.get");
 present(html,'name="genderOath"');
 present(rules,"invitationMatches");
