@@ -56,7 +56,24 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
    const snap=await tx.get(privateRef);
    tx.update(privateRef,{total:snap.data().total+1,today:snap.data().today+1,day,updatedAt:serverTimestamp()});
   }));
+  // 41-day configuration must be an allowed, private, bounded edit.
+  await assertSucceeds(updateDoc(privateRef,{durationDays:41,updatedAt:serverTimestamp()}));
+  // The first new recorded day may coexist with legacy aggregate counts.
+  await assertSucceeds(runTransaction(member,async tx=>{
+    const snap=await tx.get(privateRef),d=snap.data();
+    tx.update(privateRef,{total:d.total+1,today:d.today+1,day,
+      dailyLedger:{[day]:{count:1,durationMs:1200,intervals:1}},
+      updatedAt:serverTimestamp()});
+  }));
+  await assertSucceeds(runTransaction(member,async tx=>{
+    const snap=await tx.get(privateRef),d=snap.data(),prior=d.dailyLedger[day];
+    tx.update(privateRef,{total:d.total+1,today:d.today+1,day,
+      dailyLedger:{[day]:{count:prior.count+1,durationMs:prior.durationMs+900,intervals:prior.intervals+1}},
+      updatedAt:serverTimestamp()});
+  }));
   await assertFails(updateDoc(privateRef,{total:999999,today:999999,updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(privateRef,{dailyLedger:{[day]:{count:999,durationMs:999,intervals:999}},updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(privateRef,{durationDays:99999,updatedAt:serverTimestamp()}));
   const groupStats=db=>doc(db,"wazaifGroupStats","main");
   const personStats=db=>doc(db,"wazaifGroupStats","main","members",memberUid);
   const yearStats=db=>doc(db,"wazaifGroupStats","main","years",year);

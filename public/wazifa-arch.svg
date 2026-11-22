@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 310" preserveAspectRatio="xMidYMin slice">
+<defs>
+  <radialGradient id="glow" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#0b9a70" stop-opacity=".78"/><stop offset=".42" stop-color="#004c3c" stop-opacity=".45"/><stop offset="1" stop-color="#00241e" stop-opacity="0"/></radialGradient>
+  <linearGradient id="arc" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#15f3b8"/><stop offset="1" stop-color="#088767"/></linearGradient>
+  <linearGradient id="lamp" x1="0" x2="1"><stop stop-color="#b88d37"/><stop offset=".45" stop-color="#fcebb3"/><stop offset="1" stop-color="#a47d2f"/></linearGradient>
+  <g id="lantern">
+   <path d="M0 0v34" stroke="#d2ae57" stroke-width="2"/><circle cx="0" cy="0" r="3" fill="#d6b669"/>
+   <path d="M0 30l-6 10 6 4 6-4z" fill="#d9b764"/><path d="M-11 43h22l7 15-4 29-14 11-14-11-4-29z" fill="#084a3d" stroke="url(#lamp)" stroke-width="2.8"/>
+   <path d="M-12 57h24M-9 78h18M0 44v50M-16 60l16 28 16-28M16 60L0 88-16 60" stroke="#d6c477" stroke-opacity=".75" stroke-width="1.5" fill="none"/>
+   <path d="M-5 60h10v19h-10z" fill="#e9e4a3" opacity=".7"/><path d="M-14 87L0 100 14 87" stroke="#d6b365" stroke-width="2" fill="none"/>
+   <path d="M0 100v8" stroke="#d3ad61" stroke-width="2"/>
+  </g>
+  <g id="minaret" fill="#003f33"><rect x="-5" y="-43" width="10" height="44" rx="2"/><path d="M-8-46h16l-8-18z"/><path d="M-12-38h24v4h-24z"/></g>
+</defs>
+<rect width="840" height="310" fill="url(#glow)"/>
+<path d="M-26 183C36 91 106 106 151 127c39-75 84-79 144-71 37-52 88-47 129-29 49-45 98-35 131 7 55-11 101 8 129 54 74-13 123 13 159 92" fill="none" stroke="#007a60" stroke-width="12" opacity=".36"/>
+<path d="M-26 183C36 91 106 106 151 127c39-75 84-79 144-71 37-52 88-47 129-29 49-45 98-35 131 7 55-11 101 8 129 54 74-13 123 13 159 92" fill="none" stroke="url(#arc)" stroke-width="3.5" opacity=".9"/>
+<g transform="translate(422 129)" fill="#00392d" opacity=".87">
+ <rect x="-97" y="-13" width="194" height="68" rx="3"/>
+ <path d="M-64-16c0-41 27-66 64-66 37 0 64 25 64 66z"/>
+ <rect x="-65" y="-20" width="130" height="5"/>
+ <path d="M-11-82L0-100 11-82z"/>
+ <circle cx="0" cy="-112" r="7" fill="none" stroke="#00392d" stroke-width="4"/>
+ <path d="M-70-4c0-19-12-27-23-30-12 11-17 18-17 30z"/>
+ <path d="M70-4c0-19 12-27 23-30 12 11 17 18 17 30z"/>
+ <use href="#minaret" x="-122" y="-8"/><use href="#minaret" x="122" y="-8"/>
+ <use href="#minaret" x="-154" y="18" transform="scale(.7)"/><use href="#minaret" x="154" y="18" transform="scale(.7)"/>
+</g>
+<path d="M450 44c-16 4-16 19 0 23-25 3-30-29 0-23z" fill="#dcffdf" opacity=".9"/>
+<use href="#lantern" x="44" y="8"/><use href="#lantern" x="796" y="8"/>
+<g fill="#bef5d6" opacity=".55"><circle cx="318" cy="22" r="2"/><circle cx="503" cy="17" r="1.7"/><circle cx="595" cy="49" r="1.3"/><circle cx="241" cy="72" r="1.3"/></g>
+</svg>

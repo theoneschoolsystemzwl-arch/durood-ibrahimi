@@ -44,11 +44,14 @@ export async function recordGroupWazifaOnly(amount=1,day=readingDay()){
     await addGroupCountsToTransaction(tx,user.uid,amount,day,{durood:false});
   });
 }
-export async function recordPersonalWazifa(id,amount=1,day=readingDay()){
+export async function recordPersonalWazifa(id,amount=1,day=readingDay(),{durationMs=0,intervals=0}={}){
   const user=auth.currentUser;
   if(!user)throw Error("لاگ اِن ضروری ہے۔");
   if(typeof id!=="string"||!/^[A-Za-z0-9]{10,30}$/.test(id)||
-     !Number.isSafeInteger(amount)||amount<1||amount>1000)throw Error("اندراج درست نہیں۔");
+     !Number.isSafeInteger(amount)||amount<1||amount>1000 ||
+     !Number.isSafeInteger(durationMs)||durationMs<0||durationMs>amount*15000 ||
+     !Number.isSafeInteger(intervals)||intervals<0||intervals>amount)
+    throw Error("اندراج یا دورانیہ درست نہیں۔");
   return runTransaction(db,async tx=>{
     const ref=doc(db,"memberWazaif",user.uid,"items",id);
     const snap=await tx.get(ref);
@@ -57,9 +60,17 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay()){
     if(day<w.startDate || (w.kind==="fixed"&&day>w.endDate))throw Error("وظیفے کی تاریخ ابھی فعال نہیں ہے۔");
     const previous=Number(w.total||0);
     if(!Number.isSafeInteger(previous)||previous<0)throw Error("سابقہ شمار درست نہیں۔");
+    const ledger=w.dailyLedger&&typeof w.dailyLedger==="object"?w.dailyLedger:{};
+    const old=ledger[day]||{count:0,durationMs:0,intervals:0};
+    const dailyLedger={...ledger,[day]:{
+      count:Number(old.count||0)+amount,
+      durationMs:Number(old.durationMs||0)+durationMs,
+      intervals:Number(old.intervals||0)+intervals
+    }};
+    if(Object.keys(dailyLedger).length>3660)throw Error("روزانہ ریکارڈ کی زیادہ سے زیادہ حد پوری ہوگئی۔");
     tx.update(ref,{
       total:previous+amount,day,today:(w.day===day?Number(w.today||0):0)+amount,
-      updatedAt:serverTimestamp()
+      dailyLedger,updatedAt:serverTimestamp()
     });
   });
 }

@@ -724,7 +724,7 @@ service cloud.firestore {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
         d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
-          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber']) &&
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger']) &&
         d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
           'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
         (!('wNumber' in d) || (d.wNumber is int && d.wNumber >= 1 && d.wNumber <= 1000000000)) &&
@@ -735,8 +735,33 @@ service cloud.firestore {
         (d.kind == 'fixed' ? (wzDate(d.endDate) && d.endDate >= d.startDate) : d.endDate == '') &&
         d.total is int && d.total >= 0 &&
         d.today is int && d.today >= 0 &&
+        (!('durationDays' in d) || (d.durationDays is int && d.durationDays >= 0 && d.durationDays <= 3650)) &&
+        (!('dailyLedger' in d) || (d.dailyLedger is map && d.dailyLedger.size() <= 3660)) &&
         wzDate(d.day) && d.createdAt is timestamp &&
         d.updatedAt == request.time;
+    }
+    // Each private tap may add one day entry in the same atomic update.
+    // Counts are tied to the verified aggregate increment; time may only grow
+    // by at most 15 seconds per accepted recitation, never shrink.
+    function validWzLedgerIncrement(amount) {
+      let oldMap=resource.data.get('dailyLedger', {});
+      let newMap=request.resource.data.get('dailyLedger', {});
+      let day=request.resource.data.day;
+      let oldEntry=oldMap.get(day, {'count':0,'durationMs':0,'intervals':0});
+      let entry=newMap.get(day, {});
+      return oldMap is map && newMap is map &&
+        newMap.diff(oldMap).affectedKeys().hasOnly([day]) &&
+        entry is map &&
+        entry.keys().hasOnly(['count','durationMs','intervals']) &&
+        entry.keys().hasAll(['count','durationMs','intervals']) &&
+        entry.count is int && entry.count == oldEntry.count + amount &&
+        entry.count >= 0 &&
+        entry.durationMs is int && entry.durationMs >= oldEntry.durationMs &&
+        entry.durationMs <= oldEntry.durationMs + amount * 15000 &&
+        entry.durationMs <= 1000000000000 &&
+        entry.intervals is int && entry.intervals >= oldEntry.intervals &&
+        entry.intervals <= oldEntry.intervals + amount &&
+        entry.intervals <= entry.count;
     }
     function validWzPrivateChange() {
       let d=request.resource.data;
@@ -744,12 +769,13 @@ service cloud.firestore {
       let amount=d.total - resource.data.total;
       return d.createdAt == resource.data.createdAt &&
         (diff.hasOnly(['title','arabic','instructions','purpose','kind',
-                       'goal','startDate','endDate','updatedAt']) ||
-          (diff.hasOnly(['total','today','day','updatedAt']) &&
+                       'goal','startDate','endDate','durationDays','updatedAt']) ||
+          (diff.hasOnly(['total','today','day','updatedAt','dailyLedger']) &&
            amount is int && amount >= 1 && amount <= 1000 &&
            d.day >= resource.data.day && d.day >= d.startDate &&
            (d.kind != 'fixed' || d.day <= d.endDate) &&
-           d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount));
+           d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount &&
+           (!diff.hasAny(['dailyLedger']) || validWzLedgerIncrement(amount))));
     }
     // One monotonic W-1, W-2, ... counter per authenticated member.
     // The counter and the new/legacy personal item must be written in one

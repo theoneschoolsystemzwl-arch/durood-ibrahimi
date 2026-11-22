@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js";
+import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=emerald-hero-20261123";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
@@ -62,7 +62,7 @@ const state={
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
- tapQueue:0,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
+ tapQueue:0,tapMetaQueue:[],historyDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
  seenDay:readingDay()
 };
 const owner=()=>state.profile?.role==="owner";
@@ -95,7 +95,7 @@ function setMember(profile){
   stop();
   state.profile=profile;state.group=null;state.groupExists=false;state.groupStats=null;
   state.yearStats=null;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
-  state.bootstrapTried=false;state.tapQueue=0;state.tapBusy=false;
+  state.bootstrapTried=false;state.tapQueue=0;state.tapMetaQueue=[];state.historyDay=null;state.tapBusy=false;
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
@@ -249,29 +249,167 @@ function formMarkup(){
  (state.editId&&!g?'<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(state.editId)+'">وظیفہ حذف کریں</button>':'')+
  '</form>';
 }
+// Decorative icons match the emerald screenshot but all numbers remain live.
+function heroIcon(name){
+ const paths={
+  target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12l8-8m-3 0h3v3"/>',
+  book:'<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1m0-14c3-2 6-2 9-1v14c-3-1-6-1-9 1V6Z"/>',
+  hourglass:'<path d="M6 3h12M6 21h12M7 3c0 5 3 6 5 9-2 3-5 4-5 9m10-18c0 5-3 6-5 9 2 3 5 4 5 9"/>',
+  date:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-12 4h6"/>',
+  check:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m5 5 2 2 4-5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+  bolt:'<path d="M13 2 4 13h7l-1 9 10-12h-7z"/>',
+  meter:'<path d="M4 18a10 10 0 1 1 16 0M12 13l4-5M3 20h18"/>',
+  percent:'<circle cx="12" cy="12" r="9"/><path d="M8 16 16 8M8 8h.01M16 16h.01"/>'
+ };
+ return '<svg viewBox="0 0 24 24" width="25" height="25" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.target)+'</svg>';
+}
+function heroStat(label,value,icon,id){
+ return '<div class="wz-hero-stat">'+heroIcon(icon)+'<div class="wz-hero-stat-copy"><small>'+esc(label)+'</small><strong'+(id?' id="'+id+'"':'')+'>'+esc(value)+'</strong></div></div>';
+}
+function heroTile(label,value,icon,id){
+ return '<div class="wz-hero-tile">'+heroIcon(icon)+'<small>'+esc(label)+'</small><strong'+(id?' id="'+id+'"':'')+'>'+esc(value)+'</strong></div>';
+}
+function durationText(ms){
+ const whole=Math.max(0,Math.floor(Number(ms)||0)),seconds=Math.floor(whole/1000);
+ return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60]
+   .map(n=>String(n).padStart(2,"0")).join(":")+"."+String(Math.floor(whole%1000/100));
+}
+function displayRecordDate(key){
+ if(!dayOk(key))return key;
+ return new Intl.DateTimeFormat("ur-PK",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"})
+  .format(new Date(key+"T12:00:00Z"));
+}
+function wazifaHistoryMarkup(record){
+ const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
+ const today=readingDay();
+ const day=record?.day;
+ const days=[...new Set([today,...Object.keys(ledger),...(dayOk(day)?[day]:[])])]
+  .filter(dayOk).sort().reverse().slice(0,60);
+ const rows=days.map(key=>{
+  const entry=ledger[key]||{};
+  const current=key===record.day;
+  const count=current?Math.max(0,Number(record.today)||0):Number(entry.count||0);
+  const duration=Number(entry.durationMs||0);
+  return '<div class="wz-history-row" dir="rtl">'+
+   '<span class="wz-history-date">'+heroIcon("date")+'<time datetime="'+key+'">'+esc(displayRecordDate(key))+'</time></span>'+
+   '<span class="wz-history-count">'+esc("تعداد: ")+ '<strong>'+fmt(count)+'</strong></span>'+
+   '<span class="wz-history-time">'+heroIcon("clock")+'<span>دورانیہ: <bdi dir="ltr">'+(duration>0?durationText(duration):"—")+'</bdi></span></span>'+
+   '<button type="button" class="wz-history-edit" data-wazifa-action="history-day" data-wazifa-day="'+key+'">'+(key===today?'تبدیل':'تفصیل')+'</button>'+
+   '</div>';
+ }).join("");
+ let details="";
+ if(state.historyDay&&days.includes(state.historyDay)){
+   const entry=ledger[state.historyDay]||{};
+   const count=state.historyDay===record.day?Number(record.today||0):Number(entry.count||0);
+   const canAdd=state.historyDay===today&&taskStatus(record)==="جاری";
+   details='<div class="wz-history-detail"><strong>'+esc(displayRecordDate(state.historyDay))+'</strong>'+
+    '<span> محفوظ تعداد: '+fmt(count)+' · دورانیہ: '+(Number(entry.durationMs||0)?durationText(entry.durationMs):"—")+'</span>'+
+    (canAdd?'<div class="wz-history-add"><label>مزید تعداد<input id="wz-extra-count" type="number" min="1" max="1000" value="1"></label>'+
+    '<button type="button" class="wz-button wz-primary" data-wazifa-action="history-add">اضافہ محفوظ کریں</button></div>':'<small>پرانی تاریخ کی تفصیل صرف دیکھ سکتے ہیں۔</small>')+
+    '</div>';
+ }
+ return (rows||'<div class="wz-history-empty">ابھی روزانہ کا ریکارڈ نہیں۔</div>')+details+
+ '<p class="wz-history-note">پرانے وظائف کی جن تاریخوں کا الگ ریکارڈ محفوظ نہیں تھا، ان کا دورانیہ تخمیناً نہیں دکھایا جاتا۔</p>';
+}
+function heroReadingState(group,w,record){
+ const today=readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
+ const total=Math.max(0,Number(record.total)||0);
+ const plan=!group?fixedPlan(w):null;
+ const dailyGoal=group?Number(w.dailyGoal||0):w.kind==="fixed"?Number(plan?.daily||0):
+  Number(w.goal||0);
+ const totalGoal=group?Number(w.yearlyGoal||w.dailyGoal||0):Number(w.goal||0);
+ const left=Math.max(0,totalGoal-total);
+ const percent=totalGoal?Math.min(100,Math.floor(total*100/totalGoal)):0;
+ const dayLeft=Math.max(0,dailyGoal-todayCount);
+ return {todayCount,total,plan,dailyGoal,totalGoal,left,percent,dayLeft};
+}
 function readerMarkup(group){
  const w=group?currentGroup():state.personal.find(x=>x.id===state.readerId);
- if(!w)return '<button class="wz-button" data-wazifa-action="back">فہرست واپس</button>';
+ if(!w)return '<button class="wz-button" data-wazifa-action="back">وظائف واپس</button>';
  const record=group?state.groupStats||{}:w;
- const today=readingDay(),count=record.day===today?Number(record.today||0):0;
- const target=group?Number(w.dailyGoal||0):w.kind==="daily"?Number(w.goal||0):
-   w.kind==="fixed"?Math.ceil(Number(w.goal||0)/Math.max(1,spanDays(w.startDate,w.endDate))):Number(w.goal||0);
- const step=Math.max(1,target||100);
- const progress=count>0&&count%step===0?100:(count%step)/step*100;
- const label=group?"گروپ تسبیح":"ذاتی تسبیح";
- return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">وظائف واپس</button><h2>'+label+'</h2></div>'+
- '<section class="wz-reading"><h2>'+esc(w.title)+'</h2><div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
- '<p class="wz-help">'+esc(w.instructions)+'</p>'+
- '<div class="wz-metrics">'+metric("آج پڑھا",count)+metric("کل پڑھا",record.total||0)+metric("آج کا ہدف",target)+'</div>'+
- (!group&&w.kind==="fixed"?fixedPlanMarkup(w,true):"")+
- '<div class="wz-speed-stats"><div><small>فی سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
- '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
- '<div><small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div></div>'+
- '<button type="button" id="wz-dial" class="wz-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+progress+'%" data-wazifa-action="tap"><small>آج کی تسبیح</small><strong id="wz-dial-number">'+fmt(count+state.tapQueue)+'</strong><small id="wz-live-speed">فی سیکنڈ —</small><small id="wz-clock">00:00:00.000</small><span class="wz-dial-plus" aria-hidden="true">+</span><small>پڑھیں یا تسبیح کریں</small></button>'+
- '<p class="wz-help">ایک مرتبہ پڑھ کر گول تسبیح دبائیں۔ 15 سیکنڈ کی خاموشی پر وقت رک جائے گا۔</p>'+
- (state.tapQueue?'<p class="wz-help">'+fmt(state.tapQueue)+' شمار محفوظ ہو رہے ہیں…</p>':'')+
- (state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'')+'</section>';
+ const s=heroReadingState(group,w,record);
+ const days=s.plan?.days||0,elapsed=s.plan?.elapsed||0,remaining=s.plan?.remaining||0;
+ const showDates=!!s.plan;
+ const today=readingDay();
+ const history=group?'<p class="wz-history-empty">مشترکہ گروپ کی الگ روزانہ تفصیل تسبیح کے اپنے ریکارڈ میں دیکھیے۔</p>':wazifaHistoryMarkup(record);
+ const progress=s.percent;
+ return '<div class="wz-hero-reader" dir="rtl">'+
+ '<div class="wz-hero-ornament" aria-hidden="true"></div>'+
+ '<div class="wz-hero-content">'+
+ '<button class="wz-hero-back" type="button" data-wazifa-action="back">‹ '+esc("وظائف واپس")+'</button>'+
+ '<div class="wz-hero-topstats">'+
+ heroStat("کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
+ heroStat("مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal")+
+ heroStat("باقی",fmt(s.left),"hourglass","wz-hero-left")+
+ heroStat("فیصد تکمیل",s.percent+"%","percent","wz-hero-percent")+
+ '</div>'+
+ '<div class="wz-hero-progress"><span id="wz-hero-progress-label">'+progress+'% تکمیل</span>'+
+ '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'"></progress></div>'+
+ '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+
+ (showDates?'<div class="wz-hero-six">'+
+ heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
+ heroTile("کل دن",fmt(days),"date")+
+ heroTile("مکمل دن",fmt(elapsed),"check")+
+ heroTile("باقی دن",fmt(remaining),"date")+
+ heroTile("آغاز تاریخ",w.startDate,"date")+
+ heroTile("اختتامی تاریخ",w.endDate,"date")+
+ '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
+ heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-mini-today")+
+ heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
+ '<div class="wz-hero-daily">'+
+ heroTile("آج کا ہدف",fmt(s.dailyGoal),"target")+
+ heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-hero-today")+
+ heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-hero-day-left")+
+ '<div class="wz-hero-remaining">'+heroIcon("hourglass")+'<div><small>'+(showDates?'مقررہ اختتام تک باقی':'ہدف سے باقی')+'</small>'+
+ '<strong id="wz-hero-days-left">'+(showDates?remaining+" دن":fmt(s.left))+'</strong></div></div>'+
+ '</div>'+
+ '<div class="wz-hero-speed">'+
+ '<div>'+heroIcon("bolt")+'<small>فی سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
+ '<div>'+heroIcon("clock")+'<small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
+ '<div>'+heroIcon("clock")+'<small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
+ '<div>'+heroIcon("meter")+'<small>کارکردگی</small><strong id="wz-speed-status">—</strong></div>'+
+ '</div>'+
+ '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
+ '<strong id="wz-dial-number">'+fmt(s.todayCount+state.tapQueue)+'</strong>'+
+ '<small id="wz-live-speed">رفتار: — فی سیکنڈ</small>'+
+ '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.000</bdi></span></span>'+
+ '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
+ '</button>'+
+ '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
+ '<div id="wz-record-history">'+history+'</div>'+
+ '<details class="wz-reading-text"><summary>وظیفے کی عبارت اور ہدایات</summary>'+
+ '<div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
+ '<p class="wz-help">'+esc(w.instructions)+'</p></details>'+
+ '<p class="wz-reader-advice">ایک بار پڑھنے کے بعد دائرہ دبائیں۔ 15 سیکنڈ خاموشی کے بعد وقت رک جاتا ہے۔</p>'+
+ (state.tapQueue?'<p class="wz-help">محفوظ ہو رہے ہیں: '+fmt(state.tapQueue)+'</p>':'')+
+ (state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'')+
+ '</div></div>';
 }
+function refreshHeroReader(){
+ const root=$("#wazaif-root");if(!root||!root.querySelector("#wz-dial"))return;
+ const group=state.mode==="group-reader",w=group?currentGroup():state.personal.find(x=>x.id===state.readerId);
+ const record=group?state.groupStats:w;
+ if(!w||!record)return;
+ const s=heroReadingState(group,w,record);
+ const todayCount=s.todayCount+state.tapQueue,total=s.total+state.tapQueue;
+ const left=Math.max(0,s.totalGoal-total),dayLeft=Math.max(0,s.dailyGoal-todayCount);
+ const percent=s.totalGoal?Math.min(100,Math.floor(total*100/s.totalGoal)):0;
+ const set=(id,value)=>{const el=root.querySelector("#"+id);if(el)el.textContent=value;};
+ set("wz-dial-number",fmt(todayCount));
+ set("wz-hero-total",fmt(total));set("wz-hero-left",fmt(left));
+ set("wz-hero-percent",percent+"%");set("wz-hero-progress-label",percent+"% تکمیل");
+ set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
+ set("wz-mini-today",fmt(todayCount));set("wz-mini-left",fmt(dayLeft));
+ const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
+ const step=Math.max(1,s.dailyGoal);const cycle=todayCount>0&&todayCount%step===0?step:todayCount%step;
+ root.querySelector("#wz-dial").style.setProperty("--wz-ring",Math.floor(cycle/step*100)+"%");
+ if(!group){
+   const history=root.querySelector("#wz-record-history");
+   if(history)history.innerHTML=wazifaHistoryMarkup(record);
+ }
+}
+
 function render(){
  const root=$("#wazaif-root");
  if(!root||!state.profile)return;
@@ -281,41 +419,7 @@ function render(){
    root.innerHTML=formMarkup();syncForm();return;
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
-   if(root.querySelector("#wz-dial")){
-     const group=state.mode==="group-reader";
-     const task=group?state.groupStats:state.personal.find(x=>x.id===state.readerId);
-     const config=group?currentGroup():task;
-     if(task&&config){
-       const today=readingDay(),count=task.day===today?Number(task.today||0):0;
-       const shown=count+state.tapQueue;
-       const target=group?Number(config.dailyGoal||0):config.kind==="daily"?Number(config.goal||0):
-         config.kind==="fixed"?Math.ceil(Number(config.goal||0)/Math.max(1,spanDays(config.startDate,config.endDate))):Number(config.goal||0);
-       const num=$("#wz-dial-number");if(num)num.textContent=fmt(shown);
-       const metrics=root.querySelectorAll(".wz-reading .wz-metric strong");
-       if(metrics[0])metrics[0].textContent=fmt(shown);
-       if(metrics[1])metrics[1].textContent=fmt(Number(task.total||0)+state.tapQueue);
-       if(metrics[2])metrics[2].textContent=fmt(target);
-       const step=Math.max(1,target||100);
-       const progress=shown>0&&shown%step===0?100:(shown%step)/step*100;
-       root.querySelector("#wz-dial").style.setProperty("--wz-ring",progress+"%");
-       if(!group&&config.kind==="fixed"){
-         const plan=fixedPlan(config);
-         if(plan){
-           const total=Math.max(0,Number(task.total)||0)+state.tapQueue;
-           const left=Math.max(0,plan.goal-total),pct=plan.goal?Math.min(100,Math.floor(total*100/plan.goal)):0;
-           const update=(selector,val)=>{const el=root.querySelector(selector);if(el)el.textContent=val;};
-           update("#wz-fixed-total",fmt(total));update("#wz-fixed-left",fmt(left));
-           update("#wz-fixed-today",fmt(shown));update("#wz-fixed-today-left",fmt(Math.max(0,target-shown)));
-           update("#wz-fixed-percent",pct+"%");
-           const bar=root.querySelector(".wz-fixed-plan .wz-plan-progress");
-           if(bar)bar.value=pct;
-           const foot=root.querySelector(".wz-fixed-plan .wz-plan-foot");
-           if(foot)foot.textContent="باقی "+plan.remaining+" دن · باقی تعداد "+fmt(left);
-         }
-       }
-     }
-     return;
-   }
+   if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
    root.innerHTML=readerMarkup(state.mode==="group-reader");return;
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
@@ -362,7 +466,7 @@ function openForm(scope,id=null){
 }
 function back(){
  if(state.tapBusy){state.pendingBack=true;return;}
- state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.tapQueue=0;state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;
+ state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.historyDay=null;state.tapQueue=0;state.tapMetaQueue=[];state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;
  const root=$("#wazaif-root");if(root)root.innerHTML="";
  render();
 }
@@ -420,9 +524,11 @@ function tap(){
  if(state.skipDialClick){state.skipDialClick=false;return;}
  if(state.busy||!auth.currentUser||!["group-reader","personal-reader"].includes(state.mode))return;
  const now=performance.now(),gap=state.clockLastTap===null?0:now-state.clockLastTap;
- if(gap>0&&gap<=15000){state.clockMs+=gap;state.clockIntervals++;}
+ const durationMs=gap>0&&gap<=15000?Math.floor(gap):0;
+ if(durationMs>0){state.clockMs+=durationMs;state.clockIntervals++;}
  state.clockLastTap=now;
  state.tapQueue++;
+ state.tapMetaQueue.push({durationMs,intervals:durationMs>0?1:0});
  const counter=$("#wz-dial-number");if(counter)counter.textContent=fmt(Number(counter.textContent.replace(/,/g,""))+1);
  if(!state.tapBusy)drain();
 }
@@ -432,13 +538,16 @@ async function drain(){
  while(state.tapQueue){
    const amount=Math.min(state.tapQueue,1000),mode=state.mode,task=state.readerId;
    const day=readingDay();
+   const entries=state.tapMetaQueue.slice(0,amount);
+   const durationMs=entries.reduce((n,item)=>n+item.durationMs,0);
+   const intervals=entries.reduce((n,item)=>n+item.intervals,0);
    try{
      if(mode==="group-reader")await recordGroupWazifaOnly(amount,day);
-     else await recordPersonalWazifa(task,amount,day);
-     state.tapQueue-=amount;
+     else await recordPersonalWazifa(task,amount,day,{durationMs,intervals});
+     state.tapQueue-=amount;state.tapMetaQueue.splice(0,amount);
      state.error="";
    }catch(e){
-     state.tapQueue=0;
+     state.tapQueue=0;state.tapMetaQueue=[];
      setError("شمار محفوظ نہیں ہوا، دوبارہ کوشش کریں: "+(e.code||e.message));
      break;
    }
@@ -463,7 +572,8 @@ function tick(){
  const p=pace(rate);
  const sec=$("#wz-speed-sec"),min=$("#wz-speed-min"),hour=$("#wz-speed-hour"),dialSpeed=$("#wz-live-speed");
  if(sec)sec.textContent=p;if(min)min.textContent=pace(rate*60);
- if(hour)hour.textContent=pace(rate*3600);if(dialSpeed)dialSpeed.textContent="فی سیکنڈ "+p;
+ if(hour)hour.textContent=pace(rate*3600);if(dialSpeed)dialSpeed.textContent="رفتار: "+p+" فی سیکنڈ";
+ const status=$("#wz-speed-status");if(status)status.textContent=rate>0?(rate>=1?"تیز":"معمول"):"—";
  if(state.seenDay!==readingDay()){
    state.seenDay=readingDay();state.clockLastTap=null;render();
  }
@@ -542,12 +652,30 @@ document.addEventListener("click",event=>{
      window.duroodClassicBridge?.openGroupReader?.();
      return;
    }
-   state.mode="group-reader";
+   state.mode="group-reader";state.historyDay=null;state.tapMetaQueue=[];
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();return;
  }
  if(action==="read-personal"){
-   state.readerId=id;state.mode="personal-reader";state.tapQueue=0;state.error="";startClock();
+   state.readerId=id;state.mode="personal-reader";state.tapQueue=0;state.tapMetaQueue=[];state.historyDay=null;state.error="";startClock();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();return;
+ }
+ if(action==="history-day"&&button.dataset.wazifaDay){
+   state.historyDay=state.historyDay===button.dataset.wazifaDay?null:button.dataset.wazifaDay;
+   const record=state.personal.find(x=>x.id===state.readerId);
+   const target=$("#wz-record-history");if(target&&record)target.innerHTML=wazifaHistoryMarkup(record);
+   return;
+ }
+ if(action==="history-add"){
+   if(state.busy||state.mode!=="personal-reader")return;
+   const extra=Number($("#wz-extra-count")?.value);
+   if(!Number.isSafeInteger(extra)||extra<1||extra>1000){setError("تعداد 1 سے 1000 درج کریں۔");return;}
+   const id=state.readerId,day=readingDay();
+   if(state.historyDay!==day)return;
+   state.busy=true;button.disabled=true;
+   recordPersonalWazifa(id,extra,day,{durationMs:0,intervals:0}).then(()=>{
+     state.historyDay=null;state.error="";render();
+   }).catch(setError).finally(()=>{state.busy=false;if(button.isConnected)button.disabled=false;});
+   return;
  }
  if(action==="tap")return tap();
  if(action==="delete-personal"&&id){
