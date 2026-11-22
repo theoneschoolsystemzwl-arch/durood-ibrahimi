@@ -19,6 +19,7 @@ window.duroodVerifiedProfile=uid=>auth.currentUser?.uid===uid && appState.profil
 // Same-origin dashboard can reuse the verified user rather than treating its first empty Auth tick as a logout.
 window.duroodParentAuthUser=()=>appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
 let classicFrameRequested=false;
+let classicReadyUid=null;
 let dashboardTimer;
 let authGeneration=0;
 let nullAuthTimer=null;
@@ -257,6 +258,7 @@ function showSignedOut() {
   appState.profile=null;
   lastAuthenticatedUid=null;
   classicFrameRequested=false;
+  classicReadyUid=null;
   document.body.classList.remove("classic-active");
   const classicFrame=$("#classic-frame");
   if(classicFrame){classicFrame.hidden=true;classicFrame.src="about:blank";}
@@ -283,6 +285,7 @@ function showSignedIn(profile){
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
   if(!alreadyOpening)showOriginalDashboardIfReady();
+  if(classicReadyUid===profile.uid)revealOriginalDashboard();
 }
 function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
@@ -290,6 +293,7 @@ function showOriginalDashboardIfReady(){
   // Load the original UI just once. Do not download its 580 KB HTML twice.
   // Its Firebase data is loaded in the frame and must not be simulated here.
   classicFrameRequested=true;
+  classicReadyUid=null;
   document.body.classList.add("classic-pending");
   view("#loading",true);
   $("#loading-copy").textContent="ڈیش بورڈ کھل رہا ہے…";
@@ -300,6 +304,19 @@ function showOriginalDashboardIfReady(){
   frame.hidden=false;
   frame.src="./classic-app.html?release=fast-login-reader-v4";
 }
+// A ready message can arrive while Firebase briefly reports null during its
+// initial shared-storage handoff. Remember it; reveal only on verified auth.
+function revealOriginalDashboard(){
+  const frame=$("#classic-frame");
+  if(!frame||!appState.profile||auth.currentUser?.uid!==classicReadyUid)return;
+  frame.hidden=false;
+  clearTimeout(dashboardTimer);
+  view("#loading",false);
+  view("#access",false);
+  view("#portal",true);
+  document.body.classList.remove("classic-pending");
+  document.body.classList.add("classic-active");
+}
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
 window.addEventListener("message",event=>{
@@ -307,13 +324,11 @@ window.addEventListener("message",event=>{
   if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
   if(event.data?.type==="durood-use-top")return; // An embedded view must not navigate the authenticated parent.
   if(event.data?.type==="durood-classic-ready" &&
-     appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
-    frame.hidden=false;
-    clearTimeout(dashboardTimer);
-    view("#loading",false);
-    document.body.classList.remove("classic-pending");
-    document.body.classList.add("classic-active");
+     appState.profile?.uid===event.data.uid){
+    classicReadyUid=event.data.uid;
+    revealOriginalDashboard();
   }else if(event.data?.type==="durood-classic-auth-pending"){
+    if(classicReadyUid===appState.profile?.uid)return;
     // The iframe initializes Firebase independently. Its temporary empty Auth
     // state is not a logout, nor a failed account login.
     if(appState.profile?.uid===auth.currentUser?.uid){
@@ -440,6 +455,7 @@ $("#loading-retry").addEventListener("click",async()=>{
     const frame=$("#classic-frame");
     if(frame)frame.src="about:blank";
     classicFrameRequested=false;
+    classicReadyUid=null;
     showSignedIn(profile);
   }catch(error){showProfileRetry(error);}
 });
