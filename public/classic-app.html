@@ -1266,7 +1266,7 @@ function generationLetter(id) {
 }
 
 const ownerViewingWomen = () => currentUser()?.isOwner === true && window.duroodCurrentSide === 'female';
-const visibleMembers = () => users;
+const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && !person.isOwner) : users;
 
 function groupName(id) {
   return generationLetter(id);
@@ -1460,9 +1460,13 @@ function stat(label, value) {
 }
 
 function tree(person) {
-  const root = getUser(groupFilter) || person;
+  const women = ownerViewingWomen();
+  const root = women ? visibleMembers().find(member => member.id === groupFilter) : getUser(groupFilter) || person;
+  if(!root) return groups();
   const children = directMembers(root.id);
-  const back = root.id !== person.id
+  const back = women
+    ? '<div class="branch-nav"><button class="button secondary" data-action="nav" data-value="groups">' + tr('Back to groups','گروپس پر واپس') + '</button></div>'
+    : root.id !== person.id
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
@@ -1661,7 +1665,7 @@ function liveFeed() {
 }
 
 function overview() {
-  return heading(tr("Dashboard", 'مرکز'),tr("The shared Durood goal and the all-time total.", 'درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔')) +
+  return heading(ownerViewingWomen() ? tr('Women’s dashboard','خواتین کا مرکز') : tr("Dashboard", 'مرکز'),tr("The shared Durood goal and the all-time total.", 'درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔')) +
     tr("<div class=\"metric-grid\"><section class=\"panel metric goal\"><h2>Community goal</h2><strong>", '<div class="metric-grid"><section class="panel metric goal"><h2>اجتماعی ہدف</h2><strong>') +
     displayNumber(communityGoal) + '</strong>' + ur(tr("Community goal", 'اجتماعی ہدف'),'span','muted') + '</section>' +
     tr("<section class=\"panel metric\"><h2>All-time Durood</h2><strong id=\"global-total\">", '<section class="panel metric"><h2>اب تک کا مجموعی درود</h2><strong id="global-total">') +
@@ -3035,14 +3039,17 @@ function dashboard(person) {
   const owner = person.isOwner === true;
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
+  const women = ownerViewingWomen();
+  const personalTabs = ['tasbih','namaz','settings'];
   const active = section === 'profile' ? 'directory' : section;
+  const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
   const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
-  return '<div class="shell">' + profileCard(person) +
+  return '<div class="shell">' + (women ? '' : profileCard(person)) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
-    prayerAlertMarkup() + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
-    (screens[section] || overview)() + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
-    links.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
+    (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
+    (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
+    availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span aria-hidden="true">' + icon + '</span>' + label + '</button>').join('') +
     '</div></nav></div>';
 }
@@ -3693,14 +3700,14 @@ async function hydrate(){
   const docs=new Map([[profile.uid,profile]]);
   if(owner){
     const snap=await getDocs(collection(db,"members"));
-    // Count the Owner's own invites across BOTH sides without counting
-    // invitations created by the wife or another member.
-    window.duroodOwnerInviteTotal=snap.docs.filter(x=>x.data().inviterUid===profile.uid).length;
+    window.duroodOwnerInviteTotal=0;
     for(const x of snap.docs){
       if(x.id===profile.uid)continue;
       const data={...x.data(),uid:x.id};
       const gender=data.gender==="female"?"female":"male";
-      if(gender===side)docs.set(x.id,data);
+      if(gender!==side)continue;
+      docs.set(x.id,data);
+      if(data.inviterUid===profile.uid)window.duroodOwnerInviteTotal++;
     }
   }else{
     window.duroodOwnerInviteTotal=0;
@@ -3730,7 +3737,7 @@ async function hydrate(){
   }catch(e){console.warn("Side ranking unavailable",e.code||e);}
   const [sideTotal,count]=await Promise.all([
     getDoc(doc(db,"genderStats",side)),
-    getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
+    owner && side==='female' ? null : getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
       console.warn("Personal count unavailable",error.code);
       return null;
     })
@@ -3760,6 +3767,7 @@ async function hydrate(){
   if(window.parent!==window){
     window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
+  if(owner && side==='female')return;
   try{
     const month=new Date().toISOString().slice(0,7);
     const result=await prayerMonthSpark(month);
@@ -3872,6 +3880,9 @@ ui.addEventListener("click",event=>{
       .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
     return;
   }
+  if(ownerViewingWomen() && ["count-durood","namaz-mark","qaza-record"].includes(action)){
+    event.preventDefault();event.stopImmediatePropagation();return;
+  }
   if(action==="count-durood"){
     event.stopImmediatePropagation();event.preventDefault();
     // Serialise writes to avoid lost increments during rapid tapping.
@@ -3906,6 +3917,9 @@ ui.addEventListener("submit",event=>{
     }).catch(e=>bridge.status("group-chat-feedback",errorText(e),false))
       .finally(()=>{if(button?.isConnected)button.disabled=false;});
     return;
+  }
+  if(ownerViewingWomen() && ["manual-form","profile-form","password-form"].includes(form.id)){
+    event.preventDefault();event.stopImmediatePropagation();return;
   }
   if(form.id==="manual-form"){
     event.preventDefault();event.stopImmediatePropagation();
