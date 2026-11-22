@@ -1,0 +1,47 @@
+/* Shared by the sign-in portal and the member dashboard. */
+@font-face{font-family:"Durood Nastaliq";src:url("./fonts/NotoNastaliqUrdu.woff") format("woff");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0600-06FF,U+0750-077F,U+08A0-08FF,U+200C-200F,U+FB50-FDFF,U+FE70-FEFF}
+:root[data-theme=emerald]{
+  color-scheme:dark;--paper:#001e19;--surface:#052e27;--raised:#0b4035;--line:#216052;--border:var(--line);
+  --ink:#eefbf4;--deep:#d9fff0;--muted:#b4d3c7;--emerald:#006d52;--green:#87e4bc;--mint:var(--raised);
+  --gold:#9aeacb;--gold-light:#cdffe9;--light:var(--raised);--shadow:0 5px 18px #00171040;
+  --ur:"Durood Nastaliq","Noto Sans Arabic",serif;background:var(--paper);color:var(--ink);accent-color:#67d8ad;
+}
+:root[data-theme=emerald] body{min-height:100svh;color:var(--ink);background:linear-gradient(168deg,#003e32 0%,#001e19 31rem,#002c24 100%);background-attachment:fixed}
+:root[data-theme=emerald][lang=ur] body{font-family:var(--ur);line-height:2.2}
+:root[data-theme=emerald][lang=ur] :is(h1,h2,h3,h4,.brand-title,.profile-copy strong,.nav,.tab,.button,.field,label,.prayer-name,.about-tab,.recitation-period h2,.recitation-banner h2){font-family:var(--ur);line-height:2.15;letter-spacing:normal}
+:root[data-theme=emerald] :lang(ar){font-family:"Noto Naskh Arabic","Noto Sans Arabic",serif;line-height:2}
+:root[data-theme=emerald] :is(.latin-input,[type=email],[type=password],[type=number],time,bdi[dir=ltr]){font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums}
+:root[data-theme=emerald] :is(.panel,.auth-card,.member-card,.global-card,.community-card,.group-card,.rank-card,.reader-inner,.namaz-card,.qaza-card,.stat,.profile-title,.ledger-card,.about-block,.about-people,.about-person,.about-hadith,.about-scripture,.about-prayer,.theme-option,.chat-bubble,.member,.classic-frame,dialog){background:var(--surface);border-color:var(--line);color:var(--ink);box-shadow:var(--shadow)}
+:root[data-theme=emerald] :is(.panel,.community-card,.auth-card,.group-card,.member-card,dialog,.recitation-periods .recitation-period){border-radius:16px}
+:root[data-theme=emerald] :is(.profile-card,.brand-head,.about-hero,.auth .art,.recitation-banner){color:#f2fff9;background:radial-gradient(ellipse at 2% -25%,#003c2f 0 28%,#006047 28.5% 32%,transparent 32.5%),linear-gradient(118deg,#005642,#007765);border:1px solid #168774;border-radius:22px;box-shadow:0 8px 26px #00171045}
+:root[data-theme=emerald] .brand-head{border-radius:0 0 22px 22px}
+:root[data-theme=emerald] .profile-card{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;padding:clamp(14px,3vw,25px)}
+:root[data-theme=emerald] .profile-greeting{gap:1rem}
+:root[data-theme=emerald] .profile-greeting .avatar{width:clamp(56px,15vw,85px);height:clamp(56px,15vw,85px);flex:none;border:3px solid #ceffe9;box-shadow:0 2px 10px #00382a80}
+:root[data-theme=emerald] .profile-copy strong{font-size:clamp(1.25rem,4.7vw,1.8rem);color:#fff;overflow-wrap:anywhere}
+:root[data-theme=emerald] .profile-copy small{line-height:2;color:#d3f3e3;white-space:normal}
+:root[data-theme=emerald] .profile-card-foot{flex-direction:row-reverse;align-items:center;justify-content:space-between;border-top:1px solid #7bd8b841;padding-top:.45rem;gap:.6rem}
+:root[data-theme=emerald] :is(.utility-bar,.bottom-nav,.owner-sections,.locale-switch,.portal-nav,.access-tabs,.prayer-switch,.tab-row){background:#032921;color:var(--ink);border-color:var(--line)}
+:root[data-theme=emerald] :is(.recitation-periods .recitation-period,.record-row,.rank-row,.qaza-section,.qaza-next-card,.qaza-column,.ledger-frame,.prayer-sheet,.prayer-current,.qaza-metric,.reader-metric,.pace-grid>*,.detail-grid>*,.tree-scroll,.tree-node,.pledge,.oath,.demo-box,.member-list li,.reader .arabic,.notice,.empty,.durood-copy,.timing-overview,.namaz-calendar-bar,.about-mission,.gender-choice,.pill,.chip,.invite-code,.ledger-total,.namaz-footer,.full-email-preview){background:var(--surface);color:var(--ink);border-color:var(--line)}
+:root[data-theme=emerald] :is(.recitation-banner h2,.recitation-period h2){background:#ffffff0e;color:#e5fff0}
+:root[data-theme=emerald] :is(h1,h2,h3,h4,legend,label,summary,dt,strong,.field,.utility-brand,.rank-number,.rank-total,.stat strong,.panel strong,.profile-copy,.member-content,.prayer-name,.reader-person,.about-block a,.namaz-date-number,.qaza-next-card strong,.theme-option span){color:var(--ink)}
+:root[data-theme=emerald] :is(small,.muted,.headline p,.field-help,.footnote,.eyebrow,.join-date,.namaz-instruction,.period-note,.read-status,.qaza-hint,.prayer-note,.qaza-column p,.namaz-date-note,.reader-person small,.details dt,footer){color:var(--muted)}
+:root[data-theme=emerald] :is(input:not([type=checkbox]):not([type=radio]),textarea,select){color:var(--ink);background:#04261f;border:1px solid #427366;border-radius:10px}
+:root[data-theme=emerald] ::placeholder{color:#a0bfb1}
+:root[data-theme=emerald] :is(button,.button,.nav-item,.tab,.period,.about-tab,.locale-switch button,.owner-sections button){color:#dcf9eb;background:#113e33;border-color:#447366}
+:root[data-theme=emerald] :is(.button:not(.secondary):not(.danger),button[type=submit],.dial){background:linear-gradient(145deg,#008760,#006950);color:white;border-color:#35a986}
+:root[data-theme=emerald] :is(button,.button,.tab,.nav,.nav-item,.period,.gender-choice):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.active,:has(input:checked)){background:#baf6d9;color:#073e2e;border-color:#8dddb7}
+:root[data-theme=emerald] :is(.nav,.nav-item,.gender-choice):is([aria-current=page],:has(input:checked)) span{color:inherit}
+:root[data-theme=emerald] :is(.button.danger,.feedback.error,.message:not(.ok):not(:empty)){color:#ffd9d9;background:#54252b}
+:root[data-theme=emerald] :is(.feedback.success,.message.ok){color:#a1e7bd}
+:root[data-theme=emerald] :is(.namaz-table,.ledger-card,.prayer-ledger) :is(td,th,tr){background:#082e26;color:#daf3e6;border-color:var(--line)}
+:root[data-theme=emerald] :is(.namaz-table,.ledger-card,.prayer-ledger) thead th{background:#134b3d;color:white}
+:root[data-theme=emerald] :is(.namaz-jamat,.namaz-solo,.namaz-made,.namaz-missed) :is(small,span){color:inherit}
+:root[data-theme=emerald] .bottom-nav .nav{min-height:48px;line-height:1.8}
+:root[data-theme=emerald] .bottom-nav .nav span{line-height:1.2}
+:root[data-theme=emerald] .main{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+:root[data-theme=emerald] :focus-visible{outline:2px solid #a9ffda;outline-offset:2px}
+:root[data-theme=emerald] .namaz-options button[aria-pressed=true]{outline:2px solid #bbffe0;outline-offset:1px}
+:root[data-theme=emerald] :is(.namaz-jamat,.namaz-solo,.namaz-made,.namaz-missed){background:var(--namaz-bg);color:var(--namaz-text);border-color:var(--namaz-border)}
+:root[data-theme=emerald] .namaz-table .namaz-now th{background:#19513e}
+:root[data-theme=emerald] :is(.about-tab,.nav-item,.tab,.period,.nav)[aria-current=page]{color:#073e2e}

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" dir="ltr" data-theme="green-gold">
+<html lang="en" dir="ltr" data-theme="emerald">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="dark light">
 <title>Durood-e-Ibrahimi Global</title>
 <style>
 /* Noto Sans Arabic. Copyright 2015-2020 Google LLC. All Rights Reserved.
@@ -1169,6 +1169,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-person {display:inline-grid;gap:2px}.reader-person small {color:var(--muted)}
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
+<link rel="stylesheet" href="./emerald.css?v=1">
 </head>
 <body>
 <div id="app"></div>
@@ -1599,7 +1600,8 @@ function genderField(value) {
 }
 
 let appThemes = {
-  'green-gold': {name:tr("Green & gold", 'سبز اور سنہری'),primary:'#0b624b',accent:'#dfb84e'},
+  'emerald': {name:tr("Dark emerald", 'گہرا زمردی'),primary:'#005642',accent:'#baf6d9'},
+    'green-gold': {name:tr("Green & gold", 'سبز اور سنہری'),primary:'#0b624b',accent:'#dfb84e'},
   'navy-silver': {name:tr("Navy & silver", 'نیلا اور نقرئی'),primary:'#254470',accent:'#c2cad4'},
   'maroon-gold': {name:tr("Maroon & gold", 'عنابی اور سنہری'),primary:'#802644',accent:'#d9b456'},
   'plum-lavender': {name:tr("Plum & lavender", 'جامنی اور بنفشی'),primary:'#543580',accent:'#b7a5dd'},
@@ -1609,7 +1611,7 @@ let appThemes = {
 
 function selectedTheme(id) {
   const key = memberThemes[id];
-  return Object.hasOwn(appThemes,key) ? key : 'green-gold';
+  return Object.hasOwn(appThemes,key) ? key : 'emerald';
 }
 
 function applyMemberTheme(id) {
@@ -3099,6 +3101,7 @@ function refreshLocale() {
   ];
   genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
   appThemes = {
+    'emerald': {name:tr("Dark emerald", 'گہرا زمردی'),primary:'#005642',accent:'#baf6d9'},
     'green-gold': {name:tr("Green & gold", 'سبز اور سنہری'),primary:'#0b624b',accent:'#dfb84e'},
     'navy-silver': {name:tr("Navy & silver", 'نیلا اور نقرئی'),primary:'#254470',accent:'#c2cad4'},
     'maroon-gold': {name:tr("Maroon & gold", 'عنابی اور سنہری'),primary:'#802644',accent:'#d9b456'},
