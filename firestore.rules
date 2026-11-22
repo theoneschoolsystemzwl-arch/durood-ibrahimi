@@ -187,7 +187,7 @@ service cloud.firestore {
       let m = request.resource.data;
       return self(uid) && !exists(memberPath(uid)) &&
         m.keys().hasOnly(['uid','username','name','role','memberNumber',
-          'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt']) &&
+          'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt','sideNumber']) &&
         m.keys().hasAll(['uid','username','name','role','memberNumber',
           'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt']) &&
         m.uid == uid && validUsername(m.username) &&
@@ -195,6 +195,7 @@ service cloud.firestore {
         m.role == 'member' && m.disabled == false && validGender(m.gender) &&
         m.memberNumber is int && m.memberNumber >= 2 &&
         m.serial == 'DI-' + string(m.memberNumber) &&
+        (!('sideNumber' in m) || (m.gender == 'female' && m.sideNumber is int && m.sideNumber == previousGenderMembers('female') + 1)) &&
         m.pledgeAcceptedAt == request.time && m.createdAt == request.time &&
         validInvite(m.inviteCode) &&
         exists(invitationPath(m.inviteCode)) &&
@@ -241,7 +242,7 @@ service cloud.firestore {
     }
     match /genderMembers/{gender} {
       allow get: if validGender(gender) &&
-        (owner() || (currentMember() && myGender() == gender));
+        ((gender == 'female' && signed() && !exists(memberPath(request.auth.uid))) || owner() || (currentMember() && myGender() == gender));
       allow list, delete: if false;
       allow create, update: if signupGenderMembers(gender);
     }

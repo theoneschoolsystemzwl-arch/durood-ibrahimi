@@ -3,7 +3,7 @@ import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
   claimDeviceSession, signOut, onAuthStateChanged
-} from "./member-auth.js?release=readers";
+} from "./member-auth.js?release=women-numbers";
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js?release=readers";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -268,9 +268,9 @@ function showSignedIn(profile){
   view("#access",false);
   view("#portal",true);
   $("#member-name").textContent=profile.name||"Member";
-  $("#member-serial").textContent=profile.serial||"";
+  $("#member-serial").textContent=memberSerial(profile);
   $("#member-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
-  $("#profile-serial").textContent=profile.serial||"";
+  $("#profile-serial").textContent=memberSerial(profile);
   $("#profile-username").textContent=profile.username||"";
   $("#profile-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-name").value=profile.name||"";
@@ -346,7 +346,7 @@ async function refreshMembers(){
     const name=document.createElement("strong");
     name.textContent=member.name||"Member";
     const small=document.createElement("small");
-    small.textContent=[member.serial,member.username,member.disabled?"Suspended":"Active"].filter(Boolean).join(" • ");
+    small.textContent=[memberSerial(member),member.username,member.disabled?"Suspended":"Active"].filter(Boolean).join(" • ");
     info.append(name,small);
     outer.append(info);
     if(member.role!=="owner"){
@@ -448,3 +448,11 @@ $("#refresh-members").addEventListener("click",async()=>{
   try{await refreshMembers();message("#admin-message","فہرست تازہ ہو گئی۔",true);}
   catch(err){message("#admin-message",errorText(err));}
 });
+
+function memberSerial(member){
+  if(member.gender!=="female")return member.serial||"";
+  const legacy={2:1,3:2};
+  const number=member.sideNumber ?? legacy[member.memberNumber];
+  return number ? "D"+number : "";
+}
+

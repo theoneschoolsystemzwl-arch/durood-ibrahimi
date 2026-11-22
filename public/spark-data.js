@@ -58,8 +58,9 @@ export async function registerSpark({name,password,inviteCode,gender,pledgeAccep
       const usernameDoc=doc(db,"usernames",clean);
       const currentUser=memberRef(uid);
       const sideMembers=doc(db,"genderMembers",gender);
-      const [seq,inv,existing,already]=await Promise.all([
-        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser)
+      const [seq,inv,existing,already,side]=await Promise.all([
+        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser),
+        gender==="female" ? tx.get(sideMembers) : null
       ]);
       if(!seq.exists()||!Number.isSafeInteger(seq.data().lastNumber) || seq.data().lastNumber<1){
         throw Error("Owner اکاؤنٹ ابھی قائم نہیں ہوا۔");
@@ -80,19 +81,23 @@ export async function registerSpark({name,password,inviteCode,gender,pledgeAccep
       }
       const n=seq.data().lastNumber+1;
       if(!Number.isSafeInteger(n))throw Error("ممبر نمبر کی حد مکمل ہو گئی ہے۔");
+      const sideNumber=side ? (side.exists() ? side.data().totalMembers : 0)+1 : null;
+      if(side && (!Number.isSafeInteger(sideNumber)||sideNumber<1)){
+        throw Error("خواتین کا ممبر نمبر مقرر نہیں ہو سکا۔");
+      }
+      const sideFields=side ? {sideNumber} : {};
       const serial="DI-"+n;
       tx.update(sequence,{lastNumber:n,lastMemberUid:uid,updatedAt:serverTimestamp()});
       tx.update(invitation,{used:true,usedByUid:uid,usedAt:serverTimestamp()});
       tx.set(usernameDoc,{uid,createdAt:serverTimestamp()});
-      // Atomic increment avoids needing to read private gender counters before signup.
       tx.set(sideMembers,{gender,totalMembers:increment(1),
         updatedAt:serverTimestamp()},{merge:true});
       tx.set(currentUser,{
-        uid,username:clean,name:fullName,role:"member",gender,memberNumber:n,serial,
+        uid,username:clean,name:fullName,role:"member",gender,memberNumber:n,serial,...sideFields,
         inviterUid,inviteCode:invite,disabled:false,
         pledgeAcceptedAt:serverTimestamp(),createdAt:serverTimestamp()
       });
-      return {uid,serial,memberNumber:n,username:clean,name:fullName,gender};
+      return {uid,serial,memberNumber:n,username:clean,name:fullName,gender,...sideFields};
     });
     return profile;
   }catch(error){
