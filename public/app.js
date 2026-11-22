@@ -16,6 +16,8 @@ const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
 // The frame reuses the profile already checked by login, after Firebase restores the same UID.
 window.duroodVerifiedProfile=uid=>auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
+// Same-origin dashboard can reuse the verified user rather than treating its first empty Auth tick as a logout.
+window.duroodParentAuthUser=()=>appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
 let classicFrameRequested=false;
 let dashboardTimer;
 let authGeneration=0;
