@@ -6,7 +6,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
 (async()=>{
  const env=await initializeTestEnvironment({projectId:"demo-durood",
    firestore:{rules:fs.readFileSync("firestore.rules","utf8")}});
- const ownerUid="vt06NK7DcmgPpUKD4R7EgwzAxIH3",memberUid="wazifa-member-a",otherUid="wazifa-member-b";
+ const ownerUid="vt06NK7DcmgPpUKD4R7EgwzAxIH3",memberUid="wazifa-member-a",otherUid="wazifa-member-b",femaleFriendUid="wazifa-member-c";
  const day="2026-11-23",year="2026";
  try{
   await env.withSecurityRulesDisabled(async ctx=>{
@@ -14,7 +14,8 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
    await setDoc(doc(db,"members",ownerUid),{uid:ownerUid,name:"Owner",username:"owner",memberNumber:1,role:"owner",disabled:false});
    await setDoc(doc(db,"members",memberUid),{uid:memberUid,name:"Member A",username:"a",memberNumber:2,gender:"male",role:"member",disabled:false});
    await setDoc(doc(db,"members",otherUid),{uid:otherUid,name:"Member B",username:"b",memberNumber:3,gender:"female",role:"member",disabled:false});
-   for(const uid of [memberUid,otherUid]){
+   await setDoc(doc(db,"members",femaleFriendUid),{uid:femaleFriendUid,name:"Member C",username:"c",memberNumber:4,sideNumber:3,gender:"female",role:"member",disabled:false});
+   for(const uid of [memberUid,otherUid,femaleFriendUid]){
     await setDoc(doc(db,"activeLogins",uid),{sessionId:"correct-device",authTime:1700000000,claimedAt:new Date()});
    }
   });
@@ -22,6 +23,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const owner=env.authenticatedContext(ownerUid).firestore();
   const member=env.authenticatedContext(memberUid,{auth_time:1700000000}).firestore();
   const other=env.authenticatedContext(otherUid,{auth_time:1700000000}).firestore();
+  const femaleFriend=env.authenticatedContext(femaleFriendUid,{auth_time:1700000000}).firestore();
   const group=doc(owner,"wazaifSettings","group");
   const base={title:"درود ابراہیمی",arabic:"اللهم صل على محمد",instructions:"Read once",purpose:"Durood",kind:"group",dailyGoal:200,yearlyGoal:1000000,startDate:day,active:true,countAsDurood:true};
   await assertFails(getDoc(doc(guest,"wazaifSettings","group")));
@@ -204,6 +206,19 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
       senderSerial:"DI-3",sourceId:femaleItem.id,createdAt:serverTimestamp()}));
   await assertFails(setDoc(doc(member,"wazifaInbox",ownerUid,"items","ForgedWazifa0000001"),
     {...accepted,title:"Changed text",createdAt:serverTimestamp()}));
+  // Female recipients are addressed by D1, D2, ... rather than DI
+  // numbers. The legacy founding D2 sender has no sideNumber field yet.
+  const ladiesShareId="FemaleShare00000001";
+  const ladiesInbox=doc(femaleFriend,"wazifaInbox",femaleFriendUid,"items",ladiesShareId);
+  const femalePayload={...outgoing,senderUid:otherUid,recipientUid:femaleFriendUid,
+    senderSerial:"D2",sourceId:femaleItem.id,createdAt:serverTimestamp()};
+  await assertSucceeds(setDoc(doc(other,"wazifaInbox",femaleFriendUid,"items",ladiesShareId),femalePayload));
+  await assertSucceeds(getDoc(ladiesInbox));
+  await assertFails(getDoc(doc(member,"wazifaInbox",femaleFriendUid,"items",ladiesShareId)));
+  await assertFails(setDoc(doc(member,"wazifaInbox",femaleFriendUid,"items","CrossFromMan00000001"),
+    {...femalePayload,senderUid:memberUid,senderSerial:"DI-2",sourceId:privateRef.id,
+      createdAt:serverTimestamp()}));
+  await assertSucceeds(deleteDoc(ladiesInbox));
   await assertFails(deleteDoc(doc(member,"wazifaInbox",ownerUid,"items",shareDoc.id)));
   // Accept share atomically: private W-1 is created and only the recipient
   // can delete their own pending inbox card. A second accept cannot duplicate.
