@@ -28,44 +28,44 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const base={title:"درود ابراہیمی",arabic:"اللهم صل على محمد",instructions:"Read once",purpose:"Durood",kind:"group",dailyGoal:200,yearlyGoal:1000000,startDate:day,active:true,countAsDurood:true};
   await assertFails(getDoc(doc(guest,"wazaifSettings","group")));
   await assertFails(setDoc(doc(member,"wazaifSettings","group"),{...base,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
-  await assertSucceeds(setDoc(group,{...base,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
-  await assertSucceeds(getDoc(doc(member,"wazaifSettings","group")));
-  await assertSucceeds(getDoc(doc(other,"wazaifSettings","group")));
+  console.log("W1_RULE_TEST_STEP_1");await assertSucceeds(setDoc(group,{...base,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_2");await assertSucceeds(getDoc(doc(member,"wazaifSettings","group")));
+  console.log("W1_RULE_TEST_STEP_3");await assertSucceeds(getDoc(doc(other,"wazaifSettings","group")));
   await assertFails(updateDoc(doc(other,"wazaifSettings","group"),{dailyGoal:999999,updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(doc(member,"wazaifSettings","group"),{active:false,updatedAt:serverTimestamp()}));
-  await assertSucceeds(updateDoc(group,{dailyGoal:250,updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_4");await assertSucceeds(updateDoc(group,{dailyGoal:250,updatedAt:serverTimestamp()}));
   const privateRef=doc(member,"memberWazaif",memberUid,"items","WzPrivateABC123456789");
   const personal={uid:memberUid,title:"آیت الکرسی",arabic:"الله لا إله إلا هو",instructions:"Read daily",purpose:"Personal",kind:"daily",goal:100,startDate:day,endDate:"",total:0,today:0,day};
   const memberSeq=doc(member,"memberWazaif",memberUid,"meta","sequence");
   await assertFails(setDoc(privateRef,{...personal,wNumber:1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
   await assertFails(setDoc(privateRef,{...personal,createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_5");await assertSucceeds(runTransaction(member,async tx=>{
     tx.set(privateRef,{...personal,wNumber:1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     tx.set(memberSeq,{next:1,lastItemId:privateRef.id,updatedAt:serverTimestamp()});
   }));
   if((await getDoc(privateRef)).data().wNumber!==1)throw Error("W-1 not assigned");
   await assertFails(updateDoc(privateRef,{wNumber:8,updatedAt:serverTimestamp()}));
-  await assertSucceeds(getDoc(privateRef));
-  await assertSucceeds(getDocs(query(collection(member,"memberWazaif",memberUid,"items"),limit(100))));
+  console.log("W1_RULE_TEST_STEP_6");await assertSucceeds(getDoc(privateRef));
+  console.log("W1_RULE_TEST_STEP_7");await assertSucceeds(getDocs(query(collection(member,"memberWazaif",memberUid,"items"),limit(100))));
   await assertFails(getDoc(doc(other,"memberWazaif",memberUid,"items","WzPrivateABC123456789")));
   await assertFails(getDoc(doc(owner,"memberWazaif",memberUid,"items","WzPrivateABC123456789")));
   await assertFails(getDocs(query(collection(other,"memberWazaif",memberUid,"items"),limit(100))));
   await assertFails(updateDoc(doc(other,"memberWazaif",memberUid,"items","WzPrivateABC123456789"),{goal:10,updatedAt:serverTimestamp()}));
-  await assertSucceeds(updateDoc(privateRef,{instructions:"Read after prayers",updatedAt:serverTimestamp()}));
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_8");await assertSucceeds(updateDoc(privateRef,{instructions:"Read after prayers",updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_9");await assertSucceeds(runTransaction(member,async tx=>{
    const snap=await tx.get(privateRef);
    tx.update(privateRef,{total:snap.data().total+1,today:snap.data().today+1,day,updatedAt:serverTimestamp()});
   }));
   // 41-day configuration must be an allowed, private, bounded edit.
-  await assertSucceeds(updateDoc(privateRef,{durationDays:41,updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_10");await assertSucceeds(updateDoc(privateRef,{durationDays:41,updatedAt:serverTimestamp()}));
   // The first new recorded day may coexist with legacy aggregate counts.
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_11");await assertSucceeds(runTransaction(member,async tx=>{
     const snap=await tx.get(privateRef),d=snap.data();
     tx.update(privateRef,{total:d.total+1,today:d.today+1,day,
       dailyLedger:{[day]:{count:1,durationMs:1200,intervals:1}},
       updatedAt:serverTimestamp()});
   }));
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_12");await assertSucceeds(runTransaction(member,async tx=>{
     const snap=await tx.get(privateRef),d=snap.data(),prior=d.dailyLedger[day];
     tx.update(privateRef,{total:d.total+1,today:d.today+1,day,
       dailyLedger:{[day]:{count:prior.count+1,durationMs:prior.durationMs+900,intervals:prior.intervals+1}},
@@ -73,8 +73,8 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   }));
   // New source-aware history: current tasbih is green, manual is yellow,
   // and a past-day save must leave the newest-day summary unchanged.
-  await assertSucceeds(updateDoc(privateRef,{startDate:"2026-11-20",updatedAt:serverTimestamp()}));
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_13");await assertSucceeds(updateDoc(privateRef,{startDate:"2026-11-20",updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_14");await assertSucceeds(runTransaction(member,async tx=>{
    const snap=await tx.get(privateRef),d=snap.data(),old=d.dailyLedger[day];
    tx.update(privateRef,{
     total:d.total+1,today:d.today+1,day,
@@ -87,7 +87,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   }));
   const priorDay="2026-11-22";
   const beforePast=(await getDoc(privateRef)).data();
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_15");await assertSucceeds(runTransaction(member,async tx=>{
    const snap=await tx.get(privateRef),d=snap.data();
    tx.update(privateRef,{total:d.total+500,today:d.today,day:d.day,
     dailyLedger:{...d.dailyLedger,[priorDay]:{
@@ -98,7 +98,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   if(afterPast.day!==day||afterPast.today!==beforePast.today||
      afterPast.dailyLedger[priorDay].manualCount!==500)
     throw Error("Backdated manual save changed the current daily summary");
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_16");await assertSucceeds(runTransaction(member,async tx=>{
    const snap=await tx.get(privateRef),d=snap.data(),entry=d.dailyLedger[priorDay];
    tx.update(privateRef,{total:d.total-100,today:d.today,day:d.day,
     dailyLedger:{...d.dailyLedger,[priorDay]:{...entry,count:400,manualCount:400}},
