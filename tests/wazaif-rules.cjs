@@ -77,8 +77,8 @@ const {doc,collection,query,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction
    const dayRef=doc(member,"genderStats","male","days",day);
    const readerRef=doc(member,"genderStats","male","days",day,"readers",memberUid);
    const groupRef=groupStats(member),one=personStats(member),annual=yearStats(member);
-   const [p,g,sg,gs,ms,ys]=await Promise.all([
-     tx.get(person),tx.get(world),tx.get(side),tx.get(groupRef),tx.get(one),tx.get(annual)
+   const [p,sg,gs,ms,ys]=await Promise.all([
+     tx.get(person),tx.get(side),tx.get(groupRef),tx.get(one),tx.get(annual)
    ]);
    const amount=1;
    tx.set(person,{memberUid,gender:"male",total:Number(p.data()?.total||0)+amount,
