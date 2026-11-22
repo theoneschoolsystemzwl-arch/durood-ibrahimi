@@ -551,6 +551,184 @@ service cloud.firestore {
       allow create, update: if activeLegacyDevice(memberUid) && validLegacyProfile();
     }
 
+
+    // Wazaif use new collections; existing membership, Durood totals, prayer,
+    // referral and gender protections remain untouched.
+    function wzSettingsPath() {
+      return /databases/$(database)/documents/wazaifSettings/group;
+    }
+    function wzStatsPath() {
+      return /databases/$(database)/documents/wazaifGroupStats/main;
+    }
+    function wzMemberPath(uid) {
+      return /databases/$(database)/documents/wazaifGroupStats/main/members/$(uid);
+    }
+    function wzYearPath(year) {
+      return /databases/$(database)/documents/wazaifGroupStats/main/years/$(year);
+    }
+    function wzDate(value) {
+      return value is string &&
+        value.matches('^[0-9]{4}-(0[1-9]|1[0-2])-[0-3][0-9]');
+    }
+    function wzSafeText(d) {
+      return d.title is string && d.title.size() >= 1 && d.title.size() <= 80 &&
+        d.arabic is string && d.arabic.size() >= 1 && d.arabic.size() <= 3000 &&
+        d.instructions is string && d.instructions.size() <= 1200 &&
+        d.purpose is string && d.purpose.size() <= 1200 &&
+        wzDate(d.startDate);
+    }
+    function validWzGroup() {
+      let d=request.resource.data;
+      return d.keys().hasOnly(['title','arabic','instructions','purpose','kind',
+         'dailyGoal','yearlyGoal','startDate','active','countAsDurood','createdAt','updatedAt']) &&
+        d.keys().hasAll(['title','arabic','instructions','purpose','kind',
+         'dailyGoal','yearlyGoal','startDate','active','countAsDurood','createdAt','updatedAt']) &&
+        wzSafeText(d) && d.kind == 'group' &&
+        d.active is bool && d.countAsDurood is bool &&
+        d.dailyGoal is int && d.dailyGoal >= 1 && d.dailyGoal <= 1000000000 &&
+        d.yearlyGoal is int && d.yearlyGoal >= 1 && d.yearlyGoal <= 1000000000 &&
+        d.updatedAt == request.time;
+    }
+    match /wazaifSettings/{id} {
+      // Member reads are needed to display the public group title and
+      // accounting targets. The Settings form and all writes are owner-only.
+      allow get: if id == 'group' && currentMember();
+      allow list, delete: if false;
+      allow create: if id == 'group' && owner() && validWzGroup() &&
+        request.resource.data.createdAt == request.time;
+      allow update: if id == 'group' && owner() && validWzGroup() &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+    function wzGroupEnabled() {
+      return currentMember() && exists(wzSettingsPath()) &&
+        get(wzSettingsPath()).data.active == true;
+    }
+    function wzOldTotal() {
+      return exists(wzStatsPath()) ? get(wzStatsPath()).data.total : 0;
+    }
+    function wzOldMember(uid) {
+      return exists(wzMemberPath(uid)) ? get(wzMemberPath(uid)).data.total : 0;
+    }
+    function wzOldYear(year) {
+      return exists(wzYearPath(year)) ? get(wzYearPath(year)).data.total : 0;
+    }
+    function validWzIncrement(amount) {
+      return amount is int && amount >= 1 && amount <= 10000;
+    }
+    function validWzStats(previous,previousDay,previousToday) {
+      let d=request.resource.data;
+      let uid=request.auth.uid;
+      let amount=d.lastAmount;
+      return wzGroupEnabled() &&
+        d.keys().hasOnly(['total','day','year','today','lastUid','lastAmount','updatedAt']) &&
+        d.keys().hasAll(['total','day','year','today','lastUid','lastAmount','updatedAt']) &&
+        validWzIncrement(amount) && d.lastUid == uid &&
+        wzDate(d.day) && d.year is string && d.year.matches('^[0-9]{4}') &&
+        d.day.matches('^' + d.year + '-[0-9]{2}-[0-9]{2}') &&
+        d.total is int && d.total == previous + amount &&
+        d.today is int && d.today ==
+          (previousDay == d.day ? previousToday : 0) + amount &&
+        d.updatedAt == request.time &&
+        getAfter(wzMemberPath(uid)).data.total == wzOldMember(uid) + amount &&
+        getAfter(wzMemberPath(uid)).data.lastAmount == amount &&
+        getAfter(wzMemberPath(uid)).data.updatedAt == request.time &&
+        getAfter(wzYearPath(d.year)).data.total == wzOldYear(d.year) + amount &&
+        getAfter(wzYearPath(d.year)).data.lastAmount == amount &&
+        getAfter(wzYearPath(d.year)).data.updatedAt == request.time;
+    }
+    match /wazaifGroupStats/main {
+      allow get: if currentMember();
+      allow list, delete: if false;
+      allow create: if validWzStats(0,'',0);
+      allow update: if validWzStats(resource.data.total,resource.data.day,resource.data.today);
+    }
+    function validWzMember(uid,previous,oldDay,oldToday) {
+      let d=request.resource.data;
+      let amount=d.lastAmount;
+      return self(uid) && wzGroupEnabled() &&
+        d.keys().hasOnly(['uid','total','day','today','lastAmount','updatedAt']) &&
+        d.keys().hasAll(['uid','total','day','today','lastAmount','updatedAt']) &&
+        d.uid == uid && wzDate(d.day) && validWzIncrement(amount) &&
+        d.total is int && d.total == previous + amount &&
+        d.today is int && d.today ==
+          (oldDay == d.day ? oldToday : 0) + amount &&
+        d.updatedAt == request.time &&
+        getAfter(wzStatsPath()).data.total == wzOldTotal() + amount &&
+        getAfter(wzStatsPath()).data.lastUid == uid &&
+        getAfter(wzStatsPath()).data.day == d.day &&
+        getAfter(wzStatsPath()).data.lastAmount == amount &&
+        getAfter(wzStatsPath()).data.updatedAt == request.time;
+    }
+    match /wazaifGroupStats/main/members/{uid} {
+      allow get: if owner() || (self(uid) && currentMember());
+      allow list, delete: if false;
+      allow create: if validWzMember(uid,0,'',0);
+      allow update: if validWzMember(uid,resource.data.total,resource.data.day,resource.data.today);
+    }
+    function validWzYear(year,previous) {
+      let d=request.resource.data;
+      let amount=d.lastAmount;
+      return wzGroupEnabled() && year.matches('^[0-9]{4}') &&
+        d.keys().hasOnly(['year','total','lastUid','lastAmount','updatedAt']) &&
+        d.keys().hasAll(['year','total','lastUid','lastAmount','updatedAt']) &&
+        d.year == year && validWzIncrement(amount) &&
+        d.lastUid == request.auth.uid && d.total is int &&
+        d.total == previous + amount && d.updatedAt == request.time &&
+        getAfter(wzStatsPath()).data.total == wzOldTotal() + amount &&
+        getAfter(wzStatsPath()).data.year == year &&
+        getAfter(wzStatsPath()).data.lastUid == request.auth.uid &&
+        getAfter(wzStatsPath()).data.lastAmount == amount &&
+        getAfter(wzStatsPath()).data.updatedAt == request.time;
+    }
+    match /wazaifGroupStats/main/years/{year} {
+      allow get: if currentMember() && year.matches('^[0-9]{4}');
+      allow list, delete: if false;
+      allow create: if validWzYear(year,0);
+      allow update: if validWzYear(year,resource.data.total);
+    }
+    function validWzPrivate(uid) {
+      let d=request.resource.data;
+      return self(uid) && currentMember() &&
+        d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
+        d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
+        d.uid == uid && wzSafeText(d) &&
+        (d.kind == 'daily' || d.kind == 'fixed' || d.kind == 'open') &&
+        d.goal is int && d.goal >= 1 && d.goal <= 1000000000 &&
+        d.endDate is string &&
+        (d.kind == 'fixed' ? (wzDate(d.endDate) && d.endDate >= d.startDate) : d.endDate == '') &&
+        d.total is int && d.total >= 0 &&
+        d.today is int && d.today >= 0 &&
+        wzDate(d.day) && d.createdAt is timestamp &&
+        d.updatedAt == request.time;
+    }
+    function validWzPrivateChange() {
+      let d=request.resource.data;
+      let diff=d.diff(resource.data).affectedKeys();
+      let amount=d.total - resource.data.total;
+      return d.createdAt == resource.data.createdAt &&
+        (diff.hasOnly(['title','arabic','instructions','purpose','kind',
+                       'goal','startDate','endDate','updatedAt']) ||
+          (diff.hasOnly(['total','today','day','updatedAt']) &&
+           amount is int && amount >= 1 && amount <= 1000 &&
+           d.day >= resource.data.day && d.day >= d.startDate &&
+           (d.kind != 'fixed' || d.day <= d.endDate) &&
+           d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount));
+    }
+    match /memberWazaif/{uid}/items/{wazifaId} {
+      // Unlike the group config, these documents are never readable by
+      // another member, even if that member has a DI ID or referral link.
+      allow get: if self(uid) && currentMember();
+      allow list: if self(uid) && currentMember() &&
+        request.query.limit != null && request.query.limit <= 100;
+      allow create: if validWzPrivate(uid) &&
+        request.resource.data.total == 0 && request.resource.data.today == 0 &&
+        request.resource.data.createdAt == request.time;
+      allow update: if validWzPrivate(uid) && validWzPrivateChange();
+      allow delete: if self(uid) && currentMember();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -6,8 +6,14 @@ on:
       - 'firestore.rules'
       - 'firebase.json'
       - 'public/spark-data.js'
+      - 'public/wazaif-counter.js'
+      - 'public/wazaif.js'
+      - 'tests/wazaif-rules.cjs'
       - 'public/member-auth.js'
       - 'tests/firestore-rules.cjs'
+      - 'tests/wazaif-rules.cjs'
+      - 'public/wazaif-counter.js'
+      - 'public/wazaif.js'
       - '.github/workflows/spark-rules.yml'
   pull_request:
     paths:
@@ -40,4 +46,4 @@ jobs:
           npm install --global firebase-tools@15
       - name: Compile and test Firestore security with local emulator
         run: |
-          firebase emulators:exec --project demo-durood --only firestore --non-interactive "node tests/firestore-rules.cjs"
+          firebase emulators:exec --project demo-durood --only firestore --non-interactive "node tests/firestore-rules.cjs && node tests/wazaif-rules.cjs"

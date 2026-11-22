@@ -40,6 +40,8 @@ jobs:
           node --check public/password-change.js
           node --check public/pwa.js
           node --check public/service-worker.js
+          node --check public/wazaif.js
+          node --check public/wazaif-counter.js
       - name: Install and smoke-test Firebase Functions
         run: |
           npm install --prefix functions --no-audit --no-fund
@@ -49,6 +51,7 @@ jobs:
           node tests/contracts.test.cjs
           bash -n scripts/cloud-shell-setup.sh
           bash -n scripts/spark-hosting.sh
+          bash -n scripts/guard-firebase-rules.sh
       - name: Check Firebase configuration
         run: |
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"

@@ -1,6 +1,7 @@
 // Spark-plan data layer: Firebase Auth + Firestore, no Cloud Functions or billing.
 // Production access decisions are enforced by firestore.rules, NOT this client.
 import {auth,db} from "./firebase-client.js";
+import {addGroupCountsToTransaction} from "./wazaif-counter.js";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,deleteDoc,increment
@@ -179,7 +180,7 @@ export async function profileNameSpark(name){
 export function localReadingDate(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
-export async function readingsSpark(amount,day=localReadingDate(),tasbih=false){
+export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,groupWazifa=false){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
     localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
   const uid=requireUser();
@@ -201,6 +202,12 @@ export async function readingsSpark(amount,day=localReadingDate(),tasbih=false){
     const sideTotal=sideSnap.exists()?sideSnap.data().totalRecitations||0:0;
     if(!Number.isSafeInteger(sideTotal)||sideTotal<0)throw Error("Gender totals invalid.");
     if(!Number.isSafeInteger(ownTotal)||ownTotal<0)throw Error("شمار کا ڈیٹا درست نہیں۔");
+    // A group Durood tap saves the original Durood total AND its group
+    // accounting in one transaction: no double-count or partial success.
+    if(groupWazifa){
+      if(!tasbih)throw Error("گروپ وظیفے کے لیے تسبیح ضروری ہے۔");
+      await addGroupCountsToTransaction(tx,uid,amount,day,{durood:true});
+    }
     tx.set(personal,{memberUid:uid,gender,total:ownTotal+amount,lastEntryAmount:amount,updatedAt:serverTimestamp()});
     // Blind atomic increment: users cannot read the cross-gender legacy aggregate.
     tx.set(global,{totalRecitations:increment(amount),lastEntryAmount:amount,

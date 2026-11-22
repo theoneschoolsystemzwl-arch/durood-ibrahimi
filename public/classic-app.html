@@ -1171,6 +1171,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
+<link rel="stylesheet" href="./wazaif.css?v=1">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 <style id="tasbih-refresh">
@@ -1962,8 +1963,15 @@ function readingDialogs() {
 const duroodIbrahimi = '<p>اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.</p>' +
   '<p>اللَّهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.</p>';
 
+function wazaifLanding(){
+  return '<section id="wazaif-root" class="wazifa-host"><p>وظائف کی فہرست لوڈ ہو رہی ہے…</p></section>';
+}
 function tasbih() {
-  return boxedHeading(tr("Tasbih", 'تسبیح'),tr("Recite Durood-e-Ibrahimi in full, then tap once.", 'مکمل درودِ ابراہیمی پڑھیں اور ہر مرتبہ ایک بار ٹیپ کریں۔')) +
+  const group=window.duroodWazaif?.groupData?.();
+  const headingTitle=group?.title||tr("Tasbih", 'تسبیح');
+  const description=group?.instructions||tr("Recite Durood-e-Ibrahimi in full, then tap once.", 'مکمل درودِ ابراہیمی پڑھیں اور ہر مرتبہ ایک بار ٹیپ کریں۔');
+  return '<button type="button" class="button secondary" data-action="nav" data-value="tasbih">← '+tr('Wazaif list','وظائف واپس')+'</button>' +
+    boxedHeading(esc(headingTitle),esc(description)) +
     tr("<section class=\"reader\" aria-label=\"Tasbih counter\"><div class=\"reader-inner\">", '<section class="reader" aria-label="تسبیح کا شمار"><div class="reader-inner">') +
     tr("<div class=\"panel-head\"><h2>Durood-e-Ibrahimi</h2><div class=\"reader-actions\">", '<div class="panel-head"><h2>درودِ ابراہیمی</h2><div class="reader-actions">') +
     '<button class="button" data-action="reader-sound" aria-pressed="' + soundEnabled + tr("\">Sound ", '">آواز ') + (soundEnabled ? tr("On", 'چالو') : tr("Off", 'بند')) +
@@ -1977,7 +1985,8 @@ function tasbih() {
     '<div class="reader-progress"><div class="reader-goal-note"><strong id="read-goal-note"></strong>' +
     tr("<button class=\"button secondary\" data-action=\"daily-goal\">Set daily goal</button></div>", '<button class="button secondary" data-action="daily-goal">روزانہ ہدف مقرر کریں</button></div>') +
     tr("<progress id=\"read-progress\" aria-label=\"Daily goal progress\" max=\"100\" value=\"0\"></progress></div>", '<progress id="read-progress" aria-label="روزانہ ہدف کی پیش رفت" max="100" value="0"></progress></div>') +
-    '<div class="durood-copy" lang="ar" dir="rtl">' + duroodIbrahimi + '</div>' +
+    '<div class="durood-copy" lang="ar" dir="rtl">' +
+      (group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : duroodIbrahimi) + '</div>' +
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
@@ -1991,7 +2000,7 @@ function tasbih() {
 }
 
 function updateClock() {
-  if (section !== 'tasbih' || !currentUser() || document.hidden) return;
+  if (section !== 'wazifa-reader' || !currentUser() || document.hidden) return;
   const clock=document.getElementById('read-clock');
   if(!clock)return;
   if(readingSession.key!==dateKey()){updateReader();return;}
@@ -2039,7 +2048,7 @@ function updateReader() {
   clearTimeout(readerHistoryTimer);
   readerHistoryTimer=setTimeout(()=>{
     const target=document.getElementById('daily-records');
-    if(target && section==='tasbih' && currentUser()?.id===person.id)
+    if(target && section==='wazifa-reader' && currentUser()?.id===person.id)
       target.innerHTML=historyRows(person,dateKey());
   },180);
   updateClock();
@@ -2133,7 +2142,7 @@ function openManual(key) {
 }
 
 function handleReaderAction(action,button,value) {
-  if (section !== 'tasbih') return false;
+  if (section !== 'wazifa-reader') return false;
   if (action === 'count-durood') tapDurood();
   else if (action === 'reader-sound') {
     soundEnabled = !soundEnabled;
@@ -2768,7 +2777,7 @@ function handleTimingAction(action,value) {
     activePrayerAlert = null;
     document.getElementById('prayer-alert').innerHTML = '';
   } else if (action==='open-prayer-timing') {
-    if (section==='tasbih') readingSession.lastTap = null;
+    if (section==='wazifa-reader') readingSession.lastTap = null;
     section = 'namaz';
     namazView = 'timing';
     render();
@@ -3152,10 +3161,10 @@ function dashboard(person) {
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
   const women = ownerViewingWomen();
-  const personalTabs = ['tasbih','namaz','settings'];
-  const active = section === 'profile' ? 'directory' : section;
+  const personalTabs = ['tasbih','wazifa-reader','namaz','settings'];
+  const active = section === 'wazifa-reader' ? 'tasbih' : section === 'profile' ? 'directory' : section;
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
-  const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
+  const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + topCornerControls() + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
@@ -3371,7 +3380,8 @@ function render({keepScroll = false} = {}) {
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
-  if (person && section === 'tasbih') updateReader();
+  if (person && section === 'tasbih') window.duroodWazaif?.render?.();
+  if (person && section === 'wazifa-reader') updateReader();
   const dock = app.querySelector('.nav-inner');
   if (dock) dock.scrollLeft = navScroll;
   if (!keepScroll) window.scrollTo(0,0);
@@ -3566,7 +3576,8 @@ app.addEventListener('click', event => {
   }
   message = '';
   if (action === 'nav') {
-    if (section === 'tasbih' && value !== 'tasbih') readingSession.lastTap = null;
+    if (section === 'wazifa-reader' && value !== 'wazifa-reader') readingSession.lastTap = null;
+    if(value==='tasbih')window.duroodWazaif?.back?.();
     section = value;
     groupFilter = null;
     if(!currentPhotoSelection())photoDraft=null;
@@ -3699,6 +3710,12 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  openGroupReader(){
+    if(!currentUser()||!window.duroodWazaif?.activeGroup?.()||
+      !window.duroodWazaif?.groupCountsAsDurood?.())return;
+    section='wazifa-reader';readingSession.lastTap=null;render();
+  },
+  openWazaifList(){section='tasbih';render();},
   readers(rows){
     todayReaders=rows;
     const list=document.getElementById("today-readers");
@@ -3772,10 +3789,10 @@ window.duroodClassicBridge = {
     if(readingSession.key===day)readingSession.count=Math.max(0,(readingSession.count||0)-amount);
     p.added=Math.max(0,Number(p.added||0)-amount);
     globalTotal=Math.max(0,globalTotal-amount);
-    if(section==='tasbih')updateReader();
+    if(section==='wazifa-reader')updateReader();
   },
   manual(form,data){if(currentUser()){submitManual(form,data);persistReaderJournal();}},
-  confirmed(pending){persistReaderJournal(pending);if(section==='tasbih'){
+  confirmed(pending){persistReaderJournal(pending);if(section==='wazifa-reader'){
     const status=document.getElementById('read-status');
     if(status)status.textContent=tr('Count saved to Firebase.','شمار Firebase میں محفوظ ہو گیا۔');
   }},
@@ -3848,6 +3865,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
+import "./wazaif.js?release=wazaif-v1";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=fast-login-reader-v4";
@@ -3876,7 +3894,7 @@ async function flushTasbihTaps(){
   if(!uid||uid!==currentProfile?.uid){queuedTaps.clear();return;}
   flushingTaps=true;
   try{
-    await readingsSpark(amount,day,true);
+    await readingsSpark(amount,day,true,true);
     const remaining=Math.max(0,(queuedTaps.get(day)||0)-amount);
     if(remaining)queuedTaps.set(day,remaining);else queuedTaps.delete(day);
     if(auth.currentUser?.uid===uid)bridge.confirmed(Object.fromEntries(queuedTaps));
@@ -3966,6 +3984,7 @@ async function hydrate(){
     return;
   }
   const profile=(window.parent!==window && window.parent.duroodVerifiedProfile?.(user.uid)) || await loadMemberProfile(user);
+  window.duroodWazaif?.setMember?.(profile);
   const owner=profile.role==="owner";
   const side=owner && window.duroodOwnerSide==="female"?"female":
     (!owner && profile.gender==="female"?"female":"male");
