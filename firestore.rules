@@ -668,10 +668,7 @@ service cloud.firestore {
     function validWzYear(year,previous) {
       let d=request.resource.data;
       let amount=d.lastAmount;
-      return wzGroupEnabled() && year.matches('^[0-9]{4}
-  }
-}
-) &&
+      return wzGroupEnabled() && year.matches('^[0-9]{4}') &&
         d.keys().hasOnly(['year','total','lastUid','lastAmount','updatedAt']) &&
         d.keys().hasAll(['year','total','lastUid','lastAmount','updatedAt']) &&
         d.year == year && validWzIncrement(amount) &&
