@@ -653,11 +653,11 @@ document.addEventListener("click",event=>{
      return;
    }
    state.mode="group-reader";state.historyDay=null;state.tapMetaQueue=[];
-   const root=$("#wazaif-root");if(root)root.innerHTML="";render();return;
+   const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});return;
  }
  if(action==="read-personal"){
    state.readerId=id;state.mode="personal-reader";state.tapQueue=0;state.tapMetaQueue=[];state.historyDay=null;state.error="";startClock();
-   const root=$("#wazaif-root");if(root)root.innerHTML="";render();return;
+   const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});return;
  }
  if(action==="history-day"&&button.dataset.wazifaDay){
    state.historyDay=state.historyDay===button.dataset.wazifaDay?null:button.dataset.wazifaDay;
