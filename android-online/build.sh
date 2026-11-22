@@ -25,8 +25,8 @@ KEY="$HOME/.android/debug.keystore"
 if [ ! -f "$KEY" ]; then
   keytool -genkeypair -noprompt -keystore "$KEY" -storepass android -keypass android     -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000     -dname "CN=Durood Online Build" >/dev/null 2>&1
 fi
-"$BT/apksigner" sign --ks "$KEY" --ks-key-alias androiddebugkey   --ks-pass pass:android --key-pass pass:android   --out "$BASE/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk" "$TEMP/aligned.apk"
-"$BT/apksigner" verify --verbose "$BASE/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk"
-"$BT/aapt2" dump badging "$BASE/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk"  | grep -E 'package:|launchable-activity:|sdkVersion:|targetSdkVersion:'
-test -s "$BASE/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk"
-echo "Built signed real APK at $BASE/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk"
+"$BT/apksigner" sign --ks "$KEY" --ks-key-alias androiddebugkey   --ks-pass pass:android --key-pass pass:android   --out "$BASE/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk" "$TEMP/aligned.apk"
+"$BT/apksigner" verify --verbose "$BASE/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk"
+"$BT/aapt2" dump badging "$BASE/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk"  | grep -E 'package:|launchable-activity:|sdkVersion:|targetSdkVersion:'
+test -s "$BASE/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk"
+echo "Built signed real APK at $BASE/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk"
