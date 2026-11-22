@@ -3,7 +3,7 @@
 import {auth,db} from "./firebase-client.js";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
-  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc
+  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,increment
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const PROJECT="durood-e-ibrahimi-global-c74e0";
@@ -43,9 +43,8 @@ export async function registerSpark({name,username,password,inviteCode,gender,pl
       const usernameDoc=doc(db,"usernames",clean);
       const currentUser=memberRef(uid);
       const sideMembers=doc(db,"genderMembers",gender);
-      const [seq,inv,existing,already,side]=await Promise.all([
-        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser),
-        tx.get(sideMembers)
+      const [seq,inv,existing,already]=await Promise.all([
+        tx.get(sequence),tx.get(invitation),tx.get(usernameDoc),tx.get(currentUser)
       ]);
       if(!seq.exists()||!Number.isSafeInteger(seq.data().lastNumber) || seq.data().lastNumber<1){
         throw Error("Owner اکاؤنٹ ابھی قائم نہیں ہوا۔");
@@ -64,16 +63,15 @@ export async function registerSpark({name,username,password,inviteCode,gender,pl
       if(invitedGender!==gender && !(ownerInvite&&invitedGender==="any")){
         throw Error("یہ دعوتی کوڈ منتخب Gender کے لیے نہیں ہے۔");
       }
-      const priorSideMembers=side.exists()?Number(side.get("totalMembers")):0;
-      if(!Number.isSafeInteger(priorSideMembers)||priorSideMembers<0)
-        throw Error("Gender member sequence invalid.");
       const n=seq.data().lastNumber+1;
       if(!Number.isSafeInteger(n))throw Error("ممبر نمبر کی حد مکمل ہو گئی ہے۔");
       const serial="DI-"+n;
       tx.update(sequence,{lastNumber:n,lastMemberUid:uid,updatedAt:serverTimestamp()});
       tx.update(invitation,{used:true,usedByUid:uid,usedAt:serverTimestamp()});
       tx.set(usernameDoc,{uid,createdAt:serverTimestamp()});
-      tx.set(sideMembers,{gender,totalMembers:priorSideMembers+1,updatedAt:serverTimestamp()});
+      // Atomic increment avoids needing to read private gender counters before signup.
+      tx.set(sideMembers,{gender,totalMembers:increment(1),
+        updatedAt:serverTimestamp()},{merge:true});
       tx.set(currentUser,{
         uid,username:clean,name:fullName,role:"member",gender,memberNumber:n,serial,
         inviterUid,inviteCode:invite,disabled:false,
