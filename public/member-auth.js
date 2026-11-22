@@ -1,10 +1,11 @@
+import {memberCall, loginAddress} from "./mobile-members.js";
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
 import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
-  aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
+  invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js";
 
 // Pinned Firebase Authentication UID for the existing Master Owner.
@@ -156,7 +157,7 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
   const ownerLogin=entered.toLowerCase()===OWNER_LOGIN;
-  const email=ownerLogin?knownOwnerEmail():(entered.includes("@")?entered.toLowerCase():aliasEmail(entered));
+  const email=ownerLogin?knownOwnerEmail():(entered.includes("@")?entered.toLowerCase():await loginAddress(entered));
   if(ownerLogin && !email)throw Error("اس ڈیوائس پر پہلی مرتبہ اپنی مالک والی ای میل اور پاس ورڈ سے لاگ اِن کریں۔ پھر sherazanjum استعمال کر سکتے ہیں۔");
   if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     throw Error("Enter a valid Username or full Email address.");
@@ -187,7 +188,12 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
     throw error;
   }
 }
-export async function register(data){return registerSpark(data);}
+export async function register(data){
+  const profile=await memberCall("registerMember",data);
+  const email=await loginAddress(profile.username);
+  await signInWithEmailAndPassword(auth,email,data.password);
+  return profile;
+}
 export async function createInvitation(){return invitationSpark();}
 export async function setMemberActive(uid,active){return memberActiveSpark(uid,active);}
 export async function updateMyProfile(name){return profileNameSpark(name);}

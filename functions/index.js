@@ -12,7 +12,6 @@ const members = db.collection("members");
 const usernames = db.collection("usernames");
 const invitations = db.collection("invitations");
 const counter = db.doc("system/membership");
-const validUsername = /^[a-z0-9._-]{3,24}$/;
 const toName = value => String(value || "").trim();
 const toUsername = value => String(value || "").trim().toLowerCase();
 const genderOf = data => data?.gender === "female" ? "female" : "male";
@@ -54,14 +53,14 @@ async function activeMember(uid) {
 exports.registerMember = onCall({region, maxInstances:10}, async request => {
   if (request.auth) throw new HttpsError("failed-precondition","Please sign out before registering.");
   const data = request.data || {};
-  const username = toUsername(data.username);
+  const base=Array.from(toName(data.name).normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu,"")).slice(0,48).join("");
+  const mobile=phoneNumber(data.mobile);
+  let username=base;
   const name = toName(data.name);
   const password = String(data.password || "");
   const inviteCode = toUsername(data.inviteCode);
   const gender = data.gender;
-  if (!validUsername.test(username) || /^di-\d+$/i.test(username)) {
-    throw new HttpsError("invalid-argument","Choose a valid username (3-24 letters, numbers, . _ -).");
-  }
+  if(!base || !mobile)throw new HttpsError("invalid-argument","نام اور موبائل نمبر ملک کے کوڈ سمیت لکھیں۔");
   if (name.length < 2 || name.length > 60 || password.length < 8 || password.length > 128 ||
       !/^[a-z0-9]{6}$/.test(inviteCode) || !validGender(gender) || data.pledgeAccepted !== true) {
     throw new HttpsError("invalid-argument","Invalid account details or invitation.");
@@ -72,19 +71,22 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
     throw new HttpsError("permission-denied","Invalid or used invitation code.");
   }
   let user;
-  try {
-    user = await getAuth().createUser({
-      email: derivedEmail(username),
-      password,
-      displayName: name,
-      disabled:false
-    });
-  } catch (err) {
-    if (err.code === "auth/email-already-exists") {
-      throw new HttpsError("already-exists","Username is already registered.");
+  for(let attempt=1;attempt<=100;attempt++){
+    username=attempt===1?base:base+attempt;
+    if(["owner","sherazanjum"].includes(username))continue;
+    let key=username;
+    if(!/^[a-z0-9._-]{1,60}$/.test(key)){
+      key="u~"+crypto.createHash("sha256").update(username).digest("hex").slice(0,56);
     }
-    throw new HttpsError("internal","Unable to create user account.");
+    if((await usernames.doc(username).get()).exists)continue;
+    try{
+      user=await getAuth().createUser({email:derivedEmail(key),password,displayName:name});
+      break;
+    }catch(err){
+      if(err.code!=="auth/email-already-exists")throw new HttpsError("internal","اکاؤنٹ نہیں بن سکا۔");
+    }
   }
+  if(!user)throw new HttpsError("resource-exhausted","اسی نام کی تمام دستیاب آئی ڈیز استعمال ہو چکی ہیں۔");
   try {
     const profile = await db.runTransaction(async tx => {
       const inviteRef = invitations.doc(inviteCode);
@@ -123,6 +125,7 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
         throw new HttpsError("failed-precondition","Gender member count invalid.");
       }
       tx.update(counter,{lastNumber:next,updatedAt:FieldValue.serverTimestamp()});
+      tx.create(db.doc("memberContacts/"+user.uid),{mobile});
       tx.create(usernameRef,{uid:user.uid,createdAt:FieldValue.serverTimestamp()});
       tx.set(sideRef,{gender,totalMembers:oldSide+1,updatedAt:FieldValue.serverTimestamp()});
       tx.update(inviteRef,{used:true,usedByUid:user.uid,usedAt:FieldValue.serverTimestamp()});
@@ -325,4 +328,66 @@ exports.getCommunitySummary = onCall({region,maxInstances:10},async request => {
     gender,totalAccounts:Number(counterSnap.get("totalMembers")||0),
     totalRecitations:Number(totalsSnap.get("totalRecitations")||0)
   };
+});
+
+function phoneNumber(value){
+  const number=String(value||"").replace(/[\s()-]/g,"");
+  return /^\+[1-9]\d{7,14}$/.test(number)?number:"";
+}
+async function recoveryTarget(identity){
+  const key=String(identity||"").normalize("NFKC").trim().toLowerCase();
+  if(!key || key.length>120 || !/^[\p{L}\p{M}\p{N}._ -]+$/u.test(key) || /^\.{1,2}$/.test(key))return null;
+  const serial=/^di[- ]?(\d+)$/i.exec(key);
+  let profile;
+  if(serial){
+    profile=(await members.where("memberNumber","==",Number(serial[1])).limit(1).get()).docs[0];
+  }else{
+    const entry=await usernames.doc(key).get();
+    if(entry.exists)profile=await members.doc(entry.get("uid")).get();
+  }
+  if(!profile?.exists || profile.get("role")!=="member" || profile.get("disabled") || profile.get("deleted"))return null;
+  const contact=await db.doc("memberContacts/"+profile.id).get();
+  const mobile=phoneNumber(contact.get("mobile"));
+  return mobile?{uid:profile.id,serial:profile.get("serial"),username:profile.get("username"),mobile}:null;
+}
+async function requireRecoveryOwner(request){
+  const uid=ensureMember(request);
+  if(uid!=="vt06NK7DcmgPpUKD4R7EgwzAxIH3" || (await activeMember(uid)).get("role")!=="owner"){
+    throw new HttpsError("permission-denied","صرف مالک یہ کام کر سکتا ہے۔");
+  }
+}
+exports.requestMemberRecovery=onCall({region,maxInstances:3},async request=>{
+  const mobile=phoneNumber(request.data?.mobile);
+  if(!mobile)throw new HttpsError("invalid-argument","موبائل نمبر ملک کوڈ کے ساتھ لکھیں۔");
+  const target=await recoveryTarget(request.data?.identity);
+  if(target && target.mobile===mobile){
+    const ref=db.doc("memberRecovery/"+target.uid);
+    await db.runTransaction(async tx=>{
+      const previous=await tx.get(ref);
+      if(previous.exists && (previous.get("pending") || Date.now()-previous.get("updatedAt").toMillis()<300000))return;
+      tx.set(ref,{serial:target.serial,username:target.username,pending:true,updatedAt:FieldValue.serverTimestamp()});
+    });
+  }
+  return {received:true};
+});
+exports.ownerRecoveryDesk=onCall({region,maxInstances:3},async request=>{
+  await requireRecoveryOwner(request);
+  const data=request.data||{};
+  if(data.action==="list"){
+    const snapshot=await db.collection("memberRecovery").where("pending","==",true).limit(100).get();
+    return {requests:snapshot.docs.map(d=>({serial:d.get("serial"),username:d.get("username")}))};
+  }
+  const target=await recoveryTarget(data.identity);
+  if(!target)throw new HttpsError("not-found","فعال ممبر کا رجسٹرڈ موبائل ریکارڈ نہیں ملا۔");
+  if(data.action==="find")return target;
+  if(data.action!=="reset" || data.uid!==target.uid || typeof data.password!=="string" ||
+     data.password.length<8 || data.password.length>128)throw new HttpsError("invalid-argument","ممبر اور نیا پاس ورڈ چیک کریں۔");
+  if(Date.now()/1000-Number(request.auth.token.auth_time||0)>300)throw new HttpsError("failed-precondition","مالک کی دوبارہ تصدیق درکار ہے۔");
+  await getAuth().updateUser(target.uid,{password:data.password});
+  await getAuth().revokeRefreshTokens(target.uid);
+  const batch=db.batch();
+  batch.delete(db.doc("activeLogins/"+target.uid));
+  batch.set(db.doc("memberRecovery/"+target.uid),{pending:false,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+  await batch.commit();
+  return {mobile:target.mobile};
 });

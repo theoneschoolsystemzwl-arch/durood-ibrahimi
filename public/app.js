@@ -1,3 +1,4 @@
+import {memberCall, nameId} from "./mobile-members.js";
 import {auth,db} from "./firebase-client.js";
 import "./password-change.js";
 import {
@@ -129,6 +130,8 @@ updateGenderOath();
 $("#tab-login").addEventListener("click",()=>switchTab("login"));
 $("#tab-register").addEventListener("click",()=>switchTab("register"));
 
+const fullNameInput=document.querySelector('#register-fields [name="name"]');
+fullNameInput.addEventListener("input",()=>{$("#generated-id").textContent=nameId(fullNameInput.value);});
 const identityInput=$("#login-identity");
 const identityPreview=$("#login-identity-preview");
 identityInput.addEventListener("input",()=>{
@@ -152,6 +155,17 @@ passwordEye.addEventListener("click",()=>{
 $("#forgot-password").addEventListener("click",async()=>{
   if(appState.busy)return;
   const entered=identityInput.value.trim();
+  if(entered && !entered.includes("@") && entered.toLowerCase()!=="sherazanjum"){
+    const mobile=window.prompt("رجسٹریشن والا موبائل نمبر ملک کے کوڈ سمیت لکھیں");
+    if(!mobile)return;
+    updateBusy(true);
+    try{
+      await memberCall("requestMemberRecovery",{identity:entered,mobile});
+      message("#auth-message","اگر تفصیلات درست ہیں تو درخواست مالک کی ترتیبات میں پہنچ گئی ہے۔",true);
+    }catch(err){message("#auth-message",errorText(err));}
+    finally{updateBusy(false);}
+    return;
+  }
   if(!entered || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
     message("#auth-message","Password Reset کے لیے Firebase Users میں درج پوری Email لکھیں۔");
     identityInput.focus();
@@ -201,7 +215,7 @@ $("#access-form").addEventListener("submit",async event=>{
       try {
         await register({
           name:form.get("name"),
-          username:form.get("username"),
+          mobile:form.get("mobile"),
           gender:form.get("gender"),
           password,
           inviteCode:form.get("invite"),

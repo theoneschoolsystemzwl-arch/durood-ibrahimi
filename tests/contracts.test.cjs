@@ -43,7 +43,7 @@ present(client,'#forgot-password');
 
 
 
-present(auth,"registerSpark");
+present(auth,'memberCall("registerMember",data)');
 present(auth,"invitationSpark");
 const spark=fs.readFileSync("public/spark-data.js","utf8");
 for(const api of ["registerSpark","invitationSpark","memberActiveSpark","profileNameSpark","readingsSpark","prayerSaveSpark","prayerMonthSpark","rankingSpark","referralsSpark","communitySpark"])present(spark,api);

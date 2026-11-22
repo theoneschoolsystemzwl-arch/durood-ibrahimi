@@ -1497,7 +1497,7 @@ function profileDetails(person) {
       '</button><button class="button secondary" data-action="reset-session" data-value="' + person.id +
       '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
-      tr("\">Delete member</button></div></section>", '">رکن حذف کریں</button></div></section>') + managementDialog(person));
+      tr("\">Delete member</button></div></section>", '">رکن حذف کریں</button></div></section>') + managementDialog(person) + '<owner-recovery member-serial="DI-'+person.id+'"></owner-recovery>');
 }
 
 let genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
@@ -1570,7 +1570,7 @@ function settings(person) {
     tr("<div class=\"form-actions section\"><button class=\"button\" data-action=\"create-invite\">Generate invite code</button>", '<div class="form-actions section"><button class="button" data-action="create-invite">دعوتی کوڈ بنائیں</button>') +
     '<output id="invite-value" aria-live="polite">' + (activeCode ? '<bdi class="invite-code">' + activeCode + '</bdi>' : '') +
     '</output><button class="button secondary" data-action="copy-invite"' + (activeCode ? '' : ' hidden') + tr(">Copy code</button></div>", '>کوڈ نقل کریں</button></div>') +
-    feedback('invite-feedback') + '</section>';
+    feedback('invite-feedback') + '</section>' + (person.id===1?'<owner-recovery></owner-recovery>':'');
 }
 
 function profileCard(person) {
@@ -1582,6 +1582,7 @@ function profileCard(person) {
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
     '<small class="muted direct-invites">' + tr('Direct invites: ', 'آپ کے شامل کردہ ممبرز: ') +
     displayNumber(inviteCount) + '</small>' +
+    '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
     (person.id === 1 ? '<button type="button" class="button secondary switch-side" data-action="switch-side">' +
@@ -3585,6 +3586,7 @@ document.addEventListener('keydown',event => {
 </script>
 
 <script type="module">
+import "./owner-recovery.js";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
 import {readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js";
