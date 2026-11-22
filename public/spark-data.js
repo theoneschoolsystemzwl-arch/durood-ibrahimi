@@ -3,7 +3,7 @@
 import {auth,db} from "./firebase-client.js";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
-  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp
+  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const PROJECT="durood-e-ibrahimi-global-c74e0";
@@ -107,7 +107,27 @@ export async function invitationSpark(){
 export async function memberActiveSpark(uid,active){
   requireUser();
   if(typeof uid!=="string"||typeof active!=="boolean")throw Error("غلط درخواست۔");
-  await updateDoc(memberRef(uid),{disabled:!active,updatedAt:serverTimestamp()});
+  await updateDoc(memberRef(uid),{
+    disabled:!active,...(active?{deleted:false}:{}),updatedAt:serverTimestamp()
+  });
+}
+// Reversible removal: keep Auth ID, DI serial, prayer and recitation history.
+export async function memberDeleteSpark(uid){
+  requireUser();
+  if(typeof uid!=="string"||!uid)throw Error("ممبر درست نہیں۔");
+  await updateDoc(memberRef(uid),{
+    disabled:true,deleted:true,updatedAt:serverTimestamp()
+  });
+}
+export async function classifyLegacyMemberSpark(uid,gender){
+  requireUser();
+  if(typeof uid!=="string"||!uid||!isGender(gender))throw Error("ممبر یا Gender غلط ہے۔");
+  const ref=memberRef(uid);
+  const snap=await getDoc(ref);
+  if(!snap.exists()||isGender(snap.data().gender)){
+    throw Error("اس ممبر کی Gender پہلے سے مقرر ہے۔");
+  }
+  await updateDoc(ref,{gender,updatedAt:serverTimestamp()});
 }
 export async function profileNameSpark(name){
   const uid=requireUser(),clean=String(name||"").trim();
@@ -120,15 +140,27 @@ export async function readingsSpark(amount){
   await runTransaction(db,async tx=>{
     const personal=doc(db,"memberCounts",uid);
     const global=doc(db,"publicStats","global");
-    const [p,g]=await Promise.all([tx.get(personal),tx.get(global)]);
+    const profileRef=memberRef(uid);
+    const [p,g,profile]=await Promise.all([
+      tx.get(personal),tx.get(global),tx.get(profileRef)
+    ]);
+    if(!profile.exists()||profile.data().disabled===true||profile.data().deleted===true){
+      throw Error("اکاؤنٹ فعال نہیں ہے۔");
+    }
+    const gender=memberGender(profile.data());
+    const sideRef=doc(db,"genderStats",gender);
+    const sideSnap=await tx.get(sideRef);
     const ownTotal=p.exists()?p.data().total||0:0;
     const globalTotal=g.exists()?g.data().totalRecitations||0:0;
-    const profile=await tx.get(memberRef(uid));
-    if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں ہے۔");
-    const gender=memberGender(profile.data());
+    const sideTotal=sideSnap.exists()?sideSnap.data().totalRecitations||0:0;
+    if(!Number.isSafeInteger(sideTotal)||sideTotal<0)throw Error("Gender totals invalid.");
     if(!Number.isSafeInteger(ownTotal)||!Number.isSafeInteger(globalTotal))throw Error("شمار کا ڈیٹا درست نہیں۔");
     tx.set(personal,{memberUid:uid,gender,total:ownTotal+amount,lastEntryAmount:amount,updatedAt:serverTimestamp()});
     tx.set(global,{totalRecitations:globalTotal+amount,lastEntryAmount:amount,lastEntryUid:uid,updatedAt:serverTimestamp()});
+    tx.set(sideRef,{
+      gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,
+      lastEntryUid:uid,updatedAt:serverTimestamp()
+    });
   });
   return {recorded:amount};
 }
@@ -170,11 +202,42 @@ export async function referralsSpark(){
     name:d.data().name,serial:d.data().serial,disabled:d.data().disabled===true
   }))};
 }
-export async function communitySpark(){
-  requireUser();
+export async function communitySpark(genderChoice){
+  const uid=requireUser();
+  const profile=await getDoc(memberRef(uid));
+  if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں۔");
+  const gender=profile.data().role==="owner"&&isGender(genderChoice)?
+    genderChoice:memberGender(profile.data());
   const [counter,total]=await Promise.all([
-    getDoc(doc(db,"system","membership")),getDoc(doc(db,"publicStats","global"))
+    getDoc(doc(db,"system","membership")),getDoc(doc(db,"genderStats",gender))
   ]);
-  return {totalAccounts:counter.exists()?counter.data().lastNumber||0:0,
+  return {gender,totalAccounts:counter.exists()?counter.data().lastNumber||0:0,
     totalRecitations:total.exists()?total.data().totalRecitations||0:0};
+}
+
+export async function groupMessagesSpark(genderChoice){
+  const uid=requireUser(),profile=await getDoc(memberRef(uid));
+  if(!profile.exists()||profile.data().disabled===true||profile.data().deleted===true)throw Error("اکاؤنٹ فعال نہیں۔");
+  const gender=profile.data().role==="owner"&&isGender(genderChoice)?
+    genderChoice:memberGender(profile.data());
+  const messages=await getDocs(query(collection(db,"groupChats",gender,"messages"),
+    orderBy("createdAt","desc"),limit(50)));
+  return {gender,messages:messages.docs.map(item=>({
+    id:item.id,...item.data(),
+    createdAt:item.data().createdAt?.toDate?.()?.toISOString()||""
+  })).reverse()};
+}
+
+export async function sendGroupMessageSpark(body,genderChoice){
+  const uid=requireUser(),profile=await getDoc(memberRef(uid));
+  if(!profile.exists()||profile.data().disabled===true||profile.data().deleted===true)throw Error("اکاؤنٹ فعال نہیں۔");
+  const gender=profile.data().role==="owner"&&isGender(genderChoice)?
+    genderChoice:memberGender(profile.data());
+  const message=String(body||"").trim();
+  if(message.length<1||message.length>1200)throw Error("پیغام 1 سے 1200 حروف میں لکھیں۔");
+  await addDoc(collection(db,"groupChats",gender,"messages"),{
+    gender,senderUid:uid,senderName:profile.data().name||"Member",
+    body:message,createdAt:serverTimestamp()
+  });
+  return {gender};
 }
