@@ -286,13 +286,14 @@ window.addEventListener("message",event=>{
   }
 });
 async function refreshCounts(){
-  if(!auth.currentUser)return;
-  const [personal,global]=await Promise.all([
+  if(!auth.currentUser||!appState.profile)return;
+  const gender=appState.profile.gender==="female"?"female":"male";
+  const [personal,side]=await Promise.all([
     getDoc(doc(db,"memberCounts",auth.currentUser.uid)),
-    getDoc(doc(db,"publicStats/global"))
+    getDoc(doc(db,"genderStats",gender))
   ]);
   $("#personal-total").textContent=number.format(personal.exists()?(personal.get("total")||0):0);
-  $("#global-total").textContent=number.format(global.exists()?(global.get("totalRecitations")||0):0);
+  $("#global-total").textContent=number.format(side.exists()?(side.get("totalRecitations")||0):0);
 }
 async function refreshMembers(){
   if(appState.profile?.role!=="owner")return;
