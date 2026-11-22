@@ -210,7 +210,14 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   // numbers. The legacy founding D2 sender has no sideNumber field yet.
   const ladiesShareId="FemaleShare00000001";
   const ladiesInbox=doc(femaleFriend,"wazifaInbox",femaleFriendUid,"items",ladiesShareId);
-  const femalePayload={...outgoing,senderUid:otherUid,recipientUid:femaleFriendUid,
+  const femaleData=(await getDoc(femaleItem)).data();
+  // The female sender's exact own Wazifa is shared, not the male sender's
+  // edited copy; Firestore correctly rejects payloads differing from source.
+  const femaleOutgoing={title:femaleData.title,arabic:femaleData.arabic,
+    instructions:femaleData.instructions,purpose:femaleData.purpose,
+    kind:femaleData.kind,goal:femaleData.goal,
+    startDate:femaleData.startDate,endDate:femaleData.endDate};
+  const femalePayload={...femaleOutgoing,senderUid:otherUid,recipientUid:femaleFriendUid,
     senderSerial:"D2",sourceId:femaleItem.id,createdAt:serverTimestamp()};
   await assertSucceeds(setDoc(doc(other,"wazifaInbox",femaleFriendUid,"items",ladiesShareId),femalePayload));
   await assertSucceeds(getDoc(ladiesInbox));
