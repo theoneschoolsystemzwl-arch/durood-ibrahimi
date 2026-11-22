@@ -21,6 +21,9 @@ service cloud.firestore {
     function globalPath() {
       return /databases/$(database)/documents/publicStats/global;
     }
+    function genderStatsPath(gender) {
+      return /databases/$(database)/documents/genderStats/$(gender);
+    }
     function activeLoginPath(uid) {
       return /databases/$(database)/documents/activeLogins/$(uid);
     }
@@ -48,7 +51,8 @@ service cloud.firestore {
     }
     function active(uid) {
       return signed() && exists(memberPath(uid)) &&
-        get(memberPath(uid)).data.disabled == false;
+        get(memberPath(uid)).data.disabled == false &&
+        get(memberPath(uid)).data.get('deleted', false) != true;
     }
     // Only the existing Firebase Authentication account designated by the
     // project administrator is the new Master Owner. DI-1 is not a login ID.
@@ -67,9 +71,8 @@ service cloud.firestore {
     function owner() {
       return signed() && (request.auth.token.get('owner', false) == true || legacyIsOwner()) && active(request.auth.uid);
     }
-    // The Firebase Auth token includes the server-issued auth_time. An
-    // authenticated second sign-in can atomically take over this member lease.
-    // The old token then fails database reads/writes; the Owner is exempt.
+    // The first active sign-in has an auth-time-bound lease; later sign-ins
+    // are rejected, never allowed to replace it. The Owner is exempt.
     function activeLogin() {
       return signed() && (owner() ||
         (exists(activeLoginPath(request.auth.uid)) &&
@@ -205,13 +208,21 @@ service cloud.firestore {
         (currentMember() && matchingGender(resource.data));
       allow list: if owner() ||
         (currentMember() && request.query.limit != null &&
-         request.query.limit <= 200 && resource.data.inviterUid == request.auth.uid);
+         request.query.limit <= 200 &&
+         resource.data.inviterUid == request.auth.uid &&
+         matchingGender(resource.data));
       allow create: if allowedMemberCreate(uid) || initialOwnerProfile(uid);
-      allow update: if owner() && uid != request.auth.uid &&
+      allow update: if (owner() && uid != request.auth.uid &&
         resource.data.role == 'member' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled','updatedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['disabled','deleted','updatedAt','gender']) &&
         request.resource.data.disabled is bool &&
-        request.resource.data.updatedAt == request.time
+        request.resource.data.get('deleted', false) is bool &&
+        // Existing unclassified members may be assigned once; gender is immutable afterwards.
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender']) ||
+          (!resource.data.keys().hasAny(['gender']) &&
+            validGender(request.resource.data.gender))) &&
+        request.resource.data.updatedAt == request.time)
         || (self(uid) && currentMember() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) &&
         request.resource.data.name is string &&
@@ -307,6 +318,29 @@ service cloud.firestore {
     function previousGlobal() {
       return exists(globalPath()) ? get(globalPath()).data.totalRecitations : 0;
     }
+    function previousSide(gender) {
+      return exists(genderStatsPath(gender)) ?
+        get(genderStatsPath(gender)).data.totalRecitations : 0;
+    }
+    function updatedSide(gender) {
+      let d=request.resource.data;
+      let uid=request.auth.uid;
+      let amount=d.lastEntryAmount;
+      return validGender(gender) && currentMember() &&
+        myGender() == gender &&
+        d.keys().hasOnly(['gender','totalRecitations','lastEntryUid',
+          'lastEntryAmount','updatedAt']) &&
+        d.keys().hasAll(['gender','totalRecitations','lastEntryUid',
+          'lastEntryAmount','updatedAt']) &&
+        d.gender == gender && d.lastEntryUid == uid &&
+        amount is int && amount >= 1 && amount <= 10000 &&
+        d.totalRecitations is int &&
+        d.totalRecitations == previousSide(gender) + amount &&
+        d.updatedAt == request.time &&
+        getAfter(countPath(uid)).data.total == previousPersonal(uid) + amount &&
+        getAfter(countPath(uid)).data.lastEntryAmount == amount &&
+        getAfter(globalPath()).data.totalRecitations == previousGlobal() + amount;
+    }
     function updatedPersonal(uid) {
       let d = request.resource.data;
       let amount = d.lastEntryAmount;
@@ -319,7 +353,11 @@ service cloud.firestore {
         d.updatedAt == request.time &&
         getAfter(globalPath()).data.totalRecitations == previousGlobal() + amount &&
         getAfter(globalPath()).data.lastEntryUid == uid &&
-        getAfter(globalPath()).data.lastEntryAmount == amount;
+        getAfter(globalPath()).data.lastEntryAmount == amount &&
+        getAfter(genderStatsPath(d.gender)).data.totalRecitations ==
+          previousSide(d.gender) + amount &&
+        getAfter(genderStatsPath(d.gender)).data.lastEntryUid == uid &&
+        getAfter(genderStatsPath(d.gender)).data.lastEntryAmount == amount;
     }
     function updatedGlobal() {
       let d = request.resource.data;
@@ -334,7 +372,10 @@ service cloud.firestore {
         d.totalRecitations == previousGlobal() + amount &&
         d.updatedAt == request.time &&
         getAfter(countPath(uid)).data.total == previousPersonal(uid) + amount &&
-        getAfter(countPath(uid)).data.lastEntryAmount == amount;
+        getAfter(countPath(uid)).data.lastEntryAmount == amount &&
+        getAfter(genderStatsPath(myGender())).data.totalRecitations ==
+          previousSide(myGender()) + amount &&
+        getAfter(genderStatsPath(myGender())).data.lastEntryUid == uid;
     }
     match /memberCounts/{uid} {
       allow get: if owner() ||
@@ -350,9 +391,40 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /publicStats/{docId} {
-      allow get, list: if true;
+      // Keep the old global document intact for historic totals and audits.
+      allow get: if owner();
+      allow list: if false;
       allow create, update: if docId == 'global' && updatedGlobal();
       allow delete: if false;
+    }
+    match /genderStats/{gender} {
+      allow get: if validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+      allow list, delete: if false;
+      allow create, update: if updatedSide(gender);
+    }
+    function allowedChatSide(gender) {
+      return validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+    }
+    match /groupChats/{gender}/messages/{messageId} {
+      allow get: if allowedChatSide(gender);
+      allow list: if allowedChatSide(gender) &&
+        request.query.limit != null && request.query.limit <= 50;
+      allow create: if allowedChatSide(gender) &&
+        request.resource.data.keys().hasOnly(['gender','senderUid',
+          'senderName','body','createdAt']) &&
+        request.resource.data.keys().hasAll(['gender','senderUid',
+          'senderName','body','createdAt']) &&
+        request.resource.data.gender == gender &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderName ==
+          get(memberPath(request.auth.uid)).data.name &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() >= 1 &&
+        request.resource.data.body.size() <= 1200 &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
     // Legacy Android data remains accessible under its original restrictions.
     function approvedLegacyMember(memberUid) {
