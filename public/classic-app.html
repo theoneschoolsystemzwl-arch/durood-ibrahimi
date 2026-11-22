@@ -1444,7 +1444,7 @@ function stat(label, value) {
 
 function tree(person) {
   const root = ownerViewingWomen() ? visibleMembers().find(member => member.id === groupFilter) : getUser(groupFilter) || person;
-  if (!root) return groups();
+  if (!root) return groups(true);
   const children = directMembers(root.id);
   const back = ownerViewingWomen()
     ? '<div class="branch-nav"><button class="button secondary" data-action="nav" data-value="groups">' +
@@ -1452,7 +1452,7 @@ function tree(person) {
     : root.id !== person.id
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
-  return heading(person.id === 1 ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
+  return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
     tr("Photo badges show member levels. Tap a member to open their branch.", 'تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
     '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + groupName(root.id) + '</bdi>') +
     stat(tr("Direct members", 'براہِ راست ارکان'), displayNumber(children.length)) +
@@ -1464,12 +1464,16 @@ function tree(person) {
       (!children.length ? ur(tr("This branch has no new members yet.", 'اس شاخ میں ابھی کوئی نیا ممبر شامل نہیں ہوا۔'),'p','tree-hint') : '')) + '</section>';
 }
 
-function groups() {
-  return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
-    '<div class="groups">' + visibleMembers().filter(person =>
-      ownerViewingWomen()
-        ? person.inviter === 1 || !person.inviter || directMembers(person.id).length
-        : person.id === 1 || directMembers(person.id).length).map(person =>
+function groups(treeIndex = false) {
+  const owner = currentUser();
+  const women = ownerViewingWomen();
+  const branches = visibleMembers().filter(person => women
+    ? person.inviter === owner.id || !person.inviter || directMembers(person.id).length
+    : person.isOwner || directMembers(person.id).length);
+  const title = treeIndex ? tr('Women’s referral tree','خواتین کا دعوتی شجرہ') : tr('Groups','گروپس');
+  return heading(title,tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
+    (branches.length ? '' : ur(tr('No groups yet.','ابھی کوئی گروپ موجود نہیں۔'),'p','panel empty')) +
+    '<div class="groups">' + branches.map(person =>
       '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
@@ -1503,9 +1507,11 @@ function groupMessagesPage() {
 }
 
 function directory() {
+  const members = visibleMembers();
   return heading(tr("Registered Users", 'تمام رجسٹرڈ صارفین'),tr("Members are listed in permanent ID order.", 'ممبرز مستقل آئی ڈی کے لحاظ سے سیریل وار ترتیب میں ہیں۔')) +
-    '<div class="panel-head"><span class="pill">' + displayNumber(visibleMembers().length) + tr(" Users</span></div>", ' صارفین</span></div>') +
-    '<div class="directory">' + visibleMembers()
+    '<div class="panel-head"><span class="pill">' + displayNumber(members.length) + tr(" Users</span></div>", ' صارفین</span></div>') +
+    (members.length ? '' : ur(tr('No members yet.','ابھی کوئی رکن موجود نہیں۔'),'p','panel empty')) +
+    '<div class="directory">' + members
       .map(person =>
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
@@ -1528,7 +1534,7 @@ function profileDetails(person) {
     avatar(person,true) + '<div><strong dir="auto">' + esc(memberName(person)) + '</strong><small class="muted">' + displayId(person.id) +
     tr("</small></div></div><button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Back to users</button></div>", '</small></div></div><button class="button secondary" data-action="nav" data-value="directory">صارفین پر واپس</button></div>') +
     '<dl class="detail-grid">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
-    '</dl></section>' + (person.id === 1 ? '' :
+    '</dl></section>' + (person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -3086,6 +3092,7 @@ function topBar() {
   const isAbout = person ? section === 'about' : screen === 'about';
   return '<header class="utility-bar"><div class="utility-inner"><span class="utility-brand">' +
     '<span aria-hidden="true">✧</span> ' + tr('Durood Global','درود گلوبل') + '</span><div class="utility-actions">' +
+    (ownerViewingWomen() ? '<button type="button" class="about-tab" data-action="logout">' + tr('Log out','لاگ آؤٹ') + '</button>' : '') +
     '<button type="button" class="about-tab" data-action="' + (person ? 'nav' : 'screen') +
     '" data-value="about"' + (isAbout ? ' aria-current="page"' : '') + '>' + tr('About','تعارف') + '</button>' +
     '<div class="locale-switch" role="group" aria-label="' + tr('App language','ایپ کی زبان') + '">' +
@@ -3539,7 +3546,8 @@ app.addEventListener('submit', async event => {
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
   enter(profile,rows,totals){
-    const ids=new Map(rows.map(x=>[x.uid,Number(x.memberNumber)]));
+    const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
+      .map(x=>[x.uid,Number(x.memberNumber)]));
     users.length=0;
     for(const x of rows){
       if(!Number.isSafeInteger(Number(x.memberNumber))||Number(x.memberNumber)<1)continue;
@@ -3678,16 +3686,17 @@ async function hydrate(){
     // invitations created by the wife or another member.
     window.duroodOwnerInviteTotal=snap.docs.filter(x=>x.data().inviterUid===profile.uid).length;
     for(const x of snap.docs){
-      const data=x.data();
+      if(x.id===profile.uid)continue;
+      const data={...x.data(),uid:x.id};
       const gender=data.gender==="female"?"female":"male";
-      if(x.id===profile.uid || gender===side)docs.set(x.id,data);
+      if(gender===side)docs.set(x.id,data);
     }
   }else{
     window.duroodOwnerInviteTotal=0;
     const invited=await getDocs(query(collection(db,"members"),
       where("inviterUid","==",profile.uid),where("gender","==",side),limit(200)));
     invited.docs.forEach(x=>{
-      const d=x.data();
+      const d={...x.data(),uid:x.id};
       if((d.gender==="female"?"female":"male")===side)docs.set(x.id,d);
     });
   }
@@ -3704,13 +3713,17 @@ async function hydrate(){
     for(const item of top){
       if(!docs.has(item.id)){
         const member=await getDoc(doc(db,"members",item.id));
-        if(member.exists())docs.set(item.id,member.data());
+        if(member.exists())docs.set(item.id,{...member.data(),uid:item.id});
       }
     }
   }catch(e){console.warn("Side ranking unavailable",e.code||e);}
+  const includeOwnCount=!owner || side==="male";
   const [sideTotal,count]=await Promise.all([
     getDoc(doc(db,"genderStats",side)),
-    getDoc(doc(db,"memberCounts",profile.uid))
+    includeOwnCount ? getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
+      console.warn("Personal count unavailable",error.code);
+      return null;
+    }) : null
   ]);
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
@@ -3720,7 +3733,7 @@ async function hydrate(){
       joined:d.createdAt?.toDate?.()||new Date()
     }));
   const memberCounts=Object.fromEntries(counts);
-  if(side==="male")memberCounts[profile.uid]=count.exists()?Number(count.get("total")||0):0;
+  if(count?.exists())memberCounts[profile.uid]=Number(count.get("total")||0);
   const ownRow=rows.find(row=>row.uid===profile.uid);
   if(ownRow){
     try{ownRow.photo=(await getDoc(doc(db,"memberPhotos",profile.uid))).data()?.image||"";}
