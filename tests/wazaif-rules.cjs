@@ -2,7 +2,7 @@
 // group accounting atomic and closed when group is inactive.
 const fs=require("node:fs");
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require("@firebase/rules-unit-testing");
-const {doc,collection,query,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp}=require("firebase/firestore");
+const {doc,collection,query,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({projectId:"demo-durood",
    firestore:{rules:fs.readFileSync("firestore.rules","utf8")}});
@@ -67,8 +67,40 @@ const {doc,collection,query,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction
   }
   await countGroup(3);
   await countGroup(2);
-  if((await getDoc(groupStats(owner))).data().total!==5)throw Error("Group total must equal member increments");
-  if((await getDoc(groupStats(other))).data().today!==5)throw Error("Group daily total not visible to female member");
+  // A group Durood tap also writes its existing Durood personal/global/
+  // gender/day/reader records within the SAME transaction. If this fails,
+  // a production tap must not silently lose either group or global counting.
+  await assertSucceeds(runTransaction(member,async tx=>{
+   const person=doc(member,"memberCounts",memberUid);
+   const world=doc(member,"publicStats","global");
+   const side=doc(member,"genderStats","male");
+   const dayRef=doc(member,"genderStats","male","days",day);
+   const readerRef=doc(member,"genderStats","male","days",day,"readers",memberUid);
+   const groupRef=groupStats(member),one=personStats(member),annual=yearStats(member);
+   const [p,g,sg,gs,ms,ys]=await Promise.all([
+     tx.get(person),tx.get(world),tx.get(side),tx.get(groupRef),tx.get(one),tx.get(annual)
+   ]);
+   const amount=1;
+   tx.set(person,{memberUid,gender:"male",total:Number(p.data()?.total||0)+amount,
+     lastEntryAmount:amount,updatedAt:serverTimestamp()});
+   tx.set(world,{totalRecitations:increment(amount),lastEntryUid:memberUid,
+     lastEntryAmount:amount,updatedAt:serverTimestamp()},{merge:true});
+   tx.set(side,{gender:"male",totalRecitations:Number(sg.data()?.totalRecitations||0)+amount,
+     lastEntryUid:memberUid,lastEntryAmount:amount,lastEntryDay:day,updatedAt:serverTimestamp()});
+   tx.set(dayRef,{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
+   tx.set(readerRef,{name:"Member A",total:increment(amount),lastTap:serverTimestamp(),
+     seen:serverTimestamp()},{merge:true});
+   tx.set(groupRef,{total:gs.data().total+amount,day,year,today:gs.data().today+amount,
+     lastUid:memberUid,lastAmount:amount,updatedAt:serverTimestamp()});
+   tx.set(one,{uid:memberUid,total:ms.data().total+amount,day,today:ms.data().today+amount,
+     lastAmount:amount,updatedAt:serverTimestamp()});
+   tx.set(annual,{year,total:ys.data().total+amount,lastUid:memberUid,
+     lastAmount:amount,updatedAt:serverTimestamp()});
+  }));
+  if((await getDoc(doc(member,"memberCounts",memberUid))).data().total!==1)
+    throw Error("Atomic Durood personal total missing");
+  if((await getDoc(groupStats(owner))).data().total!==6)throw Error("Group total must equal member increments");
+  if((await getDoc(groupStats(other))).data().today!==6)throw Error("Group daily total not visible to female member");
   await assertSucceeds(getDoc(yearStats(other)));
   await assertFails(getDoc(personStats(other)));
   await assertFails(updateDoc(groupStats(member),{total:100,updatedAt:serverTimestamp()}));
