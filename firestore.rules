@@ -356,6 +356,39 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
+    // Only the verified Firebase account may access its private Qaza plan.
+    function validQazaPaid(paid) {
+      return paid is map &&
+        paid.keys().hasOnly(['fajr','dhuhr','asr','maghrib','isha']) &&
+        paid.get('fajr',{}) is map && paid.get('dhuhr',{}) is map &&
+        paid.get('asr',{}) is map && paid.get('maghrib',{}) is map &&
+        paid.get('isha',{}) is map &&
+        paid.get('fajr',{}).size() <= 3000 &&
+        paid.get('dhuhr',{}).size() <= 3000 &&
+        paid.get('asr',{}).size() <= 3000 &&
+        paid.get('maghrib',{}).size() <= 3000 &&
+        paid.get('isha',{}).size() <= 3000 &&
+        paid.get('fajr',{}).values().hasOnly([true]) &&
+        paid.get('dhuhr',{}).values().hasOnly([true]) &&
+        paid.get('asr',{}).values().hasOnly([true]) &&
+        paid.get('maghrib',{}).values().hasOnly([true]) &&
+        paid.get('isha',{}).values().hasOnly([true]);
+    }
+    match /memberPrivate/{uid}/qaza/{docId} {
+      allow get: if docId == 'plan' && self(uid) && currentMember();
+      allow list, delete: if false;
+      allow create, update: if docId == 'plan' && self(uid) && currentMember() &&
+        request.resource.data.keys().hasOnly(['start','target','done','updatedAt']) &&
+        request.resource.data.keys().hasAll(['start','target','done','updatedAt']) &&
+        request.resource.data.start is string &&
+        (request.resource.data.start == '' ||
+          request.resource.data.start.matches('^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')) &&
+        request.resource.data.target is int &&
+        request.resource.data.target >= 0 &&
+        request.resource.data.target <= 1000000 &&
+        validQazaPaid(request.resource.data.done) &&
+        request.resource.data.updatedAt == request.time;
+    }
     match /memberPrivate/{uid}/{doc=**} {
       allow read, write: if false;
     }

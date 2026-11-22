@@ -1,0 +1,180 @@
+/* Prayer attendance & Qaza calendar: retain their original status palette
+   after global emerald/dark theme rules. Keep these selectors deliberately
+   scoped so other app pages, groups, and theme choices remain unchanged. */
+:root[data-theme] .namaz-card {
+  --prayer-ink:#e9fff3;
+  --prayer-muted:#b2dac7;
+  background:#06291f;
+  color:var(--prayer-ink);
+  border:1px solid #35755f;
+  border-radius:16px;
+  min-width:0;
+}
+:root[data-theme] .namaz-card .namaz-heading {
+  background:linear-gradient(120deg,#084d38,#0b3c2d);
+  border:1px solid #367c5b;
+  border-radius:12px;
+  padding:10px 12px;
+}
+:root[data-theme] .namaz-card .namaz-heading h1,
+:root[data-theme] .namaz-card .namaz-today-label,
+:root[data-theme] .namaz-card :is(h2,h3,legend),
+:root[data-theme] .namaz-card .namaz-calendar-bar output {
+  color:#e7fff1;
+}
+:root[data-theme] .namaz-card :is(.namaz-instruction,.namaz-footer,.qaza-hint,.namaz-date-note) {
+  color:#b6dac8;
+}
+:root[data-theme] .namaz-card .namaz-calendar-bar {
+  background:#0a392a;
+  border-color:#32735b;
+}
+:root[data-theme] .namaz-card .namaz-calendar-bar .button.secondary {
+  background:#125541;
+  color:#fff;
+  border-color:#4d9a7a;
+}
+:root[data-theme] .namaz-card .namaz-calendar-bar .button:disabled {
+  opacity:.48;
+}
+:root[data-theme] .namaz-card .namaz-table {
+  width:100%;
+  table-layout:fixed;
+  border-collapse:separate;
+  border-spacing:3px 5px;
+}
+:root[data-theme] .namaz-card .namaz-table :is(tr,td) {
+  background:transparent;
+  color:inherit;
+  border:0;
+}
+:root[data-theme] .namaz-card .namaz-table thead th {
+  background:#13543f;
+  color:#f6fffa;
+  font-size:clamp(.63rem,2.8vw,.95rem);
+  border-radius:7px;
+  padding:6px 1px;
+}
+:root[data-theme] .namaz-card .namaz-table tbody th {
+  background:#104734;
+  color:#effff7;
+  border-radius:9px;
+}
+:root[data-theme] .namaz-card .namaz-table .namaz-now th {
+  background:#c1eed1;
+  color:#063e29;
+}
+:root[data-theme] .namaz-card .namaz-table .namaz-cell {
+  box-sizing:border-box;
+  min-width:0;
+  padding:5px 2px;
+  font-size:clamp(.57rem,2.35vw,.81rem);
+  line-height:1.5;
+  border-radius:9px;
+  overflow-wrap:anywhere;
+  box-shadow:none;
+}
+:root[data-theme] .namaz-card .namaz-cell :is(span,strong,small),
+:root[data-theme] .namaz-card .namaz-options button :is(span,strong,small) {
+  color:inherit;
+}
+:root[data-theme] .namaz-card :is(.namaz-options button.namaz-jamat,.namaz-cell.namaz-jamat) {
+  background:#117258;
+  border-color:#43a787;
+  color:#fff;
+}
+:root[data-theme] .namaz-card :is(.namaz-options button.namaz-solo,.namaz-cell.namaz-solo) {
+  background:#d9f3e3;
+  border-color:#a3dbba;
+  color:#17452d;
+}
+:root[data-theme] .namaz-card :is(.namaz-options button.namaz-made,.namaz-cell.namaz-made,.namaz-cell.qaza-paid) {
+  background:#ffedc4;
+  border-color:#e6c271;
+  color:#654000;
+}
+:root[data-theme] .namaz-card :is(.namaz-options button.namaz-missed,.namaz-cell.namaz-missed) {
+  background:#f8dbe3;
+  border-color:#e9b3c3;
+  color:#78334a;
+}
+:root[data-theme] .namaz-card :is(.namaz-options button.namaz-clear,.namaz-cell.namaz-clear,.namaz-cell.namaz-upcoming) {
+  background:#164938;
+  border-color:#3c7058;
+  color:#d8f6e6;
+}
+:root[data-theme] .namaz-card .namaz-options button[aria-pressed="true"] {
+  outline:3px solid #e8c868;
+  outline-offset:1px;
+  box-shadow:0 0 0 2px #112f24;
+}
+:root[data-theme] .namaz-card .namaz-options .qaza-options-paid {
+  background:#ffe9b1;
+  color:#604000;
+  border:1px solid #d7a950;
+}
+:root[data-theme] .namaz-card .namaz-options .qaza-options-missed {
+  background:#f6d6e1;
+  color:#7c334d;
+  border:1px solid #db9eb1;
+}
+:root[data-theme] .namaz-card .namaz-options .qaza-options-paid[aria-pressed="true"],
+:root[data-theme] .namaz-card .namaz-options .qaza-options-missed[aria-pressed="true"]{
+  outline:3px solid #f4c24d;
+  outline-offset:1px;
+}
+:root[data-theme] .namaz-card .qaza-settings input {
+  color:#f0fff7;
+  background:#082b21;
+  border:1px solid #478a6b;
+}
+:root[data-theme] .namaz-card .qaza-settings .field {
+  color:#ebfff4;
+}
+:root[data-theme] .namaz-card .qaza-save.saved {
+  background:#145f44;
+  color:#fff;
+  border-color:#4ca67d;
+}
+:root[data-theme] .namaz-card .qaza-save.editing {
+  background:#008866;
+  color:#fff;
+}
+:root[data-theme] .namaz-card .qaza-section,
+:root[data-theme] .namaz-card .qaza-next-card,
+:root[data-theme] .namaz-card .qaza-metric,
+:root[data-theme] .namaz-card .qaza-column,
+:root[data-theme] .namaz-card .ledger-frame{
+  background:#0b3528;
+  color:#eafff3;
+  border-color:#396d57;
+}
+:root[data-theme] .namaz-card .qaza-section .namaz-cell{
+  width:100%;
+  min-height:42px;
+}
+:root[data-theme] .namaz-card .qaza-section .namaz-cell :is(time,span,strong){
+  color:inherit;
+}
+:root[data-theme] .namaz-card .prayer-ledger :is(th,td,tr){
+  color:#eafff4;
+  border-color:#386c59;
+}
+:root[data-theme] .namaz-card .prayer-ledger thead th{
+  background:#14533e;
+}
+:root[data-theme] .namaz-card .prayer-ledger tbody th,
+:root[data-theme] .namaz-card .prayer-ledger tbody td{
+  background:#0d392b;
+}
+:root[data-theme] .namaz-card .prayer-ledger tfoot :is(th,td){
+  background:#14543e;
+  color:#fff;
+}
+@media(max-width:480px){
+  :root[data-theme] .namaz-card { padding:8px 6px; }
+  :root[data-theme] .namaz-card .namaz-table{border-spacing:2px 4px;}
+  :root[data-theme] .namaz-card .namaz-table .namaz-cell{padding:4px 1px;min-height:45px;}
+  :root[data-theme] .namaz-card .namaz-options{gap:4px;}
+  :root[data-theme] .namaz-card .namaz-options button{min-width:0;overflow-wrap:anywhere;}
+}
