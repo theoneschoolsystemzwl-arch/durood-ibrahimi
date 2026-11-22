@@ -3552,6 +3552,10 @@ async function hydrate(){
   }catch{}
   bridge.enter(profile,rows,{global:global.exists()?global.get("totalRecitations")||0:0,memberCounts});
   currentProfile=profile;
+  // Parent hides its working portal only after the original dashboard is ready.
+  if(window.parent!==window){
+    window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
+  }
   try{
     const month=new Date().toISOString().slice(0,7);
     const result=await prayerMonthSpark(month);
@@ -3563,6 +3567,9 @@ onAuthStateChanged(auth,async user=>{
   try{await hydrate();}
   catch(err){
     console.error("Classic Firebase dashboard",err);
+    if(window.parent!==window){
+      window.parent.postMessage({type:"durood-classic-error"},location.origin);
+    }
     document.getElementById("app").style.visibility="visible";
     document.getElementById("app").innerHTML='<main style="padding:28px;max-width:580px;margin:auto"><h2>Firebase Account</h2><p>Dashboard could not load: '+errorText(err).replace(/[<>&]/g,"")+'</p><a href="/">Return to sign in</a></main>';
   }

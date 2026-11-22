@@ -12,6 +12,7 @@ import {initializeCommunityPages,activateMemberHome} from "./community-pages.js"
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
+let classicFrameRequested=false;
 
 // This local courtesy pause reduces accidental repeat attempts.
 // It does not override Firebase's server-side rate limiting.
@@ -225,6 +226,7 @@ async function loadProfile(user){
 }
 function showSignedOut() {
   appState.profile=null;
+  classicFrameRequested=false;
   document.body.classList.remove("classic-active");
   const classicFrame=$("#classic-frame");
   if(classicFrame){classicFrame.hidden=true;classicFrame.src="about:blank";}
@@ -253,17 +255,27 @@ function showSignedIn(profile){
 }
 async function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
-  if(!frame||!appState.profile||!auth.currentUser)return;
-  const result=await fetch("./classic-app.html",{cache:"no-store"});
-  if(!result.ok)return;
-  const source=await result.text();
-  if(!source.includes("window.duroodClassicBridge = {"))return;
-  // The still-current session is authoritative; no DI serial logs users in.
-  if(!appState.profile||!auth.currentUser)return;
-  frame.hidden=false;
-  if(!frame.src.endsWith("/classic-app.html"))frame.src="./classic-app.html";
-  document.body.classList.add("classic-active");
+  if(!frame||!appState.profile||!auth.currentUser||classicFrameRequested)return;
+  // Load the original UI just once. Do not download its 580 KB HTML twice.
+  // Its Firebase data is loaded in the frame and must not be simulated here.
+  classicFrameRequested=true;
+  frame.src="./classic-app.html";
 }
+// Keep the working portal visible until the authenticated classic dashboard
+// explicitly confirms that it has rendered with the current Firebase user.
+window.addEventListener("message",event=>{
+  const frame=$("#classic-frame");
+  if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
+  if(event.data?.type==="durood-classic-ready" &&
+     appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
+    frame.hidden=false;
+    document.body.classList.add("classic-active");
+  }else if(event.data?.type==="durood-classic-error"){
+    frame.hidden=true;
+    document.body.classList.remove("classic-active");
+    // The working Firebase portal remains usable if classic data cannot load.
+  }
+});
 async function refreshCounts(){
   if(!auth.currentUser)return;
   const [personal,global]=await Promise.all([

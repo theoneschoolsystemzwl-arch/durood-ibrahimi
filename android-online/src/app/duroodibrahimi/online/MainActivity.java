@@ -7,6 +7,8 @@ import android.content.ActivityNotFoundException;
 import android.graphics.Color;
 import android.net.Uri;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
@@ -14,6 +16,8 @@ import android.webkit.WebChromeClient;
 import android.widget.TextView;
 import android.widget.FrameLayout;
 import android.view.ViewGroup;
+import android.view.View;
+import android.view.Gravity;
 
 public final class MainActivity extends Activity {
     // Use the published and verified HTTPS website; Firebase Auth/Firestore still run online.
@@ -21,6 +25,13 @@ public final class MainActivity extends Activity {
     private static final String WEB_HOST = "durood-ibrahimi.pages.dev";
     private WebView web;
     private FrameLayout root;
+    private TextView retryView;
+    private boolean pageFailed=false;
+
+    private void showRetry() {
+        pageFailed=true;
+        if(retryView!=null)retryView.setVisibility(View.VISIBLE);
+    }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -53,6 +64,19 @@ public final class MainActivity extends Activity {
             settings.setSupportMultipleWindows(false);
             web.setWebChromeClient(new WebChromeClient());
             web.setWebViewClient(new WebViewClient() {
+                @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    pageFailed=false;
+                    if(retryView!=null)retryView.setVisibility(View.GONE);
+                }
+                @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                    if(request.isForMainFrame())showRetry();
+                }
+                @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                    if(request.isForMainFrame() && response.getStatusCode()>=400)showRetry();
+                }
+                @Override public void onPageFinished(WebView view, String url) {
+                    if(!pageFailed && retryView!=null)retryView.setVisibility(View.GONE);
+                }
                 @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     if (!request.isForMainFrame()) return false;
                     Uri target = request.getUrl();
@@ -73,6 +97,20 @@ public final class MainActivity extends Activity {
             });
             root.addView(web,new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+            retryView=new TextView(this);
+            retryView.setText("Page could not load. Check your internet.\\nTap here to retry.");
+            retryView.setTextSize(17);
+            retryView.setTextColor(Color.rgb(9,72,56));
+            retryView.setBackgroundColor(Color.WHITE);
+            retryView.setGravity(Gravity.CENTER);
+            retryView.setPadding(24,40,24,40);
+            retryView.setOnClickListener(v -> {
+                retryView.setVisibility(View.GONE);
+                if(web!=null)web.loadUrl(WEB_URL);
+            });
+            root.addView(retryView,new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+            retryView.setVisibility(View.GONE);
             web.loadUrl(WEB_URL);
         } catch (Exception error) {
             // A missing / broken Android System WebView should not close the app immediately.

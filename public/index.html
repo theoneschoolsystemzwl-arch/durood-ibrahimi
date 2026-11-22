@@ -28,7 +28,8 @@
   </header>
   <main class="container">
     <section id="loading" class="panel" role="status" aria-live="polite">
-      <p>اکاؤنٹ چیک کیا جا رہا ہے…</p>
+      <p id="loading-copy">اکاؤنٹ چیک کیا جا رہا ہے…</p>
+      <button type="button" id="loading-retry" class="secondary" hidden>دوبارہ لوڈ کریں / Retry</button>
     </section>
 
     <section id="access" class="panel account-card" hidden aria-labelledby="welcome-title">
@@ -228,5 +229,21 @@
     </section>
   </main>
   <footer>© Durood-e-Ibrahimi Global · Secure member portal</footer>
+<script>
+  // Even if a CDN module fails to download, the page will not remain stuck
+  // forever with no recovery action. This does not sign out or clear data.
+  (() => {
+    const retry=document.getElementById("loading-retry");
+    retry.addEventListener("click",()=>location.reload());
+    setTimeout(()=>{
+      const section=document.getElementById("loading");
+      if(section&&!section.hidden){
+        document.getElementById("loading-copy").textContent=
+          "لوڈنگ میں دیر ہو رہی ہے۔ انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں۔";
+        retry.hidden=false;
+      }
+    },15000);
+  })();
+</script>
 </body>
 </html>
