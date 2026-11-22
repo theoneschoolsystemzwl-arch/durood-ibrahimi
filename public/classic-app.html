@@ -1529,11 +1529,18 @@ function settings(person) {
 
 function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
+  const inviteCount = person.id === 1 ? Number(window.duroodOwnerInviteTotal || 0) : directMembers(person.id).length;
+  const femaleSide = person.id === 1 && window.duroodCurrentSide === 'female';
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
+    '<small class="muted direct-invites">' + tr('Direct invites: ', 'آپ کے شامل کردہ ممبرز: ') +
+    displayNumber(inviteCount) + '</small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
+    (person.id === 1 ? '<button type="button" class="button secondary switch-side" data-action="switch-side">' +
+      (femaleSide ? tr('Go to Male Side','مرد سائیڈ پر جائیں') :
+        tr('Go to Female Side','خواتین سائیڈ پر جائیں')) + '</button>' : '') +
     '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '</span></div></section></header>';
 }
