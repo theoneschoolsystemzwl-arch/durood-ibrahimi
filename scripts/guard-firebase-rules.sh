@@ -73,7 +73,8 @@ if(!existing || typeof existing.content!=='string'){
   console.error('Could not verify currently published Firestore rules. Refusing unsafe overwrite.');
   process.exit(1);
 }
-const same=(a,b)=>a.replace(/\\r\\n/g,'\\n').trim()===b.replace(/\\r\\n/g,'\\n').trim();
+const normalize=s=>s.replace(/\r\n/g,'\n').trim();
+const same=(a,b)=>normalize(a)===normalize(b);
 if(same(existing.content,fs.readFileSync('firestore.rules','utf8'))){
   fs.writeFileSync('/tmp/durood-rules-already-current','1');
   console.log('Firestore rules already published; Hosting may proceed without re-publishing rules.');
@@ -92,7 +93,7 @@ if(expected.split(sideRule).length!==2 || expected.split(predicateAnchor).length
   process.exit(1);
 }
 expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicateAnchor);
-const normalize=s=>s.replace(/\r\n/g,'\n').trim();
+
 if(normalize(existing.content)!==normalize(expected)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
