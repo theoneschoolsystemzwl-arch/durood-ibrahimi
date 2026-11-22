@@ -260,8 +260,7 @@ service cloud.firestore {
         invitationMatches(resource.data,
           getAfter(memberPath(request.auth.uid)).data.gender);
     }
-    // Auth-token-bound lease; arbitrary client-provided device IDs by
-    // themselves are NOT an authorization mechanism.
+    // Auth-time-bound session lease; no permanent device registration.
     function validActiveLogin(uid) {
       let s=request.resource.data;
       return self(uid) && active(uid) &&
@@ -276,7 +275,10 @@ service cloud.firestore {
     match /activeLogins/{uid} {
       allow get: if self(uid) || owner();
       allow list: if false;
-      allow create, update: if validActiveLogin(uid);
+      // Never let a second sign-in replace an active lease.
+      // Only the explicit logout of the original session may delete it.
+      allow create: if validActiveLogin(uid);
+      allow update: if false;
       allow delete: if self(uid) &&
         resource.data.authTime == request.auth.token.auth_time;
     }
