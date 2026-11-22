@@ -7,6 +7,7 @@ on:
       - 'firestore.rules'
       - 'scripts/guard-firebase-rules.sh'
       - 'scripts/deploy-firestore-rules.sh'
+      - 'tests/prayer-regressions.test.mjs'
       - 'firebase.json'
       - '.firebaserc'
       - '.github/workflows/firebase-hosting-spark.yml'
