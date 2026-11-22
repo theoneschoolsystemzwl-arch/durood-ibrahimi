@@ -50,3 +50,6 @@
 .wz-dial small{font-size:.83rem;color:#e2faee;line-height:1.7}
 .wz-dial:active{filter:brightness(1.18)}
 @media(max-width:360px){.wz-actions{gap:4px}.wz-button{padding:6px 9px;font-size:.8rem}.wz-form-goals,.wz-dates{grid-template-columns:1fr}}
+
+.wz-dial.is-floating{position:fixed;top:max(66px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));width:min(45vw,176px);z-index:110;padding:8px;box-shadow:0 12px 36px #000a}
+.wz-dial.is-floating strong{font-size:clamp(1.6rem,8vw,2.8rem)}
