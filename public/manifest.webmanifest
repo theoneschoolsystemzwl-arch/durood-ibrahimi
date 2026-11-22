@@ -14,7 +14,7 @@
   "icons": [
     {
       "src": "/tasbih-calligraphy.webp",
-      "sizes": "400x400",
+      "sizes": "any",
       "type": "image/webp",
       "purpose": "any"
     },
