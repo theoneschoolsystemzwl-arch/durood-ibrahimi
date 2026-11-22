@@ -1,10 +1,10 @@
 // Network-first app shell. Never caches personal member records, Firebase API responses,
 // OAuth credentials, or third-party CDN requests. Online launches fetch latest deploy.
-const SHELL_CACHE="durood-global-shell-v3";
+const SHELL_CACHE="durood-global-shell-v4";
 const ALLOWED=new Set([
   "/","/index.html","/styles.css","/app.js","/community-pages.js",
   "/password-change.js","/member-auth.js","/firebase-client.js",
-  "/spark-data.js","/profile-contacts.js","/classic-app.html",
+  "/spark-data.js","/profile-contacts.js",
   "/manifest.webmanifest","/app-icon.svg"
 ]);
 self.addEventListener("install",()=>self.skipWaiting());
