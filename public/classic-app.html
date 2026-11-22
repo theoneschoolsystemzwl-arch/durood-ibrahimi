@@ -1201,7 +1201,20 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .profile-card{position:relative}
 .profile-card>.top-corners{position:absolute;left:9px;top:7px;right:auto;direction:ltr;display:flex;justify-content:flex-start;align-items:center;gap:5px;padding:0;max-width:calc(100% - 18px);margin:0;flex-wrap:nowrap;z-index:2}
 .profile-card>.top-corners .corner-link{font:700 .74rem/1.5 system-ui,sans-serif;min-height:28px;padding:4px 8px;color:#e2fff1;border-color:#4db990;background:#064f3e}
-.profile-card>.profile-card-foot{padding-top:34px}
+/* Profile portraits are exactly 3x the former 42px mobile size (126px).
+   Keep About/English inside the card's upper-left and give both the
+   picture and the account actions their own responsive rows. */
+.app-head .profile-card{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:9px;padding:44px 12px 12px}
+.app-head .profile-card>.profile-greeting{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-width:0;gap:12px}
+.app-head .profile-card .profile-greeting .avatar{box-sizing:border-box;width:126px;height:126px;min-width:126px;min-height:126px;flex:0 0 126px;border:3px solid var(--gold-light);border-radius:50%;font-size:2.35rem;box-shadow:0 0 0 2px #8be9be55,0 6px 18px #001f1555}
+.app-head .profile-card .profile-greeting .avatar img{width:100%;height:100%;object-fit:cover}
+.app-head .profile-card .profile-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.app-head .profile-card>.profile-card-foot{display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;padding-top:0;min-width:0}
+@media(max-width:350px){
+  .app-head .profile-card{padding-inline:8px}
+  .app-head .profile-card>.profile-greeting{gap:8px}
+  .app-head .profile-card .profile-copy strong{font-size:.88rem}
+}
 .next-prayer-ticker{margin:2px auto 9px;max-width:920px;border-radius:14px;border:1px solid #37a982;background:linear-gradient(100deg,#003d30,#07664b);box-shadow:0 2px 10px #001f174a;color:#eafff3;overflow:hidden;min-height:42px;display:flex;align-items:center}
 .next-prayer-marquee{width:100%;overflow:hidden;white-space:nowrap;text-align:center;direction:rtl}
 .next-prayer-marquee span{display:inline-block;padding:5px 17px;font:800 clamp(.83rem,3.2vw,1.09rem)/2 var(--ur,serif);animation:next-prayer-scroll 12s ease-in-out infinite alternate}
