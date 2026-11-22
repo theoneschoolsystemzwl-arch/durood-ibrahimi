@@ -1489,6 +1489,8 @@ function profileDetails(person) {
       (person.gender===''?'<div class="form-actions"><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="male">Male منتخب کریں</button><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="female">Female منتخب کریں</button></div>':'') +
       '<div class="form-actions manage-actions"><button class="button secondary" data-action="toggle-user" data-value="' +
       person.id + '">' + (person.disabled ? tr("Enable member", 'رکن کو فعال کریں') : tr("Suspend member", 'رکن کو معطل کریں')) +
+      '</button><button class="button secondary" data-action="reset-session" data-value="' + person.id +
+      '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
       tr("\">Delete member</button></div></section>", '">رکن حذف کریں</button></div></section>') + managementDialog(person));
 }
@@ -3578,7 +3580,7 @@ document.addEventListener('keydown',event => {
 <script type="module">
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
-import {readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark} from "./spark-data.js";
+import {readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
@@ -3720,6 +3722,17 @@ ui.addEventListener("click",event=>{
     event.stopImmediatePropagation();event.preventDefault();
     button.disabled=true;
     invitationSpark().then(code=>bridge.addInvite(code)).catch(e=>bridge.status("invite-feedback",errorText(e),false)).finally(()=>{if(button.isConnected)button.disabled=false;});
+    return;
+  }
+  if(action==="reset-session"){
+    event.stopImmediatePropagation();event.preventDefault();
+    const n=Number(button.dataset.value),uid=bridge.userUid(n);
+    if(currentProfile.role!=="owner"||!uid)return;
+    if(!window.confirm("اس ممبر کے کھوئے ہوئے فون کا لاگ اِن لاک ختم کریں؟ صرف Owner کی اجازت سے۔"))return;
+    button.disabled=true;
+    resetMemberSessionSpark(uid).then(()=>bridge.notice("ممبر کا سیشن ری سیٹ ہوگیا؛ اب وہ دوبارہ لاگ اِن کر سکتا ہے۔"))
+      .catch(e=>bridge.notice(errorText(e)))
+      .finally(()=>{if(button.isConnected)button.disabled=false;});
     return;
   }
   if(action==="toggle-user"){
