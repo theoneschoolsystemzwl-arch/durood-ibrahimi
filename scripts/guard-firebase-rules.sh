@@ -98,7 +98,11 @@ expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicat
 // Rules REST API. Accept that exact, immutable pre-Qaza production version
 // as an alternate trusted baseline for the Qaza-private-rules upgrade.
 const beforeQaza=cp.execFileSync('git',['show','f024232628303dfaa2428930b3e0be3b0c923841:firestore.rules'],{encoding:'utf8'});
-if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza)){
+// The verified Qaza update was published on 23 Nov. Any new change must
+// match this exact trusted production source before deploying.
+const beforeSharing=cp.execFileSync('git',['show','14f92184d86bdeb88a13b3977c00be22aeb86997:firestore.rules'],{encoding:'utf8'});
+if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
+   normalize(existing.content)!==normalize(beforeSharing)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);
