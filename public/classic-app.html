@@ -3809,8 +3809,8 @@ window.duroodClassicBridge = {
 render();
 // No fabricated live recitations: only Firebase-backed totals are shown.
 setInterval(updateClock, 50);
-setInterval(updateNamazDate, 1000);
-setInterval(monitorPrayerTime, 1000);
+setInterval(updateNamazDate, 5000);
+setInterval(monitorPrayerTime, 5000);
 document.addEventListener('visibilitychange',() => {
   if(document.hidden && readingSession.lastTap!==null){readingSession.ms+=Math.min(15000,Math.max(0,performance.now()-readingSession.lastTap));readingSession.lastTap=null;}
   else { updateNamazDate(); monitorPrayerTime(); }
@@ -3836,7 +3836,42 @@ const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
 let currentProfile=null;
-let readingQueue=Promise.resolve();
+const queuedTaps=new Map();
+let batchTimer=null,flushingTaps=false;
+function queueTasbihTap(){
+  const uid=auth.currentUser?.uid;
+  if(!uid||uid!==currentProfile?.uid)return;
+  const day=localReadingDate();
+  bridge.tap();
+  queuedTaps.set(day,(queuedTaps.get(day)||0)+1);
+  if(!batchTimer&&!flushingTaps)batchTimer=setTimeout(flushTasbihTaps,400);
+}
+async function flushTasbihTaps(){
+  if(flushingTaps)return;
+  clearTimeout(batchTimer);batchTimer=null;
+  const next=queuedTaps.entries().next().value;
+  if(!next)return;
+  const [day,available]=next,amount=Math.min(available,10000),uid=auth.currentUser?.uid;
+  if(!uid||uid!==currentProfile?.uid){queuedTaps.clear();return;}
+  flushingTaps=true;
+  try{
+    await readingsSpark(amount,day,true);
+    const remaining=Math.max(0,(queuedTaps.get(day)||0)-amount);
+    if(remaining)queuedTaps.set(day,remaining);else queuedTaps.delete(day);
+    if(auth.currentUser?.uid===uid)bridge.confirmed(Object.fromEntries(queuedTaps));
+  }catch(err){
+    const remaining=Math.max(0,(queuedTaps.get(day)||0)-amount);
+    if(remaining)queuedTaps.set(day,remaining);else queuedTaps.delete(day);
+    if(auth.currentUser?.uid===uid){
+      bridge.rollbackTaps(amount,day);
+      bridge.confirmed(Object.fromEntries(queuedTaps));
+      bridge.notice("درود Firebase میں محفوظ نہیں ہوا: "+errorText(err));
+    }
+  }finally{
+    flushingTaps=false;
+    if(queuedTaps.size)batchTimer=setTimeout(flushTasbihTaps,400);
+  }
+}
 let switchingSide=false;
 try{
   window.duroodOwnerSide=localStorage.getItem("durood-owner-side")==="female"?"female":"male";
@@ -3865,7 +3900,7 @@ function observeCounters(side){
       lastPing=Date.now();
       updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
     }
-  },5000);
+  },15000);
   function watchDays(){
     stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);
     const now=new Date(),today=localReadingDate(now);
@@ -3905,7 +3940,7 @@ async function hydrate(){
   const user=auth.currentUser;
   if(!user){
     stopCounters();
-    if(window.parent!==window)window.parent.postMessage({type:"durood-use-top"},location.origin);
+    if(window.parent!==window)window.parent.postMessage({type:"durood-classic-auth-pending"},location.origin);
     else window.location.replace("/");
     return;
   }
@@ -3993,7 +4028,7 @@ async function hydrate(){
 onAuthStateChanged(auth,async user=>{
   if(!user){
     stopCounters();
-    if(window.parent!==window)window.parent.postMessage({type:"durood-use-top"},location.origin);
+    if(window.parent!==window)window.parent.postMessage({type:"durood-classic-auth-pending"},location.origin);
     else window.location.replace("/");
     return;
   }
@@ -4105,11 +4140,7 @@ ui.addEventListener("click",event=>{
   }
   if(action==="count-durood"){
     event.stopImmediatePropagation();event.preventDefault();
-    // Serialise writes to avoid lost increments during rapid tapping.
-    readingQueue=readingQueue.catch(()=>{}).then(async()=>{
-      await readingsSpark(1,undefined,true);
-      bridge.tap();
-    }).catch(e=>bridge.notice("درود محفوظ نہیں ہو سکا: "+errorText(e)));
+    queueTasbihTap();
     return;
   }
   if(action==="namaz-mark"||action==="qaza-record"){
