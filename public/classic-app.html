@@ -288,7 +288,7 @@ button.tree-node:hover { background: hsl(calc(var(--theme-hue) - 18.18) calc(52.
 .root-node strong { font-size: 1.05rem; }
 .node-dot {
   position: absolute; top: -2px; right: -5px; min-width: 23px; height: 23px; padding-inline: 4px; display: grid; place-items: center;
-  border: 2px solid #fff; border-radius: 999px; background: #a34700; color: #fff; font-size: .71rem; font-weight: 800;
+  border: 2px solid #fff; border-radius: 999px; background: #ae2531; color: #fff; font-size: .71rem; font-weight: 800;
 }
 .tree-node small { color: hsl(calc(var(--theme-hue) + 7.59) calc(14.72% * var(--theme-saturation)) 38.63%); font-size: .72rem; }
 .child-list {
@@ -1143,6 +1143,10 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
 /* Member removal is soft and reversible; the original DI ID is preserved. */
+.node-dot.level-1{background:#146438}
+.owner-sections{display:flex;justify-content:center;gap:4px;padding:2px 6px;background:var(--paper,#fff)}
+.owner-sections button{padding:2px 10px;min-height:32px;border:1px solid #146438;border-radius:6px;background:#fff;color:#145535;font:inherit;font-size:.82rem}
+.owner-sections button[aria-pressed="true"]{background:#146438;color:white}
 </style>
 </head>
 <body>
@@ -1258,7 +1262,7 @@ function generationLetter(id) {
 }
 
 function groupName(id) {
-  return generationLetter(id) + String(directMembers(id).length).padStart(2, '0');
+  return generationLetter(id);
 }
 
 function score(person, span, history) {
@@ -1420,11 +1424,12 @@ function ranking() {
 
 function treeNode(person, isRoot = false) {
   const count = directMembers(person.id).length;
+  const level=memberLevel(person);
   const clickable = !isRoot && count > 0;
   const tag = clickable ? 'button' : 'div';
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
-    '<span class="node-dot" aria-label="' + count + tr(" direct invitations\">", ' براہِ راست دعوتیں">') + displayNumber(count) + '</span></span><strong dir="auto">' +
+    '<span class="node-dot level-' + level + '" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
     esc(memberName(person)) + '</strong><span class="pill"><bdi>' + groupName(person.id) + '</bdi></span>' +
     (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
     (isRoot ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
@@ -1441,7 +1446,7 @@ function tree(person) {
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.id === 1 ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
-    tr("Badges show the number of direct invites. Tap a member to open their branch.", 'ہر گول نشان میں براہِ راست دعوتوں کی تعداد ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
+    tr("Photo badges show member levels. Tap a member to open their branch.", 'تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
     '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + groupName(root.id) + '</bdi>') +
     stat(tr("Direct members", 'براہِ راست ارکان'), displayNumber(children.length)) +
     stat(tr("Total in branch", 'شاخ کے کل ارکان'), displayNumber(descendants(root.id).size)) + '</div>' +
@@ -1453,7 +1458,7 @@ function tree(person) {
 }
 
 function groups() {
-  return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth. The digits show the number of direct invites.", 'گروپ کا حرف شاخ کی سطح اور ہندسے براہِ راست دعوتوں کی تعداد دکھاتے ہیں۔')) +
+  return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
     '<div class="groups">' + users.filter(person =>
       !(window.duroodCurrentSide === 'female' && person.id === 1) &&
       (person.id === 1 || directMembers(person.id).length)).map(person =>
@@ -3069,7 +3074,9 @@ function topBar() {
     '<div class="locale-switch" role="group" aria-label="' + tr('App language','ایپ کی زبان') + '">' +
     '<button type="button" lang="en" data-action="language" data-value="en" aria-pressed="' + (language === 'en') + '">English</button>' +
     '<button type="button" lang="ur" data-action="language" data-value="ur" aria-pressed="' + (language === 'ur') + '">اردو</button></div>' +
-    '</div></div></header>';
+    '</div></div>' + (person?.id===1 ? '<div class="owner-sections" role="group" aria-label="'+tr('Member sections','ممبر سیکشن')+'">' +
+      ['male','female'].map(side=>'<button type="button" data-action="switch-side" data-side="'+side+'" aria-pressed="'+
+        ((window.duroodCurrentSide||'male')===side)+'">'+(side==='female'?tr('Women','خواتین'):tr('Men','مرد'))+'</button>').join('')+'</div>' : '') + '</header>';
 }
 
 function changeLanguage(value) {
@@ -3730,11 +3737,12 @@ ui.addEventListener("click",event=>{
   if(action==="switch-side"){
     event.stopImmediatePropagation();event.preventDefault();
     if(currentProfile.role!=="owner"||switchingSide)return;
+    const next=button.dataset.side||(window.duroodCurrentSide==="female"?"male":"female");
+    if(next===window.duroodCurrentSide)return;
     switchingSide=true;button.disabled=true;
-    const next=window.duroodCurrentSide==="female"?"male":"female";
     window.duroodOwnerSide=next;
     try{localStorage.setItem("durood-owner-side",next);}catch{}
-    hydrate().catch(e=>bridge.notice(errorText(e))).finally(()=>{switchingSide=false;});
+    hydrate().catch(e=>bridge.notice(errorText(e))).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
     return;
   }
   if(action==="chat-refresh" || (action==="nav"&&button.dataset.value==="messages")){
