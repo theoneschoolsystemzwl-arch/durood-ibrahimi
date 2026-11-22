@@ -36,9 +36,45 @@ service cloud.firestore {
     function globalPath() {
       return /databases/$(database)/documents/publicStats/global;
     }
+    function genderStatsPath(gender) {
+      return /databases/$(database)/documents/genderStats/$(gender);
+    }
+    function genderMembersPath(gender) {
+      return /databases/$(database)/documents/genderMembers/$(gender);
+    }
+    function previousGenderMembers(gender) {
+      return exists(genderMembersPath(gender)) ?
+        get(genderMembersPath(gender)).data.totalMembers : 0;
+    }
+    function activeLoginPath(uid) {
+      return /databases/$(database)/documents/activeLogins/$(uid);
+    }
+    function validGender(gender) {
+      return gender == 'male' || gender == 'female';
+    }
+    // Existing pre-gender members are treated as male, without rewriting data.
+    function genderOf(profile) {
+      return profile.get('gender', 'male');
+    }
+    function myGender() {
+      return genderOf(get(memberPath(request.auth.uid)).data);
+    }
+    function matchingGender(profile) {
+      return genderOf(profile) == myGender();
+    }
+    function invitationMatches(invite, gender) {
+      let inviter = get(memberPath(invite.byUid)).data;
+      return validGender(gender) &&
+        (inviter.role == 'owner' &&
+          (invite.get('gender', 'any') == 'any' || invite.get('gender', 'any') == gender) ||
+        inviter.role != 'owner' &&
+          genderOf(inviter) == gender &&
+          invite.get('gender', genderOf(inviter)) == gender);
+    }
     function active(uid) {
       return signed() && exists(memberPath(uid)) &&
-        get(memberPath(uid)).data.disabled == false;
+        get(memberPath(uid)).data.disabled == false &&
+        get(memberPath(uid)).data.get('deleted', false) != true;
     }
     // Only the existing Firebase Authentication account designated by the
     // project administrator is the new Master Owner. DI-1 is not a login ID.
@@ -55,10 +91,18 @@ service cloud.firestore {
       return signed() && request.auth.uid == trustedOwnerUid();
     }
     function owner() {
-      return signed() && (request.auth.token.owner == true || legacyIsOwner()) && active(request.auth.uid);
+      return signed() && (request.auth.token.get('owner', false) == true || legacyIsOwner()) && active(request.auth.uid);
+    }
+    // The first active sign-in has an auth-time-bound lease; later sign-ins
+    // are rejected, never allowed to replace it. The Owner is exempt.
+    function activeLogin() {
+      return signed() && (owner() ||
+        (exists(activeLoginPath(request.auth.uid)) &&
+          get(activeLoginPath(request.auth.uid)).data.authTime ==
+            request.auth.token.auth_time));
     }
     function currentMember() {
-      return signed() && active(request.auth.uid);
+      return signed() && active(request.auth.uid) && activeLogin();
     }
     function validUsername(name) {
       return name is string &&
@@ -73,7 +117,7 @@ service cloud.firestore {
     // identity. Public email/password registration cannot grant owner rights.
     function trustedOwnerIdentity(uid) {
       return self(uid) &&
-        (legacyIsOwner() || request.auth.token.owner == true);
+        (legacyIsOwner() || request.auth.token.get('owner', false) == true);
     }
     function initialOwnerProfile(uid) {
       let m = request.resource.data;
@@ -143,12 +187,12 @@ service cloud.firestore {
       let m = request.resource.data;
       return self(uid) && !exists(memberPath(uid)) &&
         m.keys().hasOnly(['uid','username','name','role','memberNumber',
-          'serial','inviterUid','inviteCode','disabled','pledgeAcceptedAt','createdAt']) &&
+          'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt']) &&
         m.keys().hasAll(['uid','username','name','role','memberNumber',
-          'serial','inviterUid','inviteCode','disabled','pledgeAcceptedAt','createdAt']) &&
+          'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt']) &&
         m.uid == uid && validUsername(m.username) &&
         m.name is string && m.name.size() >= 2 && m.name.size() <= 60 &&
-        m.role == 'member' && m.disabled == false &&
+        m.role == 'member' && m.disabled == false && validGender(m.gender) &&
         m.memberNumber is int && m.memberNumber >= 2 &&
         m.serial == 'DI-' + string(m.memberNumber) &&
         m.pledgeAcceptedAt == request.time && m.createdAt == request.time &&
@@ -158,13 +202,16 @@ service cloud.firestore {
         get(invitationPath(m.inviteCode)).data.revoked == false &&
         m.inviterUid == get(invitationPath(m.inviteCode)).data.byUid &&
         active(m.inviterUid) &&
+        invitationMatches(get(invitationPath(m.inviteCode)).data, m.gender) &&
         getAfter(invitationPath(m.inviteCode)).data.used == true &&
         getAfter(invitationPath(m.inviteCode)).data.usedByUid == uid &&
         getAfter(usernamePath(m.username)).data.uid == uid &&
         exists(sequencePath()) &&
         m.memberNumber == get(sequencePath()).data.lastNumber + 1 &&
         getAfter(sequencePath()).data.lastNumber == m.memberNumber &&
-        getAfter(sequencePath()).data.lastMemberUid == uid;
+        getAfter(sequencePath()).data.lastMemberUid == uid &&
+        getAfter(genderMembersPath(m.gender)).data.totalMembers ==
+          previousGenderMembers(m.gender) + 1;
     }
     function signupCounter() {
       let d = request.resource.data;
@@ -180,18 +227,45 @@ service cloud.firestore {
         getAfter(memberPath(request.auth.uid)).data.memberNumber == d.lastNumber &&
         getAfter(memberPath(request.auth.uid)).data.role == 'member';
     }
+    function signupGenderMembers(gender) {
+      let d=request.resource.data;
+      return signed() && validGender(gender) &&
+        !exists(memberPath(request.auth.uid)) &&
+        d.keys().hasOnly(['gender','totalMembers','updatedAt']) &&
+        d.keys().hasAll(['gender','totalMembers','updatedAt']) &&
+        d.gender == gender && d.totalMembers is int &&
+        d.totalMembers == previousGenderMembers(gender) + 1 &&
+        d.updatedAt == request.time &&
+        getAfter(memberPath(request.auth.uid)).data.gender == gender &&
+        getAfter(sequencePath()).data.lastMemberUid == request.auth.uid;
+    }
+    match /genderMembers/{gender} {
+      allow get: if validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+      allow list, delete: if false;
+      allow create, update: if signupGenderMembers(gender);
+    }
     match /members/{uid} {
-      allow get: if self(uid) || currentMember();
+      allow get: if self(uid) || owner() ||
+        (currentMember() && matchingGender(resource.data));
       allow list: if owner() ||
         (currentMember() && request.query.limit != null &&
-         request.query.limit <= 200 && resource.data.inviterUid == request.auth.uid);
+         request.query.limit <= 200 &&
+         resource.data.inviterUid == request.auth.uid &&
+         matchingGender(resource.data));
       allow create: if allowedMemberCreate(uid) || initialOwnerProfile(uid);
-      allow update: if owner() && uid != request.auth.uid &&
+      allow update: if (owner() && uid != request.auth.uid &&
         resource.data.role == 'member' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled','updatedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['disabled','deleted','updatedAt','gender']) &&
         request.resource.data.disabled is bool &&
-        request.resource.data.updatedAt == request.time
-        || (self(uid) && active(uid) &&
+        request.resource.data.get('deleted', false) is bool &&
+        // Existing unclassified members may be assigned once; gender is immutable afterwards.
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender']) ||
+          (!resource.data.keys().hasAny(['gender']) &&
+            validGender(request.resource.data.gender))) &&
+        request.resource.data.updatedAt == request.time)
+        || (self(uid) && currentMember() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) &&
         request.resource.data.name is string &&
         request.resource.data.name.size() >= 2 &&
@@ -220,8 +294,10 @@ service cloud.firestore {
       allow get: if signed() && validInvite(code);
       allow list, delete: if false;
       allow create: if validInvite(code) && currentMember() &&
-        request.resource.data.keys().hasOnly(['byUid','used','revoked','createdAt']) &&
+        request.resource.data.keys().hasOnly(['byUid','gender','used','revoked','createdAt']) &&
+        request.resource.data.keys().hasAll(['byUid','gender','used','revoked','createdAt']) &&
         request.resource.data.byUid == request.auth.uid &&
+        request.resource.data.gender == (owner() ? 'any' : myGender()) &&
         request.resource.data.used == false &&
         request.resource.data.revoked == false &&
         request.resource.data.createdAt == request.time;
@@ -233,7 +309,35 @@ service cloud.firestore {
         request.resource.data.usedAt == request.time &&
         !exists(memberPath(request.auth.uid)) &&
         getAfter(memberPath(request.auth.uid)).data.inviteCode == code &&
-        getAfter(memberPath(request.auth.uid)).data.inviterUid == resource.data.byUid;
+        getAfter(memberPath(request.auth.uid)).data.inviterUid == resource.data.byUid &&
+        invitationMatches(resource.data,
+          getAfter(memberPath(request.auth.uid)).data.gender);
+    }
+    // Auth-time-bound session lease; no permanent device registration.
+    function validActiveLogin(uid) {
+      let s=request.resource.data;
+      return self(uid) && active(uid) &&
+        request.auth.token.auth_time is int &&
+        s.keys().hasOnly(['authTime','sessionId','claimedAt']) &&
+        s.keys().hasAll(['authTime','sessionId','claimedAt']) &&
+        s.authTime == request.auth.token.auth_time &&
+        s.sessionId is string &&
+        s.sessionId.size() >= 16 && s.sessionId.size() <= 128 &&
+        s.claimedAt == request.time;
+    }
+    match /activeLogins/{uid} {
+      allow get: if self(uid) || owner();
+      allow list: if false;
+      // Never let a second sign-in replace an active lease.
+      // Only the explicit logout of the original session may delete it.
+      allow create: if validActiveLogin(uid);
+      allow update: if false;
+      // A member can release only their own lease on explicit logout.
+      // An authenticated Owner may recover a member's lost or broken phone
+      // only through an explicit admin action; never automatic takeover.
+      allow delete: if (self(uid) &&
+        resource.data.authTime == request.auth.token.auth_time) ||
+        (owner() && uid != request.auth.uid);
     }
     function validPrayerStatuses(values) {
       return values is map &&
@@ -241,8 +345,8 @@ service cloud.firestore {
         values.values().hasOnly(['jamat','solo','made','missed','clear']);
     }
     match /memberPrivate/{uid}/prayers/{date} {
-      allow get, list: if active(uid) && self(uid);
-      allow create, update: if self(uid) && active(uid) &&
+      allow get, list: if self(uid) && currentMember();
+      allow create, update: if self(uid) && currentMember() &&
         date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
         request.resource.data.keys().hasOnly(['date','statuses','updatedAt']) &&
         request.resource.data.keys().hasAll(['date','statuses','updatedAt']) &&
@@ -260,19 +364,46 @@ service cloud.firestore {
     function previousGlobal() {
       return exists(globalPath()) ? get(globalPath()).data.totalRecitations : 0;
     }
+    function previousSide(gender) {
+      return exists(genderStatsPath(gender)) ?
+        get(genderStatsPath(gender)).data.totalRecitations : 0;
+    }
+    function updatedSide(gender) {
+      let d=request.resource.data;
+      let uid=request.auth.uid;
+      let amount=d.lastEntryAmount;
+      return validGender(gender) && currentMember() &&
+        myGender() == gender &&
+        d.keys().hasOnly(['gender','totalRecitations','lastEntryUid',
+          'lastEntryAmount','updatedAt']) &&
+        d.keys().hasAll(['gender','totalRecitations','lastEntryUid',
+          'lastEntryAmount','updatedAt']) &&
+        d.gender == gender && d.lastEntryUid == uid &&
+        amount is int && amount >= 1 && amount <= 10000 &&
+        d.totalRecitations is int &&
+        d.totalRecitations == previousSide(gender) + amount &&
+        d.updatedAt == request.time &&
+        getAfter(countPath(uid)).data.total == previousPersonal(uid) + amount &&
+        getAfter(countPath(uid)).data.lastEntryAmount == amount &&
+        getAfter(globalPath()).data.totalRecitations == previousGlobal() + amount;
+    }
     function updatedPersonal(uid) {
       let d = request.resource.data;
       let amount = d.lastEntryAmount;
-      return self(uid) && active(uid) &&
-        d.keys().hasOnly(['memberUid','total','lastEntryAmount','updatedAt']) &&
-        d.keys().hasAll(['memberUid','total','lastEntryAmount','updatedAt']) &&
-        d.memberUid == uid && d.total is int && d.total >= 0 &&
+      return self(uid) && currentMember() &&
+        d.keys().hasOnly(['memberUid','gender','total','lastEntryAmount','updatedAt']) &&
+        d.keys().hasAll(['memberUid','gender','total','lastEntryAmount','updatedAt']) &&
+        d.memberUid == uid && d.gender == myGender() && d.total is int && d.total >= 0 &&
         amount is int && amount >= 1 && amount <= 10000 &&
         d.total == previousPersonal(uid) + amount &&
         d.updatedAt == request.time &&
         getAfter(globalPath()).data.totalRecitations == previousGlobal() + amount &&
         getAfter(globalPath()).data.lastEntryUid == uid &&
-        getAfter(globalPath()).data.lastEntryAmount == amount;
+        getAfter(globalPath()).data.lastEntryAmount == amount &&
+        getAfter(genderStatsPath(d.gender)).data.totalRecitations ==
+          previousSide(d.gender) + amount &&
+        getAfter(genderStatsPath(d.gender)).data.lastEntryUid == uid &&
+        getAfter(genderStatsPath(d.gender)).data.lastEntryAmount == amount;
     }
     function updatedGlobal() {
       let d = request.resource.data;
@@ -287,19 +418,59 @@ service cloud.firestore {
         d.totalRecitations == previousGlobal() + amount &&
         d.updatedAt == request.time &&
         getAfter(countPath(uid)).data.total == previousPersonal(uid) + amount &&
-        getAfter(countPath(uid)).data.lastEntryAmount == amount;
+        getAfter(countPath(uid)).data.lastEntryAmount == amount &&
+        getAfter(genderStatsPath(myGender())).data.totalRecitations ==
+          previousSide(myGender()) + amount &&
+        getAfter(genderStatsPath(myGender())).data.lastEntryUid == uid;
     }
     match /memberCounts/{uid} {
-      allow get: if (self(uid) && active(uid)) || owner();
-      allow list: if currentMember() && request.query.limit != null &&
-        request.query.limit <= 10;
+      allow get: if owner() ||
+        (currentMember() &&
+          (self(uid) || (exists(memberPath(uid)) &&
+            matchingGender(get(memberPath(uid)).data))));
+      // Gender-constrained queries only: never expose cross-side rankings.
+      allow list: if owner() ||
+        (currentMember() && request.query.limit != null &&
+          request.query.limit <= 200 &&
+          resource.data.gender == myGender());
       allow create, update: if updatedPersonal(uid);
       allow delete: if false;
     }
     match /publicStats/{docId} {
-      allow get, list: if true;
+      // Keep the old global document intact for historic totals and audits.
+      allow get: if owner();
+      allow list: if false;
       allow create, update: if docId == 'global' && updatedGlobal();
       allow delete: if false;
+    }
+    match /genderStats/{gender} {
+      allow get: if validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+      allow list, delete: if false;
+      allow create, update: if updatedSide(gender);
+    }
+    function allowedChatSide(gender) {
+      return validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+    }
+    match /groupChats/{gender}/messages/{messageId} {
+      allow get: if allowedChatSide(gender);
+      allow list: if allowedChatSide(gender) &&
+        request.query.limit != null && request.query.limit <= 50;
+      allow create: if allowedChatSide(gender) &&
+        request.resource.data.keys().hasOnly(['gender','senderUid',
+          'senderName','body','createdAt']) &&
+        request.resource.data.keys().hasAll(['gender','senderUid',
+          'senderName','body','createdAt']) &&
+        request.resource.data.gender == gender &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderName ==
+          get(memberPath(request.auth.uid)).data.name &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() >= 1 &&
+        request.resource.data.body.size() <= 1200 &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
     // Legacy Android data remains accessible under its original restrictions.
     function approvedLegacyMember(memberUid) {

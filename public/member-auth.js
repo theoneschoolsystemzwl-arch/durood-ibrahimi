@@ -1,7 +1,7 @@
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
-import {signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
@@ -11,6 +11,72 @@ import {
 // A DI number is never a login credential, and an email string never grants roles.
 const TRUSTED_OWNER_UID="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
 const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
+
+// Device ID helps the UI distinguish browsers. Security rules also bind the
+// lease to Firebase's signed auth_time: a client-selected ID alone is unsafe.
+const DEVICE_KEY="durood-device-id-v1";
+let inMemoryDeviceId=null;
+
+function sessionId(){
+  if(inMemoryDeviceId)return inMemoryDeviceId;
+  try{
+    const stored=localStorage.getItem(DEVICE_KEY);
+    if(stored && /^[a-z0-9-]{16,128}$/i.test(stored))return (inMemoryDeviceId=stored);
+  }catch{}
+  inMemoryDeviceId=crypto.randomUUID();
+  try{localStorage.setItem(DEVICE_KEY,inMemoryDeviceId);}catch{}
+  return inMemoryDeviceId;
+}
+async function authTime(user){
+  const token=await getIdTokenResult(user);
+  const timestamp=Number(token.claims.auth_time);
+  if(!Number.isSafeInteger(timestamp)||timestamp<=0){
+    throw Error("Firebase session identity is unavailable.");
+  }
+  return timestamp;
+}
+function isOwner(profile){return profile?.role==="owner";}
+
+// Called only after Firebase Auth accepts the password and member profile.
+export async function claimDeviceSession(user,profile){
+  if(isOwner(profile))return;
+  const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
+  const ref=doc(db,"activeLogins",user.uid);
+  await runTransaction(db,async tx=>{
+    const old=await tx.get(ref);
+    if(old.exists()){
+      if(old.data().sessionId === id &&
+         old.data().authTime === timestamp)return;
+      // The first active login ALWAYS wins. A second login never forces out
+      // the original session, even if the password is correct.
+      const error=new Error("User already logged in");
+      error.code="member/already-online";
+      throw error;
+    }
+    tx.set(ref,{authTime:timestamp,sessionId:id,claimedAt:serverTimestamp()});
+  });
+}
+export async function signOut(currentAuth=auth){
+  const user=currentAuth.currentUser;
+  if(user){
+    try{
+      const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
+      const ref=doc(db,"activeLogins",user.uid);
+      await runTransaction(db,async tx=>{
+        const old=await tx.get(ref);
+        if(old.exists() && old.data().authTime===timestamp && old.data().sessionId===id)tx.delete(ref);
+      });
+    }catch(error){
+      if(error?.code==="unavailable"||error?.code==="firestore/unavailable"){
+        // Do not abandon the only active lease when the network is offline.
+        throw Error("انٹرنیٹ دستیاب نہیں۔ لاگ آؤٹ کے لیے دوبارہ کوشش کریں۔");
+      }
+      console.warn("Session cleanup not needed:",error.code||error);
+    }
+  }
+  return firebaseSignOut(currentAuth);
+}
+
 
 async function restoreTrustedOwnerProfile(user){
   // An Auth password alone never grants ownership: the immutable Firebase UID
@@ -100,7 +166,7 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
     await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
     credential=await signInWithEmailAndPassword(auth,email,password);
     if(ownerLogin && credential.user.uid!==TRUSTED_OWNER_UID){
-      await signOut(auth);
+      await firebaseSignOut(auth);
       throw Error("مالک کی موجودہ ای میل سے دوبارہ لاگ اِن کریں۔");
     }
     rememberOwnerEmail(credential.user,remember);
@@ -109,12 +175,14 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
     throw error;
   }
   try {
-    return await loadMemberProfile(credential.user);
+    const profile=await loadMemberProfile(credential.user);
+    await claimDeviceSession(credential.user,profile);
+    return profile;
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
     // Keep a valid credential while the profile service is unavailable.
     if(error.loginStage!=="firestore-profile" || ["permission-denied","firestore/permission-denied","unauthenticated","firestore/unauthenticated"].includes(error.code)){
-      if(auth.currentUser?.uid===credential.user.uid)await signOut(auth);
+      if(auth.currentUser?.uid===credential.user.uid)await firebaseSignOut(auth);
     }
     throw error;
   }
@@ -123,4 +191,4 @@ export async function register(data){return registerSpark(data);}
 export async function createInvitation(){return invitationSpark();}
 export async function setMemberActive(uid,active){return memberActiveSpark(uid,active);}
 export async function updateMyProfile(name){return profileNameSpark(name);}
-export {signOut,onAuthStateChanged,auth};
+export {onAuthStateChanged,auth};

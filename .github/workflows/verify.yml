@@ -35,6 +35,7 @@ jobs:
           node --check functions/scripts/bootstrap-owner.mjs
           node --check functions/scripts/check-owner.mjs
           node --check functions/scripts/reset-test-owner.mjs
+          node --check functions/scripts/prepare-gender-migration.cjs
           node --check public/community-pages.js
           node --check public/password-change.js
           node --check public/pwa.js

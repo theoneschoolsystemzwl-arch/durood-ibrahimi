@@ -1,7 +1,7 @@
 // Firebase Firestore emulator security tests: no cloud credentials or billing.
 const fs=require("node:fs");
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require("@firebase/rules-unit-testing");
-const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("firebase/firestore");
+const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({
    projectId:"demo-durood",
@@ -17,13 +17,16 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
       serial:"DI-1",memberNumber:1,disabled:false,inviterUid:null
     });
     await setDoc(doc(db,"usernames","owner"),{uid:ownerId});
+    await setDoc(doc(db,"genderMembers","male"),{
+      gender:"male",totalMembers:1,updatedAt:new Date()
+    });
     await setDoc(doc(db,"invitations","abc123"),{
       byUid:ownerId,used:false,revoked:false,createdAt:new Date()
     });
   });
   const guestDb=env.unauthenticatedContext().firestore();
   const ownerDb=env.authenticatedContext(ownerId,{owner:true}).firestore();
-  const newDb=env.authenticatedContext(newId).firestore();
+  const newDb=env.authenticatedContext(newId,{auth_time:1700000000}).firestore();
   await assertFails(getDoc(doc(guestDb,"system","membership")));
   await assertSucceeds(getDoc(doc(newDb,"system","membership")));
   await assertSucceeds(getDoc(doc(newDb,"invitations","abc123")));
@@ -42,6 +45,7 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     const invitation=doc(newDb,"invitations","abc123");
     const usernameRef=doc(newDb,"usernames","member2");
     const memberRef=doc(newDb,"members",newId);
+    const maleCountRef=doc(newDb,"genderMembers","male");
     const seq=await tx.get(seqRef);
     const invite=await tx.get(invitation);
     const existing=await tx.get(usernameRef);
@@ -51,13 +55,91 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     tx.update(seqRef,{lastNumber:2,lastMemberUid:newId,updatedAt:serverTimestamp()});
     tx.update(invitation,{used:true,usedByUid:newId,usedAt:serverTimestamp()});
     tx.set(usernameRef,{uid:newId,createdAt:serverTimestamp()});
+    tx.set(maleCountRef,{
+      gender:"male",totalMembers:increment(1),updatedAt:serverTimestamp()
+    },{merge:true});
     tx.set(memberRef,{
-      uid:newId,username:"member2",name:"New Member",role:"member",memberNumber:2,
+      uid:newId,username:"member2",name:"New Member",role:"member",gender:"male",memberNumber:2,
       serial:"DI-2",inviterUid:ownerId,inviteCode:"abc123",disabled:false,
       pledgeAcceptedAt:serverTimestamp(),createdAt:serverTimestamp()
     });
   }));
+  await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
+    authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
+  }));
+
+  // DI-3: Owner invite must work on the female side, and the first woman
+  // is an ordinary member with ZERO direct invitations of her own.
+  await assertSucceeds(setDoc(doc(ownerDb,"invitations","wife01"),{
+    byUid:ownerId,gender:"any",used:false,revoked:false,createdAt:serverTimestamp()
+  }));
+  const wifeId="woman-uid";
+  const wifeDb=env.authenticatedContext(wifeId,{auth_time:1700000030}).firestore();
+  await assertSucceeds(runTransaction(wifeDb,async tx=>{
+    const seqRef=doc(wifeDb,"system","membership");
+    const invRef=doc(wifeDb,"invitations","wife01");
+    const usernameRef=doc(wifeDb,"usernames","woman");
+    const memberRef=doc(wifeDb,"members",wifeId);
+    const genderRef=doc(wifeDb,"genderMembers","female");
+    const [seq,inv,username,member]=await Promise.all([
+      tx.get(seqRef),tx.get(invRef),tx.get(usernameRef),tx.get(memberRef)
+    ]);
+    if(seq.get("lastNumber")!==2||!inv.exists()||username.exists()||member.exists())
+      throw Error("Expected DI-3 pre-registration state");
+    tx.update(seqRef,{lastNumber:3,lastMemberUid:wifeId,updatedAt:serverTimestamp()});
+    tx.update(invRef,{used:true,usedByUid:wifeId,usedAt:serverTimestamp()});
+    tx.set(usernameRef,{uid:wifeId,createdAt:serverTimestamp()});
+    tx.set(genderRef,{
+      gender:"female",totalMembers:increment(1),updatedAt:serverTimestamp()
+    },{merge:true});
+    tx.set(memberRef,{
+      uid:wifeId,username:"woman",name:"Female Member",role:"member",gender:"female",
+      memberNumber:3,serial:"DI-3",inviterUid:ownerId,inviteCode:"wife01",
+      disabled:false,pledgeAcceptedAt:serverTimestamp(),createdAt:serverTimestamp()
+    });
+  }));
+  await assertSucceeds(setDoc(doc(wifeDb,"activeLogins",wifeId),{
+    authTime:1700000030,sessionId:"woman-original-session",claimedAt:serverTimestamp()
+  }));
+  const wife=await getDoc(doc(wifeDb,"members",wifeId));
+  if(wife.get("serial")!=="DI-3"||wife.get("gender")!=="female"||
+     wife.get("inviterUid")!==ownerId||wife.get("role")!=="member")
+    throw Error("Owner-invited first female member had incorrect DI identity");
+  const wifeReferrals=await getDocs(query(collection(wifeDb,"members"),
+    where("inviterUid","==",wifeId),where("gender","==","female"),limit(200)));
+  if(wifeReferrals.size!==0)throw Error("New wife should start with zero referrals");
+  await assertSucceeds(getDoc(doc(wifeDb,"genderMembers","female")));
+  await assertFails(getDoc(doc(newDb,"members",wifeId)));
+  console.log("Owner female first member signup passed: DI-3, role=member, own referrals=0.");
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
+  // Another valid password sign-in must NOT replace the first active session.
+  // Once the first device explicitly logs out, the second may claim it.
+  const newPhone=env.authenticatedContext(newId,{auth_time:1700000001}).firestore();
+  await assertFails(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertFails(setDoc(doc(newPhone,"activeLogins",newId),{
+    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
+  }));
+  // Original device retains full access after the rejected attempt.
+  await assertSucceeds(getDoc(doc(newDb,"members",newId)));
+  await assertSucceeds(getDoc(doc(newDb,"activeLogins",newId)));
+  await assertSucceeds(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds((async()=>{
+    const r=doc(newDb,"activeLogins",newId);
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(r);
+  })());
+  await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
+    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  // Restore original lease for the rest of the historic tests.
+  await assertSucceeds((async()=>{
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(doc(newPhone,"activeLogins",newId));
+  })());
+  await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
+    authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
+  }));
   await assertFails(updateDoc(doc(newDb,"system","membership"),{lastNumber:999}));
   await assertFails(updateDoc(doc(newDb,"invitations","abc123"),{used:false}));
   await assertSucceeds(setDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22"),{
@@ -71,18 +153,93 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertSucceeds(runTransaction(newDb,async tx=>{
     const countRef=doc(newDb,"memberCounts",newId);
     const globalRef=doc(newDb,"publicStats","global");
+    const sideRef=doc(newDb,"genderStats","male");
     const personal=await tx.get(countRef);
-    const global=await tx.get(globalRef);
+    const side=await tx.get(sideRef);
     const amount=10;
-    tx.set(countRef,{memberUid:newId,total:(personal.exists()?personal.data().total:0)+amount,
+    tx.set(countRef,{memberUid:newId,gender:"male",total:(personal.exists()?personal.data().total:0)+amount,
       lastEntryAmount:amount,updatedAt:serverTimestamp()});
-    tx.set(globalRef,{totalRecitations:(global.exists()?global.data().totalRecitations:0)+amount,
+    tx.set(globalRef,{totalRecitations:increment(amount),
+      lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()},{merge:true});
+    tx.set(sideRef,{gender:"male",
+      totalRecitations:(side.exists()?side.data().totalRecitations:0)+amount,
       lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()});
   }));
   await assertFails(updateDoc(doc(newDb,"memberCounts",newId),{total:1000000}));
   await assertFails(updateDoc(doc(newDb,"publicStats","global"),{totalRecitations:1000000}));
+  // A woman cannot read male private data or use a male member's invite.
+  await env.withSecurityRulesDisabled(async ctx=>{
+    const admin=ctx.firestore();
+    await setDoc(doc(admin,"members","woman-uid"),{
+      uid:"woman-uid",username:"woman",name:"Female Member",role:"member",
+      gender:"female",serial:"DI-3",memberNumber:3,disabled:false,inviterUid:ownerId
+    });
+    await setDoc(doc(admin,"activeLogins","woman-uid"),{
+      authTime:1700000030,sessionId:"device-for-woman-01",claimedAt:new Date()
+    });
+    await setDoc(doc(admin,"invitations","male01"),{
+      byUid:newId,gender:"male",used:false,revoked:false,createdAt:new Date()
+    });
+  });
+  const femaleDb=env.authenticatedContext("woman-uid",{auth_time:1700000030}).firestore();
+  await assertSucceeds(getDoc(doc(femaleDb,"members","woman-uid")));
+  await assertFails(getDoc(doc(femaleDb,"members",newId)));
+  await assertFails(getDoc(doc(newDb,"members","woman-uid")));
+  await assertFails(getDoc(doc(femaleDb,"memberCounts",newId)));
+  await assertFails(getDoc(doc(femaleDb,"genderStats","male")));
+  await assertFails(getDoc(doc(femaleDb,"genderMembers","male")));
+  console.log("GENDER_TEST_STEP_1");
+  await assertSucceeds(getDoc(doc(newDb,"genderStats","male")));
+  console.log("GENDER_TEST_STEP_2");
+  await assertSucceeds(getDoc(doc(ownerDb,"genderStats","male")));
+  console.log("GENDER_TEST_STEP_3");
+  await assertSucceeds(getDoc(doc(ownerDb,"genderMembers","male")));
+  console.log("GENDER_TEST_STEP_4");
+  await assertSucceeds(setDoc(doc(femaleDb,"groupChats","female","messages","f1"),{
+    gender:"female",senderUid:"woman-uid",senderName:"Female Member",
+    body:"Female group message",createdAt:serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(newDb,"groupChats","female","messages","f1")));
+  await assertFails(getDoc(doc(femaleDb,"groupChats","male","messages","m1")));
+  await assertSucceeds(getDoc(doc(ownerDb,"groupChats","female","messages","f1")));
+  await assertFails(setDoc(doc(femaleDb,"groupChats","male","messages","attack"),{
+    gender:"male",senderUid:"woman-uid",senderName:"Female Member",
+    body:"Wrong side",createdAt:serverTimestamp()
+  }));
+  await assertFails(setDoc(doc(femaleDb,"groupChats","female","messages","spoof"),{
+    gender:"female",senderUid:"woman-uid",senderName:"Owner",
+    body:"Spoof",createdAt:serverTimestamp()
+  }));
+  console.log("GENDER_TEST_STEP_5");
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:true,deleted:true,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:false,deleted:false,updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(newDb,"members",newId),{gender:"female"}));
+  await assertSucceeds(setDoc(doc(femaleDb,"invitations","fem123"),{
+    byUid:"woman-uid",gender:"female",used:false,revoked:false,createdAt:serverTimestamp()
+  }));
+  await assertFails(setDoc(doc(femaleDb,"invitations","wrong1"),{
+    byUid:"woman-uid",gender:"male",used:false,revoked:false,createdAt:serverTimestamp()
+  }));
   await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{disabled:true,updatedAt:serverTimestamp()}));
   await assertFails(getDoc(doc(newDb,"memberCounts",newId)));
+  // Explicit Owner recovery is the only alternative when a member loses
+  // their first phone; ordinary second-device login still cannot take over.
+  await assertSucceeds((async()=>{
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(doc(ownerDb,"activeLogins",newId));
+  })());
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:false,updatedAt:serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
+    authTime:1700000001,sessionId:"recovered-phone-session",claimedAt:serverTimestamp()
+  }));
+  await assertSucceeds(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
   // Authorized owner self-repair: DI-1 is profile data, never a login ID.
   // A guessed email alone cannot grant owner rights; trusted UID or an Admin
   // custom claim is required in the published Firestore security rules.
@@ -146,6 +303,6 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   const removedAccountDb=env.authenticatedContext(deletedOwnerId).firestore();
   await assertFails(setDoc(doc(removedAccountDb,"members",deletedOwnerId),profile(deletedOwnerId)));
   await assertFails(updateDoc(doc(removedAccountDb,"system","membership"),{lastNumber:1}));
-  console.log("Spark security tests passed: DI-2 signup, invite consumption, prayer isolation, recitation consistency, owner control.");
+  console.log("Spark security tests passed: gender counters, invitation, session, private prayer, side totals, chat isolation, safe removal and restoration.");
  }finally{await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1;});

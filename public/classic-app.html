@@ -1131,9 +1131,18 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
   .main{padding-bottom:max(82px,calc(78px + env(safe-area-inset-bottom)))}
   input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px}
 }
+/* Side switch, invite badge and group messages reuse the original classic theme. */
+.profile-copy .direct-invites{display:block;font-size:.72rem;line-height:1.4;margin:2px 0;white-space:nowrap}
+.switch-side{min-height:30px!important;max-width:140px;padding:3px 6px!important;font-size:.69rem!important;white-space:normal}
+.group-chat-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding:6px 0;margin-bottom:12px}
+.chat-bubble{background:var(--mint);border:1px solid var(--line);border-radius:10px;padding:9px}
+.chat-bubble strong{font-size:.83rem}
+.chat-bubble p{white-space:pre-wrap;overflow-wrap:anywhere}
+.chat-bubble small{font-size:.7rem}
+@media(max-width:520px){.profile-copy .direct-invites{white-space:normal;font-size:.65rem}}
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
-[data-action="open-delete"]{display:none!important}
+/* Member removal is soft and reversible; the original DI ID is preserved. */
 </style>
 </head>
 <body>
@@ -1385,7 +1394,9 @@ function rankCard(entry, index) {
 }
 
 function ranking() {
-  const top = users.filter(person => !person.disabled).map(person => ({person, total:score(person, selectedPeriod, record)}))
+  const top = users.filter(person => !person.disabled &&
+    !(window.duroodCurrentSide === 'female' && person.id === 1))
+    .map(person => ({person, total:score(person, selectedPeriod, record)}))
     .filter(entry => entry.total > 0)
     .sort((first, second) => second.total - first.total || first.person.id - second.person.id).slice(0,10);
   return heading(tr("Top Members", 'نمایاں ارکان'),tr("The ten members with the highest recorded counts for this period.", 'منتخب مدت میں سب سے زیادہ شمار درج کرنے والے دس ممبرز۔')) +
@@ -1439,7 +1450,9 @@ function tree(person) {
 
 function groups() {
   return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth. The digits show the number of direct invites.", 'گروپ کا حرف شاخ کی سطح اور ہندسے براہِ راست دعوتوں کی تعداد دکھاتے ہیں۔')) +
-    '<div class="groups">' + users.filter(person => person.id === 1 || directMembers(person.id).length).map(person =>
+    '<div class="groups">' + users.filter(person =>
+      !(window.duroodCurrentSide === 'female' && person.id === 1) &&
+      (person.id === 1 || directMembers(person.id).length)).map(person =>
       '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
@@ -1447,10 +1460,35 @@ function groups() {
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
 }
 
+
+function groupMessagesPage() {
+  const female=window.duroodCurrentSide==='female';
+  const label=female?tr('Female community','خواتین کی کمیونٹی'):tr('Male community','مردوں کی کمیونٹی');
+  const rows=Array.isArray(window.duroodChatRows)?window.duroodChatRows:[];
+  return heading(tr('Group Messages','گروپ پیغامات'),label) +
+    '<section class="panel section"><div class="panel-head"><h2>'+label+
+    '</h2><button type="button" class="button secondary" data-action="chat-refresh">'+
+    tr('Refresh','تازہ کریں')+'</button></div>'+
+    '<div id="group-chat-list" class="group-chat-list" role="log" aria-live="polite">'+
+    (rows.length?rows.map(row=>'<article class="chat-bubble"><strong dir="auto">'+
+      esc(row.senderName||'Member')+'</strong><p dir="auto">'+
+      esc(row.body||'')+'</p><small class="muted">'+
+      esc(row.createdAt?new Date(row.createdAt).toLocaleString():'')+
+      '</small></article>').join(''):
+      '<p class="muted">'+tr('No messages yet.','ابھی کوئی پیغام نہیں۔')+'</p>')+
+    '</div><form id="group-message-form" class="form"><label class="field">'+
+    tr('Write a message','پیغام لکھیں')+
+    '<textarea name="message" minlength="1" maxlength="1200" rows="3" required></textarea></label>'+
+    '<button type="submit" class="button">'+tr('Send','بھیجیں')+
+    '</button></form><p id="group-chat-feedback" class="feedback" role="status"></p></section>';
+}
+
 function directory() {
   return heading(tr("Registered Users", 'تمام رجسٹرڈ صارفین'),tr("Members are listed in permanent ID order.", 'ممبرز مستقل آئی ڈی کے لحاظ سے سیریل وار ترتیب میں ہیں۔')) +
     '<div class="panel-head"><span class="pill">' + displayNumber(users.length) + tr(" Users</span></div>", ' صارفین</span></div>') +
-    '<div class="directory">' + users.map(person =>
+    '<div class="directory">' + users.filter(person =>
+      !(window.duroodCurrentSide === 'female' && person.id === 1))
+      .map(person =>
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
       tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + groupName(person.id) + '</bdi>' +
@@ -1475,9 +1513,12 @@ function profileDetails(person) {
     '</dl></section>' + (person.id === 1 ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
-      ur(tr("Previously saved Durood stays in the community total after suspension or deletion.", 'اکاؤنٹ بند یا حذف کرنے سے پہلے سے محفوظ درود کا مجموعی شمار برقرار رہے گا۔'),'p','muted') +
+      ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
+      (person.gender===''?'<div class="form-actions"><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="male">Male منتخب کریں</button><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="female">Female منتخب کریں</button></div>':'') +
       '<div class="form-actions manage-actions"><button class="button secondary" data-action="toggle-user" data-value="' +
       person.id + '">' + (person.disabled ? tr("Enable member", 'رکن کو فعال کریں') : tr("Suspend member", 'رکن کو معطل کریں')) +
+      '</button><button class="button secondary" data-action="reset-session" data-value="' + person.id +
+      '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
       tr("\">Delete member</button></div></section>", '">رکن حذف کریں</button></div></section>') + managementDialog(person));
 }
@@ -1557,12 +1598,19 @@ function settings(person) {
 
 function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
+  const inviteCount = person.id === 1 ? Number(window.duroodOwnerInviteTotal || 0) : directMembers(person.id).length;
+  const femaleSide = person.id === 1 && window.duroodCurrentSide === 'female';
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
+    '<small class="muted direct-invites">' + tr('Direct invites: ', 'آپ کے شامل کردہ ممبرز: ') +
+    displayNumber(inviteCount) + '</small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
+    (person.id === 1 ? '<button type="button" class="button secondary switch-side" data-action="switch-side">' +
+      (femaleSide ? tr('Go to Male Side','مرد سائیڈ پر جائیں') :
+        tr('Go to Female Side','خواتین سائیڈ پر جائیں')) + '</button>' : '') +
     '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' ' + memberLevel(person) +
     '</span></div></section></header>';
@@ -2951,10 +2999,10 @@ function handleQazaAction(action,button,value) {
 
 function dashboard(person) {
   const owner = person.id === 1;
-  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')]];
+  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
   const active = section === 'profile' ? 'directory' : section;
-  const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person)};
+  const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + profileCard(person) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
@@ -3469,14 +3517,16 @@ window.duroodClassicBridge = {
         isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:x.photo||""
+        age:"",birthDate:"",gender:x.gender==="female"?"Female":
+          x.gender==="male"?"Male":"",phone:"",address:"",photo:x.photo||"",
+        deleted:x.deleted===true
       });
     }
     if(!getUser(Number(profile.memberNumber))) {
       users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,name:profile.name||"Owner",
         username:profile.username||"owner",inviter:null,daily:0,
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:x.photo||""});
+        age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
     }
     users.sort((a,b)=>a.id-b.id);
     globalTotal=Number(totals.global||0);
@@ -3507,6 +3557,10 @@ window.duroodClassicBridge = {
     if(image){p.photo=image;photoDraft=null;}
     p.name=value;render({keepScroll:true});
     setFeedback("profile-feedback",tr("Profile saved.","پروفائل محفوظ ہو گیا۔"),true);
+  },
+  showMessages(rows){
+    window.duroodChatRows=Array.isArray(rows)?rows:[];
+    if(section==='messages')render({keepScroll:true});
   },
   loadPrayerDays(days){
     const p=currentUser();if(!p)return;
@@ -3553,7 +3607,7 @@ document.addEventListener('keydown',event => {
 import "./profile-contacts.js";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
-import {readingsSpark,invitationSpark,memberActiveSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark} from "./spark-data.js";
+import {readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
@@ -3561,51 +3615,86 @@ const ui=document.getElementById("app");
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
 let currentProfile=null;
 let readingQueue=Promise.resolve();
+let switchingSide=false;
+try{
+  window.duroodOwnerSide=localStorage.getItem("durood-owner-side")==="female"?"female":"male";
+}catch{window.duroodOwnerSide="male";}
+async function refreshGroupChat(){
+  const side=window.duroodCurrentSide;
+  if(!side)return;
+  const result=await groupMessagesSpark(side);
+  if(side===window.duroodCurrentSide)bridge.showMessages(result.messages);
+}
 async function hydrate(){
   const user=auth.currentUser;
   if(!user){window.location.replace("/");return;}
   const profile=await loadMemberProfile(user);
+  const owner=profile.role==="owner";
+  const side=owner && window.duroodOwnerSide==="female"?"female":
+    (!owner && profile.gender==="female"?"female":"male");
+  window.duroodCurrentSide=side;
+  window.duroodChatRows=[];
   const docs=new Map([[profile.uid,profile]]);
-  if(profile.role==="owner"){
+  if(owner){
     const snap=await getDocs(collection(db,"members"));
-    snap.docs.forEach(x=>docs.set(x.id,x.data()));
+    // Count the Owner's own invites across BOTH sides without counting
+    // invitations created by the wife or another member.
+    window.duroodOwnerInviteTotal=snap.docs.filter(x=>x.data().inviterUid===profile.uid).length;
+    for(const x of snap.docs){
+      const data=x.data();
+      const gender=data.gender==="female"?"female":"male";
+      if(x.id===profile.uid || gender===side)docs.set(x.id,data);
+    }
   }else{
-    const invited=await getDocs(query(collection(db,"members"),where("inviterUid","==",profile.uid),limit(200)));
-    invited.docs.forEach(x=>docs.set(x.id,x.data()));
+    window.duroodOwnerInviteTotal=0;
+    const invited=await getDocs(query(collection(db,"members"),
+      where("inviterUid","==",profile.uid),where("gender","==",side),limit(200)));
+    invited.docs.forEach(x=>{
+      const d=x.data();
+      if((d.gender==="female"?"female":"male")===side)docs.set(x.id,d);
+    });
   }
-  // Rankings include real members, never fabricated demonstration accounts.
+  // Only fetch the selected side; the Firebase Rules also validate gender.
+  const counts=new Map();
   try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const x of ranked.docs){
-      if(!docs.has(x.id)){
-        const member=await getDoc(doc(db,"members",x.id));
-        if(member.exists())docs.set(x.id,member.data());
+    const ranked=await getDocs(query(collection(db,"memberCounts"),
+      where("gender","==",side),limit(200)));
+    for(const item of ranked.docs){
+      counts.set(item.id,Number(item.get("total")||0));
+    }
+    const top=[...ranked.docs].sort((a,b)=>
+      Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10);
+    for(const item of top){
+      if(!docs.has(item.id)){
+        const member=await getDoc(doc(db,"members",item.id));
+        if(member.exists())docs.set(item.id,member.data());
       }
     }
-  }catch(e){console.warn("Ranking lookup unavailable",e.code||e);}
-  const [global,count]=await Promise.all([
-    getDoc(doc(db,"publicStats","global")),
+  }catch(e){console.warn("Side ranking unavailable",e.code||e);}
+  const [sideTotal,count]=await Promise.all([
+    getDoc(doc(db,"genderStats",side)),
     getDoc(doc(db,"memberCounts",profile.uid))
   ]);
-  const rows=[...docs.values()].map(d=>({
-    uid:d.uid,name:d.name,username:d.username,memberNumber:d.memberNumber,
-    disabled:d.disabled===true,inviterUid:d.inviterUid||null,
-    joined:d.createdAt?.toDate?.()||new Date()
-  }));
-  const memberCounts={[profile.uid]:count.exists()?Number(count.get("total")||0):0};
-  try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
-    for(const d of ranked.docs)memberCounts[d.id]=Number(d.get("total")||0);
-  }catch{}
+  const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
+    (d.gender==="female"?"female":"male")===side).map(d=>({
+      uid:d.uid,name:d.name,username:d.username,gender:d.gender,
+      memberNumber:d.memberNumber,deleted:d.deleted===true,
+      disabled:d.disabled===true,inviterUid:d.inviterUid||null,
+      joined:d.createdAt?.toDate?.()||new Date()
+    }));
+  const memberCounts=Object.fromEntries(counts);
+  if(side==="male")memberCounts[profile.uid]=count.exists()?Number(count.get("total")||0):0;
   const ownRow=rows.find(row=>row.uid===profile.uid);
   if(ownRow){
     try{ownRow.photo=(await getDoc(doc(db,"memberPhotos",profile.uid))).data()?.image||"";}
     catch(error){console.warn("Profile photo unavailable",error.code);}
   }
   if(auth.currentUser?.uid!==profile.uid)return;
-  bridge.enter(profile,rows,{global:global.exists()?global.get("totalRecitations")||0:0,memberCounts});
+  bridge.enter(profile,rows,{
+    global:sideTotal.exists()?Number(sideTotal.get("totalRecitations")||0):0,
+    memberCounts
+  });
   currentProfile=profile;
-  // Parent hides its working portal only after the original dashboard is ready.
   if(window.parent!==window){
     window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
@@ -3631,14 +3720,52 @@ ui.addEventListener("click",event=>{
   const button=event.target.closest("button[data-action]");
   if(!button||!currentProfile)return;
   const action=button.dataset.action;
+  if(action==="switch-side"){
+    event.stopImmediatePropagation();event.preventDefault();
+    if(currentProfile.role!=="owner"||switchingSide)return;
+    switchingSide=true;button.disabled=true;
+    const next=window.duroodCurrentSide==="female"?"male":"female";
+    window.duroodOwnerSide=next;
+    try{localStorage.setItem("durood-owner-side",next);}catch{}
+    hydrate().catch(e=>bridge.notice(errorText(e))).finally(()=>{switchingSide=false;});
+    return;
+  }
+  if(action==="chat-refresh" || (action==="nav"&&button.dataset.value==="messages")){
+    if(action==="chat-refresh"){event.stopImmediatePropagation();event.preventDefault();}
+    // Let the original dashboard navigation render before populating messages.
+    setTimeout(()=>refreshGroupChat().catch(e=>bridge.status("group-chat-feedback",errorText(e),false)),0);
+    return;
+  }
+  if(action==="classify-gender"){
+    event.stopImmediatePropagation();event.preventDefault();
+    const n=Number(button.dataset.value),uid=bridge.userUid(n),gender=button.dataset.gender;
+    if(currentProfile.role!=="owner"||!uid||!["male","female"].includes(gender))return;
+    if(!window.confirm("اس ممبر کو "+gender+" سائیڈ میں مستقل شامل کریں؟"))return;
+    button.disabled=true;
+    classifyLegacyMemberSpark(uid,gender).then(()=>hydrate())
+      .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
+    return;
+  }
   if(action==="logout"){
     event.stopImmediatePropagation();event.preventDefault();
-    signOut(auth).finally(()=>window.location.replace("/"));return;
+    signOut(auth).then(()=>window.location.replace("/"))
+      .catch(e=>bridge.notice(errorText(e)));return;
   }
   if(action==="create-invite"){
     event.stopImmediatePropagation();event.preventDefault();
     button.disabled=true;
     invitationSpark().then(code=>bridge.addInvite(code)).catch(e=>bridge.status("invite-feedback",errorText(e),false)).finally(()=>{if(button.isConnected)button.disabled=false;});
+    return;
+  }
+  if(action==="reset-session"){
+    event.stopImmediatePropagation();event.preventDefault();
+    const n=Number(button.dataset.value),uid=bridge.userUid(n);
+    if(currentProfile.role!=="owner"||!uid)return;
+    if(!window.confirm("اس ممبر کے کھوئے ہوئے فون کا لاگ اِن لاک ختم کریں؟ صرف Owner کی اجازت سے۔"))return;
+    button.disabled=true;
+    resetMemberSessionSpark(uid).then(()=>bridge.notice("ممبر کا سیشن ری سیٹ ہوگیا؛ اب وہ دوبارہ لاگ اِن کر سکتا ہے۔"))
+      .catch(e=>bridge.notice(errorText(e)))
+      .finally(()=>{if(button.isConnected)button.disabled=false;});
     return;
   }
   if(action==="toggle-user"){
@@ -3648,17 +3775,26 @@ ui.addEventListener("click",event=>{
     button.disabled=true;
     const member=window.duroodClassicBridge;
     // Read the currently visible suspension state from this user's action label.
-    const activating=/restore|بحال/i.test(button.textContent||"");
+    const activating=/restore|enable|بحال|فعال/i.test(button.textContent||"");
     memberActiveSpark(uid,activating).then(()=>bridge.changeMember(n,!activating))
       .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
     return;
   }
   if(action==="open-delete"){
     event.stopImmediatePropagation();event.preventDefault();
-    bridge.notice("Account deletion is disabled in the live app.");return;
+    const n=Number(button.dataset.value),uid=bridge.userUid(n);
+    if(currentProfile.role!=="owner"||!uid)return;
+    if(!window.confirm("اکاؤنٹ عارضی حذف کریں؟ ڈیٹا اور DI نمبر محفوظ رہیں گے اور بعد میں بحال ہو سکیں گے۔"))return;
+    button.disabled=true;
+    memberDeleteSpark(uid).then(()=>hydrate())
+      .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
+    return;
   }
   if(action==="count-durood"){
     event.stopImmediatePropagation();event.preventDefault();
+    if(currentProfile.role==="owner"&&window.duroodCurrentSide==="female"){
+      bridge.notice("Owner کا درود Male سائیڈ میں شمار ہوتا ہے۔ Male سائیڈ منتخب کریں۔");return;
+    }
     // Serialise writes to avoid lost increments during rapid tapping.
     readingQueue=readingQueue.catch(()=>{}).then(async()=>{
       await readingsSpark(1);
@@ -3678,8 +3814,25 @@ ui.addEventListener("click",event=>{
 ui.addEventListener("submit",event=>{
   const form=event.target;
   if(!currentProfile)return;
+  if(form.id==="group-message-form"){
+    event.preventDefault();event.stopImmediatePropagation();
+    const value=String(new FormData(form).get("message")||"").trim();
+    if(value.length<1||value.length>1200){
+      bridge.status("group-chat-feedback","پیغام 1 سے 1200 حروف کا لکھیں۔",false);return;
+    }
+    const button=form.querySelector('button[type="submit"]');
+    if(button)button.disabled=true;
+    sendGroupMessageSpark(value,window.duroodCurrentSide).then(()=>{
+      form.reset();return refreshGroupChat();
+    }).catch(e=>bridge.status("group-chat-feedback",errorText(e),false))
+      .finally(()=>{if(button?.isConnected)button.disabled=false;});
+    return;
+  }
   if(form.id==="manual-form"){
     event.preventDefault();event.stopImmediatePropagation();
+    if(currentProfile.role==="owner"&&window.duroodCurrentSide==="female"){
+      bridge.status("manual-feedback","Owner کا درود Male سائیڈ میں شمار ہوتا ہے۔",false);return;
+    }
     const d=new FormData(form),amount=Number(d.get("amount")),day=String(d.get("day")||"");
     if(!Number.isSafeInteger(amount)||amount<1||amount>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day)||day>new Date().toISOString().slice(0,10)){
       bridge.status("manual-feedback","درست تاریخ اور 1 تا 10000 تعداد درج کریں۔");return;

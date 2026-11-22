@@ -1,7 +1,8 @@
 import {auth,db} from "./firebase-client.js";
 import "./password-change.js";
 import {
-  login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile, signOut, onAuthStateChanged
+  login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
+  claimDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js";
@@ -67,7 +68,8 @@ function message(selector,text,ok=false) {
 }
 function errorText(err) {
   const code=err?.code||"";
-  if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
+  if(code==="member/already-online")return "User already logged in۔ پہلے والی ڈیوائس سے Log out کریں۔";
+  if(err?.loginStage==="missing-member-profile")return "یوزر موجود نہیں یا اکاؤنٹ غیر فعال ہے۔";
   if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
     if(code==="permission-denied"||code==="firestore/permission-denied")return "اکاؤنٹ تک رسائی نہیں۔";
@@ -109,12 +111,17 @@ function switchTab(which) {
 }
 // Design-only gender wording in the New User oath.
 const genderOathText={
-  male:"میں حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
-  female:"میں حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
+  male:"میں مرد ہوں اور حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔",
+  female:"میں عورت ہوں اور حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گی۔"
 };
 function updateGenderOath(){
  const chosen=document.querySelector('#register-fields input[name="gender"]:checked')?.value||"male";
  $("#gender-oath-text").textContent=genderOathText[chosen];
+ $("#gender-oath-check-label").textContent=chosen==="female"
+   ?"میں عورت ہوں اور اس حلف کی تصدیق کرتی ہوں"
+   :"میں مرد ہوں اور اس حلف کی تصدیق کرتا ہوں";
+ const checked=document.querySelector('#register-fields input[name="genderOath"]');
+ if(checked)checked.checked=false;
 }
 document.querySelectorAll('#register-fields input[name="gender"]').forEach(el=>el.addEventListener("change",updateGenderOath));
 $("#access-form").addEventListener("reset",()=>queueMicrotask(updateGenderOath));
@@ -137,6 +144,7 @@ identityInput.addEventListener("input",()=>{
   identityPreview.hidden=!fullId;
 });
 const loginPassword=$("#login-password");
+
 const passwordEye=$("#toggle-login-password");
 passwordEye.addEventListener("click",()=>{
   const show=loginPassword.type==="password";
@@ -194,11 +202,12 @@ $("#access-form").addEventListener("submit",async event=>{
       }
     }else{
       const password=String(form.get("password")||"");
-      if(!["male","female"].includes(form.get("gender"))||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے دونوں خانے قبول کریں۔");
+      if(!["male","female"].includes(form.get("gender"))||!form.has("genderOath")||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے تمام خانے قبول کریں۔");
       appState.registering=true;
       try {
         await register({
           name:form.get("name"),
+          gender:form.get("gender"),
           password,
           inviteCode:form.get("invite"),
           pledgeAccepted:true
@@ -209,6 +218,7 @@ $("#access-form").addEventListener("submit",async event=>{
       // Firebase Auth signs in immediately on account creation. Suppress the
       // auth-state listener until the same transaction creates the member record.
       const profile=await loadProfile(auth.currentUser);
+      await claimDeviceSession(auth.currentUser,profile);
       showSignedIn(profile);
     }
     accessForm.reset();
@@ -304,13 +314,14 @@ window.addEventListener("message",event=>{
   }
 });
 async function refreshCounts(){
-  if(!auth.currentUser)return;
-  const [personal,global]=await Promise.all([
+  if(!auth.currentUser||!appState.profile)return;
+  const gender=appState.profile.gender==="female"?"female":"male";
+  const [personal,side]=await Promise.all([
     getDoc(doc(db,"memberCounts",auth.currentUser.uid)),
-    getDoc(doc(db,"publicStats/global"))
+    getDoc(doc(db,"genderStats",gender))
   ]);
   $("#personal-total").textContent=number.format(personal.exists()?(personal.get("total")||0):0);
-  $("#global-total").textContent=number.format(global.exists()?(global.get("totalRecitations")||0):0);
+  $("#global-total").textContent=number.format(side.exists()?(side.get("totalRecitations")||0):0);
 }
 async function refreshMembers(){
   if(appState.profile?.role!=="owner")return;
@@ -359,11 +370,12 @@ onAuthStateChanged(auth,async user=>{
   let profile;
   try {
     profile=await loadProfile(user);
+    await claimDeviceSession(user,profile);
   } catch(err) {
     if(auth.currentUser?.uid!==user.uid)return;
     $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
     $("#loading-retry").hidden=false;
-    console.warn("Account restoration delayed:",err?.code||err?.message);
+    console.warn("Session restoration delayed:",err?.code||err?.message);
     return;
   }
   if(auth.currentUser?.uid!==user.uid)return;
