@@ -1,4 +1,4 @@
-name: Build Android Online Test APK v4.4
+name: Build Android Online Test APK v4.5
 on:
   push:
     branches: [main]
@@ -30,7 +30,7 @@ jobs:
       - name: Upload signed test APK (debug-key signed, not Play Store release)
         uses: actions/upload-artifact@v4
         with:
-          name: Durood-Ibrahimi-Online-4.4-Compact-Bars-Test-APK
-          path: android-online/dist/Durood-Ibrahimi-Online-4.4-Compact-Bars-Test.apk
+          name: Durood-Ibrahimi-Online-4.5-Stable-Tasbih-APK
+          path: android-online/dist/Durood-Ibrahimi-Online-4.5-Stable-Tasbih.apk
           if-no-files-found: error
           retention-days: 30
