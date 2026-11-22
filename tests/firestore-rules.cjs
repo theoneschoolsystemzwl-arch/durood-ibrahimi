@@ -17,6 +17,9 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
       serial:"DI-1",memberNumber:1,disabled:false,inviterUid:null
     });
     await setDoc(doc(db,"usernames","owner"),{uid:ownerId});
+    await setDoc(doc(db,"genderMembers","male"),{
+      gender:"male",totalMembers:1,updatedAt:new Date()
+    });
     await setDoc(doc(db,"invitations","abc123"),{
       byUid:ownerId,used:false,revoked:false,createdAt:new Date()
     });
@@ -42,6 +45,8 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     const invitation=doc(newDb,"invitations","abc123");
     const usernameRef=doc(newDb,"usernames","member2");
     const memberRef=doc(newDb,"members",newId);
+    const maleCountRef=doc(newDb,"genderMembers","male");
+    const maleCount=await tx.get(maleCountRef);
     const seq=await tx.get(seqRef);
     const invite=await tx.get(invitation);
     const existing=await tx.get(usernameRef);
@@ -51,6 +56,10 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     tx.update(seqRef,{lastNumber:2,lastMemberUid:newId,updatedAt:serverTimestamp()});
     tx.update(invitation,{used:true,usedByUid:newId,usedAt:serverTimestamp()});
     tx.set(usernameRef,{uid:newId,createdAt:serverTimestamp()});
+    tx.set(maleCountRef,{
+      gender:"male",totalMembers:maleCount.get("totalMembers")+1,
+      updatedAt:serverTimestamp()
+    });
     tx.set(memberRef,{
       uid:newId,username:"member2",name:"New Member",role:"member",gender:"male",memberNumber:2,
       serial:"DI-2",inviterUid:ownerId,inviteCode:"abc123",disabled:false,
@@ -102,12 +111,17 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertSucceeds(runTransaction(newDb,async tx=>{
     const countRef=doc(newDb,"memberCounts",newId);
     const globalRef=doc(newDb,"publicStats","global");
+    const sideRef=doc(newDb,"genderStats","male");
     const personal=await tx.get(countRef);
     const global=await tx.get(globalRef);
+    const side=await tx.get(sideRef);
     const amount=10;
     tx.set(countRef,{memberUid:newId,gender:"male",total:(personal.exists()?personal.data().total:0)+amount,
       lastEntryAmount:amount,updatedAt:serverTimestamp()});
     tx.set(globalRef,{totalRecitations:(global.exists()?global.data().totalRecitations:0)+amount,
+      lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()});
+    tx.set(sideRef,{gender:"male",
+      totalRecitations:(side.exists()?side.data().totalRecitations:0)+amount,
       lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()});
   }));
   await assertFails(updateDoc(doc(newDb,"memberCounts",newId),{total:1000000}));
@@ -131,6 +145,33 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertFails(getDoc(doc(femaleDb,"members",newId)));
   await assertFails(getDoc(doc(newDb,"members","woman-uid")));
   await assertFails(getDoc(doc(femaleDb,"memberCounts",newId)));
+  await assertFails(getDoc(doc(femaleDb,"genderStats","male")));
+  await assertFails(getDoc(doc(femaleDb,"genderMembers","male")));
+  await assertSucceeds(getDoc(doc(newDb,"genderStats","male")));
+  await assertSucceeds(getDoc(doc(ownerDb,"genderStats","male")));
+  await assertSucceeds(getDoc(doc(ownerDb,"genderMembers","male")));
+  await assertSucceeds(setDoc(doc(femaleDb,"groupChats","female","messages","f1"),{
+    gender:"female",senderUid:"woman-uid",senderName:"Female Member",
+    body:"Female group message",createdAt:serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(newDb,"groupChats","female","messages","f1")));
+  await assertFails(getDoc(doc(femaleDb,"groupChats","male","messages","m1")));
+  await assertSucceeds(getDoc(doc(ownerDb,"groupChats","female","messages","f1")));
+  await assertFails(setDoc(doc(femaleDb,"groupChats","male","messages","attack"),{
+    gender:"male",senderUid:"woman-uid",senderName:"Female Member",
+    body:"Wrong side",createdAt:serverTimestamp()
+  }));
+  await assertFails(setDoc(doc(femaleDb,"groupChats","female","messages","spoof"),{
+    gender:"female",senderUid:"woman-uid",senderName:"Owner",
+    body:"Spoof",createdAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:true,deleted:true,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:false,deleted:false,updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(doc(newDb,"members",newId),{gender:"female"}));
   await assertSucceeds(setDoc(doc(femaleDb,"invitations","fem123"),{
     byUid:"woman-uid",gender:"female",used:false,revoked:false,createdAt:serverTimestamp()
   }));
@@ -202,6 +243,6 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   const removedAccountDb=env.authenticatedContext(deletedOwnerId).firestore();
   await assertFails(setDoc(doc(removedAccountDb,"members",deletedOwnerId),profile(deletedOwnerId)));
   await assertFails(updateDoc(doc(removedAccountDb,"system","membership"),{lastNumber:1}));
-  console.log("Spark security tests passed: DI-2 signup, invite consumption, prayer isolation, recitation consistency, owner control.");
+  console.log("Spark security tests passed: gender counters, invitation, session, private prayer, side totals, chat isolation, safe removal and restoration.");
  }finally{await env.cleanup();}
 })().catch(err=>{console.error(err);process.exitCode=1;});
