@@ -7,14 +7,15 @@ import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js";
 
-// Existing, trusted owner UID from the legacy production authorization rule.
-// Never grant owner permissions just because somebody entered a particular email.
-const TRUSTED_LEGACY_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
+// Pinned Firebase Authentication UID for the existing Master Owner.
+// A DI number is never a login credential, and an email string never grants roles.
+const TRUSTED_OWNER_UID="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
+const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
 
 async function restoreTrustedOwnerProfile(user){
-  // Only the known owner identity (or a Firebase Admin-issued owner claim) can
-  // recover an absent owner profile. No public user can assign themselves DI-1.
-  const trusted=user.uid===TRUSTED_LEGACY_OWNER_UID ||
+  // An Auth password alone never grants ownership: the immutable Firebase UID
+  // must match the known Owner identity, or have a trusted Admin-issued claim.
+  const trusted=user.uid===TRUSTED_OWNER_UID ||
     (await getIdTokenResult(user)).claims.owner===true;
   if(!trusted)return;
 
@@ -23,22 +24,26 @@ async function restoreTrustedOwnerProfile(user){
   await runTransaction(db,async tx=>{
     const [member,sequence]=await Promise.all([tx.get(memberRef),tx.get(sequenceRef)]);
     if(member.exists())return;
-    if(sequence.exists()&&(
-      sequence.data().ownerUid!==user.uid ||
-      !Number.isSafeInteger(sequence.data().lastNumber) ||
-      sequence.data().lastNumber<1
+    const seq=sequence.exists()?sequence.data():null;
+    if(seq && (
+      !Number.isSafeInteger(seq.lastNumber) || seq.lastNumber<1 ||
+      ![user.uid,DELETED_TEST_OWNER_UID].includes(seq.ownerUid)
     )){
-      const err=new Error("Existing member sequence is owned by another account or is invalid. It has not been changed.");
+      const err=new Error("Existing member sequence is owned by an unexpected account or is invalid; nothing was changed.");
       err.loginStage="owner-sequence-conflict";
       throw err;
     }
     const name=String(user.displayName||"Owner").trim().slice(0,60)||"Owner";
+    // Preserve the last issued member number: never reuse a DI serial.
     if(!sequence.exists()){
-      // The first owner is DI-1; each subsequent registration advances the
-      // sequence atomically. Existing sequences are NEVER reset here.
       tx.set(sequenceRef,{
         ownerUid:user.uid,lastNumber:1,updatedAt:serverTimestamp()
       });
+    }else if(seq.ownerUid===DELETED_TEST_OWNER_UID && user.uid===TRUSTED_OWNER_UID){
+      // The old deleted test Owner held the sequence. Transfer it to the
+      // currently authenticated Owner in the same transaction as their profile.
+      // Firestore rules additionally require the old member document be absent.
+      tx.update(sequenceRef,{ownerUid:user.uid,updatedAt:serverTimestamp()});
     }
     tx.set(memberRef,{
       uid:user.uid,username:"owner",name,role:"owner",memberNumber:1,
