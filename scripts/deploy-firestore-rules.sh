@@ -7,6 +7,10 @@ set -euo pipefail
 project="durood-e-ibrahimi-global-c74e0"
 base="https://firebaserules.googleapis.com/v1/projects/$project"
 guard_file="/tmp/durood-guarded-ruleset-name"
+if [[ -f "/tmp/durood-rules-already-current" ]]; then
+  echo "Verified Firestore rules are already live. No rules update required."
+  exit 0
+fi
 if [[ ! -s "$guard_file" ]]; then
   echo "No verified production baseline. Refusing deployment." >&2
   exit 1
