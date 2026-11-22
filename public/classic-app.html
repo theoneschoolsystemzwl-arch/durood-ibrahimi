@@ -1222,6 +1222,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 @media(prefers-reduced-motion:reduce){.next-prayer-marquee span{animation:none;white-space:normal}}
 @media(max-width:440px){.profile-card>.top-corners .corner-link{padding:3px 6px;font-size:.67rem}.next-prayer-ticker{min-height:39px}}
 </style>
+<link rel="stylesheet" href="./dashboard-reference.css?v=reference-v1-20261123">
 </head>
 <body>
 <div id="app"></div>
@@ -1755,32 +1756,50 @@ function liveFeed() {
 
 let todayReaders=null;
 function readerList(){
-  if(!todayReaders)return tr("Loading today’s list…","آج کی فہرست لوڈ ہو رہی ہے…");
-  if(!todayReaders.length)return tr("No tasbih recorded today.","آج ابھی کسی نے تسبیح درج نہیں کی۔");
-  const now=Date.now();
-  return '<ol class="reader-list">'+todayReaders.map(row=>{
-    const online=now-row.seen<90000,active=online && now-row.lastTap<90000;
-    const seconds=Math.max(0,Math.floor((now-row.lastTap)/1000));
-    const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
-    return '<li><span class="reader-person"><b>'+esc(row.name)+'</b><small>'+status+' · '+tr("Last tap","آخری تسبیح")+' '+(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(row.lastTap)))+'</small></span><strong>'+displayNumber(row.total)+'</strong></li>';
-  }).join('')+'</ol>';
+ if(!todayReaders)return tr("Loading today’s list…","آج کی فہرست لوڈ ہو رہی ہے…");
+ if(!todayReaders.length)return tr("No tasbih recorded today.","آج ابھی کسی نے تسبیح درج نہیں کی۔");
+ const now=Date.now();
+ return '<ol class="reader-list">'+todayReaders.map((row,index)=>{
+   const online=now-row.seen<90000,active=online && now-row.lastTap<90000;
+   const seconds=Math.max(0,Math.floor((now-row.lastTap)/1000));
+   const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
+   return '<li><span class="dashboard-reader-rank">'+(index+1)+'</span>'+
+     '<span class="reader-person"><b>'+esc(row.name)+'</b><small>'+status+' · '+
+       tr("Last tap","آخری تسبیح")+' '+(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(row.lastTap)))+
+       '</small></span><strong class="dashboard-reader-count">'+displayNumber(row.total)+'</strong></li>';
+ }).join('')+'</ol>';
 }
+
 let periodCounts=null;
 function periodLabels(){
   return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
     ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this year','اس سال کا کل درود')]];
 }
 function overview() {
-  return boxedHeading(ownerViewingWomen() ? tr('Women’s dashboard','خواتین کا مرکز') : tr("Dashboard", 'مرکز'),tr("The shared Durood goal and the all-time total.", 'درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔')) +
-    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+'</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>' +
-    '<div class="recitation-periods">'+periodLabels().map(([key,label])=>'<section class="recitation-period"><h2>'+label+'</h2><strong data-period="'+key+'">'+(periodCounts ? displayNumber(periodCounts[key]) : '—')+'</strong></section>').join('')+'</div>' +
-    '<p class="muted period-note">'+tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>' +
-    tr("<div class=\"goal-progress\"><div><small class=\"muted\">Goal progress</small>", '<div class="goal-progress"><div><small class="muted">ہدف کی پیش رفت</small>') +
-    displayNumber(communityGoal) + '<strong id="goal-percent">' + progressPercent() + '%</strong></div>' +
-    tr("<progress id=\"goal-progress\" aria-label=\"Community goal progress\" max=\"", '<progress id="goal-progress" aria-label="اجتماعی ہدف کی پیش رفت" max="') + communityGoal + '" value="' +
-    Math.min(communityGoal,globalTotal) + '"></progress></div>' +
-    '<section class="panel section readers-section"><h2>'+tr("Today’s tasbih readers","آج تسبیح پڑھنے والے")+'</h2><div id="today-readers">'+readerList()+'</div></section>';
-
+ const metricCards=periodLabels().map(([key,label])=>
+   '<section class="recitation-period" aria-label="'+esc(label)+'">'+
+   '<span class="dashboard-period-icon">'+dashboardMetricIcon(key)+'</span>'+
+   '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'">'+
+   (periodCounts?displayNumber(periodCounts[key]):'—')+'</strong></div></section>'
+ ).join('');
+ return '<div class="dashboard-home">'+
+   boxedHeading(ownerViewingWomen()?tr("Women’s dashboard","خواتین کا مرکز"):tr("Dashboard","مرکز"),
+     tr("The shared Durood goal and the all-time total.","درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔"))+
+   '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
+   '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
+   '<div class="recitation-periods">'+metricCards+'</div>'+
+   '<p class="muted period-note">'+
+   tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
+   '<div class="goal-progress"><p class="dashboard-progress-note">'+
+   tr("Shared Durood recitation progress","اجتماعی درود کی پیش رفت")+'</p>'+
+   '<div class="dashboard-progress-meta"><span class="dashboard-goal-value">'+displayNumber(communityGoal)+
+   '</span><strong id="goal-percent">'+progressPercent()+'%</strong></div>'+
+   '<progress id="goal-progress" aria-label="'+tr("Community goal progress","اجتماعی ہدف کی پیش رفت")+
+   '" max="'+communityGoal+'" value="'+Math.min(communityGoal,globalTotal)+'"></progress></div>'+
+   '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
+     tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
+   '</h2><div id="today-readers">'+readerList()+'</div></section>'+
+   '</div>';
 }
 
 function simulateSave() {
@@ -3253,6 +3272,19 @@ function handleQazaAction(action,button,value) {
   return true;
 }
 
+function dashboardMetricIcon(key){
+ const bits={
+   today:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/><path d="M8 15h3v3H8z"/>',
+   week:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h2m3 0h2m3 0h1M7 18h2m3 0h2"/>',
+   month:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18M7 14h10M7 18h6"/>',
+   year:'<path d="M4 3h13a3 3 0 0 1 3 3v14H7a3 3 0 0 0-3 1zM4 3v18M8 8h8m-8 4h8m-8 4h6"/>'
+ };
+ return '<svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(bits[key]||bits.today)+'</svg>';
+}
+function dashboardNavIcon(key){
+ const shapes={"overview":"<path d=\"m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z\"/>","tasbih":"<circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"m18 6 2-2M11 4V2m4 19 2 1\"/>","namaz":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 6v6l4 3\"/>","tree":"<circle cx=\"12\" cy=\"4\" r=\"2\"/><circle cx=\"5\" cy=\"19\" r=\"2\"/><circle cx=\"19\" cy=\"19\" r=\"2\"/><path d=\"M12 6v6M5 17v-5h14v5\"/>","settings":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c0-5 3-8 8-8s8 3 8 8\"/>","members":"<circle cx=\"9\" cy=\"7.5\" r=\"3\"/><path d=\"M2 20c0-4 2.5-7 7-7s7 3 7 7M17 5a3 3 0 0 1 0 6M18 13c3 0 4 2 4 6\"/>","messages":"<rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 7 9-7\"/>","directory":"<path d=\"M9 5h12M9 12h12M9 19h12\"/><circle cx=\"4\" cy=\"5\" r=\"1\"/><circle cx=\"4\" cy=\"12\" r=\"1\"/><circle cx=\"4\" cy=\"19\" r=\"1\"/>","groups":"<path d=\"m12 3 9 9-9 9-9-9z\"/>"};
+ return '<svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'+(shapes[key]||shapes.groups)+'</svg>';
+}
 function dashboard(person) {
   const owner = person.isOwner === true;
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
@@ -3268,7 +3300,7 @@ function dashboard(person) {
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
     availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
-      '"' + (key === active ? ' aria-current="page"' : '') + '><span aria-hidden="true">' + icon + '</span>' + label + '</button>').join('') +
+      '"' + (key === active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + dashboardNavIcon(key) + '</span>' + label + '</button>').join('') +
     '</div></nav></div>';
 }
 

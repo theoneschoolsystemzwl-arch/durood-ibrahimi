@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" preserveAspectRatio="xMidYMin slice">
+<defs>
+<linearGradient id="arc" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#e2cc87"/><stop offset="1" stop-color="#a88247"/></linearGradient>
+<radialGradient id="shine" cx="50%" cy="42%"><stop stop-color="#00e2b0" stop-opacity=".33"/><stop offset="1" stop-color="#004b3c" stop-opacity="0"/></radialGradient>
+<radialGradient id="light"><stop stop-color="#fff2a6" stop-opacity=".85"/><stop offset=".5" stop-color="#efc761" stop-opacity=".5"/><stop offset="1" stop-color="#e9b23f" stop-opacity="0"/></radialGradient>
+<g id="lamp">
+<path d="M0-9v23" stroke="#c9ad66" stroke-width="2"/><path d="M0 12l-10 12h20z" fill="#e2bd5f"/>
+<path d="M-13 24h26l6 10-3 32-16 16-16-16-3-32z" fill="#114f3b" stroke="#e5bf63" stroke-width="3"/>
+<ellipse cy="49" rx="26" ry="30" fill="url(#light)"/>
+<path d="M-15 32h30M-15 65h30M0 25v55M-16 35l16 34 16-34M16 35L0 69-16 35" fill="none" stroke="#f7e7a0" stroke-width="1.6" opacity=".9"/>
+<path d="M-9 82L0 92 9 82" fill="none" stroke="#cdaa55" stroke-width="2"/>
+</g>
+<g id="spire" fill="#013b32"><rect x="-5" y="-39" width="10" height="48"/><path d="M-10-40h20L0-59z"/><path d="M-13-19h26v4h-26z"/><path d="M0-60v-12" stroke="#013b32" stroke-width="2"/></g>
+</defs>
+<ellipse cx="450" cy="102" rx="330" ry="118" fill="url(#shine)"/>
+<path d="M-30 124C98 45 218 70 318 71c56-3 103-34 132-52 29 18 76 49 132 52 114-1 224-21 348 53" fill="none" stroke="#cfb57a" stroke-width="2.5" opacity=".84"/>
+<path d="M-10 133C88 78 212 95 318 87c56-5 103-29 132-41 29 12 76 36 132 41 113 8 239-20 328 46" fill="none" stroke="#13ae88" stroke-width="1.3" opacity=".46"/>
+<g transform="translate(455 181)" fill="#003d32" opacity=".79">
+<rect x="-115" y="-20" width="230" height="86" rx="4"/>
+<path d="M-83-21a83 83 0 0 1 166 0z"/>
+<path d="M-11-103C0-117 8-126 0-139c13 16 9 30-11 36z" fill="#cfbc7c" opacity=".87"/>
+<use href="#spire" x="-158" y="-9"/><use href="#spire" x="158" y="-9"/>
+<use href="#spire" x="-188" y="22" transform="scale(.84)"/><use href="#spire" x="188" y="22" transform="scale(.84)"/>
+<path d="M-115 42a24 24 0 0 1 48 0v25h-48zM68 42a24 24 0 0 1 48 0v25H68z" fill="#005344"/>
+</g>
+<path d="M450 36c-15 6-17 22 0 30-27-2-25-35 0-30z" fill="#f5e6a1"/>
+<g transform="translate(46 6)"><use href="#lamp"/></g>
+<g transform="translate(854 6)"><use href="#lamp"/></g>
+<g fill="#d9cc96" opacity=".52"><circle cx="239" cy="35" r="2"/><circle cx="656" cy="26" r="2"/><circle cx="604" cy="87" r="1.5"/><circle cx="296" cy="106" r="1.6"/></g>
+<path d="M35 192Q90 167 159 194M742 194Q817 167 868 192" fill="none" stroke="#a59c69" stroke-width="1.2" opacity=".25"/>
+</svg>

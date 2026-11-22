@@ -1,11 +1,11 @@
 // Network-first app shell. Never caches personal member records, Firebase API responses,
 // OAuth credentials, or third-party CDN requests. Online launches fetch latest deploy.
-const SHELL_CACHE="durood-global-shell-v11";
+const SHELL_CACHE="durood-global-shell-v12";
 const ALLOWED=new Set([
   "/","/index.html","/classic-app.html","/arabic-fonts.css","/styles.css","/app.js","/community-pages.js",
   "/password-change.js","/member-auth.js","/firebase-client.js",
   "/spark-data.js","/profile-contacts.js","/wazaif.js","/wazaif-counter.js","/wazifa-sharing.js","/wazaif.css",
-  "/fonts/NotoNastaliqUrdu.woff","/manifest.webmanifest","/app-icon.svg","/about-founder-photo.svg","/about-teacher-photo.svg","/tasbih-calligraphy.webp","/wazifa-arch.svg"
+  "/fonts/NotoNastaliqUrdu.woff","/manifest.webmanifest","/app-icon.svg","/about-founder-photo.svg","/about-teacher-photo.svg","/tasbih-calligraphy.webp","/wazifa-arch.svg","/dashboard-reference.css","/dashboard-arch.svg"
 ]);
 self.addEventListener("install",()=>self.skipWaiting());
 self.addEventListener("activate",event=>{
