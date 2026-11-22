@@ -3,24 +3,26 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  id-token: write
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Check Firebase authorization
-        env:
-          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
-        run: |
-          if [ -z "$FIREBASE_CREDENTIALS" ]; then
-            echo "::error::Firebase deployment permission is not connected. No deploy attempted."
-            exit 1
-          fi
-      - name: Authorize Firebase
+      - name: Authenticate using configured GitHub secret
+        if: env.FIREBASE_CREDENTIALS != ''
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUROOD }}
+      - name: Authenticate using keyless GitHub OIDC
+        if: env.FIREBASE_CREDENTIALS == ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
       - name: Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -28,4 +30,4 @@ jobs:
       - name: Publish only free Hosting and Firestore security rules
         run: |
           npm install --global firebase-tools@15
-          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore --non-interactive
+          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore:rules --non-interactive
