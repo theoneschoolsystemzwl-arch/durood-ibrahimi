@@ -1131,6 +1131,15 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
   .main{padding-bottom:max(82px,calc(78px + env(safe-area-inset-bottom)))}
   input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px}
 }
+/* Side switch, invite badge and group messages reuse the original classic theme. */
+.profile-copy .direct-invites{display:block;font-size:.72rem;line-height:1.4;margin:2px 0;white-space:nowrap}
+.switch-side{min-height:30px!important;max-width:140px;padding:3px 6px!important;font-size:.69rem!important;white-space:normal}
+.group-chat-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding:6px 0;margin-bottom:12px}
+.chat-bubble{background:var(--mint);border:1px solid var(--line);border-radius:10px;padding:9px}
+.chat-bubble strong{font-size:.83rem}
+.chat-bubble p{white-space:pre-wrap;overflow-wrap:anywhere}
+.chat-bubble small{font-size:.7rem}
+@media(max-width:520px){.profile-copy .direct-invites{white-space:normal;font-size:.65rem}}
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
 /* Member removal is soft and reversible; the original DI ID is preserved. */
@@ -1426,6 +1435,29 @@ function groups() {
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
       displayNumber(descendants(person.id).size) + '</span></div><button class="button secondary" data-action="group" data-value="' + person.id +
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
+}
+
+
+function groupMessagesPage() {
+  const female=window.duroodCurrentSide==='female';
+  const label=female?tr('Female community','خواتین کی کمیونٹی'):tr('Male community','مردوں کی کمیونٹی');
+  const rows=Array.isArray(window.duroodChatRows)?window.duroodChatRows:[];
+  return heading(tr('Group Messages','گروپ پیغامات'),label) +
+    '<section class="panel section"><div class="panel-head"><h2>'+label+
+    '</h2><button type="button" class="button secondary" data-action="chat-refresh">'+
+    tr('Refresh','تازہ کریں')+'</button></div>'+
+    '<div id="group-chat-list" class="group-chat-list" role="log" aria-live="polite">'+
+    (rows.length?rows.map(row=>'<article class="chat-bubble"><strong dir="auto">'+
+      esc(row.senderName||'Member')+'</strong><p dir="auto">'+
+      esc(row.body||'')+'</p><small class="muted">'+
+      esc(row.createdAt?new Date(row.createdAt).toLocaleString():'')+
+      '</small></article>').join(''):
+      '<p class="muted">'+tr('No messages yet.','ابھی کوئی پیغام نہیں۔')+'</p>')+
+    '</div><form id="group-message-form" class="form"><label class="field">'+
+    tr('Write a message','پیغام لکھیں')+
+    '<textarea name="message" minlength="1" maxlength="1200" rows="3" required></textarea></label>'+
+    '<button type="submit" class="button">'+tr('Send','بھیجیں')+
+    '</button></form><p id="group-chat-feedback" class="feedback" role="status"></p></section>';
 }
 
 function directory() {
@@ -2934,10 +2966,10 @@ function handleQazaAction(action,button,value) {
 
 function dashboard(person) {
   const owner = person.id === 1;
-  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')]];
+  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
   const active = section === 'profile' ? 'directory' : section;
-  const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person)};
+  const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + profileCard(person) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
@@ -3496,6 +3528,10 @@ window.duroodClassicBridge = {
     const p=currentUser();if(!p)return;
     p.name=value;render({keepScroll:true});
     setFeedback("profile-feedback",tr("Name saved to Firebase.","نام Firebase میں محفوظ ہوگیا۔"),true);
+  },
+  showMessages(rows){
+    window.duroodChatRows=Array.isArray(rows)?rows:[];
+    if(section==='messages')render({keepScroll:true});
   },
   loadPrayerDays(days){
     const p=currentUser();if(!p)return;
