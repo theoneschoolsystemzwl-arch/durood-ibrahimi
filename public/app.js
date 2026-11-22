@@ -254,6 +254,9 @@ async function showOriginalDashboardIfReady(){
   // Load the original UI just once. Do not download its 580 KB HTML twice.
   // Its Firebase data is loaded in the frame and must not be simulated here.
   classicFrameRequested=true;
+  // Give the iframe its full viewport layout before hydration, but keep it
+  // visually invisible and non-interactive until it signals readiness.
+  frame.hidden=false;
   frame.src="./classic-app.html";
 }
 // Keep the working portal visible until the authenticated classic dashboard
