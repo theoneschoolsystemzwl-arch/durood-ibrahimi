@@ -54,12 +54,12 @@ export async function registerSpark({name,username,password,inviteCode,gender,pl
       }
       const inviterUid=inv.data().byUid;
       if(typeof inviterUid!=="string"||!inviterUid)throw Error("دعوتی کوڈ کا مالک درست نہیں۔");
-      const inviter=await tx.get(memberRef(inviterUid));
-      if(!inviter.exists()||inviter.data().disabled===true)throw Error("دعوتی کوڈ جاری کرنے والا اکاؤنٹ فعال نہیں۔");
-      const ownerInvite=inviter.data().role==="owner";
-      const invitedGender=inv.data().gender||(ownerInvite?"any":memberGender(inviter.data()));
-      if((invitedGender!==gender && !(ownerInvite&&invitedGender==="any"))||
-         (!ownerInvite&&memberGender(inviter.data())!==gender)){
+      // New registrants cannot read another member's private profile.
+      // Firestore Rules validate the inviter's identity, active status and
+      // gender atomically; the client only checks the code's declared scope.
+      const ownerInvite=inviterUid===seq.data().ownerUid;
+      const invitedGender=inv.data().gender||(ownerInvite?"any":"male");
+      if(invitedGender!==gender && !(ownerInvite&&invitedGender==="any")){
         throw Error("یہ دعوتی کوڈ منتخب Gender کے لیے نہیں ہے۔");
       }
       const n=seq.data().lastNumber+1;
