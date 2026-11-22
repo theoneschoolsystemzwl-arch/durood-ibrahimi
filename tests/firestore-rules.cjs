@@ -147,9 +147,13 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   await assertFails(getDoc(doc(femaleDb,"memberCounts",newId)));
   await assertFails(getDoc(doc(femaleDb,"genderStats","male")));
   await assertFails(getDoc(doc(femaleDb,"genderMembers","male")));
+  console.log("GENDER_TEST_STEP_1");
   await assertSucceeds(getDoc(doc(newDb,"genderStats","male")));
+  console.log("GENDER_TEST_STEP_2");
   await assertSucceeds(getDoc(doc(ownerDb,"genderStats","male")));
+  console.log("GENDER_TEST_STEP_3");
   await assertSucceeds(getDoc(doc(ownerDb,"genderMembers","male")));
+  console.log("GENDER_TEST_STEP_4");
   await assertSucceeds(setDoc(doc(femaleDb,"groupChats","female","messages","f1"),{
     gender:"female",senderUid:"woman-uid",senderName:"Female Member",
     body:"Female group message",createdAt:serverTimestamp()
@@ -165,6 +169,7 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     gender:"female",senderUid:"woman-uid",senderName:"Owner",
     body:"Spoof",createdAt:serverTimestamp()
   }));
+  console.log("GENDER_TEST_STEP_5");
   await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
     disabled:true,deleted:true,updatedAt:serverTimestamp()
   }));
