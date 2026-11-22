@@ -3,9 +3,9 @@ import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
   claimDeviceSession, signOut, onAuthStateChanged
-} from "./member-auth.js?release=women-numbers";
+} from "./member-auth.js?release=fast-login-reader-v4";
 import "./profile-contacts.js";
-import {generatedUsername,readingsSpark} from "./spark-data.js?release=readers";
+import {generatedUsername,readingsSpark} from "./spark-data.js?release=fast-login-reader-v4";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
@@ -21,6 +21,7 @@ window.duroodParentAuthUser=()=>appState.profile?.uid===auth.currentUser?.uid ? 
 let classicFrameRequested=false;
 let dashboardTimer;
 let authGeneration=0;
+let nullAuthTimer=null;
 let lastAuthenticatedUid=null;
 
 // This local courtesy pause reduces accidental repeat attempts.
@@ -249,6 +250,7 @@ function showProfileRetry(err){
   $("#loading-retry").hidden=false;
 }
 function showSignedOut() {
+  clearTimeout(nullAuthTimer);
   clearTimeout(dashboardTimer);
   document.body.classList.remove("classic-pending");
   $("#loading-retry").hidden=true;
@@ -265,6 +267,7 @@ function showSignedOut() {
 }
 function showSignedIn(profile){
   if(!profile?.uid || auth.currentUser?.uid!==profile.uid)return;
+  clearTimeout(nullAuthTimer);
   const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
   lastAuthenticatedUid=profile.uid;
   appState.profile=profile;
@@ -295,7 +298,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=stable-reader-v3";
+  frame.src="./classic-app.html?release=fast-login-reader-v4";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
@@ -385,10 +388,24 @@ onAuthStateChanged(auth,async user=>{
   const current=++authGeneration;
   if(appState.registering || appState.signingIn)return;
   if(!user){
-    // Ignore a stale null callback while a newer sign-in already exists.
+    // Two same-origin Firebase Auth contexts (portal + WebView iframe) can
+    // briefly emit null while sharing the freshly persisted first login.
+    // Never show the login form over a verified session during that handoff.
     if(auth.currentUser)return;
+    if(appState.profile){
+      clearTimeout(nullAuthTimer);
+      view("#access",false);
+      view("#portal",false);
+      view("#loading",true);
+      $("#loading-copy").textContent="محفوظ لاگ اِن بحال کیا جا رہا ہے…";
+      nullAuthTimer=setTimeout(()=>{
+        if(!auth.currentUser && !appState.signingIn && !appState.registering)showSignedOut();
+      },2500);
+      return;
+    }
     showSignedOut();return;
   }
+  clearTimeout(nullAuthTimer);
   if(appState.profile?.uid===user.uid){
     // A token refresh / iframe startup must not reset a working dashboard.
     return;
@@ -425,7 +442,7 @@ $("#loading-retry").addEventListener("click",async()=>{
   }catch(error){showProfileRetry(error);}
 });
 $("#signout").addEventListener("click",async()=>{
-  try{await signOut(auth);}catch(err){message("#reading-message",errorText(err));}
+  try{await signOut(auth);showSignedOut();}catch(err){message("#reading-message",errorText(err));}
 });
 async function addRecitations(amount,tasbih=false){
   if(appState.busy||!auth.currentUser)return;
