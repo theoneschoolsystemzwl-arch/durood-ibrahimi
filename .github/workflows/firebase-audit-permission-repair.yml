@@ -1,0 +1,35 @@
+name: Try safe IAM read-only access repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/firebase-audit-permission-repair.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate with existing GitHub identity provider
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Try assigning only Cloud Datastore Viewer to existing deploy service account
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT=durood-e-ibrahimi-global-c74e0
+          SA=github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+          echo "Attempting restricted read-only IAM role, no database writes."
+          gcloud projects add-iam-policy-binding "$PROJECT" \
+            --member="serviceAccount:$SA" \
+            --role="roles/datastore.viewer" \
+            --quiet >/dev/null
+          echo "Read-only IAM role successfully configured."
