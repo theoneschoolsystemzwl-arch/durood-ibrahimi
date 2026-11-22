@@ -1,7 +1,7 @@
 // Firebase Firestore emulator security tests: no cloud credentials or billing.
 const fs=require("node:fs");
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require("@firebase/rules-unit-testing");
-const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
+const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({
    projectId:"demo-durood",
@@ -67,6 +67,50 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=req
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
+
+  // DI-3: Owner invite must work on the female side, and the first woman
+  // is an ordinary member with ZERO direct invitations of her own.
+  await assertSucceeds(setDoc(doc(ownerDb,"invitations","wife01"),{
+    byUid:ownerId,gender:"any",used:false,revoked:false,createdAt:serverTimestamp()
+  }));
+  const wifeId="woman-uid";
+  const wifeDb=env.authenticatedContext(wifeId,{auth_time:1700000030}).firestore();
+  await assertSucceeds(runTransaction(wifeDb,async tx=>{
+    const seqRef=doc(wifeDb,"system","membership");
+    const invRef=doc(wifeDb,"invitations","wife01");
+    const usernameRef=doc(wifeDb,"usernames","woman");
+    const memberRef=doc(wifeDb,"members",wifeId);
+    const genderRef=doc(wifeDb,"genderMembers","female");
+    const [seq,inv,username,member]=await Promise.all([
+      tx.get(seqRef),tx.get(invRef),tx.get(usernameRef),tx.get(memberRef)
+    ]);
+    if(seq.get("lastNumber")!==2||!inv.exists()||username.exists()||member.exists())
+      throw Error("Expected DI-3 pre-registration state");
+    tx.update(seqRef,{lastNumber:3,lastMemberUid:wifeId,updatedAt:serverTimestamp()});
+    tx.update(invRef,{used:true,usedByUid:wifeId,usedAt:serverTimestamp()});
+    tx.set(usernameRef,{uid:wifeId,createdAt:serverTimestamp()});
+    tx.set(genderRef,{
+      gender:"female",totalMembers:increment(1),updatedAt:serverTimestamp()
+    },{merge:true});
+    tx.set(memberRef,{
+      uid:wifeId,username:"woman",name:"Female Member",role:"member",gender:"female",
+      memberNumber:3,serial:"DI-3",inviterUid:ownerId,inviteCode:"wife01",
+      disabled:false,pledgeAcceptedAt:serverTimestamp(),createdAt:serverTimestamp()
+    });
+  }));
+  await assertSucceeds(setDoc(doc(wifeDb,"activeLogins",wifeId),{
+    authTime:1700000030,sessionId:"woman-original-session",claimedAt:serverTimestamp()
+  }));
+  const wife=await getDoc(doc(wifeDb,"members",wifeId));
+  if(wife.get("serial")!=="DI-3"||wife.get("gender")!=="female"||
+     wife.get("inviterUid")!==ownerId||wife.get("role")!=="member")
+    throw Error("Owner-invited first female member had incorrect DI identity");
+  const wifeReferrals=await getDocs(query(collection(wifeDb,"members"),
+    where("inviterUid","==",wifeId),where("gender","==","female"),limit(200)));
+  if(wifeReferrals.size!==0)throw Error("New wife should start with zero referrals");
+  await assertSucceeds(getDoc(doc(wifeDb,"genderMembers","female")));
+  await assertFails(getDoc(doc(newDb,"members",wifeId)));
+  console.log("Owner female first member signup passed: DI-3, role=member, own referrals=0.");
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
   // Another valid password sign-in must NOT replace the first active session.
   // Once the first device explicitly logs out, the second may claim it.
