@@ -1260,8 +1260,8 @@ function generationLetter(id) {
   return prefix;
 }
 
-const ownerViewingWomen = () => currentUserId === 1 && window.duroodCurrentSide === 'female';
-const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && person.id !== 1) : users;
+const ownerViewingWomen = () => currentUser()?.isOwner === true && window.duroodCurrentSide === 'female';
+const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && !person.isOwner) : users;
 
 function groupName(id) {
   return generationLetter(id);
@@ -1288,7 +1288,7 @@ function ur(text, tag = 'p', classes = '') {
 }
 
 async function prepareProfilePhoto(file){
-  if(!/^image\/(png|jpe?g|webp|gif|avif)$/.test(file.type)||file.size>20*1024*1024){
+  if((file.type && file.type!=="application/octet-stream" && !file.type.startsWith("image/")) || file.size>20*1024*1024){
     throw Error("تصویر JPG، PNG، WebP، GIF یا AVIF میں اور 20 MB سے کم ہونی چاہیے۔");
   }
   const url=URL.createObjectURL(file);
@@ -1304,9 +1304,11 @@ async function prepareProfilePhoto(file){
     context.fillStyle="#fff";
     context.fillRect(0,0,canvas.width,canvas.height);
     context.drawImage(picture,0,0,canvas.width,canvas.height);
-    const image=canvas.toDataURL("image/jpeg",0.78);
-    if(!image.startsWith("data:image/jpeg;base64,")||image.length>180000)throw Error("تصویر چھوٹی کر کے دوبارہ منتخب کریں۔");
-    return image;
+    for(const quality of [0.78,0.64,0.48]){
+      const image=canvas.toDataURL("image/jpeg",quality);
+      if(image.startsWith("data:image/jpeg;base64,") && image.length<=180000)return image;
+    }
+    throw Error("تصویر چھوٹی کر کے دوبارہ منتخب کریں۔");
   }finally{URL.revokeObjectURL(url);}
 }
 
@@ -3011,7 +3013,7 @@ function handleQazaAction(action,button,value) {
 }
 
 function dashboard(person) {
-  const owner = person.id === 1;
+  const owner = person.isOwner === true;
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')],['groups','◇',tr("Groups", 'گروپس')]);
   const women = ownerViewingWomen();
@@ -3089,7 +3091,7 @@ function topBar() {
     '<div class="locale-switch" role="group" aria-label="' + tr('App language','ایپ کی زبان') + '">' +
     '<button type="button" lang="en" data-action="language" data-value="en" aria-pressed="' + (language === 'en') + '">English</button>' +
     '<button type="button" lang="ur" data-action="language" data-value="ur" aria-pressed="' + (language === 'ur') + '">اردو</button></div>' +
-    '</div></div>' + (person?.id === 1 ? '<div class="owner-sections">' +
+    '</div></div>' + (person?.isOwner ? '<div class="owner-sections">' +
       '<button type="button" data-action="switch-side" data-side="' + destination +
       '" aria-label="' + switchLabel + '">' + destinationLabel +
       ' <span aria-hidden="true">' + tr('→','←') + '</span></button></div>' : '') + '</header>';
@@ -3410,7 +3412,7 @@ app.addEventListener('click', event => {
   }
   if (action === 'record') record = value;
   if (action === 'period') selectedPeriod = value;
-  if (action === 'profile' && currentUserId === 1 && visibleMembers().some(member => member.id === Number(value))) {
+  if (action === 'profile' && currentUser()?.isOwner && visibleMembers().some(member => member.id === Number(value))) {
     profileId = Number(value);
     section = 'profile';
   }
@@ -3421,7 +3423,7 @@ app.addEventListener('click', event => {
     groupFilter = targetId === currentUserId ? null : targetId;
     section = 'tree';
   }
-  if (action === 'group' && currentUserId === 1) {
+  if (action === 'group' && currentUser()?.isOwner) {
     groupFilter = Number(value);
     section = 'tree';
   }
@@ -3543,7 +3545,7 @@ window.duroodClassicBridge = {
       if(!Number.isSafeInteger(Number(x.memberNumber))||Number(x.memberNumber)<1)continue;
       const memberId=Number(x.memberNumber);
       users.push({
-        id:memberId,uid:x.uid,name:x.name||"Member",username:x.username||"",
+        id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
         isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
@@ -3553,7 +3555,7 @@ window.duroodClassicBridge = {
       });
     }
     if(!getUser(Number(profile.memberNumber))) {
-      users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,name:profile.name||"Owner",
+      users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,isOwner:profile.role==="owner",name:profile.name||"Owner",
         username:profile.username||"owner",inviter:null,daily:0,
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
         age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
@@ -3583,6 +3585,7 @@ window.duroodClassicBridge = {
   },
   userForCurrent(){return currentUser()?.uid||null;},
   photoSelection:currentPhotoSelection,
+  currentName:()=>currentUser()?.name,
   setName(value,image,selection){
     const p=currentUser();if(!p)return;
     if(image){p.photo=image;if(pendingPhoto===selection){pendingPhoto=null;photoDraft=null;}}
@@ -3915,9 +3918,11 @@ ui.addEventListener("submit",event=>{
       if(!uid||auth.currentUser?.uid!==uid)throw Error("دوبارہ لاگ اِن کریں۔");
       if(selection && (!image || selection.uid!==uid))throw Error("تصویر دوبارہ منتخب کریں۔");
       if(image){
-        if(name.length<2||name.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
         const batch=writeBatch(db);
-        batch.update(doc(db,"members",uid),{name,updatedAt:serverTimestamp()});
+        if(name!==bridge.currentName()){
+          if(name.length<2||name.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
+          batch.update(doc(db,"members",uid),{name,updatedAt:serverTimestamp()});
+        }
         batch.set(doc(db,"memberPhotos",uid),{image});
         await batch.commit();
       }else await profileNameSpark(name);
