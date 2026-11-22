@@ -15,6 +15,18 @@ const counter = db.doc("system/membership");
 const validUsername = /^[a-z0-9._-]{3,24}$/;
 const toName = value => String(value || "").trim();
 const toUsername = value => String(value || "").trim().toLowerCase();
+const genderOf = data => data?.gender === "female" ? "female" : "male";
+const validGender = value => value === "male" || value === "female";
+async function ensureLiveSession(request, uid) {
+  const profile = await activeMember(uid);
+  if (profile.get("role") === "owner") return profile;
+  const session = await db.doc("activeLogins/" + uid).get();
+  if (!session.exists ||
+      session.get("authTime") !== Number(request.auth?.token?.auth_time)) {
+    throw new HttpsError("permission-denied","This account is active on another device.");
+  }
+  return profile;
+}
 function derivedEmail(username) {
   // Internal Firebase Auth login address; NOT a deliverable email inbox.
   // The public Login screen only ever asks for username and password.
@@ -46,11 +58,12 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
   const name = toName(data.name);
   const password = String(data.password || "");
   const inviteCode = toUsername(data.inviteCode);
+  const gender = data.gender;
   if (!validUsername.test(username) || /^di-\d+$/i.test(username)) {
     throw new HttpsError("invalid-argument","Choose a valid username (3-24 letters, numbers, . _ -).");
   }
   if (name.length < 2 || name.length > 60 || password.length < 8 || password.length > 128 ||
-      !/^[a-z0-9]{6}$/.test(inviteCode) || data.pledgeAccepted !== true) {
+      !/^[a-z0-9]{6}$/.test(inviteCode) || !validGender(gender) || data.pledgeAccepted !== true) {
     throw new HttpsError("invalid-argument","Invalid account details or invitation.");
   }
   // Check invitation before creating an Auth user. It is checked AGAIN in the transaction.
@@ -95,6 +108,11 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
       if (!inviter.exists || inviter.get("disabled") === true) {
         throw new HttpsError("permission-denied","Inviter account is inactive.");
       }
+      const inviteGender=invite.get("gender") || (inviter.get("role")==="owner" ? "any" : genderOf(inviter.data()));
+      if ((inviteGender!==gender && !(inviter.get("role")==="owner" && inviteGender==="any")) ||
+          (inviter.get("role")!=="owner" && genderOf(inviter.data())!==gender)) {
+        throw new HttpsError("permission-denied","Invitation is for a different gender.");
+      }
       const next = seq.get("lastNumber") + 1;
       if (!Number.isSafeInteger(next)) throw new HttpsError("resource-exhausted","Member numbering limit reached.");
       const serial = "DI-" + next;
@@ -102,7 +120,7 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
       tx.create(usernameRef,{uid:user.uid,createdAt:FieldValue.serverTimestamp()});
       tx.update(inviteRef,{used:true,usedByUid:user.uid,usedAt:FieldValue.serverTimestamp()});
       tx.create(memberRef,{
-        uid:user.uid,username,name,role:"member",memberNumber:next,serial,
+        uid:user.uid,username,name,role:"member",gender,memberNumber:next,serial,
         inviterUid,disabled:false,pledgeAcceptedAt:FieldValue.serverTimestamp(),
         createdAt:FieldValue.serverTimestamp()
       });
@@ -119,14 +137,15 @@ exports.registerMember = onCall({region, maxInstances:10}, async request => {
 
 exports.createInvitation = onCall({region,maxInstances:10},async request => {
   const uid = ensureMember(request);
-  await activeMember(uid);
+  const issuer=await ensureLiveSession(request,uid);
+  const gender=issuer.get("role")==="owner"?"any":genderOf(issuer.data());
   let code;
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   for (let attempts = 0; attempts < 8; attempts++) {
     code = Array.from({length:6},()=>chars[crypto.randomInt(chars.length)]).join("");
     try {
       await invitations.doc(code).create({
-        byUid:uid,createdAt:FieldValue.serverTimestamp(),used:false,revoked:false
+        byUid:uid,gender,createdAt:FieldValue.serverTimestamp(),used:false,revoked:false
       });
       return {code};
     } catch(err) {
@@ -138,6 +157,7 @@ exports.createInvitation = onCall({region,maxInstances:10},async request => {
 
 exports.setMemberActive = onCall({region,maxInstances:10},async request => {
   ensureOwner(request);
+  await ensureLiveSession(request,request.auth.uid);
   const uid = request.data?.uid;
   const active = request.data?.active;
   if (typeof uid !== "string" || !uid || typeof active !== "boolean" || uid === request.auth.uid) {
@@ -155,7 +175,7 @@ exports.setMemberActive = onCall({region,maxInstances:10},async request => {
 
 exports.updateMyProfile = onCall({region,maxInstances:10},async request => {
   const uid = ensureMember(request);
-  await activeMember(uid);
+  await ensureLiveSession(request,uid);
   const name = toName(request.data?.name);
   if (name.length < 2 || name.length > 60) throw new HttpsError("invalid-argument","Invalid display name.");
   await members.doc(uid).update({name,updatedAt:FieldValue.serverTimestamp()});
@@ -168,6 +188,7 @@ exports.updateMyProfile = onCall({region,maxInstances:10},async request => {
 // Totals remain server-controlled and cannot be edited from the browser directly.
 exports.recordRecitations = onCall({region,maxInstances:20}, async request => {
   const uid = ensureMember(request);
+  await ensureLiveSession(request,uid);
   const amount = request.data?.amount;
   if (!Number.isSafeInteger(amount) || amount < 1 || amount > 10000) {
     throw new HttpsError("invalid-argument","Choose a whole number between 1 and 10000.");
@@ -184,7 +205,7 @@ exports.recordRecitations = onCall({region,maxInstances:20}, async request => {
     }
     // Server-side updates keep aggregate totals consistent across concurrent readers.
     tx.set(countRef,{
-      memberUid:uid,
+      memberUid:uid,gender:genderOf(member.data()),
       total:FieldValue.increment(amount),
       updatedAt:FieldValue.serverTimestamp()
     },{merge:true});
@@ -219,7 +240,7 @@ function validateDate(value) {
 }
 exports.savePrayerDay = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await activeMember(uid);
+  await ensureLiveSession(request,uid);
   const date=validateDate(request.data?.date);
   const statuses=request.data?.statuses;
   if(!statuses || typeof statuses!=="object" || Array.isArray(statuses) ||
@@ -234,7 +255,7 @@ exports.savePrayerDay = onCall({region,maxInstances:10},async request => {
 });
 exports.getPrayerMonth = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await activeMember(uid);
+  await ensureLiveSession(request,uid);
   const month=request.data?.month;
   if(typeof month!=="string" || !/^\d{4}-(0[1-9]|1[012])$/.test(month)) {
     throw new HttpsError("invalid-argument","Month must be YYYY-MM.");
@@ -253,11 +274,14 @@ exports.getPrayerMonth = onCall({region,maxInstances:10},async request => {
 });
 exports.getLeaderboard = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await activeMember(uid);
-  const snapshots=await db.collection("memberCounts").orderBy("total","desc").limit(10).get();
-  const rows=await Promise.all(snapshots.docs.map(async count => {
+  await ensureLiveSession(request,uid);
+  const viewer=await members.doc(uid).get();
+  const gender=genderOf(viewer.data());
+  const snapshots=await db.collection("memberCounts").where("gender","==",gender).limit(200).get();
+  const ranked=snapshots.docs.sort((a,b)=>Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10);
+  const rows=await Promise.all(ranked.map(async count => {
     const profile=await members.doc(count.id).get();
-    if(!profile.exists || profile.get("disabled")===true)return null;
+    if(!profile.exists || profile.get("disabled")===true || genderOf(profile.data())!==gender)return null;
     const total=count.get("total");
     return {
       name:profile.get("name") || "Member",
@@ -269,7 +293,7 @@ exports.getLeaderboard = onCall({region,maxInstances:10},async request => {
 });
 exports.getMyReferrals = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await activeMember(uid);
+  await ensureLiveSession(request,uid);
   const children=await members.where("inviterUid","==",uid).limit(200).get();
   return {referrals:children.docs.map(doc=>({
     serial:doc.get("serial"),name:doc.get("name"),disabled:doc.get("disabled")===true
@@ -277,7 +301,7 @@ exports.getMyReferrals = onCall({region,maxInstances:10},async request => {
 });
 exports.getCommunitySummary = onCall({region,maxInstances:10},async request => {
   const uid=ensureMember(request);
-  await activeMember(uid);
+  await ensureLiveSession(request,uid);
   const [counterSnap,totalsSnap]=await Promise.all([
     counter.get(),db.doc("publicStats/global").get()
   ]);
