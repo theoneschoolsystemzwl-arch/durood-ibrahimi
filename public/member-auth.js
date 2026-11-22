@@ -17,7 +17,7 @@ const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
 const DEVICE_KEY="durood-device-id-v1";
 let inMemoryDeviceId=null;
 
-function deviceId(){
+function sessionId(){
   if(inMemoryDeviceId)return inMemoryDeviceId;
   try{
     const stored=localStorage.getItem(DEVICE_KEY);
@@ -40,12 +40,12 @@ function isOwner(profile){return profile?.role==="owner";}
 // Called only after Firebase Auth accepts the password and member profile.
 export async function claimDeviceSession(user,profile){
   if(isOwner(profile))return;
-  const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(deviceId())]);
+  const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
   const ref=doc(db,"activeLogins",user.uid);
   await runTransaction(db,async tx=>{
     const old=await tx.get(ref);
     if(old.exists()){
-      if(old.data().deviceId === id &&
+      if(old.data().sessionId === id &&
          old.data().authTime === timestamp)return;
       // The first active login ALWAYS wins. A second login never forces out
       // the original session, even if the password is correct.
@@ -53,18 +53,18 @@ export async function claimDeviceSession(user,profile){
       error.code="member/already-online";
       throw error;
     }
-    tx.set(ref,{authTime:timestamp,deviceId:id,claimedAt:serverTimestamp()});
+    tx.set(ref,{authTime:timestamp,sessionId:id,claimedAt:serverTimestamp()});
   });
 }
 export async function signOut(currentAuth=auth){
   const user=currentAuth.currentUser;
   if(user){
     try{
-      const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(deviceId())]);
+      const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
       const ref=doc(db,"activeLogins",user.uid);
       await runTransaction(db,async tx=>{
         const old=await tx.get(ref);
-        if(old.exists() && old.data().authTime===timestamp && old.data().deviceId===id)tx.delete(ref);
+        if(old.exists() && old.data().authTime===timestamp && old.data().sessionId===id)tx.delete(ref);
       });
     }catch(error){console.warn("Session cleanup skipped:",error.code||error);}
   }
