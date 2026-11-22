@@ -93,4 +93,21 @@ for(const item of ["match /genderMembers/{gender}","match /genderStats/{gender}"
  "allow update: if false;","invitationMatches"]){
   present(rules,item);
 }
+// Classic HTML contains two large inline JS bundles. Validate BOTH using
+// Node's parser, including the module that loads Firebase in the iframe.
+const {spawnSync}=require("node:child_process");
+const extracted=[...classic.matchAll(/<script([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+assert.ok(extracted.length>=2,"Classic dashboard must contain its app and Firebase bridge scripts");
+for(const [,attrs,source] of extracted){
+  const moduleScript=/type=["']module["']/i.test(attrs);
+  const options=moduleScript?["--input-type=module","--check"]:["--check"];
+  const check=spawnSync(process.execPath,options,{input:source,encoding:"utf8"});
+  assert.equal(check.status,0,
+    "Classic inline JavaScript syntax invalid: "+(check.stderr||check.stdout));
+}
+const indexConfig=JSON.parse(fs.readFileSync("firestore.indexes.json","utf8"));
+assert.ok(indexConfig.indexes.some(index=>index.collectionGroup==="members" &&
+  index.fields.some(f=>f.fieldPath==="inviterUid") &&
+  index.fields.some(f=>f.fieldPath==="gender")));
+assert.equal(config.firestore.indexes,"firestore.indexes.json");
 console.log("Spark structural checks passed. Firestore rule emulation and real deployment are separate.");
