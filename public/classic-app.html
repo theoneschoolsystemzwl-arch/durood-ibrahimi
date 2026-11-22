@@ -3018,6 +3018,22 @@ function handleQazaAction(action,button,value) {
   return true;
 }
 
+function womenOverview() {
+  const count = visibleMembers().length;
+  return heading(tr('Women’s activity','خواتین کی سرگرمی')) +
+    '<div class="metric-grid">' +
+    stat(tr('Members','ارکان'),displayNumber(count)) +
+    stat(tr('All-time Durood','درود کا مجموعی شمار'),displayNumber(globalTotal)) + '</div>' +
+    '<section class="panel section">' +
+    (!count ? ur(tr('No women’s member accounts are visible in this section yet.',
+      'اس سیکشن میں ابھی کسی خاتون کا ممبر اکاؤنٹ نظر نہیں آ رہا۔'),'p','muted') : '') +
+    '<div class="form-actions">' +
+    '<button type="button" class="button secondary" data-action="nav" data-value="directory">' + tr('View women members','خواتین ارکان دیکھیں') + '</button>' +
+    '<button type="button" class="button secondary" data-action="nav" data-value="groups">' + tr('View groups','گروپس دیکھیں') + '</button>' +
+    '<button type="button" class="button secondary" data-action="nav" data-value="messages">' + tr('View messages','پیغامات دیکھیں') + '</button>' +
+    '</div></section>';
+}
+
 function dashboard(person) {
   const owner = person.isOwner === true;
   const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
@@ -3030,9 +3046,7 @@ function dashboard(person) {
   return '<div class="shell">' + (women ? '' : profileCard(person)) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
-    (women && section === 'overview' ? heading(tr('Women’s activity','خواتین کی سرگرمی')) +
-      '<div class="stats">' + stat(tr('Members','ارکان'),displayNumber(visibleMembers().length)) +
-      stat(tr('All-time Durood','درود کا مجموعی شمار'),displayNumber(globalTotal)) + '</div>'
+    (women && section === 'overview' ? womenOverview()
       : women && ['tasbih','namaz','settings'].includes(section) ? directory()
       : (screens[section] || overview)()) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
     availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
