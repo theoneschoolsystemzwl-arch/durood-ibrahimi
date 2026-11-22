@@ -251,9 +251,10 @@ service cloud.firestore {
         (currentMember() && matchingGender(resource.data));
       allow list: if owner() ||
         (currentMember() && request.query.limit != null &&
-         request.query.limit <= 200 &&
-         resource.data.inviterUid == request.auth.uid &&
-         matchingGender(resource.data));
+         request.query.limit <= 200 && matchingGender(resource.data) &&
+         // Same-gender directory lookup for DI-number Wazifa sharing.
+         // Gender-filtered queries are required by this read rule.
+         (resource.data.inviterUid == request.auth.uid || validGender(myGender())));
       allow create: if allowedMemberCreate(uid) || initialOwnerProfile(uid);
       allow update: if (owner() && uid != request.auth.uid &&
         resource.data.role == 'member' &&
@@ -723,9 +724,10 @@ service cloud.firestore {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
         d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
-          'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber']) &&
         d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
           'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
+        (!('wNumber' in d) || (d.wNumber is int && d.wNumber >= 1 && d.wNumber <= 1000000000)) &&
         d.uid == uid && wzSafeText(d) &&
         (d.kind == 'daily' || d.kind == 'fixed' || d.kind == 'open') &&
         d.goal is int && d.goal >= 1 && d.goal <= 1000000000 &&
@@ -749,6 +751,84 @@ service cloud.firestore {
            (d.kind != 'fixed' || d.day <= d.endDate) &&
            d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount));
     }
+    // One monotonic W-1, W-2, ... counter per authenticated member.
+    // The counter and the new/legacy personal item must be written in one
+    // transaction. Deleted serials are never reused.
+    function wzSequencePath(uid) {
+      return /databases/$(database)/documents/memberWazaif/$(uid)/meta/sequence;
+    }
+    function wzPersonalPath(uid,itemId) {
+      return /databases/$(database)/documents/memberWazaif/$(uid)/items/$(itemId);
+    }
+    function wzOldSequence(uid) {
+      return exists(wzSequencePath(uid)) ? get(wzSequencePath(uid)).data.next : 0;
+    }
+    function wzAllocated(uid,itemId,number) {
+      return number is int && number >= 1 && number <= 1000000000 &&
+        getAfter(wzSequencePath(uid)).data.next == number &&
+        getAfter(wzSequencePath(uid)).data.lastItemId == itemId &&
+        getAfter(wzSequencePath(uid)).data.updatedAt == request.time &&
+        number == wzOldSequence(uid) + 1;
+    }
+    function validWzSequence(uid,previous) {
+      let d=request.resource.data;
+      return self(uid) && currentMember() &&
+        d.keys().hasOnly(['next','lastItemId','updatedAt']) &&
+        d.keys().hasAll(['next','lastItemId','updatedAt']) &&
+        d.next is int && d.next == previous + 1 &&
+        d.next >= 1 && d.next <= 1000000000 &&
+        d.lastItemId is string && d.lastItemId.size() >= 10 &&
+        d.lastItemId.size() <= 120 &&
+        d.updatedAt == request.time &&
+        getAfter(wzPersonalPath(uid,d.lastItemId)).data.wNumber == d.next;
+    }
+    match /memberWazaif/{uid}/meta/{docId} {
+      allow get: if docId == 'sequence' && self(uid) && currentMember();
+      allow list, delete: if false;
+      allow create: if docId == 'sequence' && validWzSequence(uid,0);
+      allow update: if docId == 'sequence' &&
+        validWzSequence(uid,resource.data.next);
+    }
+    function wzLegacySerialAssignment(uid,wazifaId) {
+      let d=request.resource.data;
+      return !('wNumber' in resource.data) &&
+        d.diff(resource.data).affectedKeys().hasOnly(['wNumber','updatedAt']) &&
+        d.wNumber is int && wzAllocated(uid,wazifaId,d.wNumber);
+    }
+    // A personal Wazifa can be sent only to a verified member of the
+    // SAME gender. The payload is matched against the sender's own item,
+    // not arbitrary text; no recipient can read the sender's private list.
+    function validWzInbox(uid) {
+      let d=request.resource.data;
+      let origin=get(wzPersonalPath(request.auth.uid,d.sourceId)).data;
+      return currentMember() && uid != request.auth.uid && active(uid) &&
+        genderOf(get(memberPath(uid)).data) == myGender() &&
+        d.keys().hasOnly(['title','arabic','instructions','purpose','kind',
+          'goal','startDate','endDate','senderUid','recipientUid','senderSerial',
+          'sourceId','createdAt']) &&
+        d.keys().hasAll(['title','arabic','instructions','purpose','kind',
+          'goal','startDate','endDate','senderUid','recipientUid','senderSerial',
+          'sourceId','createdAt']) &&
+        d.senderUid == request.auth.uid && d.recipientUid == uid &&
+        d.sourceId is string && d.sourceId.size() >= 10 &&
+        d.sourceId.size() <= 120 &&
+        d.senderSerial == 'DI-' + string(get(memberPath(request.auth.uid)).data.memberNumber) &&
+        d.title == origin.title && d.arabic == origin.arabic &&
+        d.instructions == origin.instructions && d.purpose == origin.purpose &&
+        d.kind == origin.kind && d.goal == origin.goal &&
+        d.startDate == origin.startDate && d.endDate == origin.endDate &&
+        d.createdAt == request.time;
+    }
+    match /wazifaInbox/{uid}/items/{shareId} {
+      allow get: if self(uid) && currentMember();
+      allow list: if self(uid) && currentMember() &&
+        request.query.limit != null && request.query.limit <= 100;
+      allow create: if validWzInbox(uid);
+      allow update: if false;
+      // Delete means reject, or accept after creating an independently
+      // numbered copy in this user's private items.
+      allow delete: if self(uid) && currentMember();
+    }
     match /memberWazaif/{uid}/items/{wazifaId} {
       // Unlike the group config, these documents are never readable by
       // another member, even if that member has a DI ID or referral link.
@@ -756,9 +836,12 @@ service cloud.firestore {
       allow list: if self(uid) && currentMember() &&
         request.query.limit != null && request.query.limit <= 100;
       allow create: if validWzPrivate(uid) &&
+        ('wNumber' in request.resource.data) &&
+        wzAllocated(uid,wazifaId,request.resource.data.wNumber) &&
         request.resource.data.total == 0 && request.resource.data.today == 0 &&
         request.resource.data.createdAt == request.time;
-      allow update: if validWzPrivate(uid) && validWzPrivateChange();
+      allow update: if validWzPrivate(uid) &&
+        (validWzPrivateChange() || wzLegacySerialAssignment(uid,wazifaId));
       allow delete: if self(uid) && currentMember();
     }
 
