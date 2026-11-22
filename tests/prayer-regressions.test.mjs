@@ -21,7 +21,7 @@ assert.equal(hasQazaPlanData({}),false);
 assert.equal(normalizeQazaPlan({start:"2026-02-30",target:-10}).start,"");
 assert.equal(normalizeQazaPlan({start:"2026-01-01",target:1e11}).target,0);
 assert.throws(()=>normalizeQazaPlan({done:{fajr:Object.fromEntries(
-  Array.from({length:3001},(_,i)=>["2000-"+String(Math.floor(i/28)%12+1).padStart(2,"0")+"-"+String(i%28+1).padStart(2,"0"),true])
+  Array.from({length:3001},(_,i)=>[new Date(Date.UTC(2000,0,i)).toISOString().slice(0,10),true])
 )}}),/limit|حد/);
 
 const ui=fs.readFileSync("public/classic-app.html","utf8");
@@ -30,7 +30,7 @@ const rules=fs.readFileSync("firestore.rules","utf8");
 const spark=fs.readFileSync("public/qaza-firebase.js","utf8");
 const requiredActions=[
   "nav","count-durood","namaz-month","namaz-mark","namaz-mode","prayer-view",
-  "qaza-month","qaza-mode","qaza-record","qaza-unlock","read-group",
+  "qaza-month","qaza-mode","qaza-record","qaza-unlock",
   "manual-day","daily-goal","create-invite","copy-invite"
 ];
 for(const key of requiredActions){
@@ -50,6 +50,7 @@ for(const status of ["namaz-jamat","namaz-solo","namaz-made","namaz-missed",
 }
 assert(css.includes(".namaz-calendar-bar"));
 assert(css.includes(".prayer-ledger"));
+assert(fs.readFileSync("public/wazaif.js","utf8").includes('read-group'));
 assert(spark.includes('"memberPrivate",uid,"qaza","plan"'));
 assert(rules.includes("match /memberPrivate/{uid}/qaza/{docId}"));
 assert(rules.includes("validQazaDone"));
