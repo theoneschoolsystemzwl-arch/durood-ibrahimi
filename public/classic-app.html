@@ -1485,7 +1485,8 @@ function profileDetails(person) {
     '</dl></section>' + (person.id === 1 ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
-      ur(tr("Previously saved Durood stays in the community total after suspension or deletion.", 'اکاؤنٹ بند یا حذف کرنے سے پہلے سے محفوظ درود کا مجموعی شمار برقرار رہے گا۔'),'p','muted') +
+      ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
+      (person.gender===''?'<div class="form-actions"><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="male">Male منتخب کریں</button><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="female">Female منتخب کریں</button></div>':'') +
       '<div class="form-actions manage-actions"><button class="button secondary" data-action="toggle-user" data-value="' +
       person.id + '">' + (person.disabled ? tr("Enable member", 'رکن کو فعال کریں') : tr("Suspend member", 'رکن کو معطل کریں')) +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
