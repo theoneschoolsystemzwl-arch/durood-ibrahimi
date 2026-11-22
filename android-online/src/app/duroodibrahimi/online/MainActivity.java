@@ -58,6 +58,10 @@ public final class MainActivity extends Activity {
             WebSettings settings = web.getSettings();
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
+            // Honor the HTML mobile viewport and never auto-zoom a wide
+            // intermediate document to fit the screen during dashboard load.
+            settings.setUseWideViewPort(true);
+            settings.setLoadWithOverviewMode(false);
             settings.setAllowFileAccess(false);
             settings.setAllowContentAccess(false);
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
