@@ -156,7 +156,7 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
   const ownerLogin=entered.toLowerCase()===OWNER_LOGIN;
-  const email=ownerLogin?knownOwnerEmail():(entered.includes("@")?entered.toLowerCase():aliasEmail(entered));
+  const email=ownerLogin?knownOwnerEmail():(entered.includes("@")?entered.toLowerCase():await aliasEmail(entered));
   if(ownerLogin && !email)throw Error("اس ڈیوائس پر پہلی مرتبہ اپنی مالک والی ای میل اور پاس ورڈ سے لاگ اِن کریں۔ پھر sherazanjum استعمال کر سکتے ہیں۔");
   if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     throw Error("Enter a valid Username or full Email address.");

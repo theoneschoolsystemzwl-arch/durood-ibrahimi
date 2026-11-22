@@ -41,8 +41,8 @@
       </div>
       <form id="access-form" autocomplete="on">
         <fieldset id="login-fields" class="fields">
-          <label for="login-identity">Email / Username (English, left to right)</label>
-          <input id="login-identity" class="latin-input login-id" name="loginUsername" type="text" dir="ltr" inputmode="email" autocomplete="username" placeholder="Owner: full email / Member: email or username" aria-describedby="login-id-help" required maxlength="254" autocapitalize="none" spellcheck="false">
+          <label for="login-identity">ای میل / لاگ اِن آئی ڈی</label>
+          <input id="login-identity" class="latin-input login-id" name="loginUsername" type="text" dir="ltr" inputmode="text" autocomplete="username" placeholder="Owner: full email / Member: email or username" aria-describedby="login-id-help" required maxlength="254" autocapitalize="none" spellcheck="false">
           <small id="login-id-help" class="field-help">پورا Email لکھ سکتے ہیں؛ آخر کا حصہ بھی نیچے دکھائی دے گا۔</small>
           <output id="login-identity-preview" class="full-email-preview" dir="ltr" aria-live="polite" hidden></output>
           <label for="login-password">Password</label>
@@ -63,15 +63,13 @@
           <label>پورا نام — Full name
             <input name="name" autocomplete="name" required maxlength="60" placeholder="اپنا پورا نام">
           </label>
-          <label>Username
-            <input name="username" dir="ltr" class="latin-input" autocomplete="username" pattern="[a-zA-Z0-9._-]{3,24}" minlength="3" maxlength="24" required autocapitalize="none" spellcheck="false" placeholder="مثلاً ahmed.raza">
+          <label>آپ کی لاگ اِن آئی ڈی
+            <output id="generated-username" dir="auto" aria-live="polite"></output>
           </label>
           <label>Password
             <input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="کم از کم 8 حروف">
           </label>
-          <label>Confirm Password
-            <input name="confirm" type="password" autocomplete="new-password" minlength="8" required placeholder="دوبارہ پاس ورڈ">
-          </label>
+
           <fieldset class="gender-fieldset">
             <legend>Gender — جنس منتخب کریں</legend>
             <div class="gender-options">
@@ -162,6 +160,7 @@
           </label>
           <button type="submit" class="secondary">نام محفوظ کریں</button>
         </form>
+        <profile-contacts></profile-contacts>
         <p id="profile-message" class="message" role="status" aria-live="polite"></p>
         <div class="account-password-section">
           <h3>پاس ورڈ تبدیل کریں</h3>

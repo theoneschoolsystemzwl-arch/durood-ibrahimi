@@ -4,7 +4,8 @@ import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
   claimDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js";
-import {readingsSpark} from "./spark-data.js";
+import "./profile-contacts.js";
+import {generatedUsername,readingsSpark} from "./spark-data.js";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
@@ -129,6 +130,12 @@ updateGenderOath();
 $("#tab-login").addEventListener("click",()=>switchTab("login"));
 $("#tab-register").addEventListener("click",()=>switchTab("register"));
 
+const registrationName=document.querySelector('#register-fields input[name="name"]');
+function showGeneratedUsername(){
+  $("#generated-username").textContent=generatedUsername(registrationName.value);
+}
+registrationName.addEventListener("input",showGeneratedUsername);
+$("#access-form").addEventListener("reset",()=>queueMicrotask(showGeneratedUsername));
 const identityInput=$("#login-identity");
 const identityPreview=$("#login-identity-preview");
 identityInput.addEventListener("input",()=>{
@@ -195,13 +202,11 @@ $("#access-form").addEventListener("submit",async event=>{
       }
     }else{
       const password=String(form.get("password")||"");
-      if(password!==String(form.get("confirm")||""))throw Error("دونوں پاس ورڈ ایک جیسے نہیں ہیں۔");
       if(!["male","female"].includes(form.get("gender"))||!form.has("genderOath")||!form.has("muslim")||!form.has("pledge"))throw Error("جنس منتخب کریں اور حلف کے تمام خانے قبول کریں۔");
       appState.registering=true;
       try {
         await register({
           name:form.get("name"),
-          username:form.get("username"),
           gender:form.get("gender"),
           password,
           inviteCode:form.get("invite"),

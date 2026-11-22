@@ -1,6 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /memberContacts/{uid} {
+      allow get: if self(uid) && currentMember();
+      allow create, update: if self(uid) && currentMember() &&
+        request.resource.data.keys().hasAll(['mobile','email']) &&
+        request.resource.data.keys().hasOnly(['mobile','email']) &&
+        request.resource.data.mobile is string && request.resource.data.mobile.size() <= 32 &&
+        request.resource.data.email is string && request.resource.data.email.size() <= 254;
+    }
     function signed() { return request.auth != null; }
     function self(uid) { return signed() && request.auth.uid == uid; }
     function memberPath(uid) {
@@ -91,7 +99,7 @@ service cloud.firestore {
     }
     function validUsername(name) {
       return name is string &&
-        name.matches('^[a-z0-9._-]{3,24}$') &&
+        name.matches('^[\\p{L}\\p{M}\\p{N}._-]{1,60}$') &&
         !name.matches('^di-[0-9]+$');
     }
     function validInvite(code) {
