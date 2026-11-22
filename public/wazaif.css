@@ -260,3 +260,24 @@
 .wz-inline-goal-edit{font:700 clamp(.65rem,2.4vw,.82rem)/1.5 var(--ur,serif);color:#c9ffe1;
  background:transparent;border:0;border-bottom:1px solid #55bd94;padding:0 3px;min-height:24px;cursor:pointer}
 .wz-inline-goal-edit:focus-visible{outline:2px solid #e8d185;outline-offset:2px;border-radius:4px}
+
+/* W1 mobile: tighter stat boxes, maintain all numbers and original theme. */
+.wz-personal{padding:10px 12px;margin:8px 0;border-radius:15px}
+.wz-personal .wz-arabic{line-height:1.95;padding:3px 2px;margin:3px 0;font-size:clamp(1.03rem,3.7vw,1.34rem)}
+.wz-personal .wz-help{line-height:1.6;margin:3px 0 6px}
+.wz-personal .wz-fixed-plan{margin:7px 0;padding:7px;border-radius:12px}
+.wz-personal .wz-plan-tiles{gap:4px}
+.wz-personal .wz-stat{padding:5px 3px;gap:1px;min-height:44px;border-radius:9px}
+.wz-personal .wz-stat small{line-height:1.4;font-size:clamp(.65rem,2.25vw,.81rem)}
+.wz-personal .wz-stat strong{line-height:1.28;font-size:clamp(.82rem,3.25vw,1.12rem)}
+.wz-stat-extra strong{color:#f3d788!important;direction:ltr}
+.wz-personal .wz-plan-bar-label{margin:5px 2px 2px;line-height:1.5;font-size:.83rem}
+.wz-personal .wz-plan-progress{height:8px}
+.wz-personal .wz-plan-foot{margin:4px 2px 0;line-height:1.5}
+.wz-personal .wz-actions{margin-top:6px;gap:5px}
+.wz-hero-reader .wz-hero-six{margin-top:5px;margin-bottom:6px}
+.wz-hero-reader .wz-hero-six .wz-hero-tile{min-height:60px;padding:3px 2px;gap:1px}
+.wz-hero-reader .wz-hero-daily>.wz-hero-tile{min-height:61px;padding:3px 2px;gap:1px}
+.wz-hero-reader .wz-hero-tile svg{height:17px;width:17px}
+.wz-hero-reader .wz-hero-daily{margin-bottom:6px}
+.wz-continuation-active{margin-top:10px}
