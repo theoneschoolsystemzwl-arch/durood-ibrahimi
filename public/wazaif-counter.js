@@ -25,7 +25,7 @@ export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null
   const total=Number(prev.total||0),ownTotal=Number(own.total||0),yearTotal=Number(yr.total||0);
   if(![total,ownTotal,yearTotal].every(n=>Number.isSafeInteger(n)&&n>=0))throw Error("گروپ شمار درست نہیں۔");
   tx.set(statsRef,{
-    total:total+amount,day,today:(prev.day===day?Number(prev.today||0):0)+amount,
+    total:total+amount,day,year,today:(prev.day===day?Number(prev.today||0):0)+amount,
     lastUid:uid,lastAmount:amount,updatedAt:serverTimestamp()
   });
   tx.set(memberRef,{
