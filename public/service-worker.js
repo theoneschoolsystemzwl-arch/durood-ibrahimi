@@ -24,14 +24,22 @@ self.addEventListener("fetch",event=>{
   const url=new URL(request.url);
   if(url.origin!==self.location.origin || !ALLOWED.has(url.pathname))return;
   const isHtml=url.pathname==="/" || url.pathname==="/index.html" || url.pathname==="/classic-app.html";
+  if(!isHtml){
+    // Register background refresh before the fetch event handler exits.
+    // If cached, the response is immediate; otherwise load from the network.
+    const fresh=fetch(request,{cache:"no-cache"}).then(async response=>{
+      if(response.ok){
+        const cache=await caches.open(SHELL_CACHE);
+        await cache.put(request,response.clone());
+      }
+      return response;
+    });
+    event.waitUntil(fresh.catch(()=>{}));
+    event.respondWith(caches.match(request).then(cached=>cached||fresh));
+    return;
+  }
   event.respondWith((async()=>{
     const cached=await caches.match(request);
-    if(cached && !isHtml){
-      event.waitUntil(fetch(request,{cache:"no-cache"}).then(async fresh=>{
-        if(fresh.ok){const cache=await caches.open(SHELL_CACHE);await cache.put(request,fresh.clone());}
-      }).catch(()=>{}));
-      return cached;
-    }
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),isHtml?9000:15000);
     try{
