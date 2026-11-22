@@ -65,7 +65,7 @@ service cloud.firestore {
       return signed() && request.auth.uid == trustedOwnerUid();
     }
     function owner() {
-      return signed() && (request.auth.token.owner == true || legacyIsOwner()) && active(request.auth.uid);
+      return signed() && (request.auth.token.get('owner', false) == true || legacyIsOwner()) && active(request.auth.uid);
     }
     // The Firebase Auth token includes the server-issued auth_time. An
     // authenticated second sign-in can atomically take over this member lease.
@@ -92,7 +92,7 @@ service cloud.firestore {
     // identity. Public email/password registration cannot grant owner rights.
     function trustedOwnerIdentity(uid) {
       return self(uid) &&
-        (legacyIsOwner() || request.auth.token.owner == true);
+        (legacyIsOwner() || request.auth.token.get('owner', false) == true);
     }
     function initialOwnerProfile(uid) {
       let m = request.resource.data;
