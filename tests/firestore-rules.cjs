@@ -1,7 +1,7 @@
 // Firebase Firestore emulator security tests: no cloud credentials or billing.
 const fs=require("node:fs");
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require("@firebase/rules-unit-testing");
-const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("firebase/firestore");
+const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({
    projectId:"demo-durood",
@@ -46,7 +46,6 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     const usernameRef=doc(newDb,"usernames","member2");
     const memberRef=doc(newDb,"members",newId);
     const maleCountRef=doc(newDb,"genderMembers","male");
-    const maleCount=await tx.get(maleCountRef);
     const seq=await tx.get(seqRef);
     const invite=await tx.get(invitation);
     const existing=await tx.get(usernameRef);
@@ -57,9 +56,8 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     tx.update(invitation,{used:true,usedByUid:newId,usedAt:serverTimestamp()});
     tx.set(usernameRef,{uid:newId,createdAt:serverTimestamp()});
     tx.set(maleCountRef,{
-      gender:"male",totalMembers:maleCount.get("totalMembers")+1,
-      updatedAt:serverTimestamp()
-    });
+      gender:"male",totalMembers:increment(1),updatedAt:serverTimestamp()
+    },{merge:true});
     tx.set(memberRef,{
       uid:newId,username:"member2",name:"New Member",role:"member",gender:"male",memberNumber:2,
       serial:"DI-2",inviterUid:ownerId,inviteCode:"abc123",disabled:false,
