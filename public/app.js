@@ -289,7 +289,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html";
+  frame.src="./classic-app?release=dashboard-photo-1";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
