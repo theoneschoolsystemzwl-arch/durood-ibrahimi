@@ -79,4 +79,18 @@ present(classic,"overflow-x:clip");
 present(classic,".nav{flex:1 0 45px;min-width:45px");
 present(native,"settings.setUseWideViewPort(true)");
 present(native,"settings.setLoadWithOverviewMode(false)");
+// Gender isolation and first-device-wins coverage.
+for(const api of ["groupMessagesSpark","sendGroupMessageSpark",
+ "classifyLegacyMemberSpark","memberDeleteSpark","genderStats","genderMembers"]){
+  present(spark,api);
+}
+for(const item of ["switch-side","group-message-form","group-chat-list",
+ "chat-refresh","duroodOwnerInviteTotal","duroodCurrentSide"]){
+  present(classic,item);
+}
+for(const item of ["match /genderMembers/{gender}","match /genderStats/{gender}",
+ "match /groupChats/{gender}/messages/{messageId}",
+ "allow update: if false;","invitationMatches"]){
+  present(rules,item);
+}
 console.log("Spark structural checks passed. Firestore rule emulation and real deployment are separate.");
