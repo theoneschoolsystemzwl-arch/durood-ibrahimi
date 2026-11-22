@@ -111,13 +111,12 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp,increment}=req
     const globalRef=doc(newDb,"publicStats","global");
     const sideRef=doc(newDb,"genderStats","male");
     const personal=await tx.get(countRef);
-    const global=await tx.get(globalRef);
     const side=await tx.get(sideRef);
     const amount=10;
     tx.set(countRef,{memberUid:newId,gender:"male",total:(personal.exists()?personal.data().total:0)+amount,
       lastEntryAmount:amount,updatedAt:serverTimestamp()});
-    tx.set(globalRef,{totalRecitations:(global.exists()?global.data().totalRecitations:0)+amount,
-      lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()});
+    tx.set(globalRef,{totalRecitations:increment(amount),
+      lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()},{merge:true});
     tx.set(sideRef,{gender:"male",
       totalRecitations:(side.exists()?side.data().totalRecitations:0)+amount,
       lastEntryUid:newId,lastEntryAmount:amount,updatedAt:serverTimestamp()});
