@@ -5,7 +5,7 @@ import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged
 import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
-} from "./spark-data.js?release=women-numbers";
+} from "./spark-data.js?release=fast-login-reader-v4";
 
 // Pinned Firebase Authentication UID for the existing Master Owner.
 // A DI number is never a login credential, and an email string never grants roles.
