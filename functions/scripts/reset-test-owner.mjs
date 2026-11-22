@@ -16,7 +16,7 @@ import {getFirestore, FieldValue} from "firebase-admin/firestore";
 const projectId="durood-e-ibrahimi-global-c74e0";
 const legacyUid="ecrykLlmTAbV90llOdQVRSX4OyE3";
 const requestedEmail=String(process.env.OWNER_EMAIL||"").trim().toLowerCase();
-if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(requestedEmail)){
+if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedEmail)){
  throw Error("OWNER_EMAIL must be the exact Firebase login email.");
 }
 initializeApp({credential:applicationDefault(),projectId});
