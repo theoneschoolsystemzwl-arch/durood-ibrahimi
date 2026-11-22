@@ -1171,6 +1171,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
+<style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -1247,7 +1248,11 @@ let liveRunning = false;
 const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[char]));
-const serial = id => 'DI-' + (getUser(id)?.sideNumber ?? id);
+const serial = id => {
+  const person = getUser(id);
+  if (person?.gender === 'Female') return person.sideNumber ? 'D' + person.sideNumber : '—';
+  return 'DI-' + (person?.sideNumber ?? id);
+};
 const groupId = id => hasGroup(id) ? (getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id) : '—';
 const getUser = id => users.find(person => person.id === id);
 const memberName = person => person.id<=seedRows.length && person.name===seedRows[person.id-1][0] ?
@@ -1304,12 +1309,10 @@ function ownedGroupName(id) {
   return hasGroup(id) ? groupName(id) : '—';
 }
 
-function groupMemberCode(person) {
-  const parent = getUser(person.inviter);
-  if (person.gender !== 'Female' || parent?.gender !== 'Female') return '';
-  const group = groupName(parent.id);
-  const members = directMembers(parent.id).filter(member => member.gender === 'Female').sort((a,b) => a.id-b.id);
-  return group + (members.findIndex(member => member.id === person.id) + (group === 'A' ? 2 : 1));
+function treeMemberLabel(person) {
+  if (person.gender !== 'Female') return '<span class="pill"><bdi>' + ownedGroupName(person.id) + '</bdi></span>';
+  const group = hasGroup(person.id) ? '<bdi>' + groupName(person.id) + '</bdi>' : '';
+  return '<span class="pill tree-member-label" dir="ltr">' + displayId(person.id) + group + '</span>';
 }
 
 function groupMemberCount(person) {
@@ -1482,9 +1485,9 @@ function treeNode(person, isRoot = false) {
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
     '<span class="node-dot level-' + level + '" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
-    esc(memberName(person)) + '</strong><span class="pill"><bdi>' + (isRoot ? ownedGroupName(person.id) : groupMemberCode(person) || ownedGroupName(person.id)) + '</bdi></span>' +
+    esc(memberName(person)) + '</strong>' + treeMemberLabel(person) +
     (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
-    (isRoot ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
+    (isRoot && person.gender !== 'Female' ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
 }
 
 function stat(label, value) {
@@ -3633,10 +3636,15 @@ window.duroodClassicBridge = {
     for(const x of rows){
       if(!Number.isSafeInteger(Number(x.memberNumber))||Number(x.memberNumber)<1)continue;
       const memberId=Number(x.memberNumber);
+      // The original two women joined immediately after the founding owner.
+      const legacyNumber = memberId === 2 || memberId === 3 ? memberId - 1 : null;
+      const sideNumber = x.gender === 'female'
+        ? x.sideNumber ?? legacyNumber ?? (profile.role === 'owner' ? numbers.get(x.uid) : null)
+        : profile.role === 'owner' ? numbers.get(x.uid) : undefined;
       users.push({
         id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
-        isFoundingSpouse:x.gender==="female" && (profile.role==="owner" ? x.uid===women[0]?.uid : /^iramshahzad(?:i)?$/i.test(x.username||"") && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3"),
-        sideNumber:profile.role==="owner" ? numbers.get(x.uid) : undefined,
+        isFoundingSpouse:x.gender==="female" && sideNumber===1,
+        sideNumber,
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":
@@ -3657,7 +3665,7 @@ window.duroodClassicBridge = {
     selectedPeriod="all";
     record="current";
     if(!refresh)signIn(Number(profile.memberNumber)||1);
-    else if(section==="overview")render({keepScroll:true});
+    else if(section==="overview" || section==="tree")render({keepScroll:true});
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
@@ -3871,7 +3879,7 @@ async function hydrate(){
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
       uid:d.uid,name:d.name,username:d.username,gender:d.gender,
-      memberNumber:d.memberNumber,deleted:d.deleted===true,
+      memberNumber:d.memberNumber,sideNumber:d.sideNumber,deleted:d.deleted===true,
       disabled:d.disabled===true,inviterUid:d.inviterUid||null,
       joined:d.createdAt?.toDate?.()||new Date()
     }));
