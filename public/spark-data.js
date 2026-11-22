@@ -174,7 +174,7 @@ export async function profileNameSpark(name){
 export function localReadingDate(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
-export async function readingsSpark(amount,day=localReadingDate()){
+export async function readingsSpark(amount,day=localReadingDate(),tasbih=false){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
     localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
   const uid=requireUser();
@@ -204,6 +204,10 @@ export async function readingsSpark(amount,day=localReadingDate()){
       gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,lastEntryDay:day,
       lastEntryUid:uid,updatedAt:serverTimestamp()
     });
+    if(tasbih){
+      const reader=doc(sideRef,"days",day,"readers",uid);
+      tx.set(reader,{name:profile.data().name,total:increment(amount),lastTap:serverTimestamp(),seen:serverTimestamp()},{merge:true});
+    }
     tx.set(doc(sideRef,"days",day),{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
   });
   return {recorded:amount};

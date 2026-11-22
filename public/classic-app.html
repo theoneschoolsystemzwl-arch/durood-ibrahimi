@@ -1158,6 +1158,16 @@ body { background:linear-gradient(145deg,hsl(var(--theme-hue) 42% 91%),hsl(var(-
 .recitation-period strong { font-size:clamp(1.4rem,4vw,2.4rem); font-variant-numeric:tabular-nums; }
 .period-note { font-size:.78rem; }
 @media(min-width:700px){.recitation-periods{grid-template-columns:repeat(4,minmax(0,1fr));}}
+
+body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--theme-hue) 27% 95%));background-attachment:fixed}
+.recitation-banner,.recitation-periods .recitation-period {text-align:center;display:grid;justify-items:center;align-content:center;gap:.35rem;background:hsl(var(--theme-hue) 38% 91%);color:hsl(var(--theme-hue) 50% 19%);border:1px solid hsl(var(--theme-hue) 27% 74%);border-radius:16px}
+.recitation-banner {background:hsl(var(--theme-hue) 43% 24%);color:#fff}
+.recitation-period h2,.recitation-banner h2 {font-family:"Noto Naskh Arabic",Georgia,serif;font-weight:600;line-height:1.7;padding:.1em .7em;background:hsl(var(--theme-hue) 35% 98% / .54);border-radius:9px}
+.recitation-banner h2 {background:#ffffff1c}
+.reader-list {margin:0;padding-inline-start:1.5rem}
+.reader-list li {padding:.5rem .25rem;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.reader-person {display:inline-grid;gap:2px}.reader-person small {color:var(--muted)}
+.reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 </head>
 <body>
@@ -1680,6 +1690,18 @@ function liveFeed() {
     formatNumber(item.amount) + '</strong></li>').join('');
 }
 
+let todayReaders=null;
+function readerList(){
+  if(!todayReaders)return tr("Loading today’s list…","آج کی فہرست لوڈ ہو رہی ہے…");
+  if(!todayReaders.length)return tr("No tasbih recorded today.","آج ابھی کسی نے تسبیح درج نہیں کی۔");
+  const now=Date.now();
+  return '<ol class="reader-list">'+todayReaders.map(row=>{
+    const online=now-row.seen<90000,active=online && now-row.lastTap<90000;
+    const seconds=Math.max(0,Math.floor((now-row.lastTap)/1000));
+    const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
+    return '<li><span class="reader-person"><b>'+esc(row.name)+'</b><small>'+status+' · '+tr("Last tap","آخری تسبیح")+' '+(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(row.lastTap)))+'</small></span><strong>'+displayNumber(row.total)+'</strong></li>';
+  }).join('')+'</ol>';
+}
 let periodCounts=null;
 function periodLabels(){
   return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
@@ -1694,12 +1716,8 @@ function overview() {
     displayNumber(communityGoal) + '<strong id="goal-percent">' + progressPercent() + '%</strong></div>' +
     tr("<progress id=\"goal-progress\" aria-label=\"Community goal progress\" max=\"", '<progress id="goal-progress" aria-label="اجتماعی ہدف کی پیش رفت" max="') + communityGoal + '" value="' +
     Math.min(communityGoal,globalTotal) + '"></progress></div>' +
-    tr("<section class=\"panel section live-panel\"><div class=\"panel-head\"><div><h2>Live count</h2>", '<section class="panel section live-panel"><div class="panel-head"><div><h2>براہِ راست محفوظ شمار</h2>') +
-    ur(tr("New entries join the total as they are saved.", 'محفوظ ہوتے ہی نیا شمار مجموعے میں شامل ہوتا ہے۔'),'p','muted') + '</div><span class="pill live-badge' +
-    (liveRunning ? '' : ' paused') + '">' + (liveRunning ? tr("Firebase live", 'فائر بیس براہِ راست') : tr("Firebase live", 'فائر بیس براہِ راست')) + '</span></div>' +
-    '<div class="live-summary"><div><strong id="live-saved">' + displayNumber(liveAdded) +
-    tr("</strong><small class=\"muted\">New entries in this demo</small></div><button class=\"button secondary\" data-action=\"toggle-live\">", '</strong><small class="muted">اس ڈیمو میں نئے محفوظ اندراجات</small></div><button class="button secondary" data-action="toggle-live">') +
-    (liveRunning ? tr("Pause demo", 'ڈیمو روکیں') : tr("Resume demo", 'ڈیمو چلائیں')) + '</button></div><ul id="live-feed" class="live-feed">' + liveFeed() + '</ul></section>';
+    '<section class="panel section readers-section"><h2>'+tr("Today’s tasbih readers","آج تسبیح پڑھنے والے")+'</h2><div id="today-readers">'+readerList()+'</div></section>';
+
 }
 
 function simulateSave() {
@@ -3578,6 +3596,11 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  readers(rows){
+    todayReaders=rows;
+    const list=document.getElementById("today-readers");
+    if(list)list.innerHTML=readerList();
+  },
   periodTotals(values){
     periodCounts=values;
     document.querySelectorAll('[data-period]').forEach(el=>{el.textContent=values ? formatNumber(values[el.dataset.period]) : '—';});
@@ -3591,8 +3614,8 @@ window.duroodClassicBridge = {
     const percent=document.getElementById("goal-percent");
     if(percent)percent.textContent=progressPercent()+"%";
   },
-  enter(profile,rows,totals){
-    periodCounts=null;
+  enter(profile,rows,totals,refresh=false){
+    if(!refresh){periodCounts=null;todayReaders=null;}
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
@@ -3621,11 +3644,12 @@ window.duroodClassicBridge = {
     }
     for(const member of users)if(member.isFoundingSpouse)member.sideNumber=1;
     users.sort((a,b)=>a.id-b.id);
-    globalTotal=Number(totals.global||0);
+    if(!refresh)globalTotal=Number(totals.global||0);
     liveAdded=0;
     selectedPeriod="all";
     record="current";
-    signIn(Number(profile.memberNumber)||1);
+    if(!refresh)signIn(Number(profile.memberNumber)||1);
+    else if(section==="overview")render({keepScroll:true});
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
@@ -3700,10 +3724,10 @@ document.addEventListener('keydown',event => {
 <script type="module">
 import "./profile-contacts.js";
 import {auth,db} from "./firebase-client.js";
-import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=period-counts";
+import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=readers";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=readers";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {updateDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
@@ -3729,10 +3753,28 @@ function observeCounters(side){
   stopCounters();
   const sideRef=doc(db,"genderStats",side);
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
-  let stopDays=()=>{},timer;
+  let stopDays=()=>{},stopRows=()=>{},timer,rows=null,myRow=null,lastPing=0;
+  const pulse=setInterval(()=>{
+    if(document.hidden)return;
+    if(rows)bridge.readers(rows);
+    if(myRow && Date.now()-lastPing>=45000){
+      lastPing=Date.now();
+      updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
+    }
+  },5000);
   function watchDays(){
-    stopDays();
+    stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);
     const now=new Date(),today=localReadingDate(now);
+    const readers=collection(sideRef,"days",today,"readers");
+    stopRows=onSnapshot(query(readers,orderBy("total","desc")),{includeMetadataChanges:true},snap=>{
+      if(snap.metadata.fromCache && snap.empty)return;
+      rows=snap.docs.map(item=>{
+        const data=item.data({serverTimestamps:"estimate"});
+        return {name:data.name,total:data.total,lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
+      });
+      myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
+      bridge.readers(rows);
+    },e=>console.warn("Readers",e.code));
     const monday=new Date(now);
     monday.setDate(now.getDate()-(now.getDay()+6)%7);
     const week=localReadingDate(monday),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
@@ -3753,15 +3795,29 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopTotal();stopDays();clearTimeout(timer);};
+  stopCounters=()=>{stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
-  if(!user){window.location.replace("/");return;}
-  const profile=await loadMemberProfile(user);
+  if(!user){
+    stopCounters();
+    if(window.parent!==window)window.parent.postMessage({type:"durood-use-top"},location.origin);
+    else window.location.replace("/");
+    return;
+  }
+  const profile=(window.parent!==window && window.parent.duroodVerifiedProfile?.(user.uid)) || await loadMemberProfile(user);
   const owner=profile.role==="owner";
   const side=owner && window.duroodOwnerSide==="female"?"female":
     (!owner && profile.gender==="female"?"female":"male");
+  const opening=!currentProfile || window.duroodCurrentSide!==side;
+  if(opening){
+    window.duroodCurrentSide=side;
+    window.duroodChatRows=[];
+    currentProfile=profile;
+    bridge.enter(profile,[profile],{});
+    observeCounters(side);
+    if(window.parent!==window)window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
+  }
   const docs=new Map([[profile.uid,profile]]);
   if(owner){
     const snap=await getDocs(collection(db,"members"));
@@ -3793,20 +3849,17 @@ async function hydrate(){
     }
     const top=[...ranked.docs].sort((a,b)=>
       Number(b.get("total")||0)-Number(a.get("total")||0)).slice(0,10);
-    for(const item of top){
+    await Promise.all(top.map(async item=>{
       if(!docs.has(item.id)){
         const member=await getDoc(doc(db,"members",item.id));
         if(member.exists())docs.set(item.id,{...member.data(),uid:item.id});
       }
-    }
+    }));
   }catch(e){console.warn("Side ranking unavailable",e.code||e);}
-  const [sideTotal,count]=await Promise.all([
-    getDoc(doc(db,"genderStats",side)),
-    owner && side==='female' ? null : getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
+  const count=owner && side==='female' ? null : await getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
       console.warn("Personal count unavailable",error.code);
       return null;
-    })
-  ]);
+    });
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
       uid:d.uid,name:d.name,username:d.username,gender:d.gender,
@@ -3822,17 +3875,8 @@ async function hydrate(){
     catch(error){console.warn("Profile photo unavailable",error.code);}
   }
   if(auth.currentUser?.uid!==profile.uid)return;
-  window.duroodCurrentSide=side;
-  window.duroodChatRows=[];
-  bridge.enter(profile,rows,{
-    global:sideTotal.exists()?Number(sideTotal.get("totalRecitations")||0):0,
-    memberCounts
-  });
-  observeCounters(side);
-  currentProfile=profile;
-  if(window.parent!==window){
-    window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
-  }
+  if(window.duroodCurrentSide!==side)return;
+  bridge.enter(profile,rows,{memberCounts},true);
   if(owner && side==='female')return;
   try{
     const month=new Date().toISOString().slice(0,7);
@@ -3843,10 +3887,16 @@ async function hydrate(){
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
 onAuthStateChanged(auth,async user=>{
-  if(!user){window.location.replace("/");return;}
+  if(!user){
+    stopCounters();
+    if(window.parent!==window)window.parent.postMessage({type:"durood-use-top"},location.origin);
+    else window.location.replace("/");
+    return;
+  }
   try{await hydrate();}
   catch(err){
     console.error("Classic Firebase dashboard",err);
+    if(currentProfile && auth.currentUser?.uid===currentProfile.uid){bridge.notice(errorText(err));return;}
     if(window.parent!==window){
       window.parent.postMessage({type:"durood-classic-error"},location.origin);
     }
@@ -3953,7 +4003,7 @@ ui.addEventListener("click",event=>{
     event.stopImmediatePropagation();event.preventDefault();
     // Serialise writes to avoid lost increments during rapid tapping.
     readingQueue=readingQueue.catch(()=>{}).then(async()=>{
-      await readingsSpark(1);
+      await readingsSpark(1,undefined,true);
       bridge.tap();
     }).catch(e=>bridge.notice("درود محفوظ نہیں ہو سکا: "+errorText(e)));
     return;

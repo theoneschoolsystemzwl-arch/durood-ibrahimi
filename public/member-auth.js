@@ -181,7 +181,7 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
     // Keep a valid credential while the profile service is unavailable.
-    if(error.loginStage!=="firestore-profile" || ["permission-denied","firestore/permission-denied","unauthenticated","firestore/unauthenticated"].includes(error.code)){
+    if(error.loginStage==="missing-member-profile" || error.code==="member/already-online"){
       if(auth.currentUser?.uid===credential.user.uid)await firebaseSignOut(auth);
     }
     throw error;

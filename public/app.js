@@ -3,9 +3,9 @@ import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
   claimDeviceSession, signOut, onAuthStateChanged
-} from "./member-auth.js";
+} from "./member-auth.js?release=readers";
 import "./profile-contacts.js";
-import {generatedUsername,readingsSpark} from "./spark-data.js?release=period-counts";
+import {generatedUsername,readingsSpark} from "./spark-data.js?release=readers";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
@@ -14,6 +14,8 @@ import {initializeCommunityPages,activateMemberHome} from "./community-pages.js"
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
+// The frame reuses the profile already checked by login, after Firebase restores the same UID.
+window.duroodVerifiedProfile=uid=>auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
 let classicFrameRequested=false;
 let dashboardTimer;
 
@@ -289,13 +291,17 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app?release=period-counts";
+  frame.src="./classic-app?release=readers";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
 window.addEventListener("message",event=>{
   const frame=$("#classic-frame");
   if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
+  if(event.data?.type==="durood-use-top" && appState.profile?.uid===auth.currentUser?.uid && auth.currentUser){
+    location.replace("./classic-app?release=readers");
+    return;
+  }
   if(event.data?.type==="durood-classic-ready" &&
      appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
     frame.hidden=false;
@@ -387,19 +393,19 @@ onAuthStateChanged(auth,async user=>{
 $("#signout").addEventListener("click",async()=>{
   try{await signOut(auth);}catch(err){message("#reading-message",errorText(err));}
 });
-async function addRecitations(amount){
+async function addRecitations(amount,tasbih=false){
   if(appState.busy||!auth.currentUser)return;
   updateBusy(true);
   message("#reading-message","");
   try{
-    await readingsSpark(amount);
+    await readingsSpark(amount,undefined,tasbih);
     await refreshCounts();
     message("#reading-message",number.format(amount)+" درود شمار میں شامل ہو گئے۔",true);
   }catch(err){message("#reading-message",errorText(err));}
   finally{updateBusy(false);}
 }
-$("#add-one").addEventListener("click",()=>addRecitations(1));
-$("#add-ten").addEventListener("click",()=>addRecitations(10));
+$("#add-one").addEventListener("click",()=>addRecitations(1,true));
+$("#add-ten").addEventListener("click",()=>addRecitations(10,true));
 $("#manual-form").addEventListener("submit",async event=>{
   event.preventDefault();
   const amount=Number($("#manual-amount").value);
