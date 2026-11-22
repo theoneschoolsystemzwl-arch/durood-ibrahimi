@@ -3555,14 +3555,15 @@ window.duroodClassicBridge = {
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
-    const numbers=new Map(women.map((x,i)=>[x.uid,i+1]));
+    const men=rows.filter(x=>x.gender!=='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
+    const numbers=new Map([...women.map((x,i)=>[x.uid,i+1]),...men.map((x,i)=>[x.uid,i+1])]);
     users.length=0;
     for(const x of rows){
       if(!Number.isSafeInteger(Number(x.memberNumber))||Number(x.memberNumber)<1)continue;
       const memberId=Number(x.memberNumber);
       users.push({
         id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
-        isFoundingSpouse:x.gender==="female" && (profile.role==="owner" ? numbers.get(x.uid)===1 : /^iramshahzad(?:i)?$/i.test(x.username||"") && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3"),
+        isFoundingSpouse:x.gender==="female" && (profile.role==="owner" ? x.uid===women[0]?.uid : /^iramshahzad(?:i)?$/i.test(x.username||"") && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3"),
         sideNumber:profile.role==="owner" ? numbers.get(x.uid) : undefined,
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
