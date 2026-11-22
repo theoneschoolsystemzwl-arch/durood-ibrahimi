@@ -3,7 +3,7 @@
 import {auth,db} from "./firebase-client.js";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
-  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,increment
+  doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,deleteDoc,increment
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const PROJECT="durood-e-ibrahimi-global-c74e0";
@@ -107,6 +107,22 @@ export async function invitationSpark(){
     }
   }
   throw Error("دعوتی کوڈ نہیں بن سکا۔");
+}
+// Owner-authorized recovery when the original member phone is lost or broken.
+// This never runs during a second login; the Owner must explicitly approve it.
+export async function resetMemberSessionSpark(uid){
+  const ownerUid=requireUser();
+  if(typeof uid!=="string"||!uid||uid===ownerUid)
+    throw Error("ممبر کا اکاؤنٹ منتخب کریں۔");
+  const [issuer,target]=await Promise.all([
+    getDoc(memberRef(ownerUid)),getDoc(memberRef(uid))
+  ]);
+  if(!issuer.exists()||issuer.data().role!=="owner"||!target.exists()||
+     target.data().role==="owner"){
+    throw Error("صرف Owner ممبر کا لاگ اِن ری سیٹ کر سکتا ہے۔");
+  }
+  // Security Rules independently enforce Owner identity and target UID.
+  await deleteDoc(doc(db,"activeLogins",uid));
 }
 export async function memberActiveSpark(uid,active){
   requireUser();
