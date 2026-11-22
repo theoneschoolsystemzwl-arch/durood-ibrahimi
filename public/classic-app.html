@@ -1133,7 +1133,7 @@ body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:clip}
 }
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
-[data-action="open-delete"]{display:none!important}
+/* Member removal is soft and reversible; the original DI ID is preserved. */
 </style>
 </head>
 <body>
@@ -1362,7 +1362,9 @@ function rankCard(entry, index) {
 }
 
 function ranking() {
-  const top = users.filter(person => !person.disabled).map(person => ({person, total:score(person, selectedPeriod, record)}))
+  const top = users.filter(person => !person.disabled &&
+    !(window.duroodCurrentSide === 'female' && person.id === 1))
+    .map(person => ({person, total:score(person, selectedPeriod, record)}))
     .filter(entry => entry.total > 0)
     .sort((first, second) => second.total - first.total || first.person.id - second.person.id).slice(0,10);
   return heading(tr("Top Members", 'نمایاں ارکان'),tr("The ten members with the highest recorded counts for this period.", 'منتخب مدت میں سب سے زیادہ شمار درج کرنے والے دس ممبرز۔')) +
@@ -1416,7 +1418,9 @@ function tree(person) {
 
 function groups() {
   return heading(tr("Groups", 'گروپس'),tr("The letter shows the branch depth. The digits show the number of direct invites.", 'گروپ کا حرف شاخ کی سطح اور ہندسے براہِ راست دعوتوں کی تعداد دکھاتے ہیں۔')) +
-    '<div class="groups">' + users.filter(person => person.id === 1 || directMembers(person.id).length).map(person =>
+    '<div class="groups">' + users.filter(person =>
+      !(window.duroodCurrentSide === 'female' && person.id === 1) &&
+      (person.id === 1 || directMembers(person.id).length)).map(person =>
       '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
@@ -1427,7 +1431,9 @@ function groups() {
 function directory() {
   return heading(tr("Registered Users", 'تمام رجسٹرڈ صارفین'),tr("Members are listed in permanent ID order.", 'ممبرز مستقل آئی ڈی کے لحاظ سے سیریل وار ترتیب میں ہیں۔')) +
     '<div class="panel-head"><span class="pill">' + displayNumber(users.length) + tr(" Users</span></div>", ' صارفین</span></div>') +
-    '<div class="directory">' + users.map(person =>
+    '<div class="directory">' + users.filter(person =>
+      !(window.duroodCurrentSide === 'female' && person.id === 1))
+      .map(person =>
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
       tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + groupName(person.id) + '</bdi>' +
@@ -3451,14 +3457,16 @@ window.duroodClassicBridge = {
         id:memberId,uid:x.uid,name:x.name||"Member",username:x.username||"",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:""
+        age:"",birthDate:"",gender:x.gender==="female"?"Female":
+          x.gender==="male"?"Male":"",phone:"",address:"",photo:"",
+        deleted:x.deleted===true
       });
     }
     if(!getUser(Number(profile.memberNumber))) {
       users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,name:profile.name||"Owner",
         username:profile.username||"owner",inviter:null,daily:0,
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:""});
+        age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
     }
     users.sort((a,b)=>a.id-b.id);
     globalTotal=Number(totals.global||0);
