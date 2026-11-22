@@ -58,7 +58,7 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
     });
   }));
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
-    authTime:1700000000,deviceId:"test-device-member-two",claimedAt:serverTimestamp()
+    authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
   // Second sign-in has a different server-issued auth_time. It cannot read
@@ -67,13 +67,13 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
   const newPhone=env.authenticatedContext(newId,{auth_time:1700000001}).firestore();
   await assertFails(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
   await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
-    authTime:1700000001,deviceId:"test-device-second-phone",claimedAt:serverTimestamp()
+    authTime:1700000001,sessionId:"test-device-second-phone",claimedAt:serverTimestamp()
   }));
   await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
   await assertSucceeds(getDoc(doc(newPhone,"members",newId)));
   // Restore the first sign-in to complete the pre-existing recitation tests.
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
-    authTime:1700000000,deviceId:"test-device-member-two",claimedAt:serverTimestamp()
+    authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(doc(newDb,"system","membership"),{lastNumber:999}));
   await assertFails(updateDoc(doc(newDb,"invitations","abc123"),{used:false}));
@@ -106,7 +106,7 @@ const {doc,getDoc,setDoc,updateDoc,runTransaction,serverTimestamp}=require("fire
       gender:"female",serial:"DI-3",memberNumber:3,disabled:false,inviterUid:ownerId
     });
     await setDoc(doc(admin,"activeLogins","woman-uid"),{
-      authTime:1700000030,deviceId:"device-for-woman-01",claimedAt:new Date()
+      authTime:1700000030,sessionId:"device-for-woman-01",claimedAt:new Date()
     });
     await setDoc(doc(admin,"invitations","male01"),{
       byUid:newId,gender:"male",used:false,revoked:false,createdAt:new Date()
