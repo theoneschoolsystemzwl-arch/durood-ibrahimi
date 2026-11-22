@@ -61,6 +61,9 @@ ruleset="$(printf '%s' "$release_json" | node -e '
   });')"
 curl --fail --silent --show-error --header "Authorization: Bearer $token" \
   "https://firebaserules.googleapis.com/v1/$ruleset" > /tmp/durood-firebase-active-rules.json
+# GitHub checkout is shallow by default. Fetch history strictly for the
+# read-only source comparison; never attempt a rule update without it.
+git fetch --quiet --no-tags --depth=30 origin main
 node <<'NODE'
 const fs=require('fs'),cp=require('child_process');
 const response=JSON.parse(fs.readFileSync('/tmp/durood-firebase-active-rules.json','utf8'));
