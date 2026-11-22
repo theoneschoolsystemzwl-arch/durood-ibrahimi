@@ -21,8 +21,10 @@ import android.view.Gravity;
 
 public final class MainActivity extends Activity {
     // Use the published and verified HTTPS website; Firebase Auth/Firestore still run online.
-    private static final String WEB_URL = "https://durood-ibrahimi.pages.dev/";
-    private static final String WEB_HOST = "durood-ibrahimi.pages.dev";
+    private static final String WEB_URL = "https://durood-e-ibrahimi-global-c74e0.web.app/";
+    private static final String WEB_HOST = "durood-e-ibrahimi-global-c74e0.web.app";
+    private static final int PICK_IMAGE = 42;
+    private android.webkit.ValueCallback<Uri[]> pendingImage;
     private WebView web;
     private FrameLayout root;
     private TextView retryView;
@@ -66,7 +68,19 @@ public final class MainActivity extends Activity {
             settings.setAllowContentAccess(false);
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             settings.setSupportMultipleWindows(false);
-            web.setWebChromeClient(new WebChromeClient());
+            web.setWebChromeClient(new WebChromeClient() {
+                @Override public boolean onShowFileChooser(WebView view,
+                        android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
+                    if (pendingImage != null) pendingImage.onReceiveValue(null);
+                    pendingImage = callback;
+                    Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    pick.addCategory(Intent.CATEGORY_OPENABLE);
+                    pick.setType("image/*");
+                    try { startActivityForResult(pick, PICK_IMAGE); }
+                    catch (ActivityNotFoundException e) { finishImage(null); }
+                    return true;
+                }
+            });
             web.setWebViewClient(new WebViewClient() {
                 @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                     pageFailed=false;
@@ -126,6 +140,23 @@ public final class MainActivity extends Activity {
                     ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
         }
     }
+    private void finishImage(Uri selected) {
+        android.webkit.ValueCallback<Uri[]> callback = pendingImage;
+        pendingImage = null;
+        if (callback != null) callback.onReceiveValue(selected == null ? null : new Uri[]{selected});
+    }
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != PICK_IMAGE) return;
+        Uri selected = result == RESULT_OK && data != null ? data.getData() : null;
+        if (selected != null && "content".equals(selected.getScheme())) {
+            try {
+                String mime = getContentResolver().getType(selected);
+                if (mime != null && mime.startsWith("image/")) { finishImage(selected); return; }
+            } catch (SecurityException ignored) { }
+        }
+        finishImage(null);
+    }
     @Override public void onBackPressed() {
         if(web!=null && web.canGoBack())web.goBack();
         else super.onBackPressed();
@@ -139,6 +170,7 @@ public final class MainActivity extends Activity {
         if(web!=null)web.onResume();
     }
     @Override protected void onDestroy(){
+        finishImage(null);
         if(web!=null){
             root.removeView(web);
             web.destroy();

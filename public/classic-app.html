@@ -1268,6 +1268,29 @@ function ur(text, tag = 'p', classes = '') {
   return '<' + tag + ' class="ur ' + classes + '">' + text + '</' + tag + '>';
 }
 
+async function prepareProfilePhoto(file){
+  if(!/^image\/(png|jpe?g|webp|gif|avif)$/.test(file.type)||file.size>20*1024*1024){
+    throw Error("تصویر JPG، PNG، WebP، GIF یا AVIF میں اور 20 MB سے کم ہونی چاہیے۔");
+  }
+  const url=URL.createObjectURL(file);
+  try{
+    const picture=new Image();
+    picture.src=url;
+    await picture.decode();
+    const scale=Math.min(1,384/Math.max(picture.naturalWidth,picture.naturalHeight));
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(picture.naturalWidth*scale));
+    canvas.height=Math.max(1,Math.round(picture.naturalHeight*scale));
+    const context=canvas.getContext("2d");
+    context.fillStyle="#fff";
+    context.fillRect(0,0,canvas.width,canvas.height);
+    context.drawImage(picture,0,0,canvas.width,canvas.height);
+    const image=canvas.toDataURL("image/jpeg",0.78);
+    if(!image.startsWith("data:image/jpeg;base64,")||image.length>180000)throw Error("تصویر چھوٹی کر کے دوبارہ منتخب کریں۔");
+    return image;
+  }finally{URL.revokeObjectURL(url);}
+}
+
 function avatar(person, large = false) {
   const initials = memberName(person).trim().split(/\s+/u).slice(0,2).map(word => Array.from(word)[0]).join('').toUpperCase();
   return '<span class="avatar' + (large ? ' large' : '') + '" aria-hidden="true">' +
@@ -1510,7 +1533,7 @@ function settings(person) {
       tr("<button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Manage users</button></div>", '<button class="button secondary" data-action="nav" data-value="directory">صارفین کا انتظام</button></div>') +
       ur(tr("Select a member to suspend, restore or delete their account.", 'ممبر منتخب کر کے اس کا اکاؤنٹ بند، بحال یا حذف کریں۔'),'p','muted') + '</section><div class="section"></div>' : '') +
     '<section class="panel"><div class="profile-title"><span id="photo-view">' + avatar(person,true) + tr("</span><div><strong>Profile photo</strong>", '</span><div><strong>پروفائل کی تصویر</strong>') +
-    tr("<small class=\"muted\">Shown in the referral tree</small><br><label class=\"button secondary\">Upload photo<input class=\"visually-hidden\" type=\"file\" id=\"photo\" accept=\"image/*\"></label></div></div>", '<small class="muted">دعوتی شجرے میں دکھائی جائے گی</small><br><label class="button secondary">تصویر اپ لوڈ کریں<input class="visually-hidden" type="file" id="photo" accept="image/*"></label></div></div>') +
+    tr("<small class=\"muted\">Shown on your profile</small><br><label class=\"button secondary\">Upload photo<input class=\"visually-hidden\" type=\"file\" id=\"photo\" accept=\"image/*\"></label></div></div>", '<small class="muted">آپ کے پروفائل پر دکھائی جائے گی</small><br><label class="button secondary">تصویر اپ لوڈ کریں<input class="visually-hidden" type="file" id="photo" accept="image/*"></label></div></div>') +
     tr("<form id=\"profile-form\" class=\"form\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" value=\"", '<form id="profile-form" class="form"><label class="field">پورا نام<input name="name" dir="auto" value="') + esc(memberName(person)) +
     tr("\" maxlength=\"60\" required></label><label class=\"field\">Member ID and Login ID<input readonly value=\"", '" maxlength="60" required></label><label class="field">رکنیت نمبر اور لاگ اِن آئی ڈی<input readonly value="') + serial(person.id) + ' | ' +
     esc(person.username) + '"></label><div class="form-grid">' +
@@ -3344,21 +3367,15 @@ app.addEventListener('change', event => {
   if (input.matches('[data-prayer-city]')) updatePrayerCity(input);
   if (input.id !== 'photo' || !input.files.length) return;
   const file = input.files[0];
-  if (!/^image\/(png|jpe?g|webp|gif|avif)$/.test(file.type) || file.size > 3 * 1024 * 1024) {
-    input.value = '';
-    setFeedback('profile-feedback',tr("Use PNG، JPEG، WebP، GIF or AVIF format. Maximum size 3 MB .", 'تصویر PNG، JPEG، WebP، GIF یا AVIF فارمیٹ میں رکھیں۔ زیادہ سے زیادہ سائز 3 MB ہے۔'));
-    return;
-  }
-  const userId = currentUserId;
-  const reader = new FileReader();
-  reader.addEventListener('load', () => {
-    if (input !== document.getElementById('photo') || userId !== currentUserId) return;
-    photoDraft = reader.result;
-    document.getElementById('photo-view').innerHTML = avatar({...currentUser(),photo:photoDraft},true);
-    setFeedback('profile-feedback',tr("Photo selected. Save your profile to apply it.", 'تصویر منتخب ہے۔ محفوظ کرنے کے لیے نیچے بٹن دبائیں۔'),true);
-  });
-  reader.addEventListener('error', () => setFeedback('profile-feedback',tr("This photo could not be opened. Choose another image.", 'تصویر نہیں کھل سکی۔ دوسری تصویر منتخب کریں۔')));
-  reader.readAsDataURL(file);
+  photoDraft=null;
+  const task=prepareProfilePhoto(file);
+  input.photoTask=task;
+  task.then(image=>{
+    if(!input.isConnected||input.files[0]!==file)return;
+    photoDraft=image;
+    document.getElementById("photo-view").innerHTML=avatar({...currentUser(),photo:image},true);
+    setFeedback("profile-feedback","تصویر منتخب ہے۔ محفوظ کرنے کے لیے پروفائل محفوظ کریں دبائیں۔",true);
+  }).catch(()=>{if(input.isConnected && input.files[0]===file)setFeedback("profile-feedback","تصویر نہیں کھل سکی۔ 20 MB سے چھوٹی JPG یا PNG تصویر منتخب کریں۔");});
 });
 
 app.addEventListener('submit', async event => {
@@ -3452,14 +3469,14 @@ window.duroodClassicBridge = {
         isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:""
+        age:"",birthDate:"",gender:"",phone:"",address:"",photo:x.photo||""
       });
     }
     if(!getUser(Number(profile.memberNumber))) {
       users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,name:profile.name||"Owner",
         username:profile.username||"owner",inviter:null,daily:0,
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
-        age:"",birthDate:"",gender:"",phone:"",address:"",photo:""});
+        age:"",birthDate:"",gender:"",phone:"",address:"",photo:x.photo||""});
     }
     users.sort((a,b)=>a.id-b.id);
     globalTotal=Number(totals.global||0);
@@ -3485,10 +3502,11 @@ window.duroodClassicBridge = {
     p.disabled=disabled;render({keepScroll:true});
   },
   userForCurrent(){return currentUser()?.uid||null;},
-  setName(value){
+  setName(value,image){
     const p=currentUser();if(!p)return;
+    if(image){p.photo=image;photoDraft=null;}
     p.name=value;render({keepScroll:true});
-    setFeedback("profile-feedback",tr("Name saved to Firebase.","نام Firebase میں محفوظ ہوگیا۔"),true);
+    setFeedback("profile-feedback",tr("Profile saved.","پروفائل محفوظ ہو گیا۔"),true);
   },
   loadPrayerDays(days){
     const p=currentUser();if(!p)return;
@@ -3537,7 +3555,7 @@ import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js";
 import {readingsSpark,invitationSpark,memberActiveSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark} from "./spark-data.js";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
@@ -3579,6 +3597,12 @@ async function hydrate(){
     const ranked=await getDocs(query(collection(db,"memberCounts"),orderBy("total","desc"),limit(10)));
     for(const d of ranked.docs)memberCounts[d.id]=Number(d.get("total")||0);
   }catch{}
+  const ownRow=rows.find(row=>row.uid===profile.uid);
+  if(ownRow){
+    try{ownRow.photo=(await getDoc(doc(db,"memberPhotos",profile.uid))).data()?.image||"";}
+    catch(error){console.warn("Profile photo unavailable",error.code);}
+  }
+  if(auth.currentUser?.uid!==profile.uid)return;
   bridge.enter(profile,rows,{global:global.exists()?global.get("totalRecitations")||0:0,memberCounts});
   currentProfile=profile;
   // Parent hides its working portal only after the original dashboard is ready.
@@ -3668,8 +3692,24 @@ ui.addEventListener("submit",event=>{
   }else if(form.id==="profile-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const name=String(new FormData(form).get("name")||"").trim();
-    profileNameSpark(name).then(()=>bridge.setName(name))
-      .catch(e=>bridge.status("profile-feedback",errorText(e),false));
+    const picker=document.getElementById("photo");
+    const button=form.querySelector('button[type="submit"],button:not([type])');
+    if(button?.disabled)return;
+    if(button)button.disabled=true;
+    const uid=auth.currentUser?.uid;
+    Promise.resolve(picker?.files?.length?picker.photoTask:null).then(async image=>{
+      if(!uid||auth.currentUser?.uid!==uid)throw Error("دوبارہ لاگ اِن کریں۔");
+      if(picker?.files?.length&&!image)throw Error("تصویر دوبارہ منتخب کریں۔");
+      if(image){
+        if(name.length<2||name.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
+        const batch=writeBatch(db);
+        batch.update(doc(db,"members",uid),{name,updatedAt:serverTimestamp()});
+        batch.set(doc(db,"memberPhotos",uid),{image});
+        await batch.commit();
+      }else await profileNameSpark(name);
+      if(auth.currentUser?.uid===uid)bridge.setName(name,image);
+    }).catch(e=>bridge.status("profile-feedback",errorText(e),false))
+      .finally(()=>{if(button?.isConnected)button.disabled=false;});
   }else if(form.id==="password-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const d=new FormData(form),old=String(d.get("old")||""),next=String(d.get("password")||""),confirm=String(d.get("confirm")||"");

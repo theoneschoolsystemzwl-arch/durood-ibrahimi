@@ -9,6 +9,13 @@ service cloud.firestore {
         request.resource.data.mobile is string && request.resource.data.mobile.size() <= 32 &&
         request.resource.data.email is string && request.resource.data.email.size() <= 254;
     }
+    match /memberPhotos/{uid} {
+      allow get: if self(uid) && currentMember();
+      allow create, update: if self(uid) && currentMember() &&
+        request.resource.data.keys().hasOnly(['image']) &&
+        request.resource.data.image is string && request.resource.data.image.size() <= 180000 &&
+        request.resource.data.image.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+');
+    }
     function signed() { return request.auth != null; }
     function self(uid) { return signed() && request.auth.uid == uid; }
     function memberPath(uid) {
