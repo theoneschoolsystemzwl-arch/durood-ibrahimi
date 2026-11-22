@@ -798,6 +798,13 @@ service cloud.firestore {
     // A personal Wazifa can be sent only to a verified member of the
     // SAME gender. The payload is matched against the sender's own item,
     // not arbitrary text; no recipient can read the sender's private list.
+    function wzSharingSenderSerial() {
+      let me=get(memberPath(request.auth.uid)).data;
+      return genderOf(me) == 'female' ?
+        'D' + string(me.get('sideNumber',
+          me.memberNumber == 2 ? 1 : (me.memberNumber == 3 ? 2 : me.memberNumber))) :
+        'DI-' + string(me.memberNumber);
+    }
     function validWzInbox(uid) {
       let d=request.resource.data;
       let origin=get(wzPersonalPath(request.auth.uid,d.sourceId)).data;
@@ -812,7 +819,7 @@ service cloud.firestore {
         d.senderUid == request.auth.uid && d.recipientUid == uid &&
         d.sourceId is string && d.sourceId.size() >= 10 &&
         d.sourceId.size() <= 120 &&
-        d.senderSerial == 'DI-' + string(get(memberPath(request.auth.uid)).data.memberNumber) &&
+        d.senderSerial == wzSharingSenderSerial() &&
         d.title == origin.title && d.arabic == origin.arabic &&
         d.instructions == origin.instructions && d.purpose == origin.purpose &&
         d.kind == origin.kind && d.goal == origin.goal &&
