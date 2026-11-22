@@ -8,6 +8,9 @@ const auth=fs.readFileSync("public/member-auth.js","utf8");
 const fn=fs.readFileSync("functions/index.js","utf8");
 const rules=fs.readFileSync("firestore.rules","utf8");
 const config=JSON.parse(fs.readFileSync("firebase.json","utf8"));
+const styles=fs.readFileSync("public/styles.css","utf8");
+const classic=fs.readFileSync("public/classic-app.html","utf8");
+const native=fs.readFileSync("android-online/src/app/duroodibrahimi/online/MainActivity.java","utf8");
 function present(txt,needle){assert.ok(txt.includes(needle),"Missing "+needle);}
 for(const item of ["tab-login","tab-register","id=\"access-form\"","id=\"login-fields\"","id=\"register-fields\""])present(html,item);
 assert.equal((html.match(/<form id=\"access-form\"/g)||[]).length,1,"There must be one combined account form");
@@ -66,4 +69,14 @@ assert.equal(config.firestore.rules,"firestore.rules");
 for(const asset of ["public/index.html","public/app.js","public/member-auth.js","public/firebase-client.js","public/styles.css","public/community-pages.js","public/password-change.js","public/spark-data.js","functions/scripts/bootstrap-owner.mjs"]){
   assert.ok(fs.statSync(asset).size>0,asset+" must be present");
 }
+// Guard against regression to Android viewport reflow and jumping nav tabs.
+present(styles,".classic-frame{");
+present(styles,"opacity:0;visibility:hidden;pointer-events:none");
+present(styles,"height:100%");
+assert.ok(!styles.includes("height:100dvh"),"Dynamic frame height made Android tabs jump");
+present(client,"frame.hidden=false;");
+present(classic,"overflow-x:clip");
+present(classic,".nav{flex:1 0 45px;min-width:45px");
+present(native,"settings.setUseWideViewPort(true)");
+present(native,"settings.setLoadWithOverviewMode(false)");
 console.log("Spark structural checks passed. Firestore rule emulation and real deployment are separate.");
