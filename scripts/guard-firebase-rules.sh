@@ -73,6 +73,13 @@ if(!existing || typeof existing.content!=='string'){
   console.error('Could not verify currently published Firestore rules. Refusing unsafe overwrite.');
   process.exit(1);
 }
+const normalize=s=>s.replace(/\r\n/g,'\n').trim();
+const same=(a,b)=>normalize(a)===normalize(b);
+if(same(existing.content,fs.readFileSync('firestore.rules','utf8'))){
+  fs.writeFileSync('/tmp/durood-rules-already-current','1');
+  console.log('Firestore rules already published; Hosting may proceed without re-publishing rules.');
+  process.exit(0);
+}
 // This is the last trusted pre-Wazaif source. The Wazaif change on main
 // has not been deployed, and HEAD^ now points to the new source, not baseline.
 // Confirmed live difference: only this existing AND predicate was moved
@@ -86,7 +93,7 @@ if(expected.split(sideRule).length!==2 || expected.split(predicateAnchor).length
   process.exit(1);
 }
 expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicateAnchor);
-const normalize=s=>s.replace(/\r\n/g,'\n').trim();
+
 if(normalize(existing.content)!==normalize(expected)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
@@ -97,5 +104,6 @@ if(normalize(existing.content)!==normalize(expected)){
     .split('\\n').slice(0,180).join('\\n'));
   process.exit(1);
 }
+fs.writeFileSync('/tmp/durood-guarded-ruleset-name',response.name);
 console.log('Live Firebase rules match the backed-up baseline. A rules-only update is safe to attempt.');
 NODE

@@ -6,6 +6,7 @@ on:
       - 'public/**'
       - 'firestore.rules'
       - 'scripts/guard-firebase-rules.sh'
+      - 'scripts/deploy-firestore-rules.sh'
       - 'firebase.json'
       - '.firebaserc'
       - '.github/workflows/firebase-hosting-spark.yml'
@@ -40,10 +41,9 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
       - name: Verify production Firestore rules are unchanged before update
         run: bash scripts/guard-firebase-rules.sh
-      - name: Deploy tested Firestore rules before publishing the new UI
-        run: |
-          npm install -g firebase-tools@15.22.1
-          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only firestore:rules --non-interactive
+      - name: Deploy tested Firestore rules with Firebase Rules API
+        run: bash scripts/deploy-firestore-rules.sh
       - name: Deploy verified Wazaif website
         run: |
+          npm install -g firebase-tools@15.22.1
           firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting --non-interactive
