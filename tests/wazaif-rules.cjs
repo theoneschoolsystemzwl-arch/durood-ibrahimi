@@ -112,6 +112,38 @@ const {doc,collection,query,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction
    tx.update(m,{total:ms.data().total+1,today:ms.data().today+1,lastAmount:1,updatedAt:serverTimestamp()});
    tx.update(y,{total:ys.data().total+1,lastAmount:1,updatedAt:serverTimestamp()});
   }));
+  // Qaza dates and paid records: signed-in owner and members may write ONLY
+  // their own private document. No member, including Owner, reads someone
+  // else's date; this is separate from gender grouping and shared Wazaif.
+  const ownQaza=doc(owner,"memberPrivate",ownerUid,"qaza","plan");
+  const memberQaza=doc(member,"memberPrivate",memberUid,"qaza","plan");
+  const firstQaza={start:"2003-05-15",target:25,
+    done:{fajr:{"2026-11-21":true},isha:{"2026-11-20":true}},
+    updatedAt:serverTimestamp()};
+  await assertSucceeds(setDoc(ownQaza,firstQaza));
+  await assertSucceeds(getDoc(ownQaza));
+  await assertSucceeds(setDoc(memberQaza,{
+    start:"2019-01-02",target:15,done:{},updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(ownQaza,{
+    target:45,updatedAt:serverTimestamp()
+  }));
+  const ownerPlan=(await getDoc(ownQaza)).data();
+  if(ownerPlan.start!=="2003-05-15"||ownerPlan.target!==45||
+    ownerPlan.done.fajr["2026-11-21"]!==true)
+    throw Error("Owner Qaza date or paid history unexpectedly reset");
+  await assertFails(getDoc(doc(member,"memberPrivate",ownerUid,"qaza","plan")));
+  await assertFails(getDoc(doc(other,"memberPrivate",ownerUid,"qaza","plan")));
+  await assertFails(getDoc(doc(owner,"memberPrivate",memberUid,"qaza","plan")));
+  await assertFails(getDoc(doc(guest,"memberPrivate",ownerUid,"qaza","plan")));
+  await assertFails(setDoc(doc(owner,"memberPrivate",memberUid,"qaza","plan"),firstQaza));
+  await assertFails(setDoc(doc(member,"memberPrivate",ownerUid,"qaza","plan"),firstQaza));
+  await assertFails(updateDoc(ownQaza,{target:-5,updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(ownQaza,{start:"2026-99-99",updatedAt:serverTimestamp()}));
+  await assertFails(updateDoc(ownQaza,{done:{fajr:{"2026-11-22":false}},updatedAt:serverTimestamp()}));
+  await assertFails(getDoc(doc(owner,"memberPrivate",memberUid,"qaza","other")));
+  await assertFails(getDocs(collection(owner,"memberPrivate",ownerUid,"qaza")));
+  console.log("Qaza security tests passed: per-UID date retention, Owner isolation, valid goals and paid records.");
   console.log("Wazaif security tests passed: owner-only group settings, personal privacy, group accounting and inactive blocking.");
  }finally{await env.cleanup();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
