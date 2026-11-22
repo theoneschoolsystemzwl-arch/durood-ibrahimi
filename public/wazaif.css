@@ -53,3 +53,16 @@
 
 .wz-dial.is-floating{position:fixed;top:max(66px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));width:min(45vw,176px);z-index:110;padding:8px;box-shadow:0 12px 36px #000a}
 .wz-dial.is-floating strong{font-size:clamp(1.6rem,8vw,2.8rem)}
+
+/* Private W serials and gender-safe incoming shared Wazaif. */
+.wz-serial{display:inline-block;font:800 .88em/1.35 system-ui,sans-serif;direction:ltr;padding:3px 8px;background:#0b634b;border:1px solid #40a17b;border-radius:8px;color:#d9ffe9;white-space:nowrap}
+.wz-received{border:2px solid #caa54a;background:linear-gradient(160deg,#05382d,#18452e)}
+.wz-inbox{margin-block:16px}
+.wz-inbox .wz-subtitle{color:#f5db8c}
+.wz-share-form{border:1px solid #4c9a74;background:#053f32;border-radius:13px;padding:12px;margin-top:10px}
+.wz-share-form label{display:block;font-weight:750;font-family:var(--ur,serif);line-height:2;color:#e7fff2;margin-bottom:6px}
+.wz-share-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.wz-share-row input{min-width:130px;flex:1;max-width:300px;box-sizing:border-box;min-height:44px;padding:8px 10px;font:700 1rem system-ui,sans-serif;border:1px solid #53a283;border-radius:10px;background:#002e25;color:#fff}
+.wz-delete{background:#54322d;color:#fff4e9;border-color:#9b6b59}
+.wz-notice{padding:9px 11px;border-radius:10px;background:#074b38;border:1px solid #3f9a74;color:#ecfff4;font-weight:750}
+@media(max-width:420px){.wz-share-row input{max-width:none;flex-basis:100%}.wz-share-row .wz-button{flex:1}.wz-serial{font-size:.72em}}
