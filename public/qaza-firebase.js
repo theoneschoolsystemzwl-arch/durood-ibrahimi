@@ -19,7 +19,6 @@ export async function qazaReadSpark(){
 export async function qazaSaveSpark(plan){
   const current=uid();
   const value=normalizeQazaPlan(plan);
-  if(!value.start)throw Error("قضا نمازوں کی درست ابتدائی تاریخ ضروری ہے۔");
   await setDoc(qazaRef(current),{...value,updatedAt:serverTimestamp()});
   if(auth.currentUser?.uid!==current)throw Error("اکاؤنٹ تبدیل ہو گیا ہے۔");
   return value;
