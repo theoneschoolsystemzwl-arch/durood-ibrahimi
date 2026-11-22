@@ -341,9 +341,11 @@ onAuthStateChanged(auth,async user=>{
     profile=await loadProfile(user);
     await claimDeviceSession(user,profile);
   } catch(err) {
-    message("#auth-message",errorText(err));
-    await signOut(auth).catch(()=>{});
-    showSignedOut();
+    // A failed network or Firestore read must never sign out a member.
+    // Keep the persisted Firebase Auth session and allow a manual retry.
+    $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
+    $("#loading-retry").hidden=false;
+    console.warn("Session restoration delayed:",err?.code||err?.message);
     return;
   }
   // A temporary analytics or directory failure must not log out a valid member.
