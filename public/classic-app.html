@@ -4010,7 +4010,7 @@ async function loadPrivateQaza(profile){
   }
 }
 async function loadPrayerMonth(month,uid){
-  if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)||auth.currentUser?.uid!==uid)return;
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||auth.currentUser?.uid!==uid)return;
   const key=uid+":"+month;
   if(loadedPrayerMonths.has(key))return;
   if(loadingPrayerMonths.has(key))return loadingPrayerMonths.get(key);
