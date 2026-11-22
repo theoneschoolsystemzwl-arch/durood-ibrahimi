@@ -1,8 +1,8 @@
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
-import {signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {doc,getDoc,runTransaction,serverTimestamp,onSnapshot} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js";
@@ -11,6 +11,84 @@ import {
 // A DI number is never a login credential, and an email string never grants roles.
 const TRUSTED_OWNER_UID="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
 const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
+
+// Device ID helps the UI distinguish browsers. Security rules also bind the
+// lease to Firebase's signed auth_time: a client-selected ID alone is unsafe.
+const DEVICE_KEY="durood-device-id-v1";
+let inMemoryDeviceId=null;
+let stopSessionListener=null;
+function deviceId(){
+  if(inMemoryDeviceId)return inMemoryDeviceId;
+  try{
+    const stored=localStorage.getItem(DEVICE_KEY);
+    if(stored && /^[a-z0-9-]{16,128}$/i.test(stored))return (inMemoryDeviceId=stored);
+  }catch{}
+  inMemoryDeviceId=crypto.randomUUID();
+  try{localStorage.setItem(DEVICE_KEY,inMemoryDeviceId);}catch{}
+  return inMemoryDeviceId;
+}
+async function authTime(user){
+  const token=await getIdTokenResult(user);
+  const timestamp=Number(token.claims.auth_time);
+  if(!Number.isSafeInteger(timestamp)||timestamp<=0){
+    throw Error("Firebase session identity is unavailable.");
+  }
+  return timestamp;
+}
+function isOwner(profile){return profile?.role==="owner";}
+
+// Called only after Firebase Auth accepts the password and member profile.
+export async function claimDeviceSession(user,profile,{takeover=false}={}){
+  if(isOwner(profile))return;
+  const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(deviceId())]);
+  const ref=doc(db,"activeLogins",user.uid);
+  await runTransaction(db,async tx=>{
+    const old=await tx.get(ref);
+    if(old.exists() &&
+       (old.data().authTime!==timestamp || old.data().deviceId!==id) &&
+       old.data().deviceId!==id && !takeover){
+      const error=new Error("User already logged in");
+      error.code="member/already-online";
+      throw error;
+    }
+    // Do not write again on refresh of an existing authorized session.
+    if(old.exists() && old.data().authTime===timestamp && old.data().deviceId===id)return;
+    tx.set(ref,{authTime:timestamp,deviceId:id,claimedAt:serverTimestamp()});
+  });
+}
+export async function watchDeviceSession(user,profile,onReplaced){
+  if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
+  if(isOwner(profile))return;
+  const timestamp=await authTime(user);
+  const id=deviceId();
+  const ref=doc(db,"activeLogins",user.uid);
+  stopSessionListener=onSnapshot(ref,snapshot=>{
+    // An offline cached snapshot must never force a logout.
+    if(snapshot.metadata.fromCache)return;
+    if(!snapshot.exists() ||
+       snapshot.data().authTime!==timestamp ||
+       snapshot.data().deviceId!==id){
+      if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
+      onReplaced();
+    }
+  },error=>console.warn("Device session monitor:",error.code||error));
+}
+export async function signOut(currentAuth=auth){
+  if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
+  const user=currentAuth.currentUser;
+  if(user){
+    try{
+      const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(deviceId())]);
+      const ref=doc(db,"activeLogins",user.uid);
+      await runTransaction(db,async tx=>{
+        const old=await tx.get(ref);
+        if(old.exists() && old.data().authTime===timestamp && old.data().deviceId===id)tx.delete(ref);
+      });
+    }catch(error){console.warn("Session cleanup skipped:",error.code||error);}
+  }
+  return firebaseSignOut(currentAuth);
+}
+
 
 async function restoreTrustedOwnerProfile(user){
   // An Auth password alone never grants ownership: the immutable Firebase UID
@@ -69,7 +147,7 @@ export async function loadMemberProfile(user){
   return {uid:user.uid,...member.data()};
 }
 
-export async function login(usernameOrEmail,password){
+export async function login(usernameOrEmail,password,options={}){
   const entered=String(usernameOrEmail||"").trim();
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
@@ -85,7 +163,9 @@ export async function login(usernameOrEmail,password){
     throw error;
   }
   try {
-    return await loadMemberProfile(credential.user);
+    const profile=await loadMemberProfile(credential.user);
+    await claimDeviceSession(credential.user,profile,{takeover:options.takeover===true});
+    return profile;
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
     // Do not leave an authenticated but profile-less session behind.
@@ -97,4 +177,4 @@ export async function register(data){return registerSpark(data);}
 export async function createInvitation(){return invitationSpark();}
 export async function setMemberActive(uid,active){return memberActiveSpark(uid,active);}
 export async function updateMyProfile(name){return profileNameSpark(name);}
-export {signOut,onAuthStateChanged,auth};
+export {onAuthStateChanged,auth};
