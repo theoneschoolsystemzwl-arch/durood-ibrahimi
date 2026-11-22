@@ -59,6 +59,10 @@ jobs:
           bash -n scripts/spark-hosting.sh
           bash -n scripts/guard-firebase-rules.sh
           bash -n scripts/deploy-firestore-rules.sh
+      - name: Browser-like navigation and Qaza form smoke tests
+        run: |
+          npm install --no-save --no-audit --no-fund jsdom@26
+          node tests/ui-interaction.test.cjs
       - name: Check Firebase configuration
         run: |
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('firebase.json'));if(!x.hosting||!x.firestore||!x.functions)process.exit(1);"
