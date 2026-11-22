@@ -1223,8 +1223,8 @@ let liveRunning = false;
 const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[char]));
-const serial = id => 'DI-' + id;
-const groupId = id => 'G-' + id;
+const serial = id => 'DI-' + (getUser(id)?.sideNumber ?? id);
+const groupId = id => getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id;
 const getUser = id => users.find(person => person.id === id);
 const memberName = person => person.id<=seedRows.length && person.name===seedRows[person.id-1][0] ?
   tr(person.name,demoNames[person.name] || person.name) : person.name;
@@ -1249,9 +1249,14 @@ function descendants(id) {
 function generationLetter(id) {
   let level = 1;
   let person = getUser(id);
-  while (person?.inviter) {
+  const women = person?.gender === 'Female';
+  const visited = new Set();
+  while (person?.inviter && !visited.has(person.id)) {
+    visited.add(person.id);
+    const parent = getUser(person.inviter);
+    if (!parent || (women && parent.gender !== 'Female')) break;
     level += 1;
-    person = getUser(person.inviter);
+    person = parent;
   }
   let prefix = '';
   for (; level; level = Math.floor((level - 1) / 26)) {
@@ -1265,6 +1270,18 @@ const visibleMembers = () => users;
 
 function groupName(id) {
   return generationLetter(id);
+}
+
+function groupMemberCode(person) {
+  const parent = getUser(person.inviter);
+  if (person.gender !== 'Female' || parent?.gender !== 'Female') return '';
+  const group = groupName(parent.id);
+  const members = directMembers(parent.id).filter(member => member.gender === 'Female').sort((a,b) => a.id-b.id);
+  return group + (members.findIndex(member => member.id === person.id) + (group === 'A' ? 2 : 1));
+}
+
+function groupMemberCount(person) {
+  return directMembers(person.id).length + (person.gender === 'Female' && groupName(person.id) === 'A' ? 1 : 0);
 }
 
 function score(person, span, history) {
@@ -1406,7 +1423,7 @@ function rankCard(entry, index) {
 }
 
 function ranking() {
-  const top = visibleMembers().filter(person => !person.disabled)
+  const top = visibleMembers().filter(person => !person.disabled && !(ownerViewingWomen() && person.isOwner))
     .map(person => ({person, total:score(person, selectedPeriod, record)}))
     .filter(entry => entry.total > 0)
     .sort((first, second) => second.total - first.total || first.person.id - second.person.id).slice(0,10);
@@ -1433,7 +1450,7 @@ function treeNode(person, isRoot = false) {
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
     '<span class="node-dot level-' + level + '" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
-    esc(memberName(person)) + '</strong><span class="pill"><bdi>' + groupName(person.id) + '</bdi></span>' +
+    esc(memberName(person)) + '</strong><span class="pill"><bdi>' + (isRoot ? groupName(person.id) : groupMemberCode(person) || groupName(person.id)) + '</bdi></span>' +
     (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
     (isRoot ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
 }
@@ -1451,7 +1468,7 @@ function tree(person) {
   return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
     tr("Photo badges show member levels. Tap a member to open their branch.", 'تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
     '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + groupName(root.id) + '</bdi>') +
-    stat(tr("Direct members", 'براہِ راست ارکان'), displayNumber(children.length)) +
+    stat(tr("Group members", 'گروپ کے ارکان'), displayNumber(groupMemberCount(root))) +
     stat(tr("Total in branch", 'شاخ کے کل ارکان'), displayNumber(descendants(root.id).size)) + '</div>' +
     tr("<section class=\"panel section tree\" aria-label=\"Referral tree، ", '<section class="panel section tree" aria-label="دعوتی شجرہ، ') + esc(memberName(root)) + '"><div class="tree-scroll"><div class="tree-diagram">' +
     '<div class="root-node">' + treeNode(root,true) + '</div>' +
@@ -1464,7 +1481,7 @@ function groups() {
   const owner = currentUser();
   const women = ownerViewingWomen();
   const branches = visibleMembers().filter(person => women
-    ? person.isOwner || person.inviter === owner.id || !person.inviter || directMembers(person.id).length
+    ? person.gender === 'Female' && directMembers(person.id).length > 0
     : person.isOwner || directMembers(person.id).length);
   const title = tr('Groups','گروپس');
   return heading(title,tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
@@ -1472,7 +1489,7 @@ function groups() {
     '<div class="groups">' + branches.map(person =>
       '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
-      tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Direct members · ", '</bdi></small><span>براہِ راست ارکان · ') + displayNumber(directMembers(person.id).length) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
+      tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Group members · ", '</bdi></small><span>گروپ کے ارکان · ') + displayNumber(groupMemberCount(person)) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
       displayNumber(descendants(person.id).size) + '</span></div><button class="button secondary" data-action="group" data-value="' + person.id +
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
 }
@@ -3537,13 +3554,16 @@ window.duroodClassicBridge = {
   enter(profile,rows,totals){
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
+    const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
+    const numbers=new Map(women.map((x,i)=>[x.uid,i+1]));
     users.length=0;
     for(const x of rows){
       if(!Number.isSafeInteger(Number(x.memberNumber))||Number(x.memberNumber)<1)continue;
       const memberId=Number(x.memberNumber);
       users.push({
         id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
-        isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
+        isFoundingSpouse:x.gender==="female" && (profile.role==="owner" ? numbers.get(x.uid)===1 : /^iramshahzad(?:i)?$/i.test(x.username||"") && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3"),
+        sideNumber:profile.role==="owner" ? numbers.get(x.uid) : undefined,
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":
@@ -3557,6 +3577,7 @@ window.duroodClassicBridge = {
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
         age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
     }
+    for(const member of users)if(member.isFoundingSpouse)member.sideNumber=1;
     users.sort((a,b)=>a.id-b.id);
     globalTotal=Number(totals.global||0);
     liveAdded=0;
