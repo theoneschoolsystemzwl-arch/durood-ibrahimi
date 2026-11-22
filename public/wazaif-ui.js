@@ -31,15 +31,18 @@ export function initializeWazaifUI({ui,auth,bridge}){
   function startDayWatch(){
     const day=localWazifaDate();
     const dayDoc=doc(db,"wazaifGroupDays",day);
-    state.unsub.push(onSnapshot(dayDoc,snap=>{
+    const stop=onSnapshot(dayDoc,snap=>{
       state.groupToday=snap.exists()?Number(snap.data().total||0):0;paint();
-    },error=>{state.groupToday=null;console.warn("Group daily stats:",error?.code);paint();}));
+    },error=>{state.groupToday=null;console.warn("Group daily stats:",error?.code);paint();});
+    state.dayStop=stop;
+    state.unsub.push(stop);
   }
   function connect(profile){
     if(!profile?.uid)return;
     if(state.uid===profile.uid)return;
     stopListeners();
     state.uid=profile.uid;
+    state.day=localWazifaDate();
     state.owner=profile.role==="owner";
     state.group={...DEFAULT_GROUP};state.hasGroup=false;
     state.groupCount=null;state.groupToday=null;state.personal=[];
@@ -69,8 +72,8 @@ export function initializeWazaifUI({ui,auth,bridge}){
     if(state.uid){
       // Old snapshot no longer counts as today's tally.
       // Listener refreshes whenever user revisits after midnight.
-      const prior=state.unsub.pop();
-      if(prior)prior();
+      // Only replace the day-specific listener; never drop the private list.
+      if(state.dayStop)state.dayStop();
       state.groupToday=null;
       startDayWatch();
     }
@@ -220,8 +223,8 @@ export function initializeWazaifUI({ui,auth,bridge}){
     const value={
       title:d.get("title"),arabic:d.get("arabic"),instructions:d.get("instructions"),purpose:d.get("purpose"),
       mode,active:d.has("active"),
-      dailyGoal:d.get("dailyGoal")||0,totalGoal:d.get("fixedTotal")||d.get("totalGoal")||0,
-      yearlyGoal:d.get("yearlyGoal")||0,startDate:d.get("fixedStart")||d.get("openStart")||d.get("startDate")||"",
+      dailyGoal:d.get("dailyGoal")||0,totalGoal:(mode==="fixed"?d.get("fixedTotal"):d.get("totalGoal"))||0,
+      yearlyGoal:d.get("yearlyGoal")||0,startDate:(mode==="fixed"?d.get("fixedStart"):mode==="open"?d.get("openStart"):d.get("startDate"))||"",
       endDate:d.get("endDate")||""
     };
     state.busy=true;const save=form.querySelector('[type="submit"]');if(save)save.disabled=true;
@@ -256,8 +259,10 @@ export function initializeWazaifUI({ui,auth,bridge}){
   async function flushTapQueue(){
     if(busyTap)return;
     clearTimeout(tapTimer);tapTimer=null;
-    const id=state.selected,day=localWazifaDate(),amount=Math.min(10000,state.pending.get(id)||0);
-    if(!id||!amount)return;
+    // Pending taps must still save if the member has already left the reader.
+    const next=[...state.pending.entries()].find(([,n])=>n>0);
+    if(!next)return;
+    const [id,queued]=next,day=localWazifaDate(),amount=Math.min(10000,queued);
     busyTap=true;
     try{
       await recordPersonalWazifa(id,amount,day);
@@ -268,7 +273,7 @@ export function initializeWazaifUI({ui,auth,bridge}){
       state.notice=t("Readings were not saved: ","ورد محفوظ نہیں ہوا: ")+(e?.message||"Firebase");
     }finally{
       busyTap=false;paint();
-      if((state.pending.get(id)||0)>0)tapTimer=setTimeout(flushTapQueue,250);
+      if([...state.pending.values()].some(x=>x>0))tapTimer=setTimeout(flushTapQueue,250);
     }
   }
   function duration(ms){
@@ -297,6 +302,7 @@ export function initializeWazaifUI({ui,auth,bridge}){
     event.preventDefault();event.stopImmediatePropagation();
     const action=target.dataset.action;
     if(action==="wz-back"){resetToList();paint();}
+    else if(action==="wz-back-group"){resetToList();bridge.goWazaif();}
     else if(action==="wz-new")openEditor();
     else if(action==="wz-group-settings")openGroupSettings();
     else if(action==="wz-open-group"){if(state.group.active){resetToList();bridge.openGroupReader();}}
