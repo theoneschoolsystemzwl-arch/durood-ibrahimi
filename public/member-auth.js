@@ -66,7 +66,13 @@ export async function signOut(currentAuth=auth){
         const old=await tx.get(ref);
         if(old.exists() && old.data().authTime===timestamp && old.data().sessionId===id)tx.delete(ref);
       });
-    }catch(error){console.warn("Session cleanup skipped:",error.code||error);}
+    }catch(error){
+      if(error?.code==="unavailable"||error?.code==="firestore/unavailable"){
+        // Do not abandon the only active lease when the network is offline.
+        throw Error("انٹرنیٹ دستیاب نہیں۔ لاگ آؤٹ کے لیے دوبارہ کوشش کریں۔");
+      }
+      console.warn("Session cleanup not needed:",error.code||error);
+    }
   }
   return firebaseSignOut(currentAuth);
 }
@@ -152,7 +158,9 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
     // Do not leave an authenticated but profile-less session behind.
-    await signOut(auth).catch(()=>{});
+    // A rejected login has never acquired the current member lease;
+    // log out locally without trying to release the first device's lock.
+    await firebaseSignOut(auth).catch(()=>{});
     throw error;
   }
 }
