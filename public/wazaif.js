@@ -835,6 +835,10 @@ document.addEventListener("change",event=>{
 document.addEventListener("input",event=>{
  if(event.target?.closest("#wazifa-form")&&["durationDays","startDate","goal"].includes(event.target.name))syncForm();
 },true);
+// Do not discard Firestore taps or settings that have not finished saving.
+document.addEventListener("durood:before-refresh",event=>{
+ if(state.tapBusy||state.tapQueue>0||state.tapMetaQueue.length>0||state.busy)event.preventDefault();
+});
 window.duroodWazaif={
  setMember,render,back,
  groupData:currentGroup,

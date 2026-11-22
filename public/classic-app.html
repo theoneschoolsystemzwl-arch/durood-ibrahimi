@@ -1172,6 +1172,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=rolling-daily-20261123-v2">
+<script defer src="./pull-refresh.js?v=20261123-1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=qaza-audit-1">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -4063,13 +4064,20 @@ const loadedPrayerMonths=new Map();
 const loadingPrayerMonths=new Map();
 let qazaSaveTimer=null;
 let qazaSaveChain=Promise.resolve();
+let qazaSavePending=false, qazaRefreshRevision=0;
 function scheduleQazaSave(){
   clearTimeout(qazaSaveTimer);
   const expectedUid=auth.currentUser?.uid;
   if(!expectedUid||expectedUid!==bridge.userForCurrent())return;
+  qazaSavePending=true;
+  const refreshRevision=++qazaRefreshRevision;
   qazaSaveTimer=setTimeout(()=>{
+    qazaSaveTimer=null;
     const snapshot=bridge.exportQazaPlan();
-    if(!snapshot||auth.currentUser?.uid!==expectedUid)return;
+    if(!snapshot||auth.currentUser?.uid!==expectedUid){
+      if(qazaRefreshRevision===refreshRevision)qazaSavePending=false;
+      return;
+    }
     qazaSaveChain=qazaSaveChain.catch(()=>{}).then(async()=>{
       if(auth.currentUser?.uid!==expectedUid)return;
       await qazaSaveSpark(snapshot);
@@ -4078,6 +4086,8 @@ function scheduleQazaSave(){
     }).catch(err=>{
       if(auth.currentUser?.uid===expectedUid)
         bridge.status("qaza-date-feedback","قضا نماز کا ڈیٹا Firebase میں محفوظ نہیں ہوا: "+String(err?.code||err?.message||err).slice(0,100),false);
+    }).finally(()=>{
+      if(qazaRefreshRevision===refreshRevision)qazaSavePending=false;
     });
   },300);
 }
@@ -4174,6 +4184,10 @@ async function flushTasbihTaps(){
     if(queuedTaps.size)batchTimer=setTimeout(flushTasbihTaps,220);
   }
 }
+// A swipe must not interrupt unsent recitations or Qaza writes.
+document.addEventListener("durood:before-refresh",event=>{
+  if(queuedTaps.size>0||flushingTaps||qazaSavePending)event.preventDefault();
+});
 let switchingSide=false;
 try{
   window.duroodOwnerSide=localStorage.getItem("durood-owner-side")==="female"?"female":"male";

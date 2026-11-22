@@ -399,6 +399,9 @@ async function refreshMembers(){
     list.append(outer);
   }
 }
+document.addEventListener("durood:before-refresh",event=>{
+  if(appState.busy)event.preventDefault();
+});
 onAuthStateChanged(auth,async user=>{
   const current=++authGeneration;
   if(appState.registering || appState.signingIn)return;
