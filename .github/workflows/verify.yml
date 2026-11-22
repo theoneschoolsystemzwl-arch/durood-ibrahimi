@@ -26,6 +26,7 @@ jobs:
           test -s public/prayer-calendar-fix.css
           test -s public/qaza-model.js
           test -s public/qaza-firebase.js
+          test -s public/wazifa-sharing.js
           test -s public/service-worker.js
           test -s public/manifest.webmanifest
       - name: Check JavaScript syntax
@@ -45,6 +46,7 @@ jobs:
           node --check public/service-worker.js
           node --check public/wazaif.js
           node --check public/wazaif-counter.js
+          node --check public/wazifa-sharing.js
           node --check public/qaza-model.js
           node --check public/qaza-firebase.js
       - name: Install and smoke-test Firebase Functions
