@@ -281,3 +281,13 @@
 .wz-hero-reader .wz-hero-tile svg{height:17px;width:17px}
 .wz-hero-reader .wz-hero-daily{margin-bottom:6px}
 .wz-continuation-active{margin-top:10px}
+
+/* Always show the full Wazifa before the tasbih instead of a hidden details panel. */
+.wz-reading-text-visible{display:grid;gap:6px;margin:9px 0 13px;padding:11px 12px;text-align:right;border-color:#5abf9b;background:linear-gradient(130deg,#003f31,#075a46)}
+.wz-reading-text-visible h3{margin:0;color:#f6e3ae;font:800 clamp(.93rem,3.4vw,1.13rem)/1.8 var(--ur,serif)}
+.wz-reading-text-visible .wz-arabic{margin:0;padding:6px 2px;text-align:center;white-space:pre-line;overflow-wrap:anywhere;font-size:clamp(1.18rem,4.5vw,1.65rem);line-height:2.1}
+.wz-reading-text-visible p{margin:0;color:#effff5;font:600 clamp(.76rem,2.8vw,.94rem)/1.85 var(--ur,serif);overflow-wrap:anywhere}
+.wz-reading-text-visible p b{color:#fff1ba}
+.wz-hero-reader .wz-reading-text-visible{max-width:100%;box-sizing:border-box}
+.group-reader-intro .durood-copy{margin:0;background:transparent;border:0;padding:0}
+.group-reader-intro .durood-copy p{font-size:clamp(1.16rem,4.5vw,1.55rem);line-height:2.05;text-align:center}
