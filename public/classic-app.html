@@ -1044,6 +1044,73 @@ input,select,textarea { border-radius:8px; min-height:42px; padding:5px 8px; }
   .about-contact-links { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
+/* Android and small phones: compact controls instead of overlapping bars.
+   The APK handles Android 15+ system-bar insets natively. */
+@media (max-width: 520px) {
+  .utility-inner {
+    min-height: 46px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 5px;
+    padding: 3px 7px;
+  }
+  .utility-brand {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .72rem;
+    line-height: 1.4;
+  }
+  .utility-actions {
+    min-width: 0;
+    flex-shrink: 0;
+    gap: 2px;
+  }
+  .about-tab,.locale-switch button {
+    min-height: 32px;
+    padding: 3px 5px;
+    font-size: .70rem;
+    line-height: 1.35;
+  }
+  .locale-switch {
+    flex-shrink: 0;
+    padding: 1px;
+    gap: 0;
+  }
+  .bottom-nav {
+    padding: 3px max(3px,env(safe-area-inset-right))
+      max(4px,env(safe-area-inset-bottom))
+      max(3px,env(safe-area-inset-left));
+  }
+  .nav-inner {
+    gap: 1px;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-inner::-webkit-scrollbar { display:none; }
+  .nav {
+    flex: 1 0 0;
+    min-width: 0;
+    min-height: 46px;
+    gap: 1px;
+    padding: 2px 0;
+    font-size: clamp(.53rem,2.25vw,.67rem);
+    line-height: 1.28;
+  }
+  .nav span {
+    height: 17px;
+    font-size: 1.04rem;
+    line-height: 1;
+  }
+  .main {
+    padding-bottom: max(76px,calc(74px + env(safe-area-inset-bottom)));
+  }
+}
+
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
 [data-action="open-delete"]{display:none!important}
