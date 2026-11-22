@@ -34,28 +34,9 @@ function activeDailyGoal(task,today=readingDay()){
  if(task?.kind==="fixed")return Math.ceil(Number(task.goal||0)/Math.max(1,spanDays(task.startDate,task.endDate)));
  return Number(task?.goal||0);
 }
-function dailyContinuationMarkup(task){
- if(!hasContinuation(task))return "";
- const today=readingDay(),active=continuationActive(task,today);
- const count=active&&task.day===today?Math.max(0,Number(task.today)||0):0;
- const extra=Math.max(0,Number(task.total||0)-task.continueBaseTotal);
- const pct=Math.min(100,Math.floor(count*100/task.continueDailyGoal));
- return '<section class="wz-continuation-active" aria-label="مستقل روزانہ وظیفہ">'+
- '<h4>📿 روزانہ وظیفہ جاری ہے</h4>'+
- '<div class="wz-continuation-grid">'+
- '<div><small>روزانہ ہدف</small><strong>'+fmt(task.continueDailyGoal)+'</strong></div>'+
- '<div><small>آج پڑھا</small><strong>'+fmt(count)+'</strong></div>'+
- '<div><small>آج باقی</small><strong>'+fmt(Math.max(0,task.continueDailyGoal-count))+'</strong></div>'+
- '<div><small>جاری رکھنے کے بعد کل شمار</small><strong>'+fmt(extra)+'</strong></div>'+
- '</div><div class="wz-continuation-progress"><span>آج کی تکمیل '+pct+'%</span>'+
- '<progress max="100" value="'+pct+'"></progress></div>'+
- '<p>شروع: <bdi dir="ltr">'+esc(task.continueStartDate)+'</bdi> · سابقہ فکس ریکارڈ محفوظ ہے۔</p></section>';
-}
 function continuationOptionMarkup(task){
  if(task?.kind!=="fixed")return "";
- if(hasContinuation(task))return dailyContinuationMarkup(task)+
- '<button class="wz-button wz-continuation-edit" type="button" data-wazifa-action="continue-open" data-wazifa-id="'+esc(task.id)+'">روزانہ ہدف کی سیٹنگ</button>'+
- (state.continueFor===task.id?continuationFormMarkup(task):"");
+ if(hasContinuation(task))return state.continueFor===task.id?continuationFormMarkup(task):"";
  if(!fixedExpired(task))return "";
  return '<section class="wz-continuation-offer">'+
  '<h4>آپ کے '+fmt(spanDays(task.startDate,task.endDate))+' دن مکمل ہو گئے ہیں</h4>'+
@@ -84,14 +65,18 @@ function fixedPlan(task){
  const today=readingDay();
  const elapsed=Math.max(0,Math.min(days,dayDistance(task.startDate,today)+1));
  const remaining=days-elapsed;
- const goal=Math.max(0,Number(task.goal)||0);
- // Once the 41-day period ends, freeze its accounting snapshot. Daily
- // continuation uses the same item but may never rewrite original totals.
- const total=hasContinuation(task)?Math.max(0,Number(task.continueBaseTotal)||0):
-   Math.max(0,Number(task.total)||0);
- const todayTotal=today<=task.endDate&&task.day===today?Math.max(0,Number(task.today)||0):0;
- const daily=Math.ceil(goal/days);
- return {days,elapsed,remaining,goal,total,todayTotal,daily,
+ const continuing=continuationActive(task,today);
+ // Extend the original goal by the current daily goal for each continued day.
+ // Never reset or separate the lifetime reading total.
+ const fixedGoal=Math.max(0,Number(task.goal)||0);
+ const continuationDays=continuing?spanDays(task.continueStartDate,today):0;
+ const daily=continuing?task.continueDailyGoal:Math.ceil(fixedGoal/days);
+ const goal=fixedGoal+continuationDays*daily;
+ const total=Math.max(0,Number(task.total)||0);
+ const todayTotal=(continuing||today<=task.endDate)&&task.day===today?
+   Math.max(0,Number(task.today)||0):0;
+ return {days,elapsed,remaining,currentDay:Math.max(0,dayDistance(task.startDate,today)+1),
+  continuing,goal,total,todayTotal,daily,
   remainingCount:Math.max(0,goal-total),todayLeft:Math.max(0,daily-todayTotal),
   progress:goal?Math.min(100,Math.floor(total*100/goal)):0};
 }
@@ -99,21 +84,28 @@ function fixedPlanMarkup(task,reader=false){
  const p=fixedPlan(task);if(!p)return "";
  const dateTile=(label,date)=>'<div class="wz-stat"><small>'+label+'</small><strong dir="ltr">'+esc(date)+'</strong></div>';
  const statTile=(label,value,id="")=>'<div class="wz-stat"><small>'+label+'</small><strong'+(id?' id="'+id+'"':'')+'>'+fmt(value)+'</strong></div>';
+ const dailyTile=p.continuing?
+  '<div class="wz-stat wz-stat-daily-goal"><small>روزانہ ہدف</small><strong>'+fmt(p.daily)+'</strong>'+
+  '<button type="button" class="wz-inline-goal-edit" data-wazifa-action="continue-open" data-wazifa-id="'+esc(task.id)+'" aria-label="روزانہ ہدف کی سیٹنگ">تبدیل کریں</button></div>':
+  statTile("روزانہ مطلوبہ تعداد",p.daily);
  return '<section class="wz-fixed-plan" aria-label="فکس وظیفے کی پیش رفت">'+
  '<div class="wz-plan-tiles">'+
- statTile("کل دن",p.days)+statTile("مکمل دن",p.elapsed)+statTile("باقی دن",p.remaining)+
+ statTile("کل دن",p.days)+statTile("مکمل دن",p.elapsed)+
+ statTile(p.continuing?"جاری دن":"باقی دن",p.continuing?p.currentDay:p.remaining)+
  dateTile("آغاز کی تاریخ",task.startDate)+dateTile("اختتامی تاریخ",task.endDate)+
- statTile("روزانہ مطلوبہ تعداد",p.daily)+statTile("کل ہدف",p.goal)+
  statTile("کل پڑھے گئے",p.total,reader?"wz-fixed-total":"")+
+ dailyTile+statTile("کل ہدف",p.goal)+
  statTile("مجموعی باقی",p.remainingCount,reader?"wz-fixed-left":"")+
  statTile("آج پڑھا",p.todayTotal,reader?"wz-fixed-today":"")+
  statTile("آج باقی",p.todayLeft,reader?"wz-fixed-today-left":"")+
  '<div class="wz-stat"><small>فیصد تکمیل</small><strong>'+p.progress+'%</strong></div>'+
  '</div><div class="wz-plan-bar-label"><span>تعداد کی پیش رفت</span><strong id="'+(reader?'wz-fixed-percent':'wz-fixed-card-percent')+'">'+p.progress+'%</strong></div>'+
  '<progress class="wz-plan-progress" max="100" value="'+p.progress+'" aria-label="وظیفے کی تعداد کی پیش رفت"></progress>'+
- '<div class="wz-plan-bar-label"><span>دنوں کی پیش رفت</span><strong>'+p.elapsed+' / '+p.days+'</strong></div>'+
+ '<div class="wz-plan-bar-label"><span>'+(p.continuing?'پہلے '+fmt(p.days)+' دن مکمل':'دنوں کی پیش رفت')+'</span><strong>'+
+ (p.continuing?'جاری دن '+fmt(p.currentDay):p.elapsed+' / '+p.days)+'</strong></div>'+
  '<progress class="wz-plan-progress wz-days-progress" max="'+p.days+'" value="'+p.elapsed+'" aria-label="مکمل شدہ دن"></progress>'+
- '<p class="wz-plan-foot">باقی '+p.remaining+' دن · باقی تعداد '+fmt(p.remainingCount)+'</p></section>';
+ '<p class="wz-plan-foot">'+(p.continuing?'روزانہ ہدف '+fmt(p.daily)+' · مجموعی باقی '+fmt(p.remainingCount):
+  'باقی '+p.remaining+' دن · باقی تعداد '+fmt(p.remainingCount))+'</p></section>';
 }
 const defaultGroup=()=>({
  title:"درودِ ابراہیمی",arabic:"اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.\nاللَّهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.",
@@ -220,15 +212,21 @@ function renderAccounting(group=false,task=null){
  const target=group?Number(currentGroup().dailyGoal||0):
    continuationActive(task)?task.continueDailyGoal:
    task?.kind==="daily"?Number(task.goal||0):task?.kind==="fixed"?
-     Math.ceil((Number(task.goal||0))/Math.max(1,spanDays(task.startDate,task.endDate))):0;
+    Math.ceil(Number(task.goal||0)/Math.max(1,spanDays(task.startDate,task.endDate))):0;
  const yearGoal=group?Number(currentGroup().yearlyGoal||0):0;
  const yearTotal=group?Number(annual.total||0):0;
- return '<div class="wz-accounting"><div class="wz-metrics">'+metric("آج کی اکاؤنٹنگ",todayTotal)+
- metric("مجموعی شمار",total)+metric("روزانہ ہدف",target)+
- (group?metric("سالانہ شمار",yearTotal)+metric("سالانہ ہدف",yearGoal)+metric("سالانہ باقی",Math.max(0,yearGoal-yearTotal)):metric("ہدف سے باقی",Math.max(0,(continuationActive(task)?target:
- (task?.goal||0))-(task?.kind==="daily"||continuationActive(task)?todayTotal:total))))+
- '</div>'+(task?.kind==="fixed"?fixedPlanMarkup(task)+dailyContinuationMarkup(task):"")+(group?'<p class="wz-help">گروپ کی گنتی اس فیچر کے فعال ہونے کے بعد سے محفوظ ہوتی ہے؛ پرانا درود ریکارڈ اپنی جگہ محفوظ ہے۔</p>':'')+
- (target?'<progress class="wz-progress" max="'+target+'" value="'+Math.min(target,todayTotal)+'"></progress>':'')+'</div>';
+ const plan=!group&&task?.kind==="fixed"?fixedPlan(task):null;
+ const left=plan?plan.remainingCount:task?.kind==="daily"?
+   Math.max(0,target-todayTotal):Math.max(0,Number(task?.goal||0)-total);
+ return '<div class="wz-accounting"><div class="wz-metrics">'+
+  metric("آج کی اکاؤنٹنگ",todayTotal)+metric("مجموعی شمار",total)+
+  metric("روزانہ ہدف",target)+
+  (group?metric("سالانہ شمار",yearTotal)+metric("سالانہ ہدف",yearGoal)+
+   metric("سالانہ باقی",Math.max(0,yearGoal-yearTotal)):
+   (plan?metric("کل ہدف",plan.goal):"")+metric("مجموعی باقی",left))+
+  '</div>'+(plan?fixedPlanMarkup(task):"")+
+  (group?'<p class="wz-help">گروپ کی گنتی اس فیچر کے فعال ہونے کے بعد سے محفوظ ہوتی ہے؛ پرانا درود ریکارڈ اپنی جگہ محفوظ ہے۔</p>':'')+
+  (target?'<progress class="wz-progress" max="'+target+'" value="'+Math.min(target,todayTotal)+'"></progress>':'')+'</div>';
 }
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
@@ -388,10 +386,10 @@ function heroReadingState(group,w,record){
  const plan=!group?fixedPlan(w):null;
  const continuing=!group&&continuationActive(w,today);
  const dailyGoal=group?Number(w.dailyGoal||0):activeDailyGoal(w,today);
- const totalGoal=continuing?dailyGoal:
+ const totalGoal=continuing?plan.goal:
   group?Number(w.yearlyGoal||w.dailyGoal||0):Number(w.goal||0);
- const left=continuing?Math.max(0,dailyGoal-todayCount):Math.max(0,totalGoal-total);
- const percent=totalGoal?Math.min(100,Math.floor((continuing?todayCount:total)*100/totalGoal)):0;
+ const left=Math.max(0,totalGoal-total);
+ const percent=totalGoal?Math.min(100,Math.floor(total*100/totalGoal)):0;
  const dayLeft=Math.max(0,dailyGoal-todayCount);
  return {todayCount,total,plan,dailyGoal,totalGoal,left,percent,dayLeft,continuing};
 }
@@ -411,19 +409,18 @@ function readerMarkup(group){
  '<button class="wz-hero-back" type="button" data-wazifa-action="back">‹ '+esc("وظائف واپس")+'</button>'+
  '<div class="wz-hero-topstats">'+
  heroStat("کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
- heroStat(s.continuing?"روزانہ ہدف":"مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal")+
- heroStat(s.continuing?"آج باقی":"باقی",fmt(s.left),"hourglass","wz-hero-left")+
- heroStat(s.continuing?"آج کی تکمیل":"فیصد تکمیل",s.percent+"%","percent","wz-hero-percent")+
+ heroStat(s.continuing?"کل ہدف":"مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal")+
+ heroStat(s.continuing?"مجموعی باقی":"باقی",fmt(s.left),"hourglass","wz-hero-left")+
+ heroStat("فیصد تکمیل",s.percent+"%","percent","wz-hero-percent")+
  '</div>'+
  '<div class="wz-hero-progress"><span id="wz-hero-progress-label">'+progress+'% تکمیل</span>'+
  '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'"></progress></div>'+
  '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+
- (s.continuing?'<div class="wz-hero-continuing">روزانہ وظیفہ جاری ہے · سابقہ '+fmt(days)+' دن کا ریکارڈ محفوظ ہے</div>':"")+
  (showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
  heroTile("کل دن",fmt(days),"date")+
  heroTile("مکمل دن",fmt(elapsed),"check")+
- heroTile("باقی دن",fmt(remaining),"date")+
+ heroTile(s.continuing?"جاری دن":"باقی دن",fmt(s.continuing?s.plan.currentDay:remaining),"date")+
  heroTile("آغاز تاریخ",w.startDate,"date")+
  heroTile("اختتامی تاریخ",w.endDate,"date")+
  '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
@@ -433,8 +430,8 @@ function readerMarkup(group){
  heroTile("آج کا ہدف",fmt(s.dailyGoal),"target")+
  heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-hero-today")+
  heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-hero-day-left")+
- '<div class="wz-hero-remaining">'+heroIcon("hourglass")+'<div><small>'+(s.continuing?'روزانہ ہدف سے باقی':showDates?'مقررہ اختتام تک باقی':'ہدف سے باقی')+'</small>'+
- '<strong id="wz-hero-days-left">'+(s.continuing?fmt(s.dayLeft):showDates?remaining+" دن":fmt(s.left))+'</strong></div></div>'+
+ '<div class="wz-hero-remaining">'+heroIcon("hourglass")+'<div><small>'+(s.continuing?'مجموعی باقی':showDates?'مقررہ اختتام تک باقی':'ہدف سے باقی')+'</small>'+
+ '<strong id="wz-hero-days-left">'+(s.continuing?fmt(s.left):showDates?remaining+" دن":fmt(s.left))+'</strong></div></div>'+
  '</div>'+
  '<div class="wz-hero-speed">'+
  '<div>'+heroIcon("bolt")+'<small>فی سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
@@ -466,14 +463,14 @@ function refreshHeroReader(){
  const s=heroReadingState(group,w,record);
  const todayCount=s.todayCount+state.tapQueue,total=s.total+state.tapQueue;
  const dayLeft=Math.max(0,s.dailyGoal-todayCount);
- const left=s.continuing?dayLeft:Math.max(0,s.totalGoal-total);
- const percent=s.totalGoal?Math.min(100,Math.floor((s.continuing?todayCount:total)*100/s.totalGoal)):0;
+  const left=Math.max(0,s.totalGoal-total);
+  const percent=s.totalGoal?Math.min(100,Math.floor(total*100/s.totalGoal)):0;
  const set=(id,value)=>{const el=root.querySelector("#"+id);if(el)el.textContent=value;};
  set("wz-dial-number",fmt(todayCount));
  set("wz-hero-total",fmt(total));set("wz-hero-left",fmt(left));
  set("wz-hero-percent",percent+"%");set("wz-hero-progress-label",percent+"% تکمیل");
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
- if(s.continuing)set("wz-hero-days-left",fmt(dayLeft));
+  if(s.continuing)set("wz-hero-days-left",fmt(left));
  set("wz-mini-today",fmt(todayCount));set("wz-mini-left",fmt(dayLeft));
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
  const step=Math.max(1,s.dailyGoal);const cycle=todayCount>0&&todayCount%step===0?step:todayCount%step;

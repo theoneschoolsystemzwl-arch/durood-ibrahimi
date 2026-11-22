@@ -254,3 +254,9 @@
 .wz-hero-continuing{margin:-2px 0 9px;padding:4px;border:1px solid #36be9e;border-radius:12px;
  color:#b8ffe3;background:#004132;text-align:center;font:800 clamp(.77rem,3vw,1rem)/1.9 var(--ur,serif)}
 @media(max-width:360px){.wz-continuation-offer,.wz-continuation-active{padding:9px 7px}.wz-continuation-actions{gap:5px}}
+
+/* A compact setting control inside the existing three-column Wazifa goal tiles. */
+.wz-stat-daily-goal{padding-block:6px;gap:1px}
+.wz-inline-goal-edit{font:700 clamp(.65rem,2.4vw,.82rem)/1.5 var(--ur,serif);color:#c9ffe1;
+ background:transparent;border:0;border-bottom:1px solid #55bd94;padding:0 3px;min-height:24px;cursor:pointer}
+.wz-inline-goal-edit:focus-visible{outline:2px solid #e8d185;outline-offset:2px;border-radius:4px}
