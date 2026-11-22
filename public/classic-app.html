@@ -1261,6 +1261,7 @@ let readingSession = {};
 let dialFloating=false;
 let suppressNextDialClick=false;
 const paceFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
+let readerHistoryTimer=null;
 let soundEnabled = false;
 let soundContext;
 for (const person of users) {
@@ -1998,6 +1999,8 @@ function updateClock() {
   if(readingSession.lastTap!==null){
     const idle=Math.max(0,performance.now()-readingSession.lastTap);
     if(idle>=15000){readingSession.ms+=15000;readingSession.lastTap=null;}
+    // The session pauses after fifteen seconds of inactivity; daily tap totals
+    // remain visible on the dial until the local calendar day changes.
     else elapsed=idle;
   }
   clock.textContent=durationLabel(readingSession.ms+elapsed);
@@ -2011,7 +2014,8 @@ function updateReader() {
   const live = sessionFor(person.id,key);
   const goal = ledger.goal;
   const count = dayCount(person,key);
-  const rate = live.intervals && live.ms > 0 ? live.ms / live.intervals : null;
+  const measured=ledger.days[key];
+  const rate = measured?.intervals && measured.ms > 0 ? measured.ms / measured.intervals : null;
   set('read-all',formatNumber(score(person,'all','current')));
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
@@ -2030,7 +2034,14 @@ function updateReader() {
   const progress = document.getElementById('read-progress');
   progress.max = goal;
   progress.value = Math.min(goal,count);
-  document.getElementById('daily-records').innerHTML = historyRows(person,key);
+  // The dial updates instantly. Rebuild the long dated history once after a
+  // short burst of taps instead of rerendering every row for every recitation.
+  clearTimeout(readerHistoryTimer);
+  readerHistoryTimer=setTimeout(()=>{
+    const target=document.getElementById('daily-records');
+    if(target && section==='tasbih' && currentUser()?.id===person.id)
+      target.innerHTML=historyRows(person,dateKey());
+  },180);
   updateClock();
 }
 
@@ -3818,7 +3829,7 @@ window.duroodClassicBridge = {
 
 render();
 // No fabricated live recitations: only Firebase-backed totals are shown.
-setInterval(updateClock, 50);
+setInterval(updateClock, 125);
 setInterval(updateNamazDate, 5000);
 setInterval(monitorPrayerTime, 5000);
 document.addEventListener('visibilitychange',() => {
