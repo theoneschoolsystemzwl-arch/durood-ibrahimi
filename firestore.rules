@@ -25,11 +25,19 @@ service cloud.firestore {
       return signed() && exists(memberPath(uid)) &&
         get(memberPath(uid)).data.disabled == false;
     }
-    function legacyOwnerUid() {
+    // Only the existing Firebase Authentication account designated by the
+    // project administrator is the new Master Owner. DI-1 is not a login ID.
+    function trustedOwnerUid() {
+      return 'vt06NK7DcmgPpUKD4R7EgwzAxIH3';
+    }
+    function deletedTestOwnerUid() {
       return 'ecrykLlmTAbV90llOdQVRSX4OyE3';
     }
+    function legacyOwnerUid() {
+      return deletedTestOwnerUid();
+    }
     function legacyIsOwner() {
-      return signed() && request.auth.uid == legacyOwnerUid();
+      return signed() && request.auth.uid == trustedOwnerUid();
     }
     function owner() {
       return signed() && (request.auth.token.owner == true || legacyIsOwner()) && active(request.auth.uid);
@@ -69,6 +77,15 @@ service cloud.firestore {
             get(sequencePath()).data.ownerUid == uid &&
             get(sequencePath()).data.lastNumber is int &&
             get(sequencePath()).data.lastNumber >= 1) ||
+          (exists(sequencePath()) &&
+            uid == trustedOwnerUid() &&
+            get(sequencePath()).data.ownerUid == deletedTestOwnerUid() &&
+            get(sequencePath()).data.lastNumber is int &&
+            get(sequencePath()).data.lastNumber >= 1 &&
+            !exists(memberPath(deletedTestOwnerUid())) &&
+            getAfter(sequencePath()).data.ownerUid == uid &&
+            getAfter(sequencePath()).data.lastNumber ==
+              get(sequencePath()).data.lastNumber) ||
           (!exists(sequencePath()) &&
             getAfter(sequencePath()).data.ownerUid == uid &&
             getAfter(sequencePath()).data.lastNumber == 1)
@@ -86,6 +103,26 @@ service cloud.firestore {
         getAfter(memberPath(uid)).data.role == 'owner' &&
         getAfter(memberPath(uid)).data.memberNumber == 1 &&
         getAfter(memberPath(uid)).data.serial == 'DI-1';
+    }
+    // One-time, atomic migration of the abandoned test-owner sequence.
+    // A deleted old owner must have no member document; numbering is preserved.
+    // The target owner profile must be created within this same transaction.
+    function restoreDeletedTestOwnerSequence() {
+      let d=request.resource.data;
+      let uid=request.auth.uid;
+      return signed() && uid == trustedOwnerUid() &&
+        resource.data.ownerUid == deletedTestOwnerUid() &&
+        !exists(memberPath(deletedTestOwnerUid())) &&
+        !exists(memberPath(uid)) &&
+        resource.data.lastNumber is int &&
+        resource.data.lastNumber >= 1 &&
+        d.diff(resource.data).affectedKeys().hasOnly(['ownerUid','updatedAt']) &&
+        d.ownerUid == uid &&
+        d.updatedAt == request.time &&
+        getAfter(memberPath(uid)).data.uid == uid &&
+        getAfter(memberPath(uid)).data.role == 'owner' &&
+        getAfter(memberPath(uid)).data.serial == 'DI-1' &&
+        getAfter(memberPath(uid)).data.memberNumber == 1;
     }
     function allowedMemberCreate(uid) {
       let m = request.resource.data;
@@ -151,7 +188,8 @@ service cloud.firestore {
       allow get: if docId == 'membership' && signed();
       allow list, delete: if false;
       allow create: if docId == 'membership' && initialOwnerSequence();
-      allow update: if docId == 'membership' && signupCounter();
+      allow update: if docId == 'membership' &&
+        (signupCounter() || restoreDeletedTestOwnerSequence());
     }
     match /usernames/{username} {
       allow get: if signed() && validUsername(username);
