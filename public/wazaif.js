@@ -194,10 +194,22 @@ function render(){
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){
-     const task=state.mode==="group-reader"?state.groupStats:state.personal.find(x=>x.id===state.readerId);
-     if(task){
+     const group=state.mode==="group-reader";
+     const task=group?state.groupStats:state.personal.find(x=>x.id===state.readerId);
+     const config=group?currentGroup():task;
+     if(task&&config){
        const today=readingDay(),count=task.day===today?Number(task.today||0):0;
-       const num=$("#wz-dial-number");if(num)num.textContent=fmt(count+state.tapQueue);
+       const shown=count+state.tapQueue;
+       const target=group?Number(config.dailyGoal||0):config.kind==="daily"?Number(config.goal||0):
+         config.kind==="fixed"?Math.ceil(Number(config.goal||0)/Math.max(1,spanDays(config.startDate,config.endDate))):Number(config.goal||0);
+       const num=$("#wz-dial-number");if(num)num.textContent=fmt(shown);
+       const metrics=root.querySelectorAll(".wz-reading .wz-metric strong");
+       if(metrics[0])metrics[0].textContent=fmt(shown);
+       if(metrics[1])metrics[1].textContent=fmt(Number(task.total||0)+state.tapQueue);
+       if(metrics[2])metrics[2].textContent=fmt(target);
+       const step=Math.max(1,target||100);
+       const progress=shown>0&&shown%step===0?100:(shown%step)/step*100;
+       root.querySelector("#wz-dial").style.setProperty("--wz-ring",progress+"%");
      }
      return;
    }
