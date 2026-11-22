@@ -59,7 +59,7 @@ for(const entry of ["savePrayerDay","getPrayerMonth","getLeaderboard","getMyRefe
 }
 present(client, "initializeCommunityPages");
 present(client, "activateMemberHome");
-present(rules,"request.auth.token.owner == true");
+present(rules,"request.auth.token.get('owner', false) == true");
 present(rules,"getAfter(");
 present(rules,"allowedMemberCreate");
 present(rules,"allow read, write: if false;");
