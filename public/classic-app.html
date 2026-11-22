@@ -1172,6 +1172,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=1">
+<link rel="stylesheet" href="./prayer-calendar-fix.css?v=qaza-audit-1">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 <style id="tasbih-refresh">
@@ -3145,7 +3146,7 @@ function saveQazaStart(form,data) {
   qazaMonth = qazaMonthStart(start);
   const saved = saveOfflineState();
   render({keepScroll:true});
-  setFeedback('qaza-date-feedback',saved?tr("Date saved.", 'تاریخ محفوظ ہو گئی۔'):tr("Date saved for this session.", 'تاریخ اس سیشن میں محفوظ ہے۔'),saved);
+  setFeedback('qaza-date-feedback',saved?tr("Date saved on device. Syncing to Firebase…", 'تاریخ موبائل پر محفوظ ہے؛ Firebase میں محفوظ ہو رہی ہے…'):tr("This session cannot persist your date.", 'اس نشست میں تاریخ محفوظ نہیں ہو سکی۔'),saved);
 }
 
 function saveQazaTarget(form,data) {
@@ -3160,7 +3161,7 @@ function saveQazaTarget(form,data) {
   qazaTargetDraft = null;
   const saved = saveOfflineState();
   render({keepScroll:true});
-  setFeedback('qaza-target-feedback',saved?tr("Goal saved.", 'ہدف محفوظ ہو گیا۔'):tr("Goal saved for this session.", 'ہدف اس سیشن میں محفوظ ہے۔'),saved);
+  setFeedback('qaza-target-feedback',saved?tr("Goal saved on device. Syncing…", 'ہدف موبائل پر محفوظ ہے؛ Firebase میں محفوظ ہو رہا ہے…'):tr("This session cannot persist your goal.", 'ہدف مستقل محفوظ نہیں ہوا۔'),saved);
 }
 
 function unlockQazaDate() {
@@ -3905,6 +3906,10 @@ window.duroodClassicBridge = {
     }
     if(section==="namaz")render({keepScroll:true});
   },
+  requestedPrayerMonth(){
+    if(section!=="namaz"||namazView!=="attendance"||!currentUser())return null;
+    return selectedNamazMonth || prayerDate(currentUserId).slice(0,7);
+  },
   qazaRevision:()=>qazaLocalRevision,
   exportQazaPlan(){
     const p=currentUser();return p?copyQazaPlan(qazaPlans[p.id]):null;
@@ -3954,6 +3959,7 @@ document.addEventListener('keydown',event => {
 <script type="module">
 import "./profile-contacts.js";
 import "./wazaif.js?release=wazaif-v1";
+import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=fast-login-reader-v4";
@@ -3961,6 +3967,83 @@ import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurr
 import {updateDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
+const loadedPrayerMonths=new Map();
+const loadingPrayerMonths=new Map();
+let qazaSaveTimer=null;
+let qazaSaveChain=Promise.resolve();
+function scheduleQazaSave(){
+  clearTimeout(qazaSaveTimer);
+  const expectedUid=auth.currentUser?.uid;
+  if(!expectedUid||expectedUid!==bridge.userForCurrent())return;
+  qazaSaveTimer=setTimeout(()=>{
+    const snapshot=bridge.exportQazaPlan();
+    if(!snapshot||auth.currentUser?.uid!==expectedUid)return;
+    qazaSaveChain=qazaSaveChain.catch(()=>{}).then(async()=>{
+      if(auth.currentUser?.uid!==expectedUid)return;
+      await qazaSaveSpark(snapshot);
+      if(auth.currentUser?.uid===expectedUid)
+        bridge.status("qaza-date-feedback","قضا نماز کی تاریخ، ہدف اور ادائیگی Firebase میں محفوظ ہیں۔",true);
+    }).catch(err=>{
+      if(auth.currentUser?.uid===expectedUid)
+        bridge.status("qaza-date-feedback","قضا نماز کا ڈیٹا Firebase میں محفوظ نہیں ہوا: "+String(err?.code||err?.message||err).slice(0,100),false);
+    });
+  },300);
+}
+async function loadPrivateQaza(profile){
+  const verifiedUid=profile.uid,startingRevision=bridge.qazaRevision();
+  try{
+    const remote=await qazaReadSpark();
+    if(auth.currentUser?.uid!==verifiedUid||bridge.userForCurrent()!==verifiedUid)return;
+    if(startingRevision!==bridge.qazaRevision()){
+      // The member saved a newer plan while the initial read was in flight.
+      scheduleQazaSave();return;
+    }
+    if(remote){bridge.loadQazaPlan(remote);return;}
+    const oldPlan=bridge.recoveredQaza();
+    if(!oldPlan)return;
+    await qazaSaveSpark(oldPlan);
+    if(auth.currentUser?.uid===verifiedUid && bridge.qazaRevision()===startingRevision)
+      bridge.loadQazaPlan(oldPlan);
+  }catch(e){
+    console.warn("Private Qaza restore/save unavailable",e?.code||e?.message);
+    // Never reset a recovered local date because a Firebase read failed.
+  }
+}
+async function loadPrayerMonth(month,uid){
+  if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month)||auth.currentUser?.uid!==uid)return;
+  const key=uid+":"+month;
+  if(loadedPrayerMonths.has(key))return;
+  if(loadingPrayerMonths.has(key))return loadingPrayerMonths.get(key);
+  const work=(async()=>{
+    const result=await prayerMonthSpark(month);
+    if(auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)return;
+    bridge.loadPrayerDays(result.days||[],month);
+    loadedPrayerMonths.set(key,true);
+  })().catch(error=>{
+    console.warn("Prayer month unavailable",month,error?.code||error?.message);
+    bridge.status("namaz-feedback","اس مہینے کا ریکارڈ Firebase سے نہیں ملا۔",false);
+  }).finally(()=>loadingPrayerMonths.delete(key));
+  loadingPrayerMonths.set(key,work);
+  return work;
+}
+ui.addEventListener("submit",event=>{
+  if(["qaza-date-form","qaza-target-form"].includes(event.target?.id))
+    setTimeout(scheduleQazaSave,0);
+},true);
+ui.addEventListener("click",event=>{
+  const button=event.target.closest("button[data-action]");
+  if(!button)return;
+  const action=button.dataset.action;
+  if(action==="qaza-record")setTimeout(scheduleQazaSave,0);
+  if(action==="namaz-month" || action==="prayer-view" ||
+    action==="nav" && button.dataset.value==="namaz"){
+    const uid=auth.currentUser?.uid;
+    setTimeout(()=>{
+      const month=bridge.requestedPrayerMonth();
+      if(uid&&month)loadPrayerMonth(month,uid);
+    },0);
+  }
+},true);
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
 let currentProfile=null;
 const queuedTaps=new Map();
@@ -4082,6 +4165,7 @@ async function hydrate(){
     window.duroodChatRows=[];
     currentProfile=profile;
     bridge.enter(profile,[profile],{});
+    void loadPrivateQaza(profile);
     observeCounters(side);
     if(window.parent!==window)window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
@@ -4146,11 +4230,8 @@ async function hydrate(){
   bridge.enter(profile,rows,{memberCounts},true);
   if(owner && side==='female')return;
   try{
-    const month=new Date().toISOString().slice(0,7);
-    const result=await prayerMonthSpark(month);
-    if(auth.currentUser?.uid===profile.uid && window.duroodCurrentSide===side){
-      bridge.loadPrayerDays(result.days||[]);
-    }
+    const month=localReadingDate().slice(0,7);
+    await loadPrayerMonth(month,profile.uid);
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
 onAuthStateChanged(auth,async user=>{
