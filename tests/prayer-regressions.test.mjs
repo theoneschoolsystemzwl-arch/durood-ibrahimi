@@ -53,6 +53,6 @@ assert(css.includes(".prayer-ledger"));
 assert(fs.readFileSync("public/wazaif.js","utf8").includes('read-group'));
 assert(spark.includes('"memberPrivate",uid,"qaza","plan"'));
 assert(rules.includes("match /memberPrivate/{uid}/qaza/{docId}"));
-assert(rules.includes("validQazaDone"));
+assert(rules.includes("validQazaPaid"));
 assert(rules.includes("self(uid) && currentMember()"));
 console.log("Prayer regression checks passed: Qaza migration, date validation, isolated Firebase saves, calendar colors and key buttons.");
