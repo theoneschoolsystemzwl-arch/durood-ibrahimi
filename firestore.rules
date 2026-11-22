@@ -890,6 +890,29 @@ service cloud.firestore {
            (changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
     }
+    // A count-only patch cannot alter the immutable, already validated
+    // Wazifa text, plan, dates, membership or ownership. Check its compact
+    // write shape first to stay below Firestore's 1,000-expression limit
+    // when a completed fixed plan has switched to a daily continuation.
+    function validWzFastCount(uid) {
+      let d=request.resource.data;
+      let changes=d.diff(resource.data).affectedKeys();
+      let amount=d.total - resource.data.total;
+      return changes.hasAny(['total','today']) &&
+        changes.hasOnly(['total','today','day','updatedAt','dailyLedger',
+                         'lastReadingDay','lastReadingSource']) &&
+        self(uid) && currentMember() &&
+        d.uid == uid && d.createdAt == resource.data.createdAt &&
+        d.updatedAt == request.time &&
+        d.total is int && d.total >= 0 &&
+        d.today is int && d.today >= 0 &&
+        wzDate(d.day) &&
+        d.get('dailyLedger',{}) is map &&
+        d.get('dailyLedger',{}).size() <= 3660 &&
+        (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
+           validWzDatedCount(d,changes,amount) :
+           validWzOldCount(d,changes,amount));
+    }
     // One monotonic W-1, W-2, ... counter per authenticated member.
     // The counter and the new/legacy personal item must be written in one
     // transaction. Deleted serials are never reused.
@@ -986,8 +1009,9 @@ service cloud.firestore {
         wzAllocated(uid,wazifaId,request.resource.data.wNumber) &&
         request.resource.data.total == 0 && request.resource.data.today == 0 &&
         request.resource.data.createdAt == request.time;
-      allow update: if validWzPrivate(uid) &&
-        (validWzPrivateChange() || wzLegacySerialAssignment(uid,wazifaId));
+      allow update: if validWzFastCount(uid) ||
+        (validWzPrivate(uid) &&
+         (validWzPrivateChange() || wzLegacySerialAssignment(uid,wazifaId)));
       allow delete: if self(uid) && currentMember();
     }
 
