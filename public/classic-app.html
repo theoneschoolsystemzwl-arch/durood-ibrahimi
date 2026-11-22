@@ -1170,6 +1170,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
+<style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -1909,6 +1910,7 @@ const duroodIbrahimi = '<p>اللَّهُمَّ صَلِّ عَلَىٰ مُحَ
 function tasbih() {
   return heading(tr("Tasbih", 'تسبیح'),tr("Recite Durood-e-Ibrahimi in full, then tap once.", 'مکمل درودِ ابراہیمی پڑھیں اور ہر مرتبہ ایک بار ٹیپ کریں۔')) +
     tr("<section class=\"reader\" aria-label=\"Tasbih counter\"><div class=\"reader-inner\">", '<section class="reader" aria-label="تسبیح کا شمار"><div class="reader-inner">') +
+    "<figure class=\"tasbih-emblem\" lang=\"ur\" dir=\"rtl\"><img src=\"/tasbih-calligraphy.webp\" width=\"400\" height=\"400\" alt=\"تسبیح کے اندر محمد صلی اللہ علیہ وآلہ وسلم کی سنہری خطاطی\"><figcaption>تسبیح درود ابراہیمی صلی اللہ علیہ وسلم</figcaption></figure>" +
     tr("<div class=\"panel-head\"><h2>Durood-e-Ibrahimi</h2><div class=\"reader-actions\">", '<div class="panel-head"><h2>درودِ ابراہیمی</h2><div class="reader-actions">') +
     '<button class="button" data-action="reader-sound" aria-pressed="' + soundEnabled + tr("\">Sound ", '">آواز ') + (soundEnabled ? tr("On", 'چالو') : tr("Off", 'بند')) +
     '</button><button class="button" data-action="reader-vibrate" aria-pressed="' + Boolean(prayerPrefs(currentUserId).readerVibrate) +
