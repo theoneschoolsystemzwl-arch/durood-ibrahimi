@@ -1111,6 +1111,26 @@ input,select,textarea { border-radius:8px; min-height:42px; padding:5px 8px; }
   }
 }
 
+/* Stable Android WebView layout without changing the original design.
+   Prevent page-wide horizontal overflow and make the bottom dock a fixed,
+   horizontally scrollable row instead of resizing buttons between renders. */
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+body,#app,.shell{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+.bottom-nav{left:0;right:0;bottom:0;width:100%;max-width:100%;box-sizing:border-box}
+.nav-inner{min-width:0;max-width:700px;overflow-x:auto;overflow-y:hidden}
+.nav{overflow:hidden;white-space:nowrap}
+@media(max-width:520px){
+  .nav-inner{width:100%;min-height:46px;overscroll-behavior-x:contain}
+  .nav{flex:1 0 45px;min-width:45px;max-width:none;min-height:46px}
+  .main{padding-bottom:max(82px,calc(78px + env(safe-area-inset-bottom)))}
+  input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px}
+}
 /* This is the historical interface. Only a valid Firebase member may view it. */
 #app{visibility:hidden}
 [data-action="open-delete"]{display:none!important}
