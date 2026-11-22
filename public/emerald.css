@@ -61,3 +61,19 @@
 :root[data-theme] .recitation-period{padding:9px}
 :root[data-theme] .recitation-periods{gap:7px;margin-top:8px}
 :root[data-theme] .profile-card-foot{padding-top:.25rem}
+
+/* Give the identity card priority while keeping the surrounding pages dense. */
+:root[data-theme] .app-head{padding-top:0}
+:root[data-theme] .profile-card{padding:clamp(13px,3vw,23px);gap:.55rem}
+:root[data-theme] .profile-copy strong{font-size:clamp(1.4rem,5vw,2rem)}
+:root[data-theme] .profile-greeting .avatar{width:clamp(54px,14.5vw,80px);height:clamp(54px,14.5vw,80px)}
+:root[data-theme] .profile-card-foot{flex-wrap:wrap;row-gap:4px}
+:root[data-theme] :is(.panel,.community-card,.global-card,.member-card,.group-card,.rank-card,.ledger-card,.qaza-section,.stat,.reader-metric,.qaza-metric,.about-block,.about-hadith,.chat-bubble){padding:7px 9px;border-radius:12px}
+:root[data-theme] .section{margin-top:6px}
+:root[data-theme] .recitation-banner{padding:8px 12px;gap:2px}
+:root[data-theme] .recitation-periods{gap:5px;margin-top:6px}
+:root[data-theme] .recitation-periods .recitation-period{padding:4px 7px;gap:0;border-radius:11px}
+:root[data-theme] .recitation-period h2{padding:0 .4em;font-size:.88rem}
+:root[data-theme] .recitation-period strong{font-size:clamp(1.15rem,3.2vw,1.7rem);line-height:1.35}
+:root[data-theme] .app-footer{display:flex;justify-content:center;align-items:center;gap:8px;margin:12px auto 0;padding:6px}
+:root[data-theme] .app-footer .button{min-height:36px;padding:2px 12px}

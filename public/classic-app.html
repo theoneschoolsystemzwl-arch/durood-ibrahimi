@@ -1169,7 +1169,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-person {display:inline-grid;gap:2px}.reader-person small {color:var(--muted)}
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
-<link rel="stylesheet" href="./emerald.css?v=2">
+<link rel="stylesheet" href="./emerald.css?v=3">
 </head>
 <body>
 <div id="app"></div>
@@ -1677,7 +1677,7 @@ function profileCard(person) {
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(joinDate.format(person.joined)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
-    '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
+    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' ' + memberLevel(person) +
     '</span></div></section></header>';
 }
@@ -3085,10 +3085,10 @@ function dashboard(person) {
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
   const screens = {overview,tasbih,about,namaz:() => namazPage(person),members:ranking,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,groups,profile:() => profileDetails(getUser(profileId) || person)});
-  return '<div class="shell">' + (women ? '' : profileCard(person)) +
+  return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content"><aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
-    (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
+    (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
     availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span aria-hidden="true">' + icon + '</span>' + label + '</button>').join('') +
     '</div></nav></div>';
@@ -3137,25 +3137,28 @@ function refreshLocale() {
   qazaMonthFormat = new Intl.DateTimeFormat(locale(),{timeZone:'UTC',month:'long',year:'numeric'});
 }
 
-function topBar() {
-  const person = currentUser();
-  const toMale = window.duroodCurrentSide === 'female';
-  const destination = toMale ? 'male' : 'female';
-  const destinationLabel = toMale ? tr('Male','مرد') : tr('Female','خواتین');
-  const switchLabel = toMale ? tr('Go to Male section','مردوں کے سیکشن پر جائیں')
-    : tr('Go to Female section','خواتین کے سیکشن پر جائیں');
-  const isAbout = person ? section === 'about' : screen === 'about';
-  return '<header class="utility-bar"><div class="utility-inner"><span class="utility-brand">' +
-    '<span aria-hidden="true">✧</span> ' + tr('Durood Global','درود گلوبل') + '</span><div class="utility-actions">' +
-    '<button type="button" class="about-tab" data-action="' + (person ? 'nav' : 'screen') +
-    '" data-value="about"' + (isAbout ? ' aria-current="page"' : '') + '>' + tr('About','تعارف') + '</button>' +
-    '<div class="locale-switch" role="group" aria-label="' + tr('App language','ایپ کی زبان') + '">' +
-    '<button type="button" lang="en" data-action="language" data-value="en" aria-pressed="' + (language === 'en') + '">English</button>' +
-    '<button type="button" lang="ur" data-action="language" data-value="ur" aria-pressed="' + (language === 'ur') + '">اردو</button></div>' +
-    '</div></div>' + (person?.isOwner ? '<div class="owner-sections">' +
-      '<button type="button" data-action="switch-side" data-side="' + destination +
-      '" aria-label="' + switchLabel + '">' + destinationLabel +
-      ' <span aria-hidden="true">' + tr('→','←') + '</span></button></div>' : '') + '</header>';
+function sectionSwitch(person) {
+  if (!person?.isOwner) return '';
+  const women = ownerViewingWomen();
+  return '<button type="button" class="button secondary" data-action="switch-side" data-side="' +
+    (women ? 'male' : 'female') + '">' + (women ? tr('Men’s section','مردوں کا سیکشن') : tr('Women’s section','خواتین کا سیکشن')) + '</button>';
+}
+
+function appFooter(person) {
+  const next = language === 'ur' ? 'en' : 'ur';
+  const isAbout = (person ? section : screen) === 'about';
+  return '<footer class="app-footer"><button type="button" class="button secondary" data-action="' +
+    (person ? 'nav' : 'screen') + '" data-value="about"' + (isAbout ? ' aria-current="page"' : '') +
+    '>' + tr('About','تعارف') + '</button><button type="button" class="button secondary" data-action="language" lang="' +
+    next + '" data-value="' + next + '">' + (next === 'en' ? 'English' : 'اردو') + '</button></footer>';
+}
+
+function womenSectionCard(person) {
+  const founder = visibleMembers().find(member => member.isFoundingSpouse);
+  return '<header class="app-head"><section class="profile-card"><div class="profile-greeting">' +
+    (founder ? avatar(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
+    (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong></div></div>' +
+    '<div class="profile-card-foot">' + sectionSwitch(person) + '</div></section></header>';
 }
 
 function changeLanguage(value) {
@@ -3179,7 +3182,7 @@ function changeLanguage(value) {
   const oath = app.querySelector('.oath');
   if (oath) oath.open = oathOpen;
   updateRegistrationButton();
-  app.querySelector('[data-action="language"][aria-pressed="true"]')?.focus({preventScroll:true});
+  app.querySelector('[data-action="language"]')?.focus({preventScroll:true});
 }
 
 const registrationChecks = ['male','muslim','oath'];
@@ -3289,7 +3292,7 @@ function render({keepScroll = false} = {}) {
     ? '<main class="main about-public">' + about() + '<p class="section"><button type="button" class="button secondary" data-action="screen" data-value="login">' +
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
-  app.innerHTML = topBar() + content;
+  app.innerHTML = person ? content : content + appFooter(null);
   if (person && section === 'tasbih') updateReader();
   const dock = app.querySelector('.nav-inner');
   if (dock) dock.scrollLeft = navScroll;
