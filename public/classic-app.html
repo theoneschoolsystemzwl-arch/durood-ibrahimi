@@ -1764,8 +1764,16 @@ function readerList(){
    const online=now-row.seen<90000,active=online && now-row.lastTap<90000;
    const seconds=Math.max(0,Math.floor((now-row.lastTap)/1000));
    const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
+   // Join the reader UID to the authenticated member directory, never guess an ID or level.
+   const person=users.find(member=>member.uid===row.uid && !member.deleted);
+   const picture=avatar(person||{name:row.name||'',photo:''});
+   const memberId=person?displayId(person.id):'—';
+   const level=person?String(memberLevel(person)):'—';
    return '<li><span class="dashboard-reader-rank">'+(index+1)+'</span>'+
-     '<span class="reader-person"><b>'+esc(row.name)+'</b><small>'+status+' · '+
+     '<span class="dashboard-reader-avatar">'+picture+'</span>'+
+     '<span class="reader-person"><b>'+esc(person?.name||row.name)+'</b>'+
+       '<span class="reader-meta"><bdi dir="ltr">'+memberId+'</bdi><span> · '+tr('Level','لیول')+' '+esc(level)+'</span></span>'+
+       '<small>'+status+' · '+
        tr("Last tap","آخری تسبیح")+' '+(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(row.lastTap)))+
        '</small></span><strong class="dashboard-reader-count">'+displayNumber(row.total)+'</strong></li>';
  }).join('')+'</ol>';
@@ -2084,8 +2092,14 @@ function tasbih() {
   const group=window.duroodWazaif?.groupData?.();
   const headingTitle=group?.title||tr("Tasbih", 'تسبیح');
   const description=group?.instructions||tr("Recite Durood-e-Ibrahimi in full, then tap once.", 'مکمل درودِ ابراہیمی پڑھیں اور ہر مرتبہ ایک بار ٹیپ کریں۔');
+  const purpose=group?.purpose||tr('Daily Durood-e-Ibrahimi recitation','درودِ ابراہیمی کی روزانہ تلاوت');
+  const arabic=group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : duroodIbrahimi;
   return '<button type="button" class="button secondary" data-action="nav" data-value="tasbih">← '+tr('Wazaif list','وظائف واپس')+'</button>' +
     boxedHeading(esc(headingTitle),esc(description)) +
+    '<section class="wz-reading-text wz-reading-text-visible group-reader-intro" aria-label="وظیفے کی عبارت، طریقہ اور مقصد">'+
+    '<h3>'+tr('Arabic text','عربی عبارت')+'</h3><div class="durood-copy" lang="ar" dir="rtl">'+arabic+'</div>'+
+    '<p><b>'+tr('How to recite:','پڑھنے کا طریقہ:')+'</b> '+esc(description)+'</p>'+
+    '<p><b>'+tr('Purpose:','مقصد:')+'</b> '+esc(purpose)+'</p></section>' +
     tr("<section class=\"reader\" aria-label=\"Tasbih counter\"><div class=\"reader-inner\">", '<section class="reader" aria-label="تسبیح کا شمار"><div class="reader-inner">') +
     tr("<div class=\"panel-head\"><h2>Durood-e-Ibrahimi</h2><div class=\"reader-actions\">", '<div class="panel-head"><h2>درودِ ابراہیمی</h2><div class="reader-actions">') +
     '<button class="button" data-action="reader-sound" aria-pressed="' + soundEnabled + tr("\">Sound ", '">آواز ') + (soundEnabled ? tr("On", 'چالو') : tr("Off", 'بند')) +
@@ -2099,8 +2113,6 @@ function tasbih() {
     '<div class="reader-progress"><div class="reader-goal-note"><strong id="read-goal-note"></strong>' +
     tr("<button class=\"button secondary\" data-action=\"daily-goal\">Set daily goal</button></div>", '<button class="button secondary" data-action="daily-goal">روزانہ ہدف مقرر کریں</button></div>') +
     tr("<progress id=\"read-progress\" aria-label=\"Daily goal progress\" max=\"100\" value=\"0\"></progress></div>", '<progress id="read-progress" aria-label="روزانہ ہدف کی پیش رفت" max="100" value="0"></progress></div>') +
-    '<div class="durood-copy" lang="ar" dir="rtl">' +
-      (group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : duroodIbrahimi) + '</div>' +
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
@@ -2137,8 +2149,8 @@ function updateReader() {
   const live = sessionFor(person.id,key);
   const goal = ledger.goal;
   const count = dayCount(person,key);
-  const measured=ledger.days[key];
-  const rate = measured?.intervals && measured.ms > 0 ? measured.ms / measured.intervals : null;
+  // Current-session pace starts only after two actual recitations.
+  const rate = live.intervals > 0 && live.ms > 0 ? live.ms / live.intervals : null;
   set('read-all',formatNumber(score(person,'all','current')));
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
@@ -4225,7 +4237,7 @@ function observeCounters(side){
       if(snap.metadata.fromCache && snap.empty)return;
       rows=snap.docs.map(item=>{
         const data=item.data({serverTimestamps:"estimate"});
-        return {name:data.name,total:data.total,lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
+        return {uid:item.id,name:data.name,total:data.total,lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
       });
       myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
       bridge.readers(rows);
