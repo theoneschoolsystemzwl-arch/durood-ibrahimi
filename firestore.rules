@@ -190,12 +190,12 @@ service cloud.firestore {
           'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt','sideNumber']) &&
         m.keys().hasAll(['uid','username','name','role','memberNumber',
           'serial','inviterUid','inviteCode','gender','disabled','pledgeAcceptedAt','createdAt']) &&
+        (!('sideNumber' in m) || (m.gender == 'female' && m.sideNumber is int && m.sideNumber == previousGenderMembers('female') + 1)) &&
         m.uid == uid && validUsername(m.username) &&
         m.name is string && m.name.size() >= 2 && m.name.size() <= 60 &&
         m.role == 'member' && m.disabled == false && validGender(m.gender) &&
         m.memberNumber is int && m.memberNumber >= 2 &&
         m.serial == 'DI-' + string(m.memberNumber) &&
-        (!('sideNumber' in m) || (m.gender == 'female' && m.sideNumber is int && m.sideNumber == previousGenderMembers('female') + 1)) &&
         m.pledgeAcceptedAt == request.time && m.createdAt == request.time &&
         validInvite(m.inviteCode) &&
         exists(invitationPath(m.inviteCode)) &&

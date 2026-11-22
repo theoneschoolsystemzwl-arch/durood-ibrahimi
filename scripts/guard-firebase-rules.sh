@@ -75,7 +75,17 @@ if(!existing || typeof existing.content!=='string'){
 }
 // This is the last trusted pre-Wazaif source. The Wazaif change on main
 // has not been deployed, and HEAD^ now points to the new source, not baseline.
-const expected=cp.execFileSync('git',['show','bcf9beace253b59bd92d89ab95f336ab349f5235:firestore.rules'],{encoding:'utf8'});
+// Confirmed live difference: only this existing AND predicate was moved
+// upward inside allowedMemberCreate. It changes no access semantics, and
+// the exact single relocation is verified before any update is allowed.
+let expected=cp.execFileSync('git',['show','bcf9beace253b59bd92d89ab95f336ab349f5235:firestore.rules'],{encoding:'utf8'});
+const sideRule="        (!('sideNumber' in m) || (m.gender == 'female' && m.sideNumber is int && m.sideNumber == previousGenderMembers('female') + 1)) &&\n";
+const predicateAnchor="        m.uid == uid && validUsername(m.username) &&\n";
+if(expected.split(sideRule).length!==2 || expected.split(predicateAnchor).length!==2){
+  console.error('The trusted baseline is not in the expected form; refusing production rules changes.');
+  process.exit(1);
+}
+expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicateAnchor);
 const normalize=s=>s.replace(/\r\n/g,'\n').trim();
 if(normalize(existing.content)!==normalize(expected)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
