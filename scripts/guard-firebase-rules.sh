@@ -101,8 +101,12 @@ const beforeQaza=cp.execFileSync('git',['show','f024232628303dfaa2428930b3e0be3b
 // The verified Qaza update was published on 23 Nov. Any new change must
 // match this exact trusted production source before deploying.
 const beforeSharing=cp.execFileSync('git',['show','14f92184d86bdeb88a13b3977c00be22aeb86997:firestore.rules'],{encoding:'utf8'});
+// Wazifa serials and inbox controls from PR #9 are the confirmed live
+// baseline. Never overwrite an unrecognized change made in Firebase Console.
+const beforeFemaleSerial=cp.execFileSync('git',['show','76bfc2c07f21b7708e5d38f8876bd9a943f54dd5:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
-   normalize(existing.content)!==normalize(beforeSharing)){
+   normalize(existing.content)!==normalize(beforeSharing) &&
+   normalize(existing.content)!==normalize(beforeFemaleSerial)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);
