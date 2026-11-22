@@ -415,7 +415,11 @@ function readerMarkup(group){
  '</div>'+
  '<div class="wz-hero-progress"><span id="wz-hero-progress-label">'+progress+'% تکمیل</span>'+
  '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'"></progress></div>'+
- '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+
+ '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+ 
+ '<section class="wz-reading-text wz-reading-text-visible" aria-label="وظیفے کی مکمل تفصیل">'+
+ '<h3>عربی عبارت</h3><div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
+ '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
+ '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  (showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
  heroTile("کل دن",fmt(days),"date")+
@@ -447,10 +451,7 @@ function readerMarkup(group){
  '</button>'+
  '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
- '<details class="wz-reading-text"><summary>وظیفے کی عبارت اور ہدایات</summary>'+
- '<div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
- '<p class="wz-help">'+esc(w.instructions)+'</p></details>'+
- '<p class="wz-reader-advice">ایک بار پڑھنے کے بعد دائرہ دبائیں۔ 15 سیکنڈ خاموشی کے بعد وقت رک جاتا ہے۔</p>'+
+  '<p class="wz-reader-advice">ایک بار پڑھنے کے بعد دائرہ دبائیں۔ 15 سیکنڈ خاموشی کے بعد وقت رک جاتا ہے۔</p>'+
  (state.tapQueue?'<p class="wz-help">محفوظ ہو رہے ہیں: '+fmt(state.tapQueue)+'</p>':'')+
  (state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'')+
  '</div></div>';
@@ -646,6 +647,7 @@ function tap(){
  state.tapQueue++;
  state.tapMetaQueue.push({durationMs,intervals:durationMs>0?1:0});
  const counter=$("#wz-dial-number");if(counter)counter.textContent=fmt(Number(counter.textContent.replace(/,/g,""))+1);
+ tick(); // First tap starts the stopwatch; the second establishes the live rate.
  if(!state.tapBusy)drain();
 }
 async function drain(){
@@ -689,7 +691,7 @@ function tick(){
  const sec=$("#wz-speed-sec"),min=$("#wz-speed-min"),hour=$("#wz-speed-hour"),dialSpeed=$("#wz-live-speed");
  if(sec)sec.textContent=p;if(min)min.textContent=pace(rate*60);
  if(hour)hour.textContent=pace(rate*3600);if(dialSpeed)dialSpeed.textContent="رفتار: "+p+" فی سیکنڈ";
- const status=$("#wz-speed-status");if(status)status.textContent=rate>0?(rate>=1?"تیز":"معمول"):"—";
+ const status=$("#wz-speed-status");if(status)status.textContent=rate>0?(rate>=1?"تیز":"معمول"):state.clockLastTap!==null?"دوسری تسبیح پر رفتار":"—";
  if(state.seenDay!==readingDay()){
    state.seenDay=readingDay();state.clockLastTap=null;
    if(state.mode==="personal-reader"){
