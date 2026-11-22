@@ -24,6 +24,13 @@ service cloud.firestore {
     function genderStatsPath(gender) {
       return /databases/$(database)/documents/genderStats/$(gender);
     }
+    function genderMembersPath(gender) {
+      return /databases/$(database)/documents/genderMembers/$(gender);
+    }
+    function previousGenderMembers(gender) {
+      return exists(genderMembersPath(gender)) ?
+        get(genderMembersPath(gender)).data.totalMembers : 0;
+    }
     function activeLoginPath(uid) {
       return /databases/$(database)/documents/activeLogins/$(uid);
     }
@@ -187,7 +194,9 @@ service cloud.firestore {
         exists(sequencePath()) &&
         m.memberNumber == get(sequencePath()).data.lastNumber + 1 &&
         getAfter(sequencePath()).data.lastNumber == m.memberNumber &&
-        getAfter(sequencePath()).data.lastMemberUid == uid;
+        getAfter(sequencePath()).data.lastMemberUid == uid &&
+        getAfter(genderMembersPath(m.gender)).data.totalMembers ==
+          previousGenderMembers(m.gender) + 1;
     }
     function signupCounter() {
       let d = request.resource.data;
@@ -202,6 +211,24 @@ service cloud.firestore {
         d.updatedAt == request.time &&
         getAfter(memberPath(request.auth.uid)).data.memberNumber == d.lastNumber &&
         getAfter(memberPath(request.auth.uid)).data.role == 'member';
+    }
+    function signupGenderMembers(gender) {
+      let d=request.resource.data;
+      return signed() && validGender(gender) &&
+        !exists(memberPath(request.auth.uid)) &&
+        d.keys().hasOnly(['gender','totalMembers','updatedAt']) &&
+        d.keys().hasAll(['gender','totalMembers','updatedAt']) &&
+        d.gender == gender && d.totalMembers is int &&
+        d.totalMembers == previousGenderMembers(gender) + 1 &&
+        d.updatedAt == request.time &&
+        getAfter(memberPath(request.auth.uid)).data.gender == gender &&
+        getAfter(sequencePath()).data.lastMemberUid == request.auth.uid;
+    }
+    match /genderMembers/{gender} {
+      allow get: if validGender(gender) &&
+        (owner() || (currentMember() && myGender() == gender));
+      allow list, delete: if false;
+      allow create, update: if signupGenderMembers(gender);
     }
     match /members/{uid} {
       allow get: if self(uid) || owner() ||
