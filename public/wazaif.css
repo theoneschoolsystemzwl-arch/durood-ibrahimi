@@ -66,3 +66,9 @@
 .wz-delete{background:#54322d;color:#fff4e9;border-color:#9b6b59}
 .wz-notice{padding:9px 11px;border-radius:10px;background:#074b38;border:1px solid #3f9a74;color:#ecfff4;font-weight:750}
 @media(max-width:420px){.wz-share-row input{max-width:none;flex-basis:100%}.wz-share-row .wz-button{flex:1}.wz-serial{font-size:.72em}}
+
+/* Put personal tasbih above the personal wazifa type and title. */
+.wz-tasbih-top{margin-bottom:12px}
+.wz-tasbih-cta{display:block;width:100%;min-height:64px;font-family:var(--ur,serif);font-size:clamp(1.1rem,4.6vw,1.5rem);font-weight:800;line-height:1.9;text-align:center;border:2px solid #65f9a0;border-radius:16px;background:linear-gradient(110deg,#057e37,#10b953);color:#fff;box-shadow:0 5px 18px #00180d80,inset 0 1px 0 #e7ffe633}
+.wz-tasbih-cta:not(:disabled):active{filter:brightness(1.15)}
+.wz-tasbih-cta:focus-visible{outline:3px solid #faffb7;outline-offset:3px}

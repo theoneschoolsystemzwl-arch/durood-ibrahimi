@@ -150,14 +150,15 @@ function personalCard(task){
  const end=task.kind==="fixed"?' · '+esc(task.endDate):'';
  const days=task.kind==="fixed"?' · '+spanDays(task.startDate,task.endDate)+' دن':'';
  const stateText=taskStatus(task);
- return '<article class="wz-card wz-personal"><header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||"")+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
+ return '<article class="wz-card wz-personal">'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(stateText!=="جاری"?'disabled':'')+'>📿 تسبیح کریں</button></div>'+
+ '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||"")+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
  '<p class="wz-help">آغاز '+esc(task.startDate)+end+days+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="account-personal" data-wazifa-id="'+esc(task.id)+'">اکاؤنٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
- '<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(task.id)+'">حذف کریں</button>'+
- '<button type="button" class="wz-button wz-primary" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(stateText!=="جاری"?'disabled':'')+'>تسبیح کریں</button></div>'+
+ '</div>'+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً DI-2)</label>'+
  '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"D2":"DI-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
@@ -208,7 +209,7 @@ function formMarkup(){
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="countAsDurood" '+(!g||original.countAsDurood!==false?'checked':'')+'> یہ درود شریف ہے (مجموعی درود میں بھی شمار کریں)</label>'+
  '<p class="wz-help">گروپ سیٹنگ صرف Owner کو نظر آئے گی؛ ذاتی وظیفہ صرف اپنے اکاؤنٹ میں محفوظ ہوگا۔</p>'+
  '<button type="submit" class="wz-button wz-primary" '+(state.busy?'disabled':'')+'>محفوظ کریں</button>'+
- (state.editId&&!g?'<button type="button" class="wz-button" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(state.editId)+'">وظیفہ حذف کریں</button>':'')+
+ (state.editId&&!g?'<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(state.editId)+'">وظیفہ حذف کریں</button>':'')+
  '</form>';
 }
 function readerMarkup(group){
