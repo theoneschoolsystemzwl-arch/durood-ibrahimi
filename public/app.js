@@ -18,6 +18,8 @@ const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:
 window.duroodVerifiedProfile=uid=>auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
 let classicFrameRequested=false;
 let dashboardTimer;
+let authGeneration=0;
+let lastAuthenticatedUid=null;
 
 // This local courtesy pause reduces accidental repeat attempts.
 // It does not override Firebase's server-side rate limiting.
@@ -249,6 +251,7 @@ function showSignedOut() {
   document.body.classList.remove("classic-pending");
   $("#loading-retry").hidden=true;
   appState.profile=null;
+  lastAuthenticatedUid=null;
   classicFrameRequested=false;
   document.body.classList.remove("classic-active");
   const classicFrame=$("#classic-frame");
@@ -259,6 +262,9 @@ function showSignedOut() {
   view("#admin-panel",false);
 }
 function showSignedIn(profile){
+  if(!profile?.uid || auth.currentUser?.uid!==profile.uid)return;
+  const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
+  lastAuthenticatedUid=profile.uid;
   appState.profile=profile;
   view("#loading",false);
   view("#access",false);
@@ -271,7 +277,7 @@ function showSignedIn(profile){
   $("#profile-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
-  showOriginalDashboardIfReady();
+  if(!alreadyOpening)showOriginalDashboardIfReady();
 }
 function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
@@ -283,22 +289,18 @@ function showOriginalDashboardIfReady(){
   view("#loading",true);
   $("#loading-copy").textContent="ڈیش بورڈ کھل رہا ہے…";
   $("#loading-retry").hidden=true;
-  dashboardTimer=setTimeout(()=>{$("#loading-retry").hidden=false;},8000);
+  dashboardTimer=setTimeout(()=>{$("#loading-retry").hidden=false;$("#loading-copy").textContent="ڈیش بورڈ کھلنے میں دیر ہے۔ آپ دوبارہ کوشش کر سکتے ہیں؛ لاگ اِن برقرار ہے۔";},6000);
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app?release=fast-dial-v2";
+  frame.src="./classic-app.html?release=stable-reader-v3";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
 window.addEventListener("message",event=>{
   const frame=$("#classic-frame");
   if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
-  if(event.data?.type==="durood-use-top" && appState.profile?.uid===auth.currentUser?.uid && auth.currentUser){
-    // Never redirect an authenticated parent into a frame that has not yet
-    // restored Firebase persistence. That caused the first-login bounce.
-    event.data.type="durood-classic-error";
-  }
+  if(event.data?.type==="durood-use-top")return; // An embedded view must not navigate the authenticated parent.
   if(event.data?.type==="durood-classic-ready" &&
      appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
     frame.hidden=false;
@@ -306,7 +308,15 @@ window.addEventListener("message",event=>{
     view("#loading",false);
     document.body.classList.remove("classic-pending");
     document.body.classList.add("classic-active");
-  }else if(event.data?.type==="durood-classic-error" || event.data?.type==="durood-classic-auth-pending"){
+  }else if(event.data?.type==="durood-classic-auth-pending"){
+    // The iframe initializes Firebase independently. Its temporary empty Auth
+    // state is not a logout, nor a failed account login.
+    if(appState.profile?.uid===auth.currentUser?.uid){
+      $("#loading-copy").textContent="آپ لاگ اِن ہیں؛ اندرونی ڈیش بورڈ کا سیشن ملایا جا رہا ہے…";
+      view("#loading",true);view("#access",false);view("#portal",true);
+      $("#loading-retry").hidden=true;
+    }
+  }else if(event.data?.type==="durood-classic-error"){
     frame.hidden=true;
     clearTimeout(dashboardTimer);
     view("#loading",false);
@@ -370,24 +380,32 @@ async function refreshMembers(){
   }
 }
 onAuthStateChanged(auth,async user=>{
+  const current=++authGeneration;
   if(appState.registering || appState.signingIn)return;
-  if(!user){showSignedOut();return;}
+  if(!user){
+    // Ignore a stale null callback while a newer sign-in already exists.
+    if(auth.currentUser)return;
+    showSignedOut();return;
+  }
+  if(appState.profile?.uid===user.uid){
+    // A token refresh / iframe startup must not reset a working dashboard.
+    return;
+  }
   view("#loading",true);
   view("#access",false);
-  view("#portal",false);
   let profile;
   try {
     profile=await loadProfile(user);
+    if(auth.currentUser?.uid!==user.uid || current!==authGeneration)return;
     await claimDeviceSession(user,profile);
   } catch(err) {
-    if(auth.currentUser?.uid!==user.uid)return;
-    $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
+    if(auth.currentUser?.uid!==user.uid || current!==authGeneration)return;
+    $("#loading-copy").textContent="آپ کا لاگ اِن محفوظ ہے؛ انٹرنیٹ سے دوبارہ رابطہ کیا جا رہا ہے۔";
     $("#loading-retry").hidden=false;
     console.warn("Session restoration delayed:",err?.code||err?.message);
     return;
   }
-  if(auth.currentUser?.uid!==user.uid)return;
-  // A temporary analytics or directory failure must not log out a valid member.
+  if(auth.currentUser?.uid!==user.uid || current!==authGeneration)return;
   showSignedIn(profile);
 });
 $("#loading-retry").addEventListener("click",async()=>{
