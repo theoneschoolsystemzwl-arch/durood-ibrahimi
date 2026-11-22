@@ -2,7 +2,7 @@ import {auth,db} from "./firebase-client.js";
 import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
-  claimDeviceSession, watchDeviceSession, signOut, onAuthStateChanged
+  claimDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js";
 import {readingsSpark} from "./spark-data.js";
 import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -12,7 +12,7 @@ import {initializeCommunityPages,activateMemberHome} from "./community-pages.js"
 
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
-const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true,takeoverPending:false};
+const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
 let classicFrameRequested=false;
 
 // This local courtesy pause reduces accidental repeat attempts.
@@ -66,7 +66,7 @@ function message(selector,text,ok=false) {
 }
 function errorText(err) {
   const code=err?.code||"";
-  if(code==="member/already-online")return "User already logged in۔ دوسری ڈیوائس سے Log out کرنے کے لیے دوبارہ Login دبائیں۔";
+  if(code==="member/already-online")return "User already logged in۔ پہلے والی ڈیوائس سے Log out کریں۔";
   if(err?.loginStage==="missing-member-profile")return "یوزر موجود نہیں یا اکاؤنٹ غیر فعال ہے۔";
   if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
@@ -97,7 +97,6 @@ function updateBusy(on){
 function switchTab(which) {
   if(appState.busy)return;
   appState.tab=which;
-  appState.takeoverPending=false;
   const registerTab=which==="register";
   $("#tab-login").setAttribute("aria-selected",String(!registerTab));
   $("#tab-register").setAttribute("aria-selected",String(registerTab));
@@ -132,13 +131,12 @@ $("#tab-register").addEventListener("click",()=>switchTab("register"));
 const identityInput=$("#login-identity");
 const identityPreview=$("#login-identity-preview");
 identityInput.addEventListener("input",()=>{
-  appState.takeoverPending=false;
   const fullId=identityInput.value.trim();
   identityPreview.textContent=fullId;
   identityPreview.hidden=!fullId;
 });
 const loginPassword=$("#login-password");
-loginPassword.addEventListener("input",()=>{appState.takeoverPending=false;});
+
 const passwordEye=$("#toggle-login-password");
 passwordEye.addEventListener("click",()=>{
   const show=loginPassword.type==="password";
@@ -187,8 +185,7 @@ $("#access-form").addEventListener("submit",async event=>{
       appState.signingIn=true;
       try {
         checkLoginRetry();
-        const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{takeover:appState.takeoverPending});
-        appState.takeoverPending=false;
+        const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{remember:$("#remember-login").checked});
         clearLoginRetry();
         showSignedIn(profile);
         refreshCounts().catch(err=>message("#reading-message",errorText(err)));
@@ -225,7 +222,6 @@ $("#access-form").addEventListener("submit",async event=>{
   }catch(err){
     if(appState.tab==="login"){
       rememberLoginFailure(err);
-      appState.takeoverPending=err?.code==="member/already-online";
     }
     message("#auth-message",errorText(err));
   }finally{updateBusy(false);}
@@ -260,13 +256,6 @@ function showSignedIn(profile){
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
   activateMemberHome(profile);
-  if(auth.currentUser){
-    watchDeviceSession(auth.currentUser,profile,async()=>{
-      await signOut(auth).catch(()=>{});
-      showSignedOut();
-      message("#auth-message","یہ اکاؤنٹ دوسری ڈیوائس پر لاگ اِن ہو گیا ہے۔");
-    }).catch(error=>console.warn("Device watch skipped:",error?.message));
-  }
   // Keep the working Firebase UI visible until the original dashboard
   // is actually deployed. A hosting fallback must never show a nested login.
   showOriginalDashboardIfReady().catch(()=>{});
