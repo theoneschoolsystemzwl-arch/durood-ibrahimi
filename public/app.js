@@ -225,6 +225,9 @@ async function loadProfile(user){
 }
 function showSignedOut() {
   appState.profile=null;
+  document.body.classList.remove("classic-active");
+  const classicFrame=$("#classic-frame");
+  if(classicFrame){classicFrame.hidden=true;classicFrame.src="about:blank";}
   view("#loading",false);
   view("#portal",false);
   view("#access",true);
@@ -244,6 +247,15 @@ function showSignedIn(profile){
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
   activateMemberHome(profile);
+  // Retain the verified Firebase Login/New User screen while restoring the
+  // original complete dashboard inside a same-origin authenticated frame.
+  const classicFrame=$("#classic-frame");
+  if(classicFrame){
+    document.body.classList.add("classic-active");
+    classicFrame.hidden=false;
+    if(!classicFrame.src.endsWith("/classic-app.html"))
+      classicFrame.src="./classic-app.html";
+  }
 }
 async function refreshCounts(){
   if(!auth.currentUser)return;
