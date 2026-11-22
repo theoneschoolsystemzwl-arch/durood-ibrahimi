@@ -1221,7 +1221,7 @@ let periods = [
 const demoNames = {'Demo Owner': 'آزمائشی مالک', 'Muhammad Hamza': 'محمد حمزہ', 'Aisha Noor': 'عائشہ نور', 'Abdullah Khan': 'عبداللہ خان', 'Fatima Zahra': 'فاطمہ زہرہ', 'Ali Hassan': 'علی حسن', 'Maryam Ahmed': 'مریم احمد', 'Umar Farooq': 'عمر فاروق', 'Zainab Ali': 'زینب علی', 'Ahmed Raza': 'احمد رضا', 'Sarah Yousuf': 'سارہ یوسف', 'Bilal Ahmed': 'بلال احمد', 'Mustafa Ali': 'مصطفیٰ علی'};
 const seedRows = []; // All member profiles come from authenticated Firebase.
 const offlineKey = 'durood-global-offline-reader-v1';
-const stored = null; // Intentionally ignore earlier demo/test browser data.
+const stored = null; // Never rehydrate old offline demo accounts, users or totals.
 const demoDay = stored?.demoDay || dateKey();
 const reading = stored?.reading || {};
 const attendance = stored?.attendance || {};
@@ -1783,8 +1783,72 @@ function loadOfflineState() {
   }
 }
 
+function memberPrivateStorageKey(uid) {
+  return 'durood-private-prayer-v3-' + uid;
+}
+let qazaLocalRevision = 0;
+let recoveredLegacyQaza = null;
+
+// Load only prayer settings for the currently verified Firebase account.
+// Do not reload any pre-Firebase demo users, passwords or fake Durood totals.
+function restoreMemberPrivateSettings(uid,id) {
+  recoveredLegacyQaza=null;
+  if(!uid || !Number.isSafeInteger(id) || id<1)return;
+  let saved=null;
+  try { saved=JSON.parse(localStorage.getItem(memberPrivateStorageKey(uid))||'null'); } catch {}
+  const legacy=loadOfflineState();
+  const theme=saved?.theme ?? legacy?.themes?.[id];
+  if(typeof theme==='string' && Object.hasOwn(appThemes,theme))memberThemes[id]=theme;
+  const prefs=saved?.prayerPrefs ?? legacy?.prayerSettings?.[id];
+  if(prefs && typeof prefs==='object' && !Array.isArray(prefs) &&
+      Number.isFinite(Number(prefs.lat)) && Number.isFinite(Number(prefs.lon)) &&
+      typeof prefs.zone==='string' && prefs.zone.length<80) {
+    prayerSettings[id]={...cityOptions.jakarta,...prefs,
+      selected:Array.isArray(prefs.selected)?prefs.selected.filter(x=>allPrayers.some(([key])=>key===x)):prayers.map(([key])=>key),
+      sent:{}};
+  }
+  const qazaCandidate=saved?.qaza ?? legacy?.qazaPlans?.[id];
+  if(qazaCandidate && typeof qazaCandidate==='object' && !Array.isArray(qazaCandidate)){
+    const start=String(qazaCandidate.start||'');
+    const target=Number(qazaCandidate.target||0);
+    const validStart=/^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(start) &&
+      !Number.isNaN(Date.parse(start+'T12:00:00Z')) &&
+      new Date(start+'T12:00:00Z').toISOString().slice(0,10)===start;
+    if(validStart || Number.isSafeInteger(target) && target>0){
+      const done={};
+      for(const prayer of ['fajr','dhuhr','asr','maghrib','isha']){
+        const days=qazaCandidate.done?.[prayer];
+        if(!days||typeof days!=='object'||Array.isArray(days))continue;
+        const valid=Object.entries(days).filter(([day,value])=>
+          /^(19|20)\d{2}-\d{2}-\d{2}$/.test(day)&&value===true).slice(0,3000);
+        if(valid.length)done[prayer]=Object.fromEntries(valid);
+      }
+      recoveredLegacyQaza={start:validStart?start:'',target:Number.isSafeInteger(target)&&target>=0&&target<=1000000?target:0,done};
+      qazaPlans[id]=structuredClone(recoveredLegacyQaza);
+    }
+  }
+}
+function copyQazaPlan(plan){
+  const p=plan&&typeof plan==='object'&&!Array.isArray(plan)?plan:{};
+  const done={};
+  for(const prayer of ['fajr','dhuhr','asr','maghrib','isha']){
+    const entry=p.done?.[prayer];
+    if(entry&&typeof entry==='object'&&!Array.isArray(entry))done[prayer]={...entry};
+  }
+  return {start:String(p.start||''),target:Number(p.target||0),done};
+}
+
 function saveOfflineState() {
   try {
+    const self=currentUser();
+    if(self?.uid){
+      // Independent per-UID recovery, so logout/browser refresh cannot
+      // silently swap two members' Qaza settings or themes.
+      const privateState={schema:3,uid:self.uid,
+        qaza:copyQazaPlan(qazaPlans[self.id]),prayerPrefs:prayerSettings[self.id]||null,
+        theme:selectedTheme(self.id)};
+      localStorage.setItem(memberPrivateStorageKey(self.uid),JSON.stringify(privateState));
+    }
     const state = {
       schema:1,demoDay,nextMemberId,globalTotal,liveAdded,reading,attendance,prayerSettings,qazaPlans,themes:memberThemes,
       users:users.filter(person => person.id <= seedRows.length || passwords.has(person.id))
@@ -3075,6 +3139,7 @@ function saveQazaStart(form,data) {
     return;
   }
   plan.start = start;
+  qazaLocalRevision++;
   qazaEditing = false;
   qazaDateDraft = null;
   qazaMonth = qazaMonthStart(start);
@@ -3091,6 +3156,7 @@ function saveQazaTarget(form,data) {
     return;
   }
   qazaPlan(currentUserId).target = target;
+  qazaLocalRevision++;
   qazaTargetDraft = null;
   const saved = saveOfflineState();
   render({keepScroll:true});
@@ -3146,6 +3212,7 @@ function handleQazaAction(action,button,value) {
       return true;
     }
     if (!setQazaRecord(currentUserId,day,value,qazaMode)) return true;
+    qazaLocalRevision++;
     const saved = saveOfflineState();
     const label = prayers.find(([id])=>id===value)[1];
     render({keepScroll:true});
@@ -3776,6 +3843,7 @@ window.duroodClassicBridge = {
     selectedPeriod="all";
     record="current";
     if(!refresh){
+      restoreMemberPrivateSettings(profile.uid,Number(profile.memberNumber)||1);
       restoreReaderJournal(profile.uid,Number(profile.memberNumber)||1);
       signIn(Number(profile.memberNumber)||1);
     }
@@ -3822,14 +3890,34 @@ window.duroodClassicBridge = {
     window.duroodChatRows=Array.isArray(rows)?rows:[];
     if(section==='messages')render({keepScroll:true});
   },
-  loadPrayerDays(days){
+  loadPrayerDays(days,month){
     const p=currentUser();if(!p)return;
-    attendance[p.id]={};
+    const records=attendance[p.id] ||= {};
+    // Refresh only the requested month; preserve previously fetched months
+    // and Qaza records instead of erasing all attendance on every login.
+    if(/^\d{4}-(0[1-9]|1[0-2])$/.test(month||'')){
+      for(const day of Object.keys(records))if(day.startsWith(month+'-'))delete records[day];
+    }
     for(const item of days){
-      if(item?.date&&item?.statuses&&typeof item.statuses==="object")
-        attendance[p.id][item.date]={...item.statuses};
+      if(item?.date&&item?.statuses&&typeof item.statuses==="object" &&
+        (!month||item.date.startsWith(month+'-')))
+        records[item.date]={...item.statuses};
     }
     if(section==="namaz")render({keepScroll:true});
+  },
+  qazaRevision:()=>qazaLocalRevision,
+  exportQazaPlan(){
+    const p=currentUser();return p?copyQazaPlan(qazaPlans[p.id]):null;
+  },
+  recoveredQaza(){
+    const p=currentUser();return p?.uid && recoveredLegacyQaza ? copyQazaPlan(recoveredLegacyQaza) : null;
+  },
+  loadQazaPlan(value){
+    const p=currentUser();if(!p || !value)return;
+    qazaPlans[p.id]=copyQazaPlan(value);
+    recoveredLegacyQaza=null;
+    qazaEditing=false;qazaDateDraft=null;qazaTargetDraft=null;
+    if(section==='namaz' && namazView==='qaza')render({keepScroll:true});
   },
   prayerStatuses(day){
     const states={...(attendance[currentUserId]?.[day]||{})};
