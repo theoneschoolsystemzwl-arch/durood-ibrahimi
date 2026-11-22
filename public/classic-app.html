@@ -1437,7 +1437,7 @@ function directory() {
 }
 
 function memberLevel(person) {
-  if(person.id === 1) return 1;
+  if(person.id === 1 || person.isFoundingSpouse) return 1;
   return directMembers(person.id).length > 0 ? 1 : 0;
 }
 
@@ -3448,6 +3448,7 @@ window.duroodClassicBridge = {
       const memberId=Number(x.memberNumber);
       users.push({
         id:memberId,uid:x.uid,name:x.name||"Member",username:x.username||"",
+        isFoundingSpouse:x.username==="iramshahzad" && x.inviterUid==="vt06NK7DcmgPpUKD4R7EgwzAxIH3",
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
         age:"",birthDate:"",gender:"",phone:"",address:"",photo:""
