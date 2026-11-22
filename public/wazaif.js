@@ -4,6 +4,9 @@ import {auth,db} from "./firebase-client.js";
 import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
+  sharePersonalWazifa,acceptSharedWazifa,discardSharedWazifa,inboxCollection}
+  from "./wazifa-sharing.js";
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -19,23 +22,41 @@ const defaultGroup=()=>({
 const state={
  profile:null,group:null,groupExists:false,groupStats:null,yearStats:null,personal:[],
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
+ inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
  seenDay:readingDay()
 };
 const owner=()=>state.profile?.role==="owner";
 const currentGroup=()=>state.group||defaultGroup();
-const personalList=()=>state.personal.slice().sort((a,b)=>String(b.createdAt?.seconds||0).localeCompare(String(a.createdAt?.seconds||0)));
+const personalList=()=>state.personal.slice().sort((a,b)=>
+ (Number(a.wNumber)||9999999999)-(Number(b.wNumber)||9999999999) ||
+ (Number(a.createdAt?.seconds)||0)-(Number(b.createdAt?.seconds)||0) ||
+ a.id.localeCompare(b.id));
+async function reconcileLegacySerials(){
+ if(state.migrating||!auth.currentUser||state.profile?.uid!==auth.currentUser.uid)return state.migrationPromise;
+ const legacy=state.personal.filter(item=>!Number.isSafeInteger(item.wNumber)||item.wNumber<1)
+   .sort((a,b)=>(Number(a.createdAt?.seconds)||0)-(Number(b.createdAt?.seconds)||0)||a.id.localeCompare(b.id));
+ if(!legacy.length)return;
+ const uid=state.profile.uid;state.migrating=true;
+ state.migrationPromise=(async()=>{
+   for(const item of legacy){
+     if(auth.currentUser?.uid!==uid)break;
+     await assignLegacyWazifaSerial(item.id);
+   }
+ })().catch(setError).finally(()=>{state.migrating=false;state.migrationPromise=null;});
+ return state.migrationPromise;
+}
 function stop(){
   state.subscriptions.forEach(fn=>{try{fn();}catch{}});
-  state.subscriptions=[];state.started=false;
+  state.subscriptions=[];state.started=false;state.migrating=false;state.migrationPromise=null;
 }
 function setMember(profile){
   if(!profile?.uid)return;
   if(state.profile?.uid===profile.uid){state.profile=profile;return;}
   stop();
   state.profile=profile;state.group=null;state.groupExists=false;state.groupStats=null;
-  state.yearStats=null;state.personal=[];state.mode="list";state.error="";
+  state.yearStats=null;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
   state.bootstrapTried=false;state.tapQueue=0;state.tapBusy=false;
 }
 function setError(e){
@@ -78,6 +99,12 @@ function subscribe(){
   state.subscriptions.push(onSnapshot(ownCollection,safe(snap=>{
     state.personal=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(state.mode!=="form")render();
+    void reconcileLegacySerials();
+  }),err));
+  state.subscriptions.push(onSnapshot(query(inboxCollection(uid),limit(100)),safe(snap=>{
+    state.inbox=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(Number(a.createdAt?.seconds)||0)-(Number(b.createdAt?.seconds)||0));
+    if(state.mode==="list")render();
   }),err));
 }
 function metric(label,value,extra=""){
@@ -123,18 +150,37 @@ function personalCard(task){
  const end=task.kind==="fixed"?' · '+esc(task.endDate):'';
  const days=task.kind==="fixed"?' · '+spanDays(task.startDate,task.endDate)+' دن':'';
  const stateText=taskStatus(task);
- return '<article class="wz-card wz-personal"><header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||"")+'</span><h3>'+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
+ return '<article class="wz-card wz-personal"><header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||"")+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
  '<p class="wz-help">آغاز '+esc(task.startDate)+end+days+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="account-personal" data-wazifa-id="'+esc(task.id)+'">اکاؤنٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
+ '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
+ '<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(task.id)+'">حذف کریں</button>'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(stateText!=="جاری"?'disabled':'')+'>تسبیح کریں</button></div>'+
+ (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً DI-2)</label>'+
+ '<div class="wz-share-row"><input id="wz-share-target" placeholder="DI-2" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
+ '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
+ '<p class="wz-help">مرد صرف مرد کو، خواتین صرف خواتین کو بھیج سکتی ہیں۔</p></div>':'')+
  (state.panel===task.id?renderAccounting(false,task):'')+'</article>';
+}
+function inboxMarkup(){
+ if(!state.inbox.length)return "";
+ return '<section class="wz-inbox"><h2 class="wz-subtitle">شیئرڈ وظائف · '+fmt(state.inbox.length)+'</h2>'+
+ '<p class="wz-help">وظیفہ محفوظ کرنے سے آپ کے اکاؤنٹ میں اگلا W نمبر خود بن جائے گا۔ حذف کرنے سے یہ مستقل ذاتی فہرست میں شامل نہیں ہوگا۔</p>'+
+ state.inbox.map(item=>'<article class="wz-card wz-received">'+
+ '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
+ '<h3>'+esc(item.title)+'</h3></div></header>'+
+ '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
+ '<p class="wz-help">'+esc(item.instructions)+'</p>'+
+ '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
+ '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
 }
 function listMarkup(){
  return '<header class="wz-title"><h1>میرے وظائف</h1><button type="button" class="wz-button wz-primary" data-wazifa-action="new">+ نیا وظیفہ</button></header>'+
- '<p class="wz-help">آپ کا ذاتی ریکارڈ صرف آپ کے اکاؤنٹ میں محفوظ ہوگا۔</p>'+
- groupCard()+'<h2 class="wz-subtitle">میرے ذاتی وظائف</h2>'+
+ '<p class="wz-help">ہر اکاؤنٹ کی ذاتی گنتی W-1 سے شروع ہوتی ہے؛ حذف ہونے والا نمبر دوبارہ کسی دوسرے وظیفے کو نہیں دیا جائے گا۔</p>'+
+ groupCard()+inboxMarkup()+'<h2 class="wz-subtitle">میرے ذاتی وظائف</h2>'+
+ (state.shareNotice?'<p class="wz-notice" role="status">'+esc(state.shareNotice)+'</p>':'')+
  (personalList().length?personalList().map(personalCard).join(''):'<div class="wz-empty">ابھی کوئی ذاتی وظیفہ شامل نہیں۔ اوپر نیا وظیفہ دبائیں۔</div>');
 }
 function formMarkup(){
@@ -282,8 +328,9 @@ async function saveForm(form){
      const uid=auth.currentUser.uid;
      if(state.editId)await updateDoc(doc(db,"memberWazaif",uid,"items",state.editId),config);
      else {
-       const ref=doc(collection(db,"memberWazaif",uid,"items"));
-       await setDoc(ref,{...config,uid,total:0,today:0,day:readingDay(),createdAt:serverTimestamp()});
+       await reconcileLegacySerials();
+       const result=await createPersonalWazifaWithSerial(config);
+       state.shareNotice="وظیفہ "+wazifaSerial(result)+" محفوظ ہو گیا۔";
      }
    }
    state.error="";state.mode="list";state.editId=null;
@@ -370,6 +417,39 @@ document.addEventListener("click",event=>{
  const action=button.dataset.wazifaAction,id=button.dataset.wazifaId;
  event.preventDefault();event.stopImmediatePropagation();
  if(action==="new")return openForm("personal");
+ if(action==="share-personal"&&id){
+   state.shareFor=state.shareFor===id?null:id;state.shareNotice="";render();return;
+ }
+ if(action==="send-personal"&&id){
+   const input=$("#wz-share-target"),target=input?.value?.trim();
+   if(!validMemberSerial(target)){setError("درست ممبر نمبر لکھیں، مثلاً DI-2");return;}
+   if(state.busy)return;
+   state.busy=true;button.disabled=true;
+   sharePersonalWazifa(id,target,state.profile).then(result=>{
+     state.shareFor=null;state.shareNotice="وظیفہ "+result.recipient+" کو شیئر کر دیا گیا۔";
+     state.error="";render();
+   }).catch(setError).finally(()=>{state.busy=false;if(button.isConnected)button.disabled=false;});
+   return;
+ }
+ if(action==="accept-share"&&id){
+   if(state.busy)return;
+   state.busy=true;button.disabled=true;
+   reconcileLegacySerials().then(()=>acceptSharedWazifa(id)).then(result=>{
+     state.shareNotice="شیئرڈ وظیفہ "+wazifaSerial(result)+" کے طور پر محفوظ ہو گیا۔";
+     state.error="";render();
+   }).catch(setError).finally(()=>{state.busy=false;if(button.isConnected)button.disabled=false;});
+   return;
+ }
+ if(action==="reject-share"&&id){
+   if(!window.confirm("اس شیئرڈ وظیفے کو بغیر محفوظ کیے حذف کریں؟"))return;
+   if(state.busy)return;
+   state.busy=true;button.disabled=true;
+   discardSharedWazifa(id).then(()=>{
+     state.shareNotice="شیئرڈ وظیفہ حذف ہو گیا؛ آپ کے ذاتی وظائف میں شامل نہیں ہوا۔";
+     state.error="";render();
+   }).catch(setError).finally(()=>{state.busy=false;if(button.isConnected)button.disabled=false;});
+   return;
+ }
  if(action==="edit-group")return openForm("group");
  if(action==="edit-personal")return openForm("personal",id);
  if(action==="back")return back();
