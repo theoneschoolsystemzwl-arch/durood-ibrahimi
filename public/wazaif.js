@@ -20,7 +20,7 @@ const state={
  profile:null,group:null,groupExists:false,groupStats:null,yearStats:null,personal:[],
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
- tapQueue:0,tapBusy:false,pendingBack:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
+ tapQueue:0,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
  seenDay:readingDay()
 };
 const owner=()=>state.profile?.role==="owner";
@@ -179,7 +179,7 @@ function readerMarkup(group){
  '<section class="wz-reading"><h2>'+esc(w.title)+'</h2><div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
  '<p class="wz-help">'+esc(w.instructions)+'</p>'+
  '<div class="wz-metrics">'+metric("آج پڑھا",count)+metric("کل پڑھا",record.total||0)+metric("آج کا ہدف",target)+'</div>'+
- '<button type="button" id="wz-dial" class="wz-dial" style="--wz-ring:'+progress+'%" data-wazifa-action="tap"><small>آج کی تسبیح</small><strong id="wz-dial-number">'+fmt(count+state.tapQueue)+'</strong><small id="wz-clock">00:00:00.000</small></button>'+
+ '<button type="button" id="wz-dial" class="wz-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+progress+'%" data-wazifa-action="tap"><small>آج کی تسبیح</small><strong id="wz-dial-number">'+fmt(count+state.tapQueue)+'</strong><small id="wz-clock">00:00:00.000</small></button>'+
  '<p class="wz-help">ایک مرتبہ پڑھ کر گول تسبیح دبائیں۔ 15 سیکنڈ کی خاموشی پر وقت رک جائے گا۔</p>'+
  (state.tapQueue?'<p class="wz-help">'+fmt(state.tapQueue)+' شمار محفوظ ہو رہے ہیں…</p>':'')+
  (state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'')+'</section>';
@@ -245,7 +245,7 @@ function openForm(scope,id=null){
 }
 function back(){
  if(state.tapBusy){state.pendingBack=true;return;}
- state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.tapQueue=0;state.clockLastTap=null;
+ state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.tapQueue=0;state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;
  const root=$("#wazaif-root");if(root)root.innerHTML="";
  render();
 }
@@ -296,6 +296,7 @@ function startClock(){
  state.clockStart=performance.now();state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;
 }
 function tap(){
+ if(state.skipDialClick){state.skipDialClick=false;return;}
  if(state.busy||!auth.currentUser||!["group-reader","personal-reader"].includes(state.mode))return;
  const now=performance.now(),gap=state.clockLastTap===null?0:now-state.clockLastTap;
  if(gap>0&&gap<=15000){state.clockMs+=gap;state.clockIntervals++;}
@@ -341,6 +342,22 @@ function tick(){
  }
 }
 setInterval(tick,125);
+let longHoldTimer=null;
+document.addEventListener("pointerdown",event=>{
+ const dial=event.target.closest("#wz-dial");
+ if(!dial||event.button>0)return;
+ clearTimeout(longHoldTimer);
+ longHoldTimer=setTimeout(()=>{
+   if(!dial.isConnected)return;
+   state.dialFloating=!state.dialFloating;
+   state.skipDialClick=true;
+   dial.classList.toggle("is-floating",state.dialFloating);
+ },5000);
+},true);
+for(const kind of ["pointerup","pointercancel","pointerleave"]){
+ document.addEventListener(kind,()=>clearTimeout(longHoldTimer),true);
+}
+
 document.addEventListener("visibilitychange",()=>{
  if(document.hidden&&state.clockLastTap!==null){
    state.clockMs+=Math.min(15000,Math.max(0,performance.now()-state.clockLastTap));
