@@ -226,6 +226,20 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   }));
   await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{disabled:true,updatedAt:serverTimestamp()}));
   await assertFails(getDoc(doc(newDb,"memberCounts",newId)));
+  // Explicit Owner recovery is the only alternative when a member loses
+  // their first phone; ordinary second-device login still cannot take over.
+  await assertSucceeds((async()=>{
+    const {deleteDoc}=require("firebase/firestore");
+    return deleteDoc(doc(ownerDb,"activeLogins",newId));
+  })());
+  await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{
+    disabled:false,updatedAt:serverTimestamp()
+  }));
+  await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
+    authTime:1700000001,sessionId:"recovered-phone-session",claimedAt:serverTimestamp()
+  }));
+  await assertSucceeds(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
   // Authorized owner self-repair: DI-1 is profile data, never a login ID.
   // A guessed email alone cannot grant owner rights; trusted UID or an Admin
   // custom claim is required in the published Firestore security rules.
