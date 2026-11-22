@@ -1198,14 +1198,16 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 
 /* Header controls belong to the account/name corner; no detached top row. */
 .app-head{padding-top:4px}
-.profile-card .profile-copy>.top-corners{direction:ltr;display:flex;justify-content:flex-start;align-items:center;gap:5px;padding:4px 0 1px;max-width:100%;margin:0;flex-wrap:wrap}
-.profile-card .profile-copy>.top-corners .corner-link{font:700 .74rem/1.5 system-ui,sans-serif;min-height:28px;padding:4px 8px;color:#e2fff1;border-color:#4db990;background:#064f3e}
+.profile-card{position:relative}
+.profile-card>.top-corners{position:absolute;left:9px;top:7px;right:auto;direction:ltr;display:flex;justify-content:flex-start;align-items:center;gap:5px;padding:0;max-width:calc(100% - 18px);margin:0;flex-wrap:nowrap;z-index:2}
+.profile-card>.top-corners .corner-link{font:700 .74rem/1.5 system-ui,sans-serif;min-height:28px;padding:4px 8px;color:#e2fff1;border-color:#4db990;background:#064f3e}
+.profile-card>.profile-card-foot{padding-top:34px}
 .next-prayer-ticker{margin:2px auto 9px;max-width:920px;border-radius:14px;border:1px solid #37a982;background:linear-gradient(100deg,#003d30,#07664b);box-shadow:0 2px 10px #001f174a;color:#eafff3;overflow:hidden;min-height:42px;display:flex;align-items:center}
 .next-prayer-marquee{width:100%;overflow:hidden;white-space:nowrap;text-align:center;direction:rtl}
 .next-prayer-marquee span{display:inline-block;padding:5px 17px;font:800 clamp(.83rem,3.2vw,1.09rem)/2 var(--ur,serif);animation:next-prayer-scroll 12s ease-in-out infinite alternate}
 @keyframes next-prayer-scroll{0%,18%{transform:translateX(5%)}82%,100%{transform:translateX(-9%)}}
 @media(prefers-reduced-motion:reduce){.next-prayer-marquee span{animation:none;white-space:normal}}
-@media(max-width:440px){.profile-card .profile-copy>.top-corners .corner-link{padding:3px 6px;font-size:.67rem}.next-prayer-ticker{min-height:39px}}
+@media(max-width:440px){.profile-card>.top-corners .corner-link{padding:3px 6px;font-size:.67rem}.next-prayer-ticker{min-height:39px}}
 </style>
 </head>
 <body>
@@ -1716,8 +1718,8 @@ function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
   const inviteCount = person.id === 1 ? Number(window.duroodOwnerInviteTotal || 0) : directMembers(person.id).length;
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
-    '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
-    '<strong dir="auto">' + esc(memberName(person)) + '</strong>' + topCornerControls() +
+    topCornerControls() + '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
+    '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
     '<small class="muted direct-invites">' + tr('Direct invites: ', 'آپ کے شامل کردہ ممبرز: ') +
     displayNumber(inviteCount) + '</small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
@@ -3353,9 +3355,9 @@ function appFooter(person) {
 
 function womenSectionCard(person) {
   const founder = visibleMembers().find(member => member.isFoundingSpouse);
-  return '<header class="app-head"><section class="profile-card"><div class="profile-greeting">' +
+  return '<header class="app-head"><section class="profile-card">' + topCornerControls() + '<div class="profile-greeting">' +
     (founder ? avatar(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
-    (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong>' + topCornerControls() + '</div></div>' +
+    (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong></div></div>' +
     '<div class="profile-card-foot">' + sectionSwitch(person) + '</div></section></header>';
 }
 
