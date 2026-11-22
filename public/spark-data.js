@@ -102,22 +102,24 @@ export async function registerSpark({name,password,inviteCode,gender,pledgeAccep
   }
 }
 export async function invitationSpark(){
-  const uid=requireUser(),chars="abcdefghijklmnopqrstuvwxyz0123456789";
+  const uid=requireUser(),letters="abcdefghijklmnopqrstuvwxyz";
   const profile=await getDoc(memberRef(uid));
   if(!profile.exists()||profile.data().disabled===true)throw Error("اکاؤنٹ فعال نہیں ہے۔");
   const gender=profile.data().role==="owner"?"any":memberGender(profile.data());
   const buf=new Uint8Array(6);
   for(let attempt=0;attempt<8;attempt++){
     crypto.getRandomValues(buf);
-    const code=Array.from(buf,v=>chars[v%chars.length]).join("");
+    const digits=Array.from(buf.subarray(0,3),v=>String(v%10)).join("");
+    const suffix=Array.from(buf.subarray(3),v=>letters[v%letters.length]).join("");
+    const code=digits+suffix;
     try{
       await setDoc(doc(db,"invitations",code),{
         byUid:uid,gender,createdAt:serverTimestamp(),used:false,revoked:false
       });
-      return code;
+      return code.toUpperCase();
     }catch(err){
       if(err?.code!=="permission-denied" && err?.code!=="already-exists")throw err;
-      // A collision is extraordinarily unlikely. Retry; a permission failure repeats.
+      // Existing invitations cannot be overwritten. Retry with a different code.
       if(attempt>=2)throw err;
     }
   }
