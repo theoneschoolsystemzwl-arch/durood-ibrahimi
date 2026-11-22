@@ -3619,7 +3619,7 @@ async function hydrate(){
   }else{
     window.duroodOwnerInviteTotal=0;
     const invited=await getDocs(query(collection(db,"members"),
-      where("inviterUid","==",profile.uid),limit(200)));
+      where("inviterUid","==",profile.uid),where("gender","==",side),limit(200)));
     invited.docs.forEach(x=>{
       const d=x.data();
       if((d.gender==="female"?"female":"male")===side)docs.set(x.id,d);
