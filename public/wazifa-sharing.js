@@ -28,8 +28,22 @@ function sameUid(expected){if(auth.currentUser?.uid!==expected)throw Error("اک
 export function wazifaSerial(task){return Number.isSafeInteger(task?.wNumber)&&task.wNumber>0?"W-"+task.wNumber:"نمبر لگ رہا ہے…";}
 export function validMemberSerial(value){
   const text=String(value||"").trim().toUpperCase().replace(/\s+/g,"");
-  const match=/^DI-([1-9]\d{0,8})$/.exec(text);
-  return match?Number(match[1]):null;
+  const global=/^DI-([1-9]\d{0,8})$/.exec(text);
+  if(global)return {type:"global",number:Number(global[1])};
+  const female=/^D-?([1-9]\d{0,8})$/.exec(text);
+  return female?{type:"female",number:Number(female[1])}:null;
+}
+// Women use D1, D2 ... within the women's branch. Existing founding
+// women may have a legacy memberNumber but no persisted sideNumber.
+function femaleNumber(profile){
+  const side=Number(profile?.sideNumber);
+  if(Number.isSafeInteger(side)&&side>0)return side;
+  const global=Number(profile?.memberNumber);
+  return global===2?1:global===3?2:global;
+}
+function displayMemberSerial(profile){
+  return profile?.gender==="female"?"D"+femaleNumber(profile):
+    "DI-"+Number(profile.memberNumber);
 }
 export async function assignLegacyWazifaSerial(itemId){
   const uid=currentUid();
@@ -65,11 +79,14 @@ function todayLocal(){
 }
 export async function findSameGenderRecipient(memberSerial,profile){
   const senderUid=currentUid();
-  const number=validMemberSerial(memberSerial);
-  if(!number)throw Error("ممبر آئی ڈی DI-1 جیسی درست شکل میں لکھیں۔");
+  const parsed=validMemberSerial(memberSerial);
+  if(!parsed)throw Error("ممبر آئی ڈی DI-1 یا D1 جیسی درست شکل میں لکھیں۔");
+  const {number,type}=parsed;
   const gender=profile?.gender==="female"?"female":"male";
+  if(type==="female" && gender!=="female")
+    throw Error("مرد خواتین کے D ممبر نمبرز کو وظیفہ نہیں بھیج سکتے۔");
   let recipient=null;
-  if(number===1){
+  if(type==="global"&&number===1){
     if(gender!=="male")throw Error("خواتین اور مرد ایک دوسرے کو وظیفہ نہیں بھیج سکتے۔");
     const snapshot=await getDoc(doc(db,"members",OWNER_UID));
     if(snapshot.exists())recipient={uid:snapshot.id,...snapshot.data()};
@@ -81,7 +98,9 @@ export async function findSameGenderRecipient(memberSerial,profile){
       const constraint=[where("gender","==",gender),limit(200)];
       if(last)constraint.push(startAfter(last));
       const docs=await getDocs(query(collection(db,"members"),...constraint));
-      const hit=docs.docs.find(d=>Number(d.data().memberNumber)===number);
+      const hit=docs.docs.find(d=>type==="female"
+        ? femaleNumber(d.data())===number
+        : Number(d.data().memberNumber)===number);
       if(hit){recipient={uid:hit.id,...hit.data()};break;}
       if(docs.size<200)break;
       last=docs.docs[docs.size-1];
@@ -105,10 +124,10 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
   const outgoing=Object.fromEntries(DATA_KEYS.map(key=>[key,data[key]]));
   const target=doc(inboxCollection(recipient.uid));
   await setDoc(target,{...outgoing,senderUid:uid,recipientUid:recipient.uid,
-    senderSerial:"DI-"+Number(profile.memberNumber),sourceId:itemId,
+    senderSerial:displayMemberSerial(profile),sourceId:itemId,
     createdAt:serverTimestamp()});
   sameUid(uid);
-  return {recipient:"DI-"+recipient.memberNumber};
+  return {recipient:displayMemberSerial(recipient)};
 }
 export async function acceptSharedWazifa(inboxId){
   const uid=currentUid();
