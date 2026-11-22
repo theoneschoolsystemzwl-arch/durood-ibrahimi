@@ -13,6 +13,12 @@
   "theme_color": "#114837",
   "icons": [
     {
+      "src": "/tasbih-calligraphy.webp",
+      "sizes": "400x400",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
       "src": "/app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
