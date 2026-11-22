@@ -49,10 +49,6 @@ function rememberLoginFailure(error){
   const state=readLoginRetry();
   if(code==="auth/too-many-requests"){
     state.until=Math.max(state.until,now+5*60*1000);
-  }else if(["auth/invalid-credential","auth/wrong-password","auth/user-not-found"].includes(code)){
-    if(now-state.since>10*60*1000){state.since=now;state.failures=0;}
-    state.failures+=1;
-    if(state.failures>=3){state.until=now+60*1000;state.failures=0;}
   }else{return;}
   saveLoginRetry(state);
 }
@@ -287,11 +283,11 @@ function showOriginalDashboardIfReady(){
   view("#loading",true);
   $("#loading-copy").textContent="ڈیش بورڈ کھل رہا ہے…";
   $("#loading-retry").hidden=true;
-  dashboardTimer=setTimeout(()=>{$("#loading-retry").hidden=false;},15000);
+  dashboardTimer=setTimeout(()=>{$("#loading-retry").hidden=false;},8000);
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app?release=readers";
+  frame.src="./classic-app?release=fast-dial-v2";
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.
@@ -299,8 +295,9 @@ window.addEventListener("message",event=>{
   const frame=$("#classic-frame");
   if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
   if(event.data?.type==="durood-use-top" && appState.profile?.uid===auth.currentUser?.uid && auth.currentUser){
-    location.replace("./classic-app?release=readers");
-    return;
+    // Never redirect an authenticated parent into a frame that has not yet
+    // restored Firebase persistence. That caused the first-login bounce.
+    event.data.type="durood-classic-error";
   }
   if(event.data?.type==="durood-classic-ready" &&
      appState.profile?.uid===event.data.uid && auth.currentUser?.uid===event.data.uid){
@@ -309,11 +306,14 @@ window.addEventListener("message",event=>{
     view("#loading",false);
     document.body.classList.remove("classic-pending");
     document.body.classList.add("classic-active");
-  }else if(event.data?.type==="durood-classic-error"){
+  }else if(event.data?.type==="durood-classic-error" || event.data?.type==="durood-classic-auth-pending"){
     frame.hidden=true;
     clearTimeout(dashboardTimer);
     view("#loading",false);
+    view("#portal",true);
+    view("#access",false);
     document.body.classList.remove("classic-active","classic-pending");
+    $("#loading-retry").hidden=false;
     if(appState.profile && auth.currentUser?.uid===appState.profile.uid){
       activateMemberHome(appState.profile);
       refreshCounts().catch(err=>message("#reading-message",errorText(err)));
@@ -323,7 +323,7 @@ window.addEventListener("message",event=>{
 });
 async function refreshCounts(){
   if(!auth.currentUser||!appState.profile)return;
-  const gender=appState.profile.gender==="female"?"female":"male";
+  const gender=appState.profile.role==="owner"&&window.duroodOwnerSide==="female"?"female":appState.profile.gender==="female"?"female":"male";
   const [personal,side]=await Promise.all([
     getDoc(doc(db,"memberCounts",auth.currentUser.uid)),
     getDoc(doc(db,"genderStats",gender))
@@ -370,7 +370,7 @@ async function refreshMembers(){
   }
 }
 onAuthStateChanged(auth,async user=>{
-  if(user && (appState.registering || appState.signingIn))return;
+  if(appState.registering || appState.signingIn)return;
   if(!user){showSignedOut();return;}
   view("#loading",true);
   view("#access",false);
@@ -389,6 +389,20 @@ onAuthStateChanged(auth,async user=>{
   if(auth.currentUser?.uid!==user.uid)return;
   // A temporary analytics or directory failure must not log out a valid member.
   showSignedIn(profile);
+});
+$("#loading-retry").addEventListener("click",async()=>{
+  if(appState.busy)return;
+  if(!auth.currentUser){showSignedOut();return;}
+  $("#loading-retry").hidden=true;
+  try{
+    const profile=appState.profile?.uid===auth.currentUser.uid?appState.profile:await loadProfile(auth.currentUser);
+    if(!appState.profile)await claimDeviceSession(auth.currentUser,profile);
+    appState.profile=profile;
+    const frame=$("#classic-frame");
+    if(frame)frame.src="about:blank";
+    classicFrameRequested=false;
+    showSignedIn(profile);
+  }catch(error){showProfileRetry(error);}
 });
 $("#signout").addEventListener("click",async()=>{
   try{await signOut(auth);}catch(err){message("#reading-message",errorText(err));}
