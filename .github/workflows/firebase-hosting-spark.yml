@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'public/**'
+      - 'firestore.rules'
+      - 'scripts/guard-firebase-rules.sh'
       - 'firebase.json'
       - '.firebaserc'
       - '.github/workflows/firebase-hosting-spark.yml'
@@ -34,7 +36,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Deploy website only, preserving the Firestore rules published in Firebase Console
+      - name: Set up Google Cloud SDK for Firebase rules comparison
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Verify production Firestore rules are unchanged before update
+        run: bash scripts/guard-firebase-rules.sh
+      - name: Deploy tested Firestore rules before publishing the new UI
         run: |
           npm install -g firebase-tools@15.22.1
+          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only firestore:rules --non-interactive
+      - name: Deploy verified Wazaif website
+        run: |
           firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting --non-interactive
