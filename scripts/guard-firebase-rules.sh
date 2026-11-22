@@ -115,13 +115,15 @@ const beforeFixedDaily=cp.execFileSync('git',['show','46bc214724a4946e00e0de124f
 const beforeDatedSave=cp.execFileSync('git',['show','fd8bad24e68f3faad03f365028cf1f90cbdf6739:firestore.rules'],{encoding:'utf8'});
 // Published W1 dated Save rules from the preceding confirmed Hosting deployment.
 const beforeRuleRepair=cp.execFileSync('git',['show','885869ff2e34141720630feb63812d4f4862edf2:firestore.rules'],{encoding:'utf8'});
+const beforeDatedDispatchFix=cp.execFileSync('git',['show','dfc046aac8295d0dfc861370f02fd2db29720cd8:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
    normalize(existing.content)!==normalize(beforeFemaleSerial) &&
    normalize(existing.content)!==normalize(beforeHeroRedesign) &&
    normalize(existing.content)!==normalize(beforeFixedDaily) &&
    normalize(existing.content)!==normalize(beforeDatedSave) &&
-   normalize(existing.content)!==normalize(beforeRuleRepair)){
+   normalize(existing.content)!==normalize(beforeRuleRepair) &&
+   normalize(existing.content)!==normalize(beforeDatedDispatchFix)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);

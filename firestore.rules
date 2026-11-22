@@ -885,7 +885,7 @@ service cloud.firestore {
       let amount=d.total - resource.data.total;
       return d.createdAt == resource.data.createdAt &&
         (changed.hasAny(['total','today','dailyLedger','lastReadingDay','lastReadingSource']) ?
-           (changed.hasAny(['lastReadingDay','lastReadingSource']) ?
+           (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
              validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
            (changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
