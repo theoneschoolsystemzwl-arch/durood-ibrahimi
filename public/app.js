@@ -247,15 +247,22 @@ function showSignedIn(profile){
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
   activateMemberHome(profile);
-  // Retain the verified Firebase Login/New User screen while restoring the
-  // original complete dashboard inside a same-origin authenticated frame.
-  const classicFrame=$("#classic-frame");
-  if(classicFrame){
-    document.body.classList.add("classic-active");
-    classicFrame.hidden=false;
-    if(!classicFrame.src.endsWith("/classic-app.html"))
-      classicFrame.src="./classic-app.html";
-  }
+  // Keep the working Firebase UI visible until the original dashboard
+  // is actually deployed. A hosting fallback must never show a nested login.
+  showOriginalDashboardIfReady().catch(()=>{});
+}
+async function showOriginalDashboardIfReady(){
+  const frame=$("#classic-frame");
+  if(!frame||!appState.profile||!auth.currentUser)return;
+  const result=await fetch("./classic-app.html",{cache:"no-store"});
+  if(!result.ok)return;
+  const source=await result.text();
+  if(!source.includes("window.duroodClassicBridge = {"))return;
+  // The still-current session is authoritative; no DI serial logs users in.
+  if(!appState.profile||!auth.currentUser)return;
+  frame.hidden=false;
+  if(!frame.src.endsWith("/classic-app.html"))frame.src="./classic-app.html";
+  document.body.classList.add("classic-active");
 }
 async function refreshCounts(){
   if(!auth.currentUser)return;
