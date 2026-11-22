@@ -104,9 +104,14 @@ const beforeSharing=cp.execFileSync('git',['show','14f92184d86bdeb88a13b3977c00b
 // Wazifa serials and inbox controls from PR #9 are the confirmed live
 // baseline. Never overwrite an unrecognized change made in Firebase Console.
 const beforeFemaleSerial=cp.execFileSync('git',['show','76bfc2c07f21b7708e5d38f8876bd9a943f54dd5:firestore.rules'],{encoding:'utf8'});
+ // The last successfully deployed web commit kept these exact security rules.
+ // Compare live rules against the immutable pre-redesign commit before allowing
+ // any new Wazifa ledger rule change; never accept arbitrary Console edits.
+const beforeHeroRedesign=cp.execFileSync('git',['show','1d7041c709a3df502647f5c04c62750a0b3fea80:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
-   normalize(existing.content)!==normalize(beforeFemaleSerial)){
+   normalize(existing.content)!==normalize(beforeFemaleSerial) &&
+   normalize(existing.content)!==normalize(beforeHeroRedesign)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);
