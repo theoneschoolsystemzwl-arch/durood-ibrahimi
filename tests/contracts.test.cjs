@@ -96,7 +96,7 @@ for(const item of ["match /genderMembers/{gender}","match /genderStats/{gender}"
 // Classic HTML contains two large inline JS bundles. Validate BOTH using
 // Node's parser, including the module that loads Firebase in the iframe.
 const {spawnSync}=require("node:child_process");
-const extracted=[...classic.matchAll(/<script([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+const extracted=[...classic.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)];
 assert.ok(extracted.length>=2,"Classic dashboard must contain its app and Firebase bridge scripts");
 for(const [,attrs,source] of extracted){
   const moduleScript=/type=["']module["']/i.test(attrs);
