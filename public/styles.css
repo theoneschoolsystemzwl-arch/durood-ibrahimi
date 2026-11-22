@@ -64,3 +64,11 @@
 .gender-choice input[type=radio]{width:19px;height:19px;flex-shrink:0;margin:0;accent-color:var(--deep)}
 .gender-choice input:checked+span{color:var(--deep)}
 @media(max-width:380px){.fields .gender-choice{font-size:.86rem;gap:5px}}
+
+/* Return the entire authenticated UI to the original mobile design; leave
+   the tested login/new-user forms and Firebase backend untouched. */
+.classic-frame[hidden]{display:none!important}
+body.classic-active{overflow:hidden}
+body.classic-active>.brand-head,body.classic-active>footer{display:none!important}
+body.classic-active .classic-frame{display:block;position:fixed;inset:0;width:100vw;height:100dvh;min-height:100%;border:0;background:#f8faf4;z-index:9999}
+body.classic-active #portal>:not(.classic-frame){display:none!important}
