@@ -1938,7 +1938,7 @@ function historyRows(person,today) {
     const measured=item.intervals?tr("Measured ","ناپا گیا وقت ")+durationLabel(item.ms||0):tr("Measured —","ناپا گیا وقت —");
     const estimate=item.estimate?' · '+tr("Estimated ","تخمینی وقت ")+durationLabel(item.estimate):'';
     return '<li class="record-row"><div><strong><time datetime="'+day+'">'+esc(joinDate.format(parseDay(day)))+
-      '</time><span class="record-math">'+displayNumber(taps)+' + <span class="manual-yellow" title="'+tr("Added offline","آف لائن شامل شدہ")+'">'+displayNumber(manual)+'</span> = '+displayNumber(taps+manual)+'</span></strong>'+
+      '</time><span class="record-math">'+displayNumber(taps)+' + '+(manual > 0 ? '<span class="manual-yellow" title="'+tr("Added offline","آف لائن شامل شدہ")+'">'+displayNumber(manual)+'</span>' : displayNumber(0))+' = '+displayNumber(taps+manual)+'</span></strong>'+
       '<small class="muted">'+tr("Goal ","ہدف ")+displayNumber(item.goal||ledger.goal)+' · '+measured+estimate+'</small></div></li>';
   }).join('');
 }
