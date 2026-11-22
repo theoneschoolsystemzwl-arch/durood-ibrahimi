@@ -20,7 +20,7 @@ const state={
  profile:null,group:null,groupExists:false,groupStats:null,yearStats:null,personal:[],
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
- tapQueue:0,tapBusy:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
+ tapQueue:0,tapBusy:false,pendingBack:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,
  seenDay:readingDay()
 };
 const owner=()=>state.profile?.role==="owner";
@@ -40,7 +40,12 @@ function setMember(profile){
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
-  render();
+  const form=$("#wazifa-form");
+  if(form){
+    let region=form.querySelector(".wz-error");
+    if(!region){region=document.createElement("p");region.className="wz-error";form.append(region);}
+    region.textContent=state.error;
+  }else render();
 }
 async function initializeGroup(){
   if(!owner()||state.groupExists||state.bootstrapTried)return;
@@ -227,7 +232,8 @@ function openForm(scope,id=null){
  render();
 }
 function back(){
- state.mode="list";state.panel=null;state.readerId=null;state.tapQueue=0;state.clockLastTap=null;
+ if(state.tapBusy){state.pendingBack=true;return;}
+ state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.tapQueue=0;state.clockLastTap=null;
  const root=$("#wazaif-root");if(root)root.innerHTML="";
  render();
 }
@@ -304,6 +310,7 @@ async function drain(){
    }
  }
  state.tapBusy=false;
+ if(state.pendingBack){back();return;}
  render();
 }
 function tick(){
