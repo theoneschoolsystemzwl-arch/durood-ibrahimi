@@ -1,8 +1,8 @@
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
-import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {doc,getDoc,runTransaction,serverTimestamp,onSnapshot} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js";
@@ -16,7 +16,7 @@ const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
 // lease to Firebase's signed auth_time: a client-selected ID alone is unsafe.
 const DEVICE_KEY="durood-device-id-v1";
 let inMemoryDeviceId=null;
-let stopSessionListener=null;
+
 function deviceId(){
   if(inMemoryDeviceId)return inMemoryDeviceId;
   try{
@@ -38,43 +38,25 @@ async function authTime(user){
 function isOwner(profile){return profile?.role==="owner";}
 
 // Called only after Firebase Auth accepts the password and member profile.
-export async function claimDeviceSession(user,profile,{takeover=false}={}){
+export async function claimDeviceSession(user,profile){
   if(isOwner(profile))return;
   const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(deviceId())]);
   const ref=doc(db,"activeLogins",user.uid);
   await runTransaction(db,async tx=>{
     const old=await tx.get(ref);
-    if(old.exists() &&
-       (old.data().authTime!==timestamp || old.data().deviceId!==id) &&
-       old.data().deviceId!==id && !takeover){
+    if(old.exists()){
+      if(old.data().deviceId === id &&
+         old.data().authTime === timestamp)return;
+      // The first active login ALWAYS wins. A second login never forces out
+      // the original session, even if the password is correct.
       const error=new Error("User already logged in");
       error.code="member/already-online";
       throw error;
     }
-    // Do not write again on refresh of an existing authorized session.
-    if(old.exists() && old.data().authTime===timestamp && old.data().deviceId===id)return;
     tx.set(ref,{authTime:timestamp,deviceId:id,claimedAt:serverTimestamp()});
   });
 }
-export async function watchDeviceSession(user,profile,onReplaced){
-  if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
-  if(isOwner(profile))return;
-  const timestamp=await authTime(user);
-  const id=deviceId();
-  const ref=doc(db,"activeLogins",user.uid);
-  stopSessionListener=onSnapshot(ref,snapshot=>{
-    // An offline cached snapshot must never force a logout.
-    if(snapshot.metadata.fromCache)return;
-    if(!snapshot.exists() ||
-       snapshot.data().authTime!==timestamp ||
-       snapshot.data().deviceId!==id){
-      if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
-      onReplaced();
-    }
-  },error=>console.warn("Device session monitor:",error.code||error));
-}
 export async function signOut(currentAuth=auth){
-  if(stopSessionListener){stopSessionListener();stopSessionListener=null;}
   const user=currentAuth.currentUser;
   if(user){
     try{
@@ -147,7 +129,7 @@ export async function loadMemberProfile(user){
   return {uid:user.uid,...member.data()};
 }
 
-export async function login(usernameOrEmail,password,options={}){
+export async function login(usernameOrEmail,password,{remember=true}={}){
   const entered=String(usernameOrEmail||"").trim();
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
@@ -157,6 +139,7 @@ export async function login(usernameOrEmail,password,options={}){
   }
   let credential;
   try {
+    await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
     credential=await signInWithEmailAndPassword(auth,email,password);
   } catch(error) {
     error.loginStage="firebase-auth";
@@ -164,7 +147,7 @@ export async function login(usernameOrEmail,password,options={}){
   }
   try {
     const profile=await loadMemberProfile(credential.user);
-    await claimDeviceSession(credential.user,profile,{takeover:options.takeover===true});
+    await claimDeviceSession(credential.user,profile);
     return profile;
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
