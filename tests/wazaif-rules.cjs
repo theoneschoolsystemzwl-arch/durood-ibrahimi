@@ -117,7 +117,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const personStats=db=>doc(db,"wazaifGroupStats","main","members",memberUid);
   const yearStats=db=>doc(db,"wazaifGroupStats","main","years",year);
   async function countGroup(amount=3){
-   await assertSucceeds(runTransaction(member,async tx=>{
+   console.log("W1_RULE_TEST_STEP_17");await assertSucceeds(runTransaction(member,async tx=>{
     const g=groupStats(member),m=personStats(member),y=yearStats(member);
     const [gs,ms,ys]=await Promise.all([tx.get(g),tx.get(m),tx.get(y)]);
     const old=gs.exists()?gs.data():{},own=ms.exists()?ms.data():{},annual=ys.exists()?ys.data():{};
@@ -136,7 +136,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   // A group Durood tap also writes its existing Durood personal/global/
   // gender/day/reader records within the SAME transaction. If this fails,
   // a production tap must not silently lose either group or global counting.
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_18");await assertSucceeds(runTransaction(member,async tx=>{
    const person=doc(member,"memberCounts",memberUid);
    const world=doc(member,"publicStats","global");
    const side=doc(member,"genderStats","male");
@@ -167,10 +167,10 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     throw Error("Atomic Durood personal total missing");
   if((await getDoc(groupStats(owner))).data().total!==6)throw Error("Group total must equal member increments");
   if((await getDoc(groupStats(other))).data().today!==6)throw Error("Group daily total not visible to female member");
-  await assertSucceeds(getDoc(yearStats(other)));
+  console.log("W1_RULE_TEST_STEP_19");await assertSucceeds(getDoc(yearStats(other)));
   await assertFails(getDoc(personStats(other)));
   await assertFails(updateDoc(groupStats(member),{total:100,updatedAt:serverTimestamp()}));
-  await assertSucceeds(updateDoc(group,{active:false,updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_20");await assertSucceeds(updateDoc(group,{active:false,updatedAt:serverTimestamp()}));
   await assertFails(runTransaction(member,async tx=>{
    const g=groupStats(member),m=personStats(member),y=yearStats(member);
    const [gs,ms,ys]=await Promise.all([tx.get(g),tx.get(m),tx.get(y)]);
@@ -186,12 +186,12 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const firstQaza={start:"2003-05-15",target:25,
     done:{fajr:{"2026-11-21":true},isha:{"2026-11-20":true}},
     updatedAt:serverTimestamp()};
-  await assertSucceeds(setDoc(ownQaza,firstQaza));
-  await assertSucceeds(getDoc(ownQaza));
-  await assertSucceeds(setDoc(memberQaza,{
+  console.log("W1_RULE_TEST_STEP_21");await assertSucceeds(setDoc(ownQaza,firstQaza));
+  console.log("W1_RULE_TEST_STEP_22");await assertSucceeds(getDoc(ownQaza));
+  console.log("W1_RULE_TEST_STEP_23");await assertSucceeds(setDoc(memberQaza,{
     start:"2019-01-02",target:15,done:{},updatedAt:serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(ownQaza,{
+  console.log("W1_RULE_TEST_STEP_24");await assertSucceeds(updateDoc(ownQaza,{
     target:45,updatedAt:serverTimestamp()
   }));
   const ownerPlan=(await getDoc(ownQaza)).data();
@@ -217,7 +217,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     await setDoc(doc(ctx.firestore(),"memberWazaif",memberUid,"items",oldLegacy.id),
       {...personal,title:"Old private Zikr",createdAt:new Date(),updatedAt:new Date()});
   });
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_25");await assertSucceeds(runTransaction(member,async tx=>{
     const seq=await tx.get(memberSeq);
     tx.update(oldLegacy,{wNumber:seq.data().next+1,updatedAt:serverTimestamp()});
     tx.update(memberSeq,{next:seq.data().next+1,lastItemId:oldLegacy.id,updatedAt:serverTimestamp()});
@@ -231,15 +231,15 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   // A female account starts independently at W-1.
   const femaleItem=doc(other,"memberWazaif",otherUid,"items","FemalePrivateWz00123");
   const femaleSeq=doc(other,"memberWazaif",otherUid,"meta","sequence");
-  await assertSucceeds(runTransaction(other,async tx=>{
+  console.log("W1_RULE_TEST_STEP_26");await assertSucceeds(runTransaction(other,async tx=>{
     tx.set(femaleItem,{...personal,uid:otherUid,wNumber:1,createdAt:serverTimestamp(),
       updatedAt:serverTimestamp()});
     tx.set(femaleSeq,{next:1,lastItemId:femaleItem.id,updatedAt:serverTimestamp()});
   }));
   // Querying by same gender is allowed; listing the opposite gender is not.
-  await assertSucceeds(getDocs(query(collection(member,"members"),where("gender","==","male"),limit(200))));
+  console.log("W1_RULE_TEST_STEP_27");await assertSucceeds(getDocs(query(collection(member,"members"),where("gender","==","male"),limit(200))));
   await assertFails(getDocs(query(collection(member,"members"),where("gender","==","female"),limit(200))));
-  await assertSucceeds(getDocs(query(collection(other,"members"),where("gender","==","female"),limit(200))));
+  console.log("W1_RULE_TEST_STEP_28");await assertSucceeds(getDocs(query(collection(other,"members"),where("gender","==","female"),limit(200))));
   await assertFails(getDocs(query(collection(other,"members"),where("gender","==","male"),limit(200))));
   // The inbox contains a read-only snapshot of a personal task, verified by
   // source ownership and recipient gender. The group Wazifa can't be sent.
@@ -250,9 +250,9 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     startDate:source.startDate,endDate:source.endDate};
   const accepted={...outgoing,senderUid:memberUid,recipientUid:ownerUid,
     senderSerial:"DI-2",sourceId:privateRef.id,createdAt:serverTimestamp()};
-  await assertSucceeds(setDoc(doc(member,"wazifaInbox",ownerUid,"items",shareDoc.id),accepted));
-  await assertSucceeds(getDoc(shareDoc));
-  await assertSucceeds(getDocs(query(collection(owner,"wazifaInbox",ownerUid,"items"),limit(100))));
+  console.log("W1_RULE_TEST_STEP_29");await assertSucceeds(setDoc(doc(member,"wazifaInbox",ownerUid,"items",shareDoc.id),accepted));
+  console.log("W1_RULE_TEST_STEP_30");await assertSucceeds(getDoc(shareDoc));
+  console.log("W1_RULE_TEST_STEP_31");await assertSucceeds(getDocs(query(collection(owner,"wazifaInbox",ownerUid,"items"),limit(100))));
   await assertFails(getDoc(doc(other,"wazifaInbox",ownerUid,"items",shareDoc.id)));
   await assertFails(getDoc(doc(member,"wazifaInbox",ownerUid,"items",shareDoc.id)));
   await assertFails(setDoc(doc(member,"wazifaInbox",otherUid,"items","CrossSide00000000001"),
@@ -275,19 +275,19 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     startDate:femaleData.startDate,endDate:femaleData.endDate};
   const femalePayload={...femaleOutgoing,senderUid:otherUid,recipientUid:femaleFriendUid,
     senderSerial:"D2",sourceId:femaleItem.id,createdAt:serverTimestamp()};
-  await assertSucceeds(setDoc(doc(other,"wazifaInbox",femaleFriendUid,"items",ladiesShareId),femalePayload));
-  await assertSucceeds(getDoc(ladiesInbox));
+  console.log("W1_RULE_TEST_STEP_32");await assertSucceeds(setDoc(doc(other,"wazifaInbox",femaleFriendUid,"items",ladiesShareId),femalePayload));
+  console.log("W1_RULE_TEST_STEP_33");await assertSucceeds(getDoc(ladiesInbox));
   await assertFails(getDoc(doc(member,"wazifaInbox",femaleFriendUid,"items",ladiesShareId)));
   await assertFails(setDoc(doc(member,"wazifaInbox",femaleFriendUid,"items","CrossFromMan00000001"),
     {...femalePayload,senderUid:memberUid,senderSerial:"DI-2",sourceId:privateRef.id,
       createdAt:serverTimestamp()}));
-  await assertSucceeds(deleteDoc(ladiesInbox));
+  console.log("W1_RULE_TEST_STEP_34");await assertSucceeds(deleteDoc(ladiesInbox));
   await assertFails(deleteDoc(doc(member,"wazifaInbox",ownerUid,"items",shareDoc.id)));
   // Accept share atomically: private W-1 is created and only the recipient
   // can delete their own pending inbox card. A second accept cannot duplicate.
   const ownerSeq=doc(owner,"memberWazaif",ownerUid,"meta","sequence");
   const acceptedItem=doc(owner,"memberWazaif",ownerUid,"items","ReceivedWazifa00001");
-  await assertSucceeds(runTransaction(owner,async tx=>{
+  console.log("W1_RULE_TEST_STEP_35");await assertSucceeds(runTransaction(owner,async tx=>{
     const message=await tx.get(shareDoc);
     if(!message.exists())throw Error("Pending share is missing");
     tx.set(acceptedItem,{...outgoing,uid:ownerUid,total:0,today:0,day:"2026-11-23",
@@ -298,13 +298,13 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   if((await getDoc(acceptedItem)).data().wNumber!==1)throw Error("Recipient W-1 not assigned");
   if((await getDoc(shareDoc)).exists())throw Error("Accepted share still in inbox");
   const rejected=doc(owner,"wazifaInbox",ownerUid,"items","RejectShare000000001");
-  await assertSucceeds(setDoc(doc(member,"wazifaInbox",ownerUid,"items",rejected.id),
+  console.log("W1_RULE_TEST_STEP_36");await assertSucceeds(setDoc(doc(member,"wazifaInbox",ownerUid,"items",rejected.id),
     {...accepted,createdAt:serverTimestamp()}));
-  await assertSucceeds(deleteDoc(rejected));
+  console.log("W1_RULE_TEST_STEP_37");await assertSucceeds(deleteDoc(rejected));
   if((await getDoc(rejected)).exists())throw Error("Rejected share remained visible");
-  await assertSucceeds(deleteDoc(acceptedItem));
+  console.log("W1_RULE_TEST_STEP_38");await assertSucceeds(deleteDoc(acceptedItem));
   const nextW=doc(owner,"memberWazaif",ownerUid,"items","SecondSavedWazifa001");
-  await assertSucceeds(runTransaction(owner,async tx=>{
+  console.log("W1_RULE_TEST_STEP_39");await assertSucceeds(runTransaction(owner,async tx=>{
     const seq=await tx.get(ownerSeq);
     tx.set(nextW,{...outgoing,uid:ownerUid,total:0,today:0,day:"2026-11-23",
       wNumber:seq.data().next+1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
@@ -315,7 +315,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   // An expired fixed plan remains locked until its member explicitly
   // opts into a new daily goal. Original fixed dates, counts and W-number
   // remain immutable across the opt-in and future days.
-  await assertSucceeds(updateDoc(privateRef,{
+  console.log("W1_RULE_TEST_STEP_40");await assertSucceeds(updateDoc(privateRef,{
     kind:"fixed",goal:41,startDate:day,endDate:day,durationDays:1,
     updatedAt:serverTimestamp()
   }));
@@ -328,15 +328,15 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     continueStartDate:day,continueDailyGoal:9,
     continueBaseTotal:beforeContinue.total,updatedAt:serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(privateRef,{
+  console.log("W1_RULE_TEST_STEP_41");await assertSucceeds(updateDoc(privateRef,{
     continueStartDate:"2026-11-24",continueDailyGoal:9,
     continueBaseTotal:beforeContinue.total,updatedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(privateRef,{endDate:"2026-12-31",updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{goal:90,updatedAt:serverTimestamp()}));
   await assertFails(updateDoc(privateRef,{continueBaseTotal:0,updatedAt:serverTimestamp()}));
-  await assertSucceeds(updateDoc(privateRef,{continueDailyGoal:12,updatedAt:serverTimestamp()}));
-  await assertSucceeds(runTransaction(member,async tx=>{
+  console.log("W1_RULE_TEST_STEP_42");await assertSucceeds(updateDoc(privateRef,{continueDailyGoal:12,updatedAt:serverTimestamp()}));
+  console.log("W1_RULE_TEST_STEP_43");await assertSucceeds(runTransaction(member,async tx=>{
     const snap=await tx.get(privateRef),d=snap.data();
     tx.update(privateRef,{total:d.total+2,day:"2026-11-24",today:2,
       dailyLedger:{...d.dailyLedger,["2026-11-24"]:{count:2,durationMs:1700,intervals:1}},
