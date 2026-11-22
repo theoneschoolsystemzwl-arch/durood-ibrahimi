@@ -1224,7 +1224,7 @@ const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[char]));
 const serial = id => 'DI-' + (getUser(id)?.sideNumber ?? id);
-const groupId = id => getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id;
+const groupId = id => hasGroup(id) ? (getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id) : '—';
 const getUser = id => users.find(person => person.id === id);
 const memberName = person => person.id<=seedRows.length && person.name===seedRows[person.id-1][0] ?
   tr(person.name,demoNames[person.name] || person.name) : person.name;
@@ -1270,6 +1270,14 @@ const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person
 
 function groupName(id) {
   return generationLetter(id);
+}
+
+function hasGroup(id) {
+  return directMembers(id).length > 0;
+}
+
+function ownedGroupName(id) {
+  return hasGroup(id) ? groupName(id) : '—';
 }
 
 function groupMemberCode(person) {
@@ -1450,7 +1458,7 @@ function treeNode(person, isRoot = false) {
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
     '<span class="node-dot level-' + level + '" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
-    esc(memberName(person)) + '</strong><span class="pill"><bdi>' + (isRoot ? groupName(person.id) : groupMemberCode(person) || groupName(person.id)) + '</bdi></span>' +
+    esc(memberName(person)) + '</strong><span class="pill"><bdi>' + (isRoot ? ownedGroupName(person.id) : groupMemberCode(person) || ownedGroupName(person.id)) + '</bdi></span>' +
     (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
     (isRoot ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
 }
@@ -1471,7 +1479,7 @@ function tree(person) {
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
     tr("Photo badges show member levels. Tap a member to open their branch.", 'تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
-    '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + groupName(root.id) + '</bdi>') +
+    '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + ownedGroupName(root.id) + '</bdi>') +
     stat(tr("Group members", 'گروپ کے ارکان'), displayNumber(groupMemberCount(root))) +
     stat(tr("Total in branch", 'شاخ کے کل ارکان'), displayNumber(descendants(root.id).size)) + '</div>' +
     tr("<section class=\"panel section tree\" aria-label=\"Referral tree، ", '<section class="panel section tree" aria-label="دعوتی شجرہ، ') + esc(memberName(root)) + '"><div class="tree-scroll"><div class="tree-diagram">' +
@@ -1482,11 +1490,7 @@ function tree(person) {
 }
 
 function groups() {
-  const owner = currentUser();
-  const women = ownerViewingWomen();
-  const branches = visibleMembers().filter(person => women
-    ? person.gender === 'Female' && directMembers(person.id).length > 0
-    : person.isOwner || directMembers(person.id).length);
+  const branches = visibleMembers().filter(person => hasGroup(person.id));
   const title = tr('Groups','گروپس');
   return heading(title,tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
     (branches.length ? '' : ur(tr('No groups yet.','ابھی کوئی گروپ موجود نہیں۔'),'p','panel empty')) +
@@ -1532,7 +1536,7 @@ function directory() {
       .map(person =>
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
-      tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + groupName(person.id) + '</bdi>' +
+      tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + ownedGroupName(person.id) + '</bdi>' +
       ' · ' + displayNumber(score(person,'all','current')) + tr(" Durood</small>", ' درود</small>') +
       (person.disabled ? tr("<small class=\"account-status disabled\">Suspended</small>", '<small class="account-status disabled">معطل</small>') : '') + '</span><span class="chevron" aria-hidden="true">‹</span></button>'
     ).join('') + '</div>';
@@ -1544,7 +1548,7 @@ function memberLevel(person) {
 }
 
 function profileDetails(person) {
-  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),groupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
+  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
     [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Mobile / WhatsApp", 'موبائل / واٹس ایپ'),person.phone],[tr("Address", 'پتہ'),person.address],
     [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),person.inviter ? memberName(getUser(person.inviter)) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
   return heading(tr("Member Profile", 'رکن کی پروفائل')) + '<section class="panel"><div class="panel-head"><div class="identity">' +
@@ -3443,7 +3447,7 @@ app.addEventListener('click', event => {
     groupFilter = targetId === currentUserId ? null : targetId;
     section = 'tree';
   }
-  if (action === 'group' && currentUser()?.isOwner) {
+  if (action === 'group' && currentUser()?.isOwner && visibleMembers().some(member => member.id === Number(value) && hasGroup(member.id))) {
     groupFilter = Number(value);
     section = 'tree';
   }
