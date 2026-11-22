@@ -68,23 +68,18 @@ function errorText(err) {
   if(err?.loginStage==="missing-member-profile")return String(err?.message||"Firebase پروفائل نہیں ملا۔");
   if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
-    if(code==="permission-denied"||code==="firestore/permission-denied")
-      return "Firebase Login درست ہے، مگر Firestore نے Owner پروفائل پڑھنے کی اجازت نہیں دی (permission-denied)۔ Firestore کی Published Security Rules چیک کریں۔";
-    if(code==="not-found"||code==="firestore/not-found")
-      return "Firebase Login درست ہے، مگر Firestore ڈیٹابیس نہیں ملا (not-found)۔ Firebase Console میں Firestore Database کی موجودگی چیک کریں۔";
-    if(code==="failed-precondition"||code==="firestore/failed-precondition")
-      return "Firebase Login درست ہے، مگر Firestore سیٹ اپ مکمل نہیں (failed-precondition)۔ Firestore Database اور Rules چیک کریں۔";
-    if(code==="unavailable"||code==="firestore/unavailable")
-      return "Firebase Login درست ہے، مگر Firestore عارضی طور پر دستیاب نہیں (unavailable)۔ انٹرنیٹ یا سروس چیک کریں۔";
-    return "Firebase Login درست ہے، مگر Firestore پروفائل پڑھنے میں مسئلہ ہے ("+String(code||"unknown")+ ")۔ Firebase Console میں Owner ممبر ریکارڈ اور Published Rules چیک کریں۔";
+    if(code==="permission-denied"||code==="firestore/permission-denied")return "اکاؤنٹ تک رسائی نہیں۔";
+    if(code==="not-found"||code==="firestore/not-found")return "یوزر کا ریکارڈ موجود نہیں۔";
+    if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ سے رابطہ نہیں ہو رہا۔";
+    return "لاگ اِن مکمل نہیں ہوا۔ دوبارہ کوشش کریں۔";
   }
   if(code==="auth/invalid-credential"||code==="auth/wrong-password"||code==="auth/user-not-found")
-    return "Firebase Authentication نے Email یا Password قبول نہیں کیا۔ Firebase Users میں مکمل Email دیکھیں؛ Reset Password والی Email میں لنک کھول کر نیا پاس ورڈ محفوظ کریں۔";
+    return "آئی ڈی یا پاس ورڈ غلط ہے، یا یوزر موجود نہیں۔";
   if(code==="auth/user-disabled")return "یہ Firebase Authentication اکاؤنٹ غیر فعال ہے۔";
-  if(code==="auth/operation-not-allowed")return "Firebase میں Email/Password Sign-in طریقہ فعال نہیں۔";
+  if(code==="auth/operation-not-allowed")return "اس وقت لاگ اِن دستیاب نہیں۔";
   if(code==="auth/network-request-failed")return "Firebase سے رابطہ نہیں ہو رہا، انٹرنیٹ کنکشن چیک کریں۔";
-  if(code==="auth/unauthorized-domain")return "اس ویب سائٹ کا ڈومین Firebase Authentication میں مجاز نہیں۔";
-  if(code==="auth/too-many-requests")return "Firebase نے بار بار کوششوں کی وجہ سے Login عارضی طور پر روک دیا ہے۔ دوبارہ بار بار Login نہ دبائیں؛ کچھ وقفے کے بعد درست Email اور Password سے ایک بار کوشش کریں۔";
+  if(code==="auth/unauthorized-domain")return "اس ویب سائٹ سے لاگ اِن ممکن نہیں۔";
+  if(code==="auth/too-many-requests")return "زیادہ کوششیں ہو گئیں۔ کچھ دیر بعد لاگ اِن کریں۔";
   if(code==="unavailable"||code==="firestore/unavailable")return "انٹرنیٹ یا Firebase Firestore دستیاب نہیں۔";
   if(code==="permission-denied"||code==="firestore/permission-denied")return "Firebase Security Rules یا ممبر کی اجازت چیک کریں۔";
   if(code==="not-found"||code==="firestore/not-found")return "Firestore کا ریکارڈ یا ڈیٹابیس نہیں ملا۔";
@@ -182,7 +177,7 @@ $("#access-form").addEventListener("submit",async event=>{
       appState.signingIn=true;
       try {
         checkLoginRetry();
-        const profile=await login(form.get("loginUsername"),form.get("loginPassword"));
+        const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{remember:$("#remember-login").checked});
         clearLoginRetry();
         showSignedIn(profile);
         refreshCounts().catch(err=>message("#reading-message",errorText(err)));
@@ -333,9 +328,10 @@ onAuthStateChanged(auth,async user=>{
   try {
     profile=await loadProfile(user);
   } catch(err) {
-    message("#auth-message",errorText(err));
-    await signOut(auth).catch(()=>{});
-    showSignedOut();
+    // Do not sign out on a transient Firestore or network failure.
+    $("#loading-copy").textContent="اکاؤنٹ لوڈ نہیں ہوا۔ کنکشن چیک کرکے دوبارہ کوشش کریں۔";
+    $("#loading-retry").hidden=false;
+    console.warn("Account restoration delayed:",err?.code||err?.message);
     return;
   }
   // A temporary analytics or directory failure must not log out a valid member.

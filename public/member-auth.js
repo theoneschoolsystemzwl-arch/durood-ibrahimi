@@ -1,7 +1,7 @@
 // Spark-plan member interface: Firebase Authentication + validated Firestore writes.
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
-import {signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
@@ -69,7 +69,7 @@ export async function loadMemberProfile(user){
   return {uid:user.uid,...member.data()};
 }
 
-export async function login(usernameOrEmail,password){
+export async function login(usernameOrEmail,password,{remember=true}={}){
   const entered=String(usernameOrEmail||"").trim();
   // Email/password authenticates owners. Normal members may also enter a
   // username converted into a Firebase Auth email alias; DI numbers are not IDs.
@@ -79,6 +79,7 @@ export async function login(usernameOrEmail,password){
   }
   let credential;
   try {
+    await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
     credential=await signInWithEmailAndPassword(auth,email,password);
   } catch(error) {
     error.loginStage="firebase-auth";
