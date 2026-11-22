@@ -202,7 +202,11 @@ export async function rankingSpark(){
 }
 export async function referralsSpark(){
   const uid=requireUser();
-  const rows=await getDocs(query(collection(db,"members"),where("inviterUid","==",uid),limit(200)));
+  const profile=await getDoc(memberRef(uid));
+  if(!profile.exists())throw Error("اکاؤنٹ نہیں ملا۔");
+  const gender=memberGender(profile.data());
+  const rows=await getDocs(query(collection(db,"members"),
+    where("inviterUid","==",uid),where("gender","==",gender),limit(200)));
   return {referrals:rows.docs.map(d=>({
     name:d.data().name,serial:d.data().serial,disabled:d.data().disabled===true
   }))};
