@@ -3081,39 +3081,51 @@ function qazaLedger(byPrayer) {
   });
 }
 
-function dailyAttendanceLedger(person,now,today) {
-  const records = attendance[person.id] || {};
-  const joined = prayerDate(person.id,person.joined.getTime());
-  const start = Object.keys(records).reduce((earliest,key)=>key<earliest ? key : earliest,joined);
-  const pastDays = Math.max(0,dateNumber(today)-dateNumber(start));
-  const yesterday = qazaDate(dateNumber(today)-1);
-  const prayerTotals = prayers.map(([id])=>{
-    const stats = {jamat:0,solo:0,missed:pastDays,made:0,clear:0};
-    const changes = new Map();
-    if (pastDays && attendancePhase(person.id,yesterday,id,now,today)!=='missed') changes.set(yesterday,'clear');
-    const plan = qazaPlans[person.id];
-    for (const day of Object.keys(plan?.done[id] || {})) {
-      if (day>=start && day<today && qazaRecorded(person.id,day,id)) changes.set(day,'made');
+// The same original date may exist in both attendance and Qaza payment records.
+// Merge by date and prayer, without requiring a scheduled prayer time to mark attendance.
+function prayerLedgerTotals(person,now,today) {
+  const records=attendance[person.id]||{},plan=qazaPlans[person.id];
+  const joined=prayerDate(person.id,person.joined.getTime());
+  const valid=day=>/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(dateNumber(day))&&
+    qazaDate(dateNumber(day))===day&&day<=today;
+  let start=valid(plan?.start)?plan.start:joined;
+  const explicitDays=new Set(Object.keys(records).filter(valid));
+  for(const [id] of prayers)for(const day of Object.keys(plan?.done?.[id]||{}))
+    if(valid(day))explicitDays.add(day);
+  for(const day of explicitDays)if(day<start)start=day;
+  const pastDays=Math.max(0,dateNumber(today)-dateNumber(start));
+  const yesterday=qazaDate(dateNumber(today)-1);
+  const prayerTotals=prayers.map(([id])=>{
+    const grace=!!pastDays&&attendancePhase(person.id,yesterday,id,now,today)!=='missed';
+    const stats={jamat:0,solo:0,missed:Math.max(0,pastDays-(grace?1:0)),made:0};
+    for(const day of explicitDays){
+      if(day<start||day>today)continue;
+      const status=knownPrayerStatus(person.id,day,id);
+      if(day===today){
+        if(status==='jamat'||status==='solo'||status==='made')stats[status]++;
+        else if(status==='missed'||attendancePhase(person.id,today,id,now,today)==='missed')stats.missed++;
+        continue;
+      }
+      if(status==='jamat'||status==='solo'||status==='made'){
+        if(!(grace&&day===yesterday))stats.missed--;
+        stats[status]++;
+      }
     }
-    for (const [day,states] of Object.entries(records)) {
-      if (day>=start && day<today && states[id]) changes.set(day,states[id]);
-    }
-    for (const state of changes.values()) {
-      stats.missed--;
-      stats[state]++;
-    }
-    const saved = knownPrayerStatus(person.id,today,id);
-    const phase = attendancePhase(person.id,today,id,now,today);
-    if (saved || phase==='missed' || phase==='on-time') stats[saved || (phase==='missed'?'missed':'clear')]++;
-    return {...stats,total:Object.values(stats).reduce((sum,value)=>sum+value,0)};
+    if(!explicitDays.has(today)&&attendancePhase(person.id,today,id,now,today)==='missed')stats.missed++;
+    return {...stats,total:stats.jamat+stats.solo+stats.made+stats.missed};
   });
-  const totals = prayerTotals.map(prayer=>prayer.total);
-  const rows = [['jamat',tr("Congregation", 'باجماعت')],['solo',tr("Prayed", 'ادا')],['missed',tr("Still missed", 'باقی قضا')],['made',tr("Made up", 'قضا ادا')]].map(([key,label])=>
+  return {start,prayerTotals};
+}
+function dailyAttendanceLedger(person,now,today) {
+  const {prayerTotals}=prayerLedgerTotals(person,now,today);
+  const totals=prayerTotals.map(prayer=>prayer.total);
+  const rows=[['jamat',tr("Congregation", 'باجماعت')],['solo',tr("Prayed", 'ادا')],['made',tr("Made up", 'قضا ادا')],['missed',tr("Still missed", 'باقی قضا')]].map(([key,label])=>
     [label,prayerTotals.map(prayer=>prayer[key]),key]);
   return ledgerTable({
     id:'daily-ledger-title',title:tr("Daily Prayer Ledger", 'روزانہ نمازوں کا لیجر'),rows,footer:[tr("Total", 'کل'),totals],
     grandTotal:totals.reduce((sum,value)=>sum+value,0),
-    note:tr("Counts begin at membership or at your first earlier attendance record.", 'شمار رکنیت یا اس سے پہلے کے پہلے درج شدہ روزانہ ریکارڈ سے شروع ہوتا ہے۔')
+    note:tr("Counts use the Qaza calendar start date and all saved attendance, without double counting.",
+      'شمار قضا کیلنڈر کی ابتدائی تاریخ اور تمام محفوظ حاضری سے بنتا ہے؛ ایک نماز دو بار شمار نہیں ہوتی۔')
   });
 }
 
