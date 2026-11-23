@@ -317,11 +317,19 @@ function metric(label,value,extra=""){
 function compactCount(label,number){
  return '<div class="wz-inline-count"><small>'+esc(label)+'</small><strong>'+fmt(number)+'</strong></div>';
 }
-// Only lengthy Arabic passages become independently scrollable. Short
-// Wazaif keep their full text height; no Quranic wording is shortened.
+// Long Arabic passages get a deliberate scroll switch. In the default
+// state the *page* keeps scrolling when the reader swipes on Arabic text.
+// The switch unlocks a bounded Arabic pane for lengthy verses/Surahs.
+function arabicNeedsScroll(value){
+ return String(value??"").trim().length>250;
+}
+function arabicScrollControl(value){
+ return arabicNeedsScroll(value)?
+  '<button type="button" class="wz-arabic-scroll-toggle" data-wazifa-action="toggle-arabic-scroll" aria-pressed="false">↕ عربی اسکرول کھولیں</button>' : "";
+}
 function arabicDisplayAttrs(value){
- return String(value??"").trim().length>250 ?
-  ' class="wz-arabic wz-arabic-scroll" tabindex="0" aria-label="عربی عبارت، مکمل پڑھنے کے لیے اندر اسکرول کریں"' :
+ return arabicNeedsScroll(value)?
+  ' class="wz-arabic wz-arabic-scroll" tabindex="0" aria-label="مکمل عربی عبارت پڑھنے کے لیے اوپر اسکرول کھولیں دبائیں"' :
   ' class="wz-arabic"';
 }
 // Each launch tab contains one clean, single-line name (no tasbih emoji).
@@ -345,7 +353,7 @@ function groupCard(){
  compactCount("آج باقی",Math.max(0,daily-todayCount))+
  compactCount("مجموعی شمار",all)+compactCount("سالانہ ہدف",yearGoal)+
  compactCount("سالانہ باقی",Math.max(0,yearGoal-yearTotal))+'</div>'+
- '<p'+arabicDisplayAttrs(g.arabic)+' lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
+ arabicScrollControl(g.arabic)+'<p'+arabicDisplayAttrs(g.arabic)+' lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  (owner()?'<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-group">سیٹنگ</button></div>':'')+
  (!ready?'<p class="wz-help">گروپ کی سیٹنگ Firebase میں محفوظ ہونے کے بعد مشترکہ تسبیح شروع ہوگی۔</p>':'')+
@@ -365,7 +373,7 @@ function personalCard(task){
  return '<article class="wz-card wz-personal">'+
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
- '<p'+arabicDisplayAttrs(task.arabic)+' lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
+ arabicScrollControl(task.arabic)+'<p'+arabicDisplayAttrs(task.arabic)+' lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
  (task.kind==="fixed"?fixedPlanMarkup(task):
   '<div class="wz-inline-counts" aria-label="روزانہ وظیفے کا شمار">'+
   compactCount("آج پڑھا",task.day===readingDay()?task.today:0)+
@@ -387,7 +395,7 @@ function inboxMarkup(){
  state.inbox.map(item=>'<article class="wz-card wz-received">'+
  '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
  '<h3>'+esc(item.title)+'</h3></div></header>'+
- '<p'+arabicDisplayAttrs(item.arabic)+' lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
+ arabicScrollControl(item.arabic)+'<p'+arabicDisplayAttrs(item.arabic)+' lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
  '<p class="wz-help">'+esc(item.instructions)+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
@@ -691,7 +699,7 @@ function readerMarkup(group){
  '<button class="wz-hero-back" type="button" data-wazifa-action="back">‹ '+esc("وظائف واپس")+'</button>'+
  '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+ 
  '<section class="wz-reading-text wz-reading-text-visible" aria-label="وظیفے کی مکمل تفصیل">'+
- '<h3>عربی عبارت</h3><div'+arabicDisplayAttrs(w.arabic)+' lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
+ '<h3>عربی عبارت</h3>'+arabicScrollControl(w.arabic)+'<div'+arabicDisplayAttrs(w.arabic)+' lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
  '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  (showDates?'<div class="wz-hero-six">'+
@@ -728,7 +736,7 @@ function readerMarkup(group){
  '</div>'+
  '<div class="wz-reader-controls-row">'+
  '<div class="wz-hero-speed" aria-label="تسبیح کی رفتار">'+
- '<div><small>SEC سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
+ '<div><small>SEC</small><strong id="wz-speed-sec">—</strong></div>'+
  '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div><small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
  '</div>'+
@@ -1271,6 +1279,17 @@ document.addEventListener("click",event=>{
  if(!button)return;
  const action=button.dataset.wazifaAction,id=button.dataset.wazifaId;
  event.preventDefault();event.stopImmediatePropagation();
+ if(action==="toggle-arabic-scroll"){
+  const passage=button.nextElementSibling;
+  if(!passage?.classList.contains("wz-arabic-scroll"))return;
+  const enabled=passage.classList.toggle("is-scroll-enabled");
+  button.setAttribute("aria-pressed",String(enabled));
+  button.textContent=enabled?"اسکرول بند کریں":"↕ عربی اسکرول کھولیں";
+  passage.setAttribute("aria-label",enabled?
+   "عربی عبارت: اوپر نیچے سوائپ کرکے مکمل پڑھیں":
+   "عربی اسکرول کھولنے کے لیے اوپر والا بٹن دبائیں");
+  return;
+ }
  if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
   const sound=action.startsWith("sound-"),key=sound?"soundLevel":"vibrateLevel";
   state[key]=Math.min(5,Math.max(1,state[key]+(action.endsWith("-up")?1:-1)));
