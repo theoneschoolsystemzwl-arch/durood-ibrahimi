@@ -83,13 +83,27 @@
 
 /* Put personal tasbih above the personal wazifa type and title. */
 .wz-tasbih-top{margin-bottom:12px}
-.wz-tasbih-cta{display:block;width:100%;min-height:64px;font-family:var(--ur,serif);font-size:clamp(1.1rem,4.6vw,1.5rem);font-weight:800;line-height:1.9;text-align:center;border:2px solid #65f9a0;border-radius:16px;background:linear-gradient(110deg,#057e37,#10b953);color:#fff;box-shadow:0 5px 18px #00180d80,inset 0 1px 0 #e7ffe633}
-/* Keep the selected Wazifa's name directly on its launch tab. The name
-   also stays in the card heading under the tab. */
-.wz-tasbih-cta .wz-cta-title{display:block;max-width:100%;font:800 clamp(1.03rem,4.2vw,1.5rem)/1.65 var(--ur,serif);overflow-wrap:anywhere;white-space:normal}
-.wz-tasbih-cta .wz-cta-action{display:block;font:800 clamp(.9rem,3.7vw,1.22rem)/1.65 var(--ur,serif);white-space:normal}
-.wz-tasbih-cta:has(.wz-cta-title){padding:7px 12px;min-height:68px}
-
+/* Named Wazifa tab: one balanced Urdu line, no decorative tasbih icon.
+   Wide names scroll sideways within the tab rather than wrapping or clipping. */
+.wz-tasbih-cta{
+ display:flex;align-items:center;justify-content:center;box-sizing:border-box;
+ width:100%;min-width:0;min-height:54px;padding:7px 12px;
+ font-family:var(--ur,serif);font-size:clamp(1.05rem,4.3vw,1.45rem);
+ font-weight:800;line-height:1.6;text-align:center;
+ border:1px solid #6ce0b0;border-bottom:3px solid #b4f5d3;
+ border-radius:16px 16px 6px 6px;
+ background:linear-gradient(180deg,#06835d 0%,#065c47 100%);
+ color:#f9fffb;box-shadow:0 4px 11px #00180d66,inset 0 1px 0 #e7ffe633;
+ overflow:hidden
+}
+.wz-tasbih-cta .wz-cta-single{
+ display:block;max-width:100%;min-width:0;
+ font:800 clamp(1.05rem,4.15vw,1.43rem)/1.65 var(--ur,serif);
+ color:inherit;text-align:center;white-space:nowrap;
+ overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;
+ scrollbar-width:none;touch-action:pan-x
+}
+.wz-tasbih-cta .wz-cta-single::-webkit-scrollbar{display:none}
 /* Long verses remain intact. Only the Arabic portion scrolls vertically so
    long Surahs do not push the Tasbih controls off-screen. */
 .wz-card .wz-arabic-scroll,
