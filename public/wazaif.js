@@ -599,14 +599,12 @@ function readerMarkup(group){
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>💾 Save · محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
  '<div class="wz-hero-speed">'+
- '<div>'+heroIcon("bolt")+'<small>فی ذکر</small><strong id="wz-speed-sec">—</strong></div>'+
+ '<div>'+heroIcon("bolt")+'<small>فی ذکر وقت</small><strong id="wz-speed-sec">—</strong></div>'+
  '<div>'+heroIcon("clock")+'<small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div>'+heroIcon("clock")+'<small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
- '<div>'+heroIcon("meter")+'<small>کارکردگی</small><strong id="wz-speed-status">—</strong></div>'+
  '</div>'+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
- '<small id="wz-live-speed">فی ذکر: —</small>'+
  '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
@@ -860,7 +858,7 @@ async function drain(){
    const intervals=remaining===amount?intervalRemaining:Math.floor(intervalRemaining*amount/remaining);
    if(isGroup)await recordGroupWazifaOnly(amount,day);
    else await recordPersonalWazifa(taskId,amount,day,{
-    durationMs:isToday?durationMs:0,intervals:isToday?intervals:0,
+    durationMs:isToday?durationMs:0,intervals:isToday?amount:0,
     source:isToday?"tasbih":"manual"});
    state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;intervalRemaining-=intervals;state.clockMs=timeRemaining;
    persistDraft();
@@ -879,17 +877,14 @@ function tick(){
  const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,tenth=Math.floor(value%1000/100);
  const clock=$("#wz-clock");
  if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+tenth;
- // Each recitation's average time is measured from every completed press interval.
- // After the first press, the live per-zikr timer runs; rates begin on press two.
- const averageMs=state.clockIntervals>0?state.tapGapTotalMs/state.clockIntervals:0;
- const liveMs=state.tapQueue===1?Math.max(0,value):0;
- const seconds=averageMs>0?averageMs/1000:liveMs/1000;
+ // Calculate live pace as elapsed session time divided by completed taps.
+ // The first tap starts the session, so both time and projection update continuously.
+ const seconds=state.tapQueue>0?value/(1000*state.tapQueue):0;
  const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
- const perZikr=state.tapQueue>0?pace(seconds)+" ثانیے":"—";
+ const perZikr=seconds>0?pace(seconds)+" ثانیے":"—";
  const perMinute=seconds>0?pace(60/seconds):"—";
  const perHour=seconds>0?pace(3600/seconds):"—";
- for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour],
-  ["#wz-live-speed","فی ذکر: "+perZikr],["#wz-speed-status",state.clockIntervals>0?"تمام دباؤ کی اوسط":state.tapQueue>0?"دوسرا دباؤ دیں؛ وقت جاری ہے":"تسبیح شروع کریں"]]){
+ for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour]]){
   const node=$(id);if(node)node.textContent=text;
  }
  if(state.tapQueue>0){
