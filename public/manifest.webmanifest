@@ -1,7 +1,7 @@
 {
-  "name": "Durood-e-Ibrahimi Global",
-  "short_name": "Durood Global",
-  "description": "درودِ ابراہیمی گلوبل — ممبر پورٹل",
+  "name": "درود ابراہیم صلی اللہ علیہ وسلم",
+  "short_name": "درود ابراہیم",
+  "description": "درود ابراہیم صلی اللہ علیہ وسلم — ممبر پورٹل",
   "lang": "ur",
   "dir": "rtl",
   "id": "/",
@@ -14,14 +14,8 @@
   "icons": [
     {
       "src": "/tasbih-calligraphy.webp",
-      "sizes": "any",
+      "sizes": "400x400",
       "type": "image/webp",
-      "purpose": "any"
-    },
-    {
-      "src": "/app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
