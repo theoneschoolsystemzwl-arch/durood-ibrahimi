@@ -152,7 +152,7 @@ const state={
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
- tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
+ tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
  seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:3,vibrateLevel:3,lastTapAt:0
 };
 
@@ -244,7 +244,7 @@ function setMember(profile){
   stop();
   state.profile=profile;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
   state.yearStats=null;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
-  state.bootstrapTried=false;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
+  state.bootstrapTried=false;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.continueEdit=false;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
@@ -396,6 +396,7 @@ function formMarkup(){
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
  dailyConversionHint(original)+
  (state.editId&&!g&&expired?'<div class="wz-continue-prompt"><p>مقررہ مدت مکمل ہوگئی۔ کیا آپ اس وظیفے کو اگلے دن سے جاری رکھنا چاہتے ہیں؟ سابقہ ہدف اور ریکارڈ محفوظ رہیں گے۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="continue-personal" data-wazifa-id="'+esc(original.id)+'">اگلا ہدف مقرر کریں</button></div>':'')+
+ (state.editId&&!g&&continuationPeriods(original).length?'<div class="wz-continue-prompt"><p>موجودہ مرحلے کا ہدف دوبارہ درست کر سکتے ہیں۔ گنتی اور پچھلے مراحل محفوظ رہیں گے۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="edit-continuation" data-wazifa-id="'+esc(original.id)+'">موجودہ ہدف تبدیل کریں</button></div>':'')+
  '<div class="wz-date-preview" id="wz-date-preview" role="status"></div>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="active" '+(g&&original.active===false?'':'checked')+'> گروپ وظیفہ فعال رکھیں</label>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="countAsDurood" '+(!g||original.countAsDurood!==false?'checked':'')+'> یہ درود شریف ہے (مجموعی درود میں بھی شمار کریں)</label>'+
@@ -761,24 +762,31 @@ function refreshHeroReader(){
 
 function continuationFormMarkup(){
  const task=state.personal.find(item=>item.id===state.continueFor);
- if(!task||!fixedExpired(task))return '<p class="wz-error">مقررہ وظیفہ ابھی مکمل نہیں ہوا۔</p>';
- const last=continuationPeriods(task).at(-1);
- const previousEnd=lastPlanEnd(task),next=addDays(previousEnd,1);
- const duration=last?.mode==="fixed"?last.durationDays:
-    Math.max(1,Number(task.durationDays)||spanDays(task.startDate,task.endDate)||41);
- return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">واپس</button><h2>اگلا وظیفہ اور نیا ہدف</h2></div>'+
- '<form id="wz-continue-form" class="wz-form" data-previous-end="'+esc(previousEnd)+'">'+
+ const edit=state.continueEdit;
+ const plans=continuationPeriods(task),last=plans.at(-1);
+ if(!task||(edit?!last:!fixedExpired(task)))return '<p class="wz-error">اگلا مرحلہ دستیاب نہیں۔</p>';
+ const previousEnd=lastPlanEnd(task),next=edit?last.startDate:addDays(previousEnd,1);
+ const mode=edit?last.mode:"daily";
+ const duration=edit&&last.mode==="fixed"?last.durationDays:
+   last?.mode==="fixed"?last.durationDays:
+   Math.max(1,Number(task.durationDays)||spanDays(task.startDate,task.endDate)||41);
+ const dailyGoal=edit&&last.mode==="daily"?last.goal:activeDailyGoal(task,previousEnd)||200;
+ const fixedGoal=edit&&last.mode==="fixed"?last.goal:task.goal||1000;
+ return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">واپس</button><h2>'+(edit?'موجودہ ہدف میں ترمیم':'اگلا وظیفہ اور نیا ہدف')+'</h2></div>'+
+ '<form id="wz-continue-form" class="wz-form" data-edit-period="'+(edit?'1':'0')+'" data-period-signature="'+esc(edit?JSON.stringify(last):'')+'" data-previous-end="'+esc(previousEnd)+'">'+
  '<p class="wz-help">'+esc(task.title)+' · '+esc(wazifaSerial(task))+'</p>'+
- '<p class="wz-help">پچھلی مدت '+esc(previousEnd)+' کو مکمل ہوگئی۔ کیا آپ اسے جاری رکھنا چاہتے ہیں؟ پرانی گنتی اور تمام تاریخیں محفوظ رہیں گی۔</p>'+
- '<label>اگلے مرحلے کی تاریخ<input name="nextStart" type="date" value="'+esc(next)+'" readonly></label>'+
- '<p class="wz-label">اگلے وظیفے کی قسم</p><div class="wz-kind">'+
- '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="daily" checked><span><b>ڈیلی وظیفہ</b><small>روزانہ بغیر آخری تاریخ کے</small></span></label>'+
- '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="fixed"><span><b>فکس وظیفہ</b><small>دوبارہ 41 دن یا اپنی مدت</small></span></label></div>'+
- '<div data-wz-next-daily><label>اگلا روزانہ ہدف<input name="nextDailyGoal" type="number" min="1" max="1000000000" value="'+esc(activeDailyGoal(task,previousEnd)||200)+'"></label></div>'+
- '<div data-wz-next-fixed hidden><label>اگلے فکس وظیفے کا مجموعی ہدف<input name="nextFixedGoal" type="number" min="1" max="1000000000" value="'+esc(task.goal||1000)+'"></label>'+
- '<label>کتنے دن کا اگلا وظیفہ؟<input name="nextDuration" type="number" min="1" max="3650" value="'+esc(duration)+'"></label></div>'+
+ '<p class="wz-help">'+(edit?'اس مرحلے کا ہدف دوبارہ لکھیں۔ پڑھی ہوئی گنتی، پہلے مراحل اور تاریخیں محفوظ رہیں گی؛ اسی مرحلے کا بقایا نئے ہدف کے مطابق دوبارہ حساب ہوگا۔':
+   'پچھلی مدت '+esc(previousEnd)+' کو مکمل ہوگئی۔ کیا آپ اسے جاری رکھنا چاہتے ہیں؟ پرانی گنتی اور تمام تاریخیں محفوظ رہیں گی۔')+'</p>'+
+ '<label>اس مرحلے کی تاریخ<input name="nextStart" type="date" value="'+esc(next)+'" readonly></label>'+
+ '<p class="wz-label">'+(edit?'موجودہ وظیفے کی قسم':'اگلے وظیفے کی قسم')+'</p><div class="wz-kind">'+
+ '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="daily" '+(mode==="daily"?'checked':'')+(edit&&mode!=="daily"?' disabled':'')+'><span><b>ڈیلی وظیفہ</b><small>روزانہ بغیر آخری تاریخ کے</small></span></label>'+
+ '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="fixed" '+(mode==="fixed"?'checked':'')+(edit&&mode!=="fixed"?' disabled':'')+'><span><b>فکس وظیفہ</b><small>دوبارہ 41 دن یا اپنی مدت</small></span></label></div>'+
+ '<div data-wz-next-daily><label>روزانہ ہدف<input name="nextDailyGoal" type="number" min="1" max="1000000000" value="'+esc(dailyGoal)+'"></label></div>'+
+ '<div data-wz-next-fixed hidden><label>فکس وظیفے کا مجموعی ہدف<input name="nextFixedGoal" type="number" min="1" max="1000000000" value="'+esc(fixedGoal)+'"></label>'+
+ '<label>کتنے دن کا وظیفہ؟<input name="nextDuration" type="number" min="1" max="3650" '+(edit?'readonly ':'')+'value="'+esc(duration)+'"></label></div>'+
+ (edit?'<p class="wz-help">پہلے محفوظ کی گئی مدت اور قسم تبدیل نہیں ہوگی؛ صرف اسی مرحلے کا ہدف درست ہوگا۔</p>':'')+
  '<div class="wz-date-preview" id="wz-next-preview" role="status"></div>'+
- '<div class="wz-actions"><button type="submit" class="wz-button wz-primary">نیا ہدف محفوظ کریں</button>'+
+ '<div class="wz-actions"><button type="submit" class="wz-button wz-primary">'+(edit?'تبدیلی محفوظ کریں':'نیا ہدف محفوظ کریں')+'</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="back">منسوخ</button></div></form>';
 }
 function syncContinuationForm(){
@@ -848,10 +856,10 @@ function syncForm(){
     "یہ گروپ وظیفہ تمام ممبرز کو سب سے اوپر نظر آئے گا۔";
  }
 }
-function openContinuationForm(id){
+function openContinuationForm(id,edit=false){
  const task=state.personal.find(item=>item.id===id);
- if(!task||!fixedExpired(task))return;
- state.continueFor=id;state.mode="continuation-form";state.error="";
+ if(!task||(edit?!continuationPeriods(task).length:!fixedExpired(task)))return;
+ state.continueFor=id;state.continueEdit=edit;state.mode="continuation-form";state.error="";
  const root=$("#wazaif-root");if(root)root.innerHTML="";
  render();
 }
@@ -867,7 +875,7 @@ function back(){
  if(state.tapBusy){state.pendingBack=true;return;}
  state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.historyDay=null;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;state.draftDay=null;
  const root=$("#wazaif-root");if(root)root.innerHTML="";
- state.continueFor=null;
+ state.continueFor=null;state.continueEdit=false;
  render();
 }
 async function saveForm(form){
@@ -959,20 +967,32 @@ async function saveContinuationForm(form){
      const snap=await tx.get(ref);
      if(!snap.exists())throw Error("وظیفہ موجود نہیں۔");
      const current=snap.data(),previousEnd=lastPlanEnd(current);
-     if(!fixedExpired(current)||current.kind!=="fixed"||
-        legacyContinuation(current)||previousEnd!==form.dataset.previousEnd)
-       throw Error("اس وظیفے کا مرحلہ دوسری جگہ تبدیل ہو گیا۔ دوبارہ کھولیں۔");
-     const old=continuationPeriods(current);
-     if(old.length>=50)throw Error("اس وظیفے میں مزید مرحلے شامل نہیں ہو سکتے۔");
-     const start=addDays(previousEnd,1);
-     const period={mode,startDate:start,
-       endDate:mode==="fixed"?addDays(start,duration-1):"",
-       durationDays:mode==="fixed"?duration:0,
-       goal:mode==="fixed"?fixedGoal:daily};
-     tx.update(ref,{continuePeriods:[...old,period],updatedAt:serverTimestamp()});
+     const edit=form.dataset.editPeriod==="1",old=continuationPeriods(current);
+     if(current.kind!=="fixed"||legacyContinuation(current))
+       throw Error("یہ مرحلہ تبدیل نہیں کیا جا سکتا۔");
+     if(edit){
+       const latest=old.at(-1);
+       if(!latest||JSON.stringify(latest)!==form.dataset.periodSignature||
+          latest.mode!==mode||latest.startDate!==form.elements.nextStart.value||
+          (mode==="fixed"&&latest.durationDays!==duration))
+         throw Error("مرحلے میں دوسری جگہ تبدیلی ہوئی ہے۔ سیٹنگ دوبارہ کھولیں۔");
+       const newGoal=mode==="fixed"?fixedGoal:daily;
+       if(latest.goal!==newGoal)
+         tx.update(ref,{continuePeriods:[...old.slice(0,-1),{...latest,goal:newGoal}],updatedAt:serverTimestamp()});
+     }else{
+       if(!fixedExpired(current)||previousEnd!==form.dataset.previousEnd)
+         throw Error("اس وظیفے کا مرحلہ دوسری جگہ تبدیل ہو گیا۔ دوبارہ کھولیں۔");
+       if(old.length>=50)throw Error("اس وظیفے میں مزید مرحلے شامل نہیں ہو سکتے۔");
+       const start=addDays(previousEnd,1);
+       const period={mode,startDate:start,
+         endDate:mode==="fixed"?addDays(start,duration-1):"",
+         durationDays:mode==="fixed"?duration:0,
+         goal:mode==="fixed"?fixedGoal:daily};
+       tx.update(ref,{continuePeriods:[...old,period],updatedAt:serverTimestamp()});
+     }
    });
-   state.continueFor=null;state.error="";
-   state.shareNotice="اگلے مرحلے کا ہدف محفوظ ہوگیا؛ پچھلا ریکارڈ محفوظ ہے۔";
+   state.continueFor=null;state.continueEdit=false;state.error="";
+   state.shareNotice=form.dataset.editPeriod==="1"?"موجودہ ہدف درست ہوگیا؛ محفوظ گنتی برقرار ہے۔":"اگلے مرحلے کا ہدف محفوظ ہوگیا؛ پچھلا ریکارڈ محفوظ ہے۔";
    state.mode="list";
    const root=$("#wazaif-root");if(root)root.innerHTML="";
    render();
@@ -1219,6 +1239,7 @@ document.addEventListener("click",event=>{
  if(action==="edit-group")return openForm("group");
  if(action==="edit-personal")return openForm("personal",id);
  if(action==="continue-personal")return openContinuationForm(id);
+ if(action==="edit-continuation")return openContinuationForm(id,true);
  if(action==="back")return back();
  if(action==="read-group"){
    if(!state.groupExists||currentGroup().active!==true)return;
