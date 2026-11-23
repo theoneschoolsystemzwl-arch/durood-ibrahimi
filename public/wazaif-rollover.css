@@ -158,3 +158,34 @@
  .wz-ledger-five .wz-ledger-item em,.wz-hero-reader .wz-five-cell em{font-size:.47rem}
 }
 @media(prefers-reduced-motion:reduce){.wz-five-alert{animation:none}}
+
+/* Wazifa source colors: five small boxes on one row; no counter subtitle. */
+.wz-hero-reader .wz-hero-speed{grid-template-columns:repeat(3,minmax(0,1fr));}
+.wz-hero-reader .wz-hero-speed>div{gap:2px}
+.wz-ledger-five .wz-ledger-green,.wz-five-counts .wz-green{
+ background:#003f2c;border-color:#198d54;
+}
+.wz-ledger-five .wz-ledger-yellow,.wz-five-counts .wz-yellow{
+ background:#493917;border-color:#c9a136;
+}
+.wz-ledger-five .wz-ledger-pending,.wz-five-counts .wz-red{
+ background:#4d1c22;border-color:#d34d51;
+}
+.wz-ledger-five .wz-ledger-green strong,.wz-five-counts .wz-green strong{
+ color:#1de085!important;
+}
+.wz-ledger-five .wz-ledger-yellow strong,.wz-five-counts .wz-yellow strong{
+ color:#ffe25a!important;
+}
+.wz-ledger-five .wz-ledger-pending strong,.wz-five-counts .wz-red strong{
+ color:#ff6168!important;
+}
+.wz-ledger-five .wz-ledger-done strong{color:#1de085!important}
+.wz-history-row.wz-day-due .wz-day-pending,.wz-five-alert:not([hidden]){
+ color:#ff7275!important;font-weight:900;
+ animation:wz-due-flash 1.35s ease-in-out infinite;
+}
+.wz-history-row.wz-day-ok .wz-day-complete{color:#1de085!important}
+@media(prefers-reduced-motion:reduce){
+ .wz-history-row.wz-day-due .wz-day-pending,.wz-five-alert:not([hidden]){animation:none}
+}
