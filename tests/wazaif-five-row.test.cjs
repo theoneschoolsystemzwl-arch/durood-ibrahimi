@@ -15,6 +15,13 @@ const sandbox={
 };
 vm.createContext(sandbox);
 vm.runInContext(src.slice(start,end),sandbox);
+const compactStart=src.indexOf("function compactTasbihClock(ms){");
+assert(compactStart>=0&&compactStart<start,"compact Tasbih dial timer must exist");
+vm.runInContext(src.slice(compactStart,start),sandbox);
+assert.equal(sandbox.compactTasbihClock(0),"0");
+assert.equal(sandbox.compactTasbihClock(59000),"59");
+assert.equal(sandbox.compactTasbihClock(65000),"1:05");
+assert.equal(sandbox.compactTasbihClock(3661000),"1:01:01");
 const record={day,today:3000,dailyLedger:{
  [day]:{count:3000,tasbihCount:2000,manualCount:1000,durationMs:100000,intervals:10}
 }};
@@ -38,7 +45,8 @@ const time=sandbox.readingTimes({dailyLedger:{[day]:{count:110,tasbihCount:10,du
 assert.equal(time.tasbih,100000);assert.equal(time.manual,1000000);
 assert.equal(time.total,1100000);assert.equal(sandbox.readingPace({dailyLedger:{[day]:{durationMs:100000,intervals:10}}}),10000);
 assert(css.includes("grid-template-columns:repeat(5,minmax(0,1fr))"));
-assert(src.includes("Math.floor(value%1000/100)")&&!src.includes('String(ms).padStart(3,"0")'));
+assert(src.includes("if(clock)clock.textContent=compactTasbihClock(value);"),"dial has no millisecond suffix or leading hours");
+assert(src.includes('maximumFractionDigits:0'),"Tasbih pace is displayed as whole numbers");
 assert(src.includes("const perMinute=seconds>0?pace(60/seconds)"));
 assert(src.includes("const perHour=seconds>0?pace(3600/seconds)"));
 assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durable storage before local increment");
