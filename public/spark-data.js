@@ -246,6 +246,13 @@ export async function prayerMonthSpark(month){
   const result=await getDocs(query(collection(db,"memberPrivate",uid,"prayers"),where("date",">=",month+"-01"),where("date","<=",month+"-31"),limit(31)));
   return {days:result.docs.map(d=>d.data())};
 }
+// Read all of this member's historical prayer days, not only the currently viewed month.
+export async function prayerHistorySpark(){
+  const uid=requireUser();
+  const result=await getDocs(collection(db,"memberPrivate",uid,"prayers"));
+  if(auth.currentUser?.uid!==uid)throw Error("نماز کا اکاؤنٹ تبدیل ہوگیا۔");
+  return {days:result.docs.map(d=>d.data())};
+}
 export async function rankingSpark(){
   const uid=requireUser();
   const member=await getDoc(memberRef(uid));
