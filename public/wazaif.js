@@ -1122,6 +1122,41 @@ function advanceHistoryEditTap(tracker,day,now){
  if(tracker.count<3)return false;
  tracker.day="";tracker.count=0;tracker.last=0;return true;
 }
+// A manual edit is one durable operation, even if Firestore acknowledges
+// the transaction after the phone refreshes or loses its connection.
+const manualOperations=new Map();
+function manualOperationKey(taskId,day){
+ const uid=auth.currentUser?.uid;
+ if(!uid)throw Error("لاگ اِن ضروری ہے۔");
+ return "durood-wz-manual-operation-v1-"+uid+"-"+taskId+"-"+day;
+}
+function readManualOperation(key){
+ if(manualOperations.has(key))return manualOperations.get(key);
+ try{
+   const raw=localStorage.getItem(key);
+   if(!raw)return null;
+   const value=JSON.parse(raw);
+   if(!/^[a-f0-9]{32}$/.test(value.token)||!Number.isSafeInteger(value.amount)||
+      value.amount===0||!Number.isSafeInteger(value.saved)||value.saved<0||
+      value.saved>Math.abs(value.amount))return null;
+   manualOperations.set(key,value);return value;
+ }catch{return null;}
+}
+function storeManualOperation(key,value){
+ // Refuse a new save if the durable retry token cannot be stored.
+ localStorage.setItem(key,JSON.stringify(value));
+ manualOperations.set(key,value);
+}
+function removeManualOperation(key){
+ localStorage.removeItem(key);manualOperations.delete(key);
+}
+function newManualToken(){
+ const bytes=crypto.getRandomValues(new Uint8Array(16));
+ return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
+function manualReceipt(token,step){
+ return token.slice(0,24)+step.toString(16).padStart(8,"0");
+}
 const historyEditTap={day:"",count:0,last:0};
 document.addEventListener("click",event=>{
  const button=event.target.closest("[data-wazifa-action]");
@@ -1283,25 +1318,65 @@ document.addEventListener("submit",event=>{
     !["add","remove"].includes(operation)||(operation==="remove"&&amount>savedCount)){
    const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="درست تعداد درج کریں۔ کمی صرف اسی دن کی محفوظ تعداد تک ہو سکتی ہے۔";}return;
   }
-  state.busy=true;const submit=form.querySelector('[type="submit"]');if(submit)submit.disabled=true;
-  let saved=0;
-  (async()=>{
-    while(saved<amount){
-      const step=Math.min(1000,amount-saved);
-      await recordPersonalWazifa(task.id,operation==="remove"?-step:step,day,{
-        durationMs:0,intervals:0,source:"manual"});
-      saved+=step;
+  const feedback=form.querySelector("#wz-edit-error");
+  const signedAmount=operation==="remove"?-amount:amount;
+  let key,op;
+  try{
+    key=manualOperationKey(task.id,day);
+    op=readManualOperation(key);
+    if(op?.status==="complete"){
+      const liveCount=Number(task.dailyLedger?.[day]?.count||0);
+      const expected=op.baseCount+op.amount;
+      if(op.amount>0?liveCount>=expected:liveCount<=expected){
+        removeManualOperation(key);op=null;
+      }else{
+        throw Error("یہ گنتی پہلے ہی محفوظ ہو چکی ہے؛ تازہ ریکارڈ آنے تک دوبارہ نہ دبائیں۔");
+      }
     }
+    if(op&&op.amount!==signedAmount)
+      throw Error("پچھلی درخواست نامکمل ہے: "+(op.amount>0?"+":"")+op.amount+
+        "۔ پہلے وہی تعداد دوبارہ محفوظ کریں۔");
+    if(!op){
+      op={token:newManualToken(),amount:signedAmount,saved:0,
+        baseCount:savedCount,status:"pending",createdAt:Date.now()};
+      storeManualOperation(key,op);
+    }
+  }catch(error){
+    if(feedback){feedback.hidden=false;feedback.textContent=error.message;}
+    return;
+  }
+  state.busy=true;const submit=form.querySelector('[type="submit"]');
+  if(submit)submit.disabled=true;
+  (async()=>{
+    while(op.saved<amount){
+      const step=Math.min(1000,amount-op.saved);
+      const index=Math.floor(op.saved/1000);
+      // The same receipt ID is replayed on retries, never counted twice.
+      await recordPersonalWazifa(task.id,operation==="remove"?-step:step,day,{
+        durationMs:0,intervals:0,source:"manual",
+        syncId:manualReceipt(op.token,index)
+      });
+      op.saved+=step;
+      storeManualOperation(key,op);
+    }
+    op.status="complete";
+    storeManualOperation(key,op);
   })().then(()=>{
     state.error="";state.historyDay=null;
     const dialog=$("#wz-edit-dialog");
     if(dialog?.open&&typeof dialog.close==="function")dialog.close();
     else dialog?.removeAttribute("open");
+    state.shareNotice="دستی گنتی "+fmt(amount)+" محفوظ ہوگئی؛ دوبارہ دبانے سے اضافہ نہیں ہوگا۔";
+    refreshHeroReader();
    })
    .catch(error=>{
-    const feedback=form.querySelector("#wz-edit-error");
-    if(feedback){feedback.hidden=false;feedback.textContent=(saved?"جزوی محفوظ "+fmt(saved)+" ہو گئے؛ باقی "+fmt(amount-saved)+" دوبارہ درج کریں۔ ":"محفوظ نہیں ہوا: ")+String(error?.code||error?.message||error);}
-   }).finally(()=>{state.busy=false;if(submit.isConnected)submit.disabled=false;});
+    if(feedback){
+      feedback.hidden=false;
+      feedback.textContent=(op.saved?"محفوظ "+fmt(op.saved)+"؛ باقی "+fmt(amount-op.saved)+
+        " ہیں۔ اسی تعداد سے دوبارہ کوشش کریں۔ ":"محفوظ نہیں ہوا: ")+
+        String(error?.code||error?.message||error);
+    }
+   }).finally(()=>{state.busy=false;if(submit?.isConnected)submit.disabled=false;});
   return;
  }
  if(event.target?.id!=="wazifa-form")return;
