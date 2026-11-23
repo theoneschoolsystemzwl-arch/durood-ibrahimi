@@ -147,11 +147,14 @@ const beforeContinuationFix=historicalRules('f650876d714258c9ef25b0b4716e45a5ddf
 const beforeRepeatedGoalEdit=historicalRules('108aecb903456f4c3b1ffae1013f607d7586b377');
 // Last verified production Firestore rules after repeatable goal editing.
 const beforeDateRevision=historicalRules('eade9e564d308e6f25a76fe80493e0713b284175');
+// Confirmed live Firebase deployment from 24 Nov after Wazifa continuation date edit.
+// Accept only the exact immutable source; any Console modifications still block.
+const afterDateRevision=historicalRules('d6b06c5824a4e3f3210b5cc3c16a2bec6af52730');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
-  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision
+  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');
