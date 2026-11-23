@@ -184,4 +184,47 @@ assert(prayerSpark.includes("export async function prayerHistorySpark()"));
 assert(prayerSpark.includes('getDocs(collection(db,"memberPrivate",uid,"prayers"))'));
 assert(css.includes(".prayer-ledger-grand"));
 
+// Each successful Qaza attendance starts a real 15-second UI hold. Reloads do
+// not reset it, and the marked card stays ahead of already-completed entries.
+const holdStart=ui.indexOf("const QAZA_ENTRY_GAP_MS = 15000;");
+const holdEnd=ui.indexOf("function resetQazaView()",holdStart);
+assert(holdStart>0&&holdEnd>holdStart,"Qaza hold timer helpers are present");
+let fakeClock=Date.parse("2026-11-23T09:00:00Z"),activeInterval=0;
+const storedHold=new Map();
+const holdContext={
+  Date:class extends Date {static now(){return fakeClock;}},
+  currentUser:()=>({uid:"test-uid",id:1}),
+  prayers:prayerKeys.map(id=>[id,id]),
+  localStorage:{
+    getItem:key=>storedHold.get(key)||null,
+    setItem:(key,value)=>storedHold.set(key,value),
+    removeItem:key=>storedHold.delete(key)
+  },
+  setInterval:()=>++activeInterval,
+  clearInterval:()=>{},
+  app:{querySelectorAll:()=>[]},
+  section:"namaz",namazView:"qaza"
+};
+vm.createContext(holdContext);
+vm.runInContext(ui.slice(holdStart,holdEnd),holdContext);
+holdContext.qazaStartHold("fajr","2026-11-23");
+assert.equal(holdContext.qazaSeconds(holdContext.qazaActiveHold()),15,"Countdown begins at 15");
+fakeClock+=1000;
+assert.equal(holdContext.qazaSeconds(holdContext.qazaActiveHold()),14,"Countdown proceeds to 14");
+fakeClock+=13000;
+assert.equal(holdContext.qazaSeconds(holdContext.qazaActiveHold()),1,"Final second displays 1");
+holdContext.qazaHoldMemory=null;
+assert(holdContext.qazaActiveHold(),"A refresh continues the saved countdown");
+fakeClock+=1000;
+assert.equal(holdContext.qazaActiveHold(),null,"Next attendance is unlocked after 15 seconds");
+assert.equal(storedHold.size,0,"Expired wait is cleared from localStorage");
+assert(ui.includes("if (waiting) {")&&ui.includes("if(qazaMode==='made') qazaStartHold(value,day);"),
+  "Successful Qaza completion starts timer; subsequent entries check lock");
+assert(ui.includes("if (hold?.prayer===prayer && hold.day===day) open.push({day,held:true});"),
+  "Completed date remains in original open slot until the countdown finishes");
+assert(ui.includes("disabled aria-disabled=\\\"true\\\""),
+  "Other Qaza attendance buttons are disabled during the hold");
+assert(css.includes(".qaza-holding")&&css.includes(".qaza-hold-count")&&css.includes(".qaza-wait-status"),
+  "Completed Qaza cell has distinct confirmation color and countdown styling");
+
 console.log("Prayer regression checks passed: Qaza migration, date validation, isolated Firebase saves, calendar colors and key buttons.");
