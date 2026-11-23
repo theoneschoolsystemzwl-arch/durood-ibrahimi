@@ -57,6 +57,7 @@ jobs:
         run: |
           node tests/contracts.test.cjs
           node tests/prayer-regressions.test.mjs
+          node tests/wazaif-five-row.test.cjs
           bash -n scripts/cloud-shell-setup.sh
           bash -n scripts/spark-hosting.sh
           bash -n scripts/guard-firebase-rules.sh
