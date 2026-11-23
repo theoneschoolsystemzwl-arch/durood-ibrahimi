@@ -178,3 +178,14 @@
   :root[data-theme] .namaz-card .namaz-options{gap:4px;}
   :root[data-theme] .namaz-card .namaz-options button{min-width:0;overflow-wrap:anywhere;}
 }
+
+/* Private prayer ledger: sum all five prayers beneath the per-prayer totals. */
+:root[data-theme] .namaz-card .prayer-ledger-grand,
+.namaz-card .prayer-ledger-grand{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ margin:4px 1px 3px;padding:7px 10px;
+ border:1px solid #3b9d7b;border-radius:9px;
+ background:linear-gradient(100deg,#064f3e,#126a53);
+ color:#eafff3;font:800 clamp(.79rem,2.9vw,.95rem)/1.6 var(--ur,serif)
+}
+.namaz-card .prayer-ledger-grand strong{font:850 clamp(1.06rem,4vw,1.35rem)/1.2 system-ui,sans-serif;color:#fff;direction:ltr}
