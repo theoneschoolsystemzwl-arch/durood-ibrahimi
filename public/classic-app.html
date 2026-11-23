@@ -3957,6 +3957,27 @@ window.duroodClassicBridge = {
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
+  recoverPending(pending){
+    const person=currentUser();if(!person)return;
+    for(const [day,count] of Object.entries(pending||{})){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isSafeInteger(count)||count<1)continue;
+      const row=getReadingDay(person.id,day);
+      row.taps+=count;
+      person.added=(person.added||0)+count;globalTotal+=count;
+    }
+    persistReaderJournal(pending);
+    if(section==="wazifa-reader")updateReader();
+  },
+  pendingSaved(pending){
+    persistReaderJournal(pending);
+    if(section==="wazifa-reader"){
+      const total=Object.values(pending||{}).reduce((n,v)=>n+(Number(v)||0),0);
+      const status=document.getElementById("read-status");
+      if(status)status.textContent=total?
+        (navigator.onLine===false?"آف لائن • ":"Firebase سنک جاری • ")+total+" تسبیح فون میں محفوظ":
+        "تمام تسبیح Firebase پر محفوظ ہو گئی ہے";
+    }
+  },
   rollbackTaps(amount,day){
     const p=currentUser();if(!p)return;
     const entry=getReadingDay(p.id,day);entry.taps=Math.max(0,(entry.taps||0)-amount);
@@ -4067,6 +4088,7 @@ import "./profile-contacts.js";
 import "./wazaif.js?release=compact-controls-20261123-v12";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-4";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=fast-login-reader-v4";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -4161,45 +4183,31 @@ ui.addEventListener("click",event=>{
 },true);
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
 let currentProfile=null;
-const queuedTaps=new Map();
-let batchTimer=null,flushingTaps=false;
+const tasbihSync=createDurableTasbihSync({
+ prefix:"durood-classic-counts-v3",
+ getUid:()=>auth.currentUser?.uid,
+ send:op=>readingsSpark(op.count,op.day,true,true,op.id),
+ onChange:()=>{
+   const uid=auth.currentUser?.uid;
+   if(uid&&uid===currentProfile?.uid&&uid===bridge.userForCurrent())
+     bridge.pendingSaved(tasbihSync.byDay("_durood_"));
+ }
+});
 function queueTasbihTap(){
-  const uid=auth.currentUser?.uid;
-  if(!uid||uid!==currentProfile?.uid)return;
-  const day=localReadingDate();
-  bridge.tap();
-  queuedTaps.set(day,(queuedTaps.get(day)||0)+1);
-  if(!batchTimer&&!flushingTaps)batchTimer=setTimeout(flushTasbihTaps,220);
-}
-async function flushTasbihTaps(){
-  if(flushingTaps)return;
-  clearTimeout(batchTimer);batchTimer=null;
-  const next=queuedTaps.entries().next().value;
-  if(!next)return;
-  const [day,available]=next,amount=Math.min(available,10000),uid=auth.currentUser?.uid;
-  if(!uid||uid!==currentProfile?.uid){queuedTaps.clear();return;}
-  flushingTaps=true;
-  try{
-    await readingsSpark(amount,day,true,true);
-    const remaining=Math.max(0,(queuedTaps.get(day)||0)-amount);
-    if(remaining)queuedTaps.set(day,remaining);else queuedTaps.delete(day);
-    if(auth.currentUser?.uid===uid)bridge.confirmed(Object.fromEntries(queuedTaps));
-  }catch(err){
-    const remaining=Math.max(0,(queuedTaps.get(day)||0)-amount);
-    if(remaining)queuedTaps.set(day,remaining);else queuedTaps.delete(day);
-    if(auth.currentUser?.uid===uid){
-      bridge.rollbackTaps(amount,day);
-      bridge.confirmed(Object.fromEntries(queuedTaps));
-      bridge.notice("درود Firebase میں محفوظ نہیں ہوا: "+errorText(err));
-    }
-  }finally{
-    flushingTaps=false;
-    if(queuedTaps.size)batchTimer=setTimeout(flushTasbihTaps,220);
-  }
+ const uid=auth.currentUser?.uid;
+ if(!uid||uid!==currentProfile?.uid)return;
+ const day=localReadingDate();
+ if(!tasbihSync.enqueue({taskId:"_durood_",day,count:1,source:"tasbih",
+   durationMs:0,intervals:0})){
+  bridge.notice("فون کی اسٹوریج میں گنتی محفوظ نہیں ہو سکی؛ تسبیح نہیں بڑھی۔");
+  return;
+ }
+ bridge.tap();
+ bridge.pendingSaved(tasbihSync.byDay("_durood_"));
 }
 // A swipe must not interrupt unsent recitations or Qaza writes.
 document.addEventListener("durood:before-refresh",event=>{
-  if(queuedTaps.size>0||flushingTaps||qazaSavePending)event.preventDefault();
+  if(qazaSavePending)event.preventDefault();
 });
 let switchingSide=false;
 try{
@@ -4283,7 +4291,10 @@ async function hydrate(){
     window.duroodCurrentSide=side;
     window.duroodChatRows=[];
     currentProfile=profile;
+    tasbihSync.start(profile.uid);
     bridge.enter(profile,[profile],{});
+    bridge.recoverPending(tasbihSync.byDay("_durood_"));
+    tasbihSync.schedule(0);
     void loadPrivateQaza(profile);
     observeCounters(side);
     if(window.parent!==window)window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
