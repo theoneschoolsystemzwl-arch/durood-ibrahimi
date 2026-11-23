@@ -2940,6 +2940,66 @@ let qazaTargetDraft = null;
 let qazaUnlockAt = 0;
 let qazaUnlockCount = 0;
 let qazaRenderedClock = '';
+const QAZA_ENTRY_GAP_MS = 15000;
+let qazaHoldMemory = null;
+let qazaHoldTimer = null;
+
+function qazaHoldKey() {
+  const member = currentUser();
+  return member ? 'durood-qaza-entry-wait-v1:' + String(member.uid || member.id) : '';
+}
+
+function qazaActiveHold() {
+  const key = qazaHoldKey(), now = Date.now();
+  if (!key) return null;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch {}
+  if (saved && Number.isFinite(saved.until) && saved.until>now &&
+      saved.until<=now+QAZA_ENTRY_GAP_MS &&
+      prayers.some(([id])=>id===saved.prayer) &&
+      /^\\d{4}-\\d{2}-\\d{2}$/.test(saved.day)) {
+    qazaHoldMemory = {...saved,key};
+  }
+  if (qazaHoldMemory?.key===key && qazaHoldMemory.until>now) return qazaHoldMemory;
+  if (qazaHoldMemory?.key===key) qazaHoldMemory = null;
+  if (saved && saved.until<=now) {
+    try { localStorage.removeItem(key); } catch {}
+  }
+  return null;
+}
+
+function qazaSeconds(hold) {
+  return hold ? Math.max(1,Math.min(15,Math.ceil((hold.until-Date.now())/1000))) : 0;
+}
+
+function qazaRefreshHoldCountdown() {
+  const hold = qazaActiveHold();
+  if (!hold) {
+    if (qazaHoldTimer) { clearInterval(qazaHoldTimer); qazaHoldTimer=null; }
+    if (section==='namaz' && namazView==='qaza' && currentUser()) render({keepScroll:true});
+    return;
+  }
+  if (section==='namaz' && namazView==='qaza') {
+    const seconds=String(qazaSeconds(hold));
+    app.querySelectorAll('[data-qaza-countdown], [data-qaza-seconds]').forEach(node=>{
+      if(node.textContent!==seconds)node.textContent=seconds;
+    });
+  }
+}
+
+function qazaEnsureHoldTimer() {
+  if (!qazaHoldTimer && qazaActiveHold())
+    qazaHoldTimer=setInterval(qazaRefreshHoldCountdown,250);
+}
+
+function qazaStartHold(prayer,day) {
+  const key=qazaHoldKey();
+  if (!key) return;
+  const hold={prayer,day,until:Date.now()+QAZA_ENTRY_GAP_MS};
+  qazaHoldMemory={...hold,key};
+  try { localStorage.setItem(key,JSON.stringify(hold)); } catch {}
+  qazaEnsureHoldTimer();
+}
 
 function resetQazaView() {
   qazaMonth = '';
@@ -3170,11 +3230,16 @@ function qazaDayButton(prayer,label,day,completed,kind='month',early=false) {
   const showYear = kind==='next';
   const date = new Date(day+'T00:00:00Z');
   const state = completed?tr("Made up", 'قضا ادا'):early?tr("Mark made up", 'قضا ادا درج کریں'):tr("Missed", 'قضا');
-  return '<button class="namaz-cell '+(completed?'qaza-paid':early?'namaz-upcoming':'namaz-missed')+'" data-action="qaza-record" data-value="'+prayer+
-    '" data-day="'+day+'" data-kind="'+kind+'" aria-label="'+esc(label+'، '+qazaDateFormat.format(date)+'، '+state)+'">'+
+  const hold=qazaActiveHold(),waiting=Boolean(completed&&hold?.prayer===prayer&&hold.day===day);
+  return '<button class="namaz-cell '+(completed?'qaza-paid':early?'namaz-upcoming':'namaz-missed')+
+    (waiting?' qaza-holding':'')+'" data-action="qaza-record" data-value="'+prayer+
+    '" data-day="'+day+'" data-kind="'+kind+'" aria-label="'+esc(label+'، '+qazaDateFormat.format(date)+'، '+state)+
+    (waiting?tr(' · Wait 15 seconds',' · 15 سیکنڈ انتظار'):'')+'"'+(hold?' disabled aria-disabled="true"':'')+'>'+
     '<time class="qaza-day-date" datetime="'+day+'">'+esc((showYear?qazaDateFormat:qazaShortFormat).format(date))+'</time>' +
     (kind==='month'?'<strong class="prayer-name">'+label+'</strong>':'') +
-    '<span>'+(completed?'✓ ':'')+state+'</span></button>';
+    '<span>'+(completed?'✓ ':'')+state+'</span>'+
+    (waiting?'<span class="qaza-hold-count"><bdi data-qaza-countdown>'+qazaSeconds(hold)+'</bdi> '+tr('sec','سیکنڈ')+'</span>':'')+
+    '</button>';
 }
 
 function qazaCalendar(id,plan,now,today) {
@@ -3183,6 +3248,7 @@ function qazaCalendar(id,plan,now,today) {
   const month = qazaMonth && qazaMonth>=from && qazaMonth<=to ? qazaMonth : from;
   const start = Math.max(dateNumber(plan.start),dateNumber(month));
   const end = Math.min(dateNumber(today),dateNumber(shiftQazaMonth(month,1))-1);
+  const hold = qazaActiveHold();
   return tr("<section class=\"qaza-section qaza-calendar\"><h2>Make-up calendar</h2><div class=\"namaz-calendar-bar\" dir=\"ltr\">", '<section class="qaza-section qaza-calendar"><h2>قضا کیلنڈر</h2><div class="namaz-calendar-bar" dir="ltr">') +
     tr("<button class=\"button secondary\" data-action=\"qaza-month\" data-value=\"-1\" aria-label=\"Previous make-up month\"", '<button class="button secondary" data-action="qaza-month" data-value="-1" aria-label="پچھلا قضا مہینہ"')+(month===from?' disabled':'')+'>‹</button>' +
     '<output id="qaza-month-label" tabindex="-1">'+esc(qazaMonthFormat.format(new Date(month+'T00:00:00Z')))+'</output>'+
@@ -3194,10 +3260,13 @@ function qazaCalendar(id,plan,now,today) {
         const eligible=qazaEligible(id,day,prayer,now,today);
         const early=day===today&&!eligible&&!alreadyOnTime(knownPrayerStatus(id,day,prayer));
         if(!eligible&&!early)continue;
-        if(knownPrayerStatus(id,day,prayer)==='made')completed.push(day);
-        else open.push({day,early});
+        if(knownPrayerStatus(id,day,prayer)==='made') {
+          // The just-completed prayer stays in its original pending slot for 15s.
+          if (hold?.prayer===prayer && hold.day===day) open.push({day,held:true});
+          else completed.push(day);
+        } else open.push({day,early});
       }
-      const rows=open.map(entry=>'<li>'+qazaDayButton(prayer,label,entry.day,false,'month',entry.early)+'</li>')
+      const rows=open.map(entry=>'<li>'+qazaDayButton(prayer,label,entry.day,Boolean(entry.held),'month',entry.early)+'</li>')
         .concat(completed.map((day,index)=>'<li'+(index===0&&open.length?' class="qaza-paid-start"':'')+'>'+qazaDayButton(prayer,label,day,true)+'</li>'));
       return '<section class="qaza-column" data-qaza-prayer="'+prayer+'"><h3>'+label+'</h3>' +
         (rows.length?'<ol>'+rows.join('')+'</ol>':tr("<p>No missed prayers</p>", '<p>کوئی قضا نہیں</p>'))+'</section>';
@@ -3208,6 +3277,8 @@ function qazaPage(person) {
   const now = Date.now();
   const today = prayerDate(person.id,now);
   const plan = qazaPlan(person.id);
+  const hold=qazaActiveHold();
+  if (hold) qazaEnsureHoldTimer();
   qazaRenderedClock = today+'|'+namazPhaseKey(person.id,today,now);
   const header = '<section class="panel namaz-card qaza-card ur" aria-labelledby="qaza-title">' +
     tr("<header class=\"namaz-heading\"><h1 id=\"qaza-title\">Make-up Prayer Attendance</h1></header>", '<header class="namaz-heading"><h1 id="qaza-title">قضا نمازوں کی حاضری</h1></header>') + qazaTopSettings(plan,today);
@@ -3227,9 +3298,16 @@ function qazaPage(person) {
     '<button class="namaz-missed qaza-options-missed" data-action="qaza-mode" data-value="missed" aria-pressed="'+(qazaMode==='missed')+tr("\">○ Missed</button>", '">○ قضا</button>') +
     '<button class="qaza-options-paid" data-action="qaza-mode" data-value="made" aria-pressed="'+(qazaMode==='made')+tr("\">✓ Made up</button></div>", '">✓ قضا ادا</button></div>') +
     '<div class="feedback namaz-feedback" role="status" id="qaza-entry-feedback"></div>' +
+    (hold?'<p class="qaza-wait-status" id="qaza-wait-status" role="status" tabindex="-1">'+
+       tr('✓ Make-up saved. Next attendance available in ', '✓ قضا ادا محفوظ۔ اگلی حاضری ')+
+       '<bdi data-qaza-seconds>'+qazaSeconds(hold)+'</bdi> '+
+       tr('seconds.','سیکنڈ بعد لگ سکے گی۔')+'</p>':'') +
     tr("<section class=\"qaza-section\"><h2>Oldest outstanding prayer</h2><div class=\"qaza-next-grid\">", '<section class="qaza-section"><h2>ہر نماز کی اگلی باقی قضا</h2><div class="qaza-next-grid">')+
     prayers.map(([id,label])=>'<div class="qaza-next-card"><strong>'+label+'</strong>'+
-      (byPrayer[id].next?qazaDayButton(id,label,byPrayer[id].next,false,'next'):tr("<p class=\"qaza-next-empty\">None remaining</p>", '<p class="qaza-next-empty">کوئی باقی نہیں</p>'))+'</div>').join('')+
+      ((hold?.prayer===id && knownPrayerStatus(person.id,hold.day,id)==='made') || byPrayer[id].next ?
+        qazaDayButton(id,label,hold?.prayer===id && knownPrayerStatus(person.id,hold.day,id)==='made'?hold.day:byPrayer[id].next,
+          hold?.prayer===id && knownPrayerStatus(person.id,hold.day,id)==='made','next') :
+        tr("<p class=\"qaza-next-empty\">None remaining</p>", '<p class="qaza-next-empty">کوئی باقی نہیں</p>'))+'</div>').join('')+
     '</div></section>'+qazaCalendar(person.id,plan,now,today)+'</section>';
 }
 
@@ -3309,6 +3387,13 @@ function handleQazaAction(action,button,value) {
     const arrow = app.querySelector('[data-action="qaza-month"][data-value="'+value+'"]');
     (arrow?.disabled?document.getElementById('qaza-month-label'):arrow)?.focus({preventScroll:true});
   } else if (action==='qaza-record') {
+    // Shared guard across next-pending and calendar buttons; refresh cannot bypass it.
+    const waiting=qazaActiveHold();
+    if (waiting) {
+      setFeedback('qaza-entry-feedback',tr('Wait before marking another make-up prayer: ',
+        'اگلی قضا حاضری سے پہلے انتظار کریں: ')+qazaSeconds(waiting)+tr(' seconds',' سیکنڈ'));
+      return true;
+    }
     const day = button.dataset.day;
     const kind = button.dataset.kind;
     const old = knownPrayerStatus(currentUserId,day,value)==='made'?'made':'missed';
@@ -3324,9 +3409,14 @@ function handleQazaAction(action,button,value) {
     qazaLocalRevision++;
     const saved = saveOfflineState();
     const label = prayers.find(([id])=>id===value)[1];
+    // Only successfully marked make-up prayers start the 15-second hold.
+    if(qazaMode==='made') qazaStartHold(value,day);
     render({keepScroll:true});
-    const base = '[data-action="qaza-record"][data-value="'+value+'"][data-kind="'+kind+'"]';
-    (app.querySelector(base+(kind==='month'?'[data-day="'+day+'"]':'')) || app.querySelector('[data-action="qaza-mode"][aria-pressed="true"]'))?.focus({preventScroll:true});
+    if(qazaMode==='made')app.querySelector('#qaza-wait-status')?.focus({preventScroll:true});
+    else {
+      const base = '[data-action="qaza-record"][data-value="'+value+'"][data-kind="'+kind+'"]';
+      (app.querySelector(base+(kind==='month'?'[data-day="'+day+'"]':'')) || app.querySelector('[data-action="qaza-mode"][aria-pressed="true"]'))?.focus({preventScroll:true});
+    }
     setFeedback('qaza-entry-feedback',saved?label+(qazaMode==='made'?tr(" · Make-up saved", ' · قضا ادا محفوظ'):tr(" · Marked as missed again.", ' · دوبارہ قضا درج ہو گئی۔')):tr("Entry saved for this session.", 'اندراج اس سیشن میں محفوظ ہے۔'),saved);
   } else return false;
   return true;
