@@ -33,3 +33,49 @@
 .wz-edit-error{color:#ffe0da;background:#682922;border-radius:8px;padding:6px;margin:0;font:700 .85rem/1.6 var(--ur,serif)}
 @media(prefers-reduced-motion:reduce){.wz-day-pending{animation:none}}
 @media(max-width:400px){.wz-edit-dialog{padding:12px}.wz-history-row{gap:4px}}
+
+/* Clear, descending daily W1 ledger: daily goal, previous debt, green tasbih,
+   yellow dated/manual counts and settled balance are never combined visually. */
+.wz-history-row.wz-history-clear{display:flex;flex-direction:column;gap:7px;padding:10px 11px;margin:7px 0;cursor:pointer}
+.wz-history-clear:focus-visible{outline:2px solid #f4d68e;outline-offset:2px}
+.wz-clear-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wz-clear-heading time{font:800 clamp(.86rem,3.2vw,1.08rem)/1.8 var(--ur,serif);color:#fff}
+.wz-clear-state{font:700 .83rem/1.7 var(--ur,serif)}
+.wz-clear-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
+.wz-clear-cell{display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;min-width:0;min-height:49px;padding:5px 3px;border:1px solid #ffffff27;border-radius:9px;background:#001b17a3;text-align:center}
+.wz-clear-cell small{color:#e4f1eb;font:700 clamp(.68rem,2.55vw,.86rem)/1.5 var(--ur,serif)}
+.wz-clear-cell strong{font:850 clamp(1rem,4.1vw,1.3rem)/1.35 system-ui,sans-serif;direction:ltr;color:#fff;overflow-wrap:anywhere}
+.wz-clear-green strong,.wz-clear-green small{color:#64ffa9}
+.wz-clear-yellow strong,.wz-clear-yellow small{color:#ffe36f}
+.wz-clear-pending strong{color:#ff8a86}
+.wz-clear-paid strong{color:#75ffb0}
+.wz-clear-prev strong{color:#ffd6a1}
+.wz-clear-total{border-color:#f5e6a04f;background:#00433265}
+.wz-clear-credit,.wz-clear-legacy{font:700 .76rem/1.7 var(--ur,serif);color:#f3dcab;margin:0;text-align:center}
+.wz-clear-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;width:100%}
+.wz-clear-clock{display:flex;align-items:center;gap:4px;color:#c7ffde;font:700 .83rem/1.5 system-ui,sans-serif;direction:ltr}
+.wz-clear-clock svg{width:17px;height:17px}
+.wz-clear-foot .wz-history-edit{font:700 .8rem/1.7 var(--ur,serif);min-width:85px}
+.wz-history-clear.wz-day-due{background:linear-gradient(140deg,#3c1c1d,#502a24);border-color:#d66060}
+.wz-history-clear.wz-day-ok{background:linear-gradient(140deg,#073f32,#075642);border-color:#26ba85}
+.wz-date-select{display:grid;gap:3px;min-width:0}
+.wz-date-select small{font:700 .84rem/1.6 var(--ur,serif);color:#e0ffe8}
+.wz-date-button{display:flex;align-items:center;justify-content:space-between;gap:5px;box-sizing:border-box;width:100%;min-height:46px;border-radius:10px;padding:6px 9px;background:#073d32;color:#fff;border:1px solid #43c698;font:700 clamp(.76rem,2.7vw,.96rem)/1.5 var(--ur,serif);cursor:pointer}
+.wz-date-button span:last-child{font-size:1.2rem;color:#b0e9d3}
+.wz-date-source{font:650 .7rem/1.5 var(--ur,serif);color:#fee28a}
+.wz-date-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(94vw,370px);max-height:min(83dvh,680px);overflow:auto;border-radius:17px;padding:14px;border:1px solid #5acfa4;background:#063c30;color:#fff;box-shadow:0 18px 55px #000b;direction:rtl}
+.wz-date-dialog::backdrop{background:#001a16c7;backdrop-filter:blur(2px)}
+.wz-cal-box{display:grid;gap:9px}
+.wz-cal-box h3{margin:0;text-align:center;font:800 1.1rem/1.8 var(--ur,serif);color:#fff3be}
+.wz-cal-nav{display:grid;grid-template-columns:38px 1fr 38px;gap:4px;align-items:center}
+.wz-cal-nav strong{font:800 .99rem/1.6 var(--ur,serif);text-align:center;color:#f7fff4}
+.wz-cal-arrow{border:1px solid #2b9e7b;background:#004434;color:#fff;border-radius:8px;min-height:36px;font:900 1.45rem system-ui,sans-serif;cursor:pointer}
+.wz-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;direction:ltr}
+.wz-cal-weekdays span{font:700 .7rem/1.4 var(--ur,serif);text-align:center;color:#c9ebd7}
+.wz-cal-day{aspect-ratio:1/1;min-height:33px;padding:1px;border:1px solid #357f69;border-radius:9px;background:#074a3b;color:#fff;font:700 .89rem system-ui,sans-serif;cursor:pointer}
+.wz-cal-day.is-today{border-color:#edcd74}
+.wz-cal-day.is-selected{background:#d6b978;color:#003229;border-color:#fff4bc}
+.wz-cal-day:disabled{opacity:.25;cursor:not-allowed}
+.wz-cal-note{font:700 .76rem/1.75 var(--ur,serif);color:#ebd89a;margin:1px 0;text-align:center}
+.wz-cal-box>.wz-button{min-height:38px}
+@media(max-width:390px){.wz-history-row.wz-history-clear{padding:8px 6px}.wz-clear-grid{gap:4px}.wz-clear-cell{min-height:45px}.wz-date-dialog{padding:10px}}
