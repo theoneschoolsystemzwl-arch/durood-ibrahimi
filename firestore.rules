@@ -1005,6 +1005,51 @@ service cloud.firestore {
       // numbered copy in this user's private items.
       allow delete: if self(uid) && currentMember();
     }
+    // Immutable, owner-scoped sync receipts make a device retry exactly-once.
+    // A receipt is written in the same Firestore transaction as its count.
+    // No other account can read or mutate a member's receipts.
+    match /memberWazaif/{uid}/syncReceipts/{receiptId} {
+      allow get: if self(uid) && currentMember();
+      allow list, update, delete: if false;
+      allow create: if self(uid) && currentMember() &&
+        receiptId.matches('^[a-f0-9]{32}
+      // Unlike the group config, these documents are never readable by
+      // another member, even if that member has a DI ID or referral link.
+      allow get: if self(uid) && currentMember();
+      allow list: if self(uid) && currentMember() &&
+        request.query.limit != null && request.query.limit <= 100;
+      allow create: if validWzPrivate(uid) &&
+        ('wNumber' in request.resource.data) &&
+        wzAllocated(uid,wazifaId,request.resource.data.wNumber) &&
+        request.resource.data.total == 0 && request.resource.data.today == 0 &&
+        request.resource.data.createdAt == request.time;
+      allow update: if validWzFastCount(uid) ||
+        (validWzPrivate(uid) &&
+         (validWzPrivateChange() || wzLegacySerialAssignment(uid,wazifaId)));
+      allow delete: if self(uid) && currentMember();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+) &&
+        request.resource.data.keys().hasOnly([
+          'uid','kind','taskId','day','amount','source','createdAt']) &&
+        request.resource.data.keys().hasAll([
+          'uid','kind','taskId','day','amount','source','createdAt']) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.kind in ['personal','group','durood'] &&
+        request.resource.data.taskId is string &&
+        request.resource.data.taskId.size() >= 1 &&
+        request.resource.data.taskId.size() <= 50 &&
+        wzDate(request.resource.data.day) &&
+        request.resource.data.amount is int &&
+        request.resource.data.amount >= 1 && request.resource.data.amount <= 1000 &&
+        request.resource.data.source in ['tasbih','manual'] &&
+        request.resource.data.createdAt == request.time;
+    }
     match /memberWazaif/{uid}/items/{wazifaId} {
       // Unlike the group config, these documents are never readable by
       // another member, even if that member has a DI ID or referral link.
