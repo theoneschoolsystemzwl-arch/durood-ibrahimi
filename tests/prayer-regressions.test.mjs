@@ -139,8 +139,9 @@ assert(ui.includes("loadPrayerHistoryDays(result.days||[],startRevision)"),"Hydr
 assert(ui.includes("prayerEditedDays.get(item.date)"),"Late Firebase responses may not erase user edits");
 assert(ui.includes('class="prayer-ledger-grand"'),"Grand total is visible below all five prayer columns");
 assert(ui.includes("function qazaDayButton(prayer,label,day,completed,kind='month',early=false)"),"Today's early Qaza entry remains visibly distinct");
-assert(spark.includes("export async function prayerHistorySpark()"));
-assert(spark.includes('getDocs(collection(db,"memberPrivate",uid,"prayers"))'));
+const prayerSpark=fs.readFileSync("public/spark-data.js","utf8");
+assert(prayerSpark.includes("export async function prayerHistorySpark()"));
+assert(prayerSpark.includes('getDocs(collection(db,"memberPrivate",uid,"prayers"))'));
 assert(css.includes(".prayer-ledger-grand"));
 
 console.log("Prayer regression checks passed: Qaza migration, date validation, isolated Firebase saves, calendar colors and key buttons.");
