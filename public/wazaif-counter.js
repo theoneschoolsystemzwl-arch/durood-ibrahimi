@@ -64,7 +64,7 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
     !Number.isSafeInteger(intervals)||intervals<0||intervals>Math.max(0,amount)||
     !/^\d{4}-\d{2}-\d{2}$/.test(day)||day>readingDay()||
     readingDay(new Date(day+"T12:00:00"))!==day ||
-    (syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||amount<1)))
+    (syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||amount===0)))
   throw Error("تعداد، وقت یا تاریخ درست نہیں۔");
  const receipt=syncId?doc(db,"memberWazaif",user.uid,"syncReceipts",syncId):null;
  return runTransaction(db,async tx=>{
@@ -112,7 +112,7 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
    lastReadingDay:day,lastReadingSource:source,updatedAt:serverTimestamp()
   });
   if(receipt)tx.set(receipt,{uid:user.uid,kind:"personal",taskId:id,
-    day,amount,source,createdAt:serverTimestamp()});
+    day,amount:Math.abs(amount),source,createdAt:serverTimestamp()});
   return {duplicate:false};
  });
 }
