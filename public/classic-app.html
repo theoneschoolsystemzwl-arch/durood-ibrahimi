@@ -1317,7 +1317,19 @@ let dialFloating=false;
 let suppressNextDialClick=false;
 const paceFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
 let readerHistoryTimer=null;
-let readerHistoryLimit=14;
+let readerHistoryLimit=31;
+// Group Durood records from Firebase, scoped to the authenticated member and gender.
+// Local per-tap journal remains separate so offline taps are never double-counted.
+let readerServerScope="";
+let readerServerTotals=Object.create(null);
+let readerPendingTotals=Object.create(null);
+function verifiedDuroodTaps(person,day){
+  const local=Math.max(0,Number(readingFor(person.id).days[day]?.taps)||0);
+  const scope=person.uid+"|"+String(window.duroodCurrentSide||"");
+  const remote=readerServerScope===scope?readerServerTotals[day]:undefined;
+  const pending=Math.max(0,Number(readerPendingTotals[day])||0);
+  return Math.max(local,Number.isSafeInteger(remote)&&remote>=0?remote+pending:0);
+}
 let soundEnabled = false;
 let soundContext;
 for (const person of users) {
@@ -2006,7 +2018,8 @@ function getReadingDay(id, key) {
 
 function dayCount(person,key) {
   const entry = readingFor(person.id).days[key];
-  return (key === demoDay ? person.daily : 0) + (entry?.taps || 0) + (entry?.manual || 0);
+  return (key === demoDay ? person.daily : 0) +
+    verifiedDuroodTaps(person,key) + (entry?.manual || 0);
 }
 
 function readingTotal(id,span,history) {
@@ -2089,7 +2102,7 @@ function historyRows(person,today) {
   // Create all daily rows from the user's registration day, including zero days.
   for(let day=first,i=0;day<=today && i<3660;i++){
     const entry=ledger.days[day]||{},goal=Math.max(1,Number(entry.goal)||ledger.goal||100);
-    const tasbih=Math.max(0,Number(entry.taps)||0),manual=Math.max(0,Number(entry.manual)||0);
+    const tasbih=verifiedDuroodTaps(person,day),manual=Math.max(0,Number(entry.manual)||0);
     const count=tasbih+manual,previousDue=Math.max(0,cumulativeGoal-cumulativeRead);
     const previousCredit=Math.max(0,cumulativeRead-cumulativeGoal);
     cumulativeGoal+=goal;cumulativeRead+=count;
@@ -2234,8 +2247,8 @@ function updateReader() {
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
   set('read-global',formatNumber(globalTotal));
-  set('session-count',formatNumber(getReadingDay(person.id,key).taps));
-  const taps=getReadingDay(person.id,key).taps||0;
+  set('session-count',formatNumber(verifiedDuroodTaps(person,key)));
+  const taps=verifiedDuroodTaps(person,key);
   const inCycle=taps>0 && taps%goal===0 ? goal : taps%goal;
   const dial=document.querySelector('.reader .dial');
   if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/Math.max(1,goal))+'deg');
@@ -2377,10 +2390,11 @@ function handleReaderAction(action,button,value) {
     dialog.showModal();
   } else if (action === 'manual-day') openManual(value);
   else if (action === 'reader-history-more') {
-    readerHistoryLimit+=30;
+    readerHistoryLimit=Math.min(3660,readerHistoryLimit+31);
     const target=document.getElementById('daily-records');
     const person=currentUser();
     if(target&&person)target.innerHTML=historyRows(person,dateKey());
+    window.duroodRefreshGroupHistory?.();
   }
   else if (action === 'close-reader-dialog') button.closest('dialog').close();
   else return false;
@@ -4114,10 +4128,49 @@ window.duroodClassicBridge = {
     if(!currentUser()||!window.duroodWazaif?.activeGroup?.()||
       !window.duroodWazaif?.groupCountsAsDurood?.())return;
     section='wazifa-reader';readingSession.lastTap=null;render();
+    window.duroodRefreshGroupHistory?.();
+  },
+  readerHistoryWindow(){
+    const person=currentUser();
+    if(section!=='wazifa-reader'||!person?.uid)return null;
+    const side=String(window.duroodCurrentSide||'');
+    if(!['male','female'].includes(side))return null;
+    const joined=person.joined instanceof Date && Number.isFinite(person.joined.getTime())?
+      dateKey(person.joined):dateKey();
+    const today=dateKey(),first=joined<=today?joined:today,days=[];
+    let day=today;
+    for(let i=0;day>=first&&i<readerHistoryLimit&&i<3660;i++){
+      if(day!==today)days.push(day);
+      const earlier=parseDay(day);earlier.setDate(earlier.getDate()-1);
+      day=dateKey(earlier);
+    }
+    return {uid:person.uid,side,days};
+  },
+  serverReaderHistory(uid,side,counts){
+    const person=currentUser();
+    if(person?.uid!==uid||side!==window.duroodCurrentSide)return;
+    const scope=uid+'|'+side;
+    if(readerServerScope!==scope){
+      readerServerScope=scope;readerServerTotals=Object.create(null);
+    }
+    for(const row of counts||[]){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(row.day))continue;
+      const value=Number(row.total);
+      if(Number.isSafeInteger(value)&&value>=0)readerServerTotals[row.day]=value;
+    }
+    if(section==='wazifa-reader')updateReader();
   },
   openWazaifList(){section='tasbih';render();},
   readers(rows){
     todayReaders=rows;
+    // Already observed live Firebase readers for today also drives the
+    // authenticated member's daily ledger, across both devices and sessions.
+    const person=currentUser();
+    if(person?.uid&&Array.isArray(rows)&&['male','female'].includes(window.duroodCurrentSide)){
+      const mine=rows.find(row=>row.uid===person.uid);
+      this.serverReaderHistory(person.uid,window.duroodCurrentSide,
+        [{day:dateKey(),total:Math.max(0,Number(mine?.total)||0)}]);
+    }
     const list=document.getElementById("today-readers");
     if(list)list.innerHTML=readerList();
   },
@@ -4137,7 +4190,11 @@ window.duroodClassicBridge = {
     if(percent)percent.textContent=progressPercent()+"%";
   },
   enter(profile,rows,totals,refresh=false){
-    if(!refresh){periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=14;}
+    if(!refresh){
+      periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      readerServerScope="";readerServerTotals=Object.create(null);
+      readerPendingTotals=Object.create(null);
+    }
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
@@ -4196,7 +4253,9 @@ window.duroodClassicBridge = {
     if(section==="wazifa-reader")updateReader();
   },
   pendingSaved(pending){
+    readerPendingTotals={...(pending||{})};
     persistReaderJournal(pending);
+    if(section==='wazifa-reader')updateReader();
     if(section==="wazifa-reader"){
       const total=Object.values(pending||{}).reduce((n,v)=>n+(Number(v)||0),0);
       const status=document.getElementById("read-status");
