@@ -87,6 +87,49 @@ assert(source.includes("manualReceipt(op.token,index)"));
 assert(source.includes('syncId:manualReceipt(op.token,index)'));
 assert(counter.includes("if(receipt && (await tx.get(receipt)).exists())return {duplicate:true}"));
 assert(counter.includes("day,amount:Math.abs(amount),source,createdAt:serverTimestamp()"));
+// A focused ledger edit button must not suppress a confirmed Firebase
+// update. Rebuilding only on a new record stamp also prevents needless DOM
+// replacement on every Tasbih tap.
+const refreshStart=source.indexOf("function refreshHeroReader(){");
+const refreshEnd=source.indexOf("\nfunction continuationFormMarkup(){",refreshStart);
+assert(refreshStart>0&&refreshEnd>refreshStart);
+const existingHistory={dataset:{wzRenderStamp:"old"},innerHTML:"0",contains:()=>true};
+const focusedEditButton={};
+let historyRenderCount=0;
+const dial={style:{setProperty(){}}};
+const root={querySelector(selector){
+ if(selector==="#wz-dial")return dial;
+ if(selector==="#wz-record-history")return existingHistory;
+ return null;
+}};
+const item={id:"TestWazifa",updatedAt:{seconds:1,nanoseconds:10},
+ day:"2026-11-24",total:100,dailyLedger:{"2026-11-16":{count:100,manualCount:100,tasbihCount:0}}};
+const ledgerEnv={
+ state:{mode:"personal-reader",readerId:item.id,personal:[item],tapQueue:0,
+  historyLimit:60,draftDay:"2026-11-16"},
+ $:()=>root,readingDay:()=>"2026-11-24",wzSync:{pending:()=>0},
+ heroReadingState:()=>({todayCount:0,total:100,dailyGoal:100,totalGoal:100}),
+ dailyFigures:()=>({goal:100,tasbih:0,manual:0,read:0,pending:100}),
+ readingTimes:()=>({tasbih:0,manual:0,total:0,hasSpeed:false}),
+ durationText:()=>"",fmt:n=>String(n),Math,Number,
+ updateWzSyncStatus:()=>{},
+ wazifaHistoryMarkup:()=>{historyRenderCount++;return '<strong>دستی 100</strong>';},
+ document:{activeElement:focusedEditButton}
+};
+vm.createContext(ledgerEnv);
+vm.runInContext(source.slice(refreshStart,refreshEnd),ledgerEnv);
+ledgerEnv.refreshHeroReader();
+assert.equal(existingHistory.innerHTML,'<strong>دستی 100</strong>',
+  "A focused edit button must not leave confirmed saved counts showing zero");
+assert.equal(historyRenderCount,1);
+ledgerEnv.refreshHeroReader();
+assert.equal(historyRenderCount,1,"No unnecessary rerender when the ledger is unchanged");
+item.updatedAt={seconds:2,nanoseconds:99};item.total=200;
+ledgerEnv.refreshHeroReader();
+assert.equal(historyRenderCount,2,"A new server update must repaint the ledger");
+assert(source.includes('const fresh=await getDocFromServer('),
+  "After manual Save the client must read the confirmed Firebase ledger");
+assert(source.includes('state.personal=state.personal.map(item=>item.id===task.id?latest:item)'));
 // Live Firestore rules must validate the same additions.
 assert(rules.includes("validWzPeriodAppend"));
 assert(rules.includes("wzAllowedContinuedDay"));

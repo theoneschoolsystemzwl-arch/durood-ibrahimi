@@ -3,7 +3,7 @@
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=durable-sync-20261123-v6";
-import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction}
+import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
   sharePersonalWazifa,acceptSharedWazifa,discardSharedWazifa,inboxCollection}
@@ -771,7 +771,18 @@ function refreshHeroReader(){
  root.querySelector("#wz-dial").style.setProperty("--wz-ring",Math.floor(cycle/step*100)+"%");
  if(!group){
    const history=root.querySelector("#wz-record-history");
-   if(history&&!history.contains(document.activeElement))history.innerHTML=wazifaHistoryMarkup(record);
+   if(history){
+     // The Edit button may keep keyboard focus after the dialog closes.
+     // Never let that focus suppress a confirmed new Firestore daily count.
+     // Rebuild only when the server record, day or list limit changes.
+     const ts=record.updatedAt;
+     const stamp=[ts?.seconds??"",ts?.nanoseconds??"",
+       record.total??0,record.day??"",state.historyLimit,readingDay()].join(":");
+     if(history.dataset.wzRenderStamp!==stamp){
+       history.innerHTML=wazifaHistoryMarkup(record);
+       history.dataset.wzRenderStamp=stamp;
+     }
+   }
  }
 }
 
@@ -1432,6 +1443,20 @@ document.addEventListener("submit",event=>{
     }
     op.status="complete";
     storeManualOperation(key,op);
+    // The write already succeeded. Read the authoritative ledger back from
+    // Firebase so a delayed collection snapshot cannot leave the UI at zero.
+    // A transient read error must not turn a successful Save into a retry.
+    try{
+      const fresh=await getDocFromServer(doc(db,"memberWazaif",auth.currentUser.uid,"items",task.id));
+      if(fresh.exists()){
+        const latest={id:fresh.id,...fresh.data()};
+        state.personal=state.personal.map(item=>item.id===task.id?latest:item);
+      }
+    }catch(readError){
+      // onSnapshot still provides eventual refresh; the durable receipt
+      // keeps a repeat press from adding the same recitations twice.
+      console.warn("Saved manual Wazifa, server refresh pending:",readError?.code||readError?.message);
+    }
   })().then(()=>{
     state.error="";state.historyDay=null;
     const dialog=$("#wz-edit-dialog");
