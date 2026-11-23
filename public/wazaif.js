@@ -441,7 +441,7 @@ function dailyFigures(group,w,record,queued=0){
   manual:group?0:sources.manual,read,pending:Math.max(0,goal+previous-credit-read)};
 }
 function fiveFigureMarkup(group,w,record){
- const d=dailyFigures(group,w,record,state.tapQueue);
+ const d=dailyFigures(group,w,record,wzSync.pending(group?"_group_":state.readerId,readingDay()));
  return '<p id="wz-five-alert" class="wz-five-alert" role="status"'+(d.pending?'':' hidden')+
   '>آج کا باقی ہدف پورا کریں — '+fmt(d.pending)+' بقایا</p>';
 }
@@ -654,7 +654,9 @@ function readerMarkup(group){
  '</button>'+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
-  '<p class="wz-reader-advice">تاریخ منتخب کریں، تسبیح پڑھیں، پھر Save دبائیں۔ پہلے دباؤ سے وقت شروع ہوگا اور Save پر رک کر منتخب دن میں جمع ہوگا۔</p>'+
+  '<p class="wz-reader-advice">ہر دباؤ فوراً فون میں محفوظ اور Firebase پر منتقل ہوتا ہے۔ Save صرف کاؤنٹر صفر کرتا ہے؛ پانچ منٹ خاموشی پر خودکار Save ہوگا۔</p>'+
+ '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite"></p>'+
+ '<p id="wz-session-note" class="wz-help" role="status"></p>'+
  (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
  '<p id="wz-hero-error" class="wz-error" '+(state.error?'':'hidden')+'>'+esc(state.error)+'</p>'+
  '</div></div>'+(group?"":'<dialog class="wz-edit-dialog" id="wz-edit-dialog" aria-labelledby="wz-edit-title"></dialog><dialog class="wz-date-dialog" id="wz-date-dialog" aria-labelledby="wz-calendar-title"></dialog>');
@@ -665,7 +667,8 @@ function refreshHeroReader(){
  const record=group?state.groupStats:w;
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
- const todayCount=s.todayCount+(state.draftDay===readingDay()?state.tapQueue:0),total=s.total+state.tapQueue;
+ const taskId=group?"_group_":state.readerId;
+ const todayCount=s.todayCount+wzSync.pending(taskId,readingDay()),total=s.total+wzSync.pending(taskId);
  const dayLeft=Math.max(0,s.dailyGoal-todayCount);
   const left=Math.max(0,s.totalGoal-total);
   const percent=s.totalGoal?Math.min(100,Math.floor(total*100/s.totalGoal)):0;
@@ -678,7 +681,7 @@ function refreshHeroReader(){
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
   if(s.continuing)set("wz-hero-days-left",fmt(left));
  set("wz-mini-today",fmt(todayCount));set("wz-mini-left",fmt(dayLeft));
- const d=dailyFigures(group,w,record,state.tapQueue);
+ const d=dailyFigures(group,w,record,wzSync.pending(group?"_group_":state.readerId,readingDay()));
  for(const [id,value] of [["wz-five-goal",d.goal],["wz-five-tasbih",d.tasbih],
   ["wz-five-manual",d.manual],["wz-five-read",d.read],["wz-five-pending",d.pending]])set(id,fmt(value));
  const pendingCell=root.querySelector("#wz-five-pending")?.closest(".wz-five-cell");
@@ -690,6 +693,7 @@ function refreshHeroReader(){
  set("wz-time-real",durationText(t.tasbih));
  set("wz-time-est",t.hasSpeed?durationText(t.manual):"—");
  set("wz-time-all",durationText(t.total));
+ updateWzSyncStatus();
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
  const step=Math.max(1,s.dailyGoal);const cycle=todayCount>0&&todayCount%step===0?step:todayCount%step;
  root.querySelector("#wz-dial").style.setProperty("--wz-ring",Math.floor(cycle/step*100)+"%");
@@ -927,6 +931,7 @@ function tick(){
  for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour]]){
   const node=$(id);if(node)node.textContent=text;
  }
+ checkWzIdle();
  if(state.seenDay!==readingDay()){
   state.seenDay=readingDay();
   if(!state.tapQueue&&state.mode==="personal-reader"){
@@ -953,10 +958,14 @@ for(const kind of ["pointerup","pointercancel","pointerleave"]){
 }
 
 document.addEventListener("visibilitychange",()=>{
+ if(!document.hidden){checkWzIdle();wzSync.schedule(0);}
  if(document.hidden&&state.clockStart!==null){
    state.clockMs=elapsedTime();state.clockStart=null;state.clockLastTap=null;persistDraft();
  }
+ if(document.hidden)wzSync.schedule(0);
 });
+window.addEventListener("pagehide",()=>{persistDraft();wzSync.schedule(0);});
+setInterval(()=>{checkWzIdle();if(wzSync.pending()&&navigator.onLine!==false)wzSync.schedule(0);},20000);
 document.addEventListener("keydown",event=>{
  const row=event.target.closest(".wz-history-clear[data-wazifa-action='history-day']");
  if(row&&event.target===row&&(event.key==="Enter"||event.key===" ")){
@@ -1049,7 +1058,7 @@ document.addEventListener("click",event=>{
    if(state.mode!=="personal-reader")return;
    const task=state.personal.find(item=>item.id===state.readerId);
    const modal=$("#wz-date-dialog");if(!task||!modal)return;
-   if(state.tapQueue){setError("تاریخ تبدیل کرنے سے پہلے موجودہ تسبیح محفوظ کریں۔");return;}
+   if(state.tapQueue){setError("تاریخ بدلنے سے پہلے Save دباکر موجودہ کاؤنٹر صفر کریں۔");return;}
    state.pickerMonth=(state.draftDay||readingDay()).slice(0,7);
    modal.innerHTML=wazifaCalendarMarkup(task);
    if(typeof modal.showModal==="function")modal.showModal();else modal.setAttribute("open","");
