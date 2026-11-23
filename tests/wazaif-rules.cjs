@@ -403,6 +403,43 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-12-26",durationDays:42,goal:6000}],
     updatedAt:serverTimestamp()
   }));
+  // Reopen a completed period to correct wrong starting/ending dates.
+  // Only the last period can move; original and earlier periods stay fixed.
+  console.log("W1_RULE_TEST_DATE_REVISION");
+  await assertSucceeds(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-16",endDate:"",durationDays:0,goal:250}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-15",endDate:"",durationDays:0,goal:250}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-14",endDate:"",durationDays:0,goal:250}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-16",endDate:"2026-12-26",durationDays:41,goal:6000}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-16",endDate:"2026-12-30",durationDays:45,goal:6000}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-16",endDate:"2026-11-15",durationDays:1,goal:6000}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(secondSlot,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-16",endDate:"2026-11-25",durationDays:10,goal:1000},
+      {mode:"daily",startDate:"2026-11-25",endDate:"",durationDays:0,goal:350}],
+    updatedAt:serverTimestamp()
+  }));
+  const savedDates=(await getDoc(fixedOnly)).data();
+  if(savedDates.continuePeriods[0].startDate!=="2026-11-16"||
+     savedDates.continuePeriods[0].endDate!=="2026-12-30"||
+     savedDates.startDate!=="2026-11-01"||savedDates.endDate!=="2026-11-14")
+    throw Error("Corrected last period dates were not saved or original dates changed");
   // An expired fixed plan remains locked until its member explicitly
   // opts into a new daily goal. Original fixed dates, counts and W-number
   // remain immutable across the opt-in and future days.
