@@ -121,6 +121,15 @@ const ledgerHtml=ledgerCtx.dailyAttendanceLedger(sampleMember,0,dayToday);
 const ledgerTableHtml=ledgerHtml.slice(ledgerHtml.indexOf("<table"),ledgerHtml.indexOf("</table>")+8);
 assert(ledgerHtml.includes("prayer-ledger-seven"),"Only daily prayer ledger gets the extra Total column");
 assert(ledgerTableHtml.includes('<th scope="col">ٹوٹل</th>'),"The Total heading follows Isha");
+assert(ledgerHtml.includes('ledger-frame prayer-ledger-scroll'),"The seven-column daily ledger has a separate scroll region");
+assert(ledgerHtml.includes('role="region" tabindex="0"'),"Keyboard can focus the scroll region");
+assert(ledgerHtml.includes('prayer-ledger-scroll-hint'),"Small phones display a sideways-swipe hint");
+assert(css.includes("overflow-x:auto!important"),"The ledger no longer clips overflow on a phone");
+assert(css.includes("width:640px!important")&&css.includes("min-width:640px!important"),"Large amounts have guaranteed column width");
+assert(css.includes("inset-inline-start:0")&&css.includes("inset-inline-end:0"),"Row heading and row total remain visible while swiping");
+assert(css.includes("col.prayer-ledger-status-col")&&css.includes("col.prayer-ledger-total-col"),"Explicit widths are provided to the two frozen columns");
+assert(!ledgerHtml.includes('id="qaza-ledger-title"'),"Daily ledger does not change the separate Qaza ledger");
+
 assert.equal((ledgerTableHtml.match(/<th scope="col">/g)||[]).length,7,"Attendance, five daily prayers and Total");
 assert.equal((ledgerTableHtml.match(/class="prayer-ledger-row-total"/g)||[]).length,5,"Four accounting rows and pending footer each have Total");
 assert(ledgerHtml.includes("کل قضا نمازیں")&&ledgerHtml.includes("باقی قضا نمازیں"),"Both total due and pending rows are labeled");

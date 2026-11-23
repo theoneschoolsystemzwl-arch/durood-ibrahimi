@@ -1174,7 +1174,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./wazaif.css?v=rollover-modal-20261123-v7">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=history-edit-triple-20261123-v16">
 <script defer src="./pull-refresh.js?v=20261123-1"></script>
-<link rel="stylesheet" href="./prayer-calendar-fix.css?v=prayer-ledger-totals-20261123-v3">
+<link rel="stylesheet" href="./prayer-calendar-fix.css?v=prayer-ledger-mobile-fix-20261123-v4">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 <style id="tasbih-refresh">
@@ -3069,7 +3069,11 @@ function ledgerRow(label,values,tone='',withTotals=false) {
 function ledgerTable({id,title,rows,footer,grandTotal,note,withTotals=false}) {
   return '<section class="qaza-section prayer-ledger ledger-card'+(withTotals?' prayer-ledger-seven':'')+'" aria-labelledby="'+id+'">' +
     '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2></div>'+
-    '<div class="ledger-frame"><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col"><col span="5">'+
+    (withTotals?'<p class="prayer-ledger-scroll-hint">'+
+      tr("Swipe horizontally to view all seven columns.",'ساتوں کالم دیکھنے کے لیے دائیں بائیں سوائپ کریں۔')+'</p>':'')+
+    '<div class="ledger-frame'+(withTotals?' prayer-ledger-scroll':'')+'"'+
+    (withTotals?' role="region" tabindex="0" aria-label="'+tr("Seven-column prayer ledger",'نمازوں کا سات کالموں والا لیجر')+'"':'')+
+    '><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col"><col span="5">'+
     (withTotals?'<col class="prayer-ledger-total-col">':'')+'</colgroup>'+
     tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') +
     prayers.map(([,label])=>'<th scope="col">'+label+'</th>').join('') +
