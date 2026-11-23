@@ -121,6 +121,10 @@ const beforeFastCount=cp.execFileSync('git',['show','6c4c3c510d6f2a1c5b56170b949
 // Exact rules source from the last successful production Hosting/Rules release
 // (2026-11-23, commit 1ced3cf). Require an exact byte-for-byte match before any change.
 const beforeSignedLedger=cp.execFileSync('git',['show','1ced3cfb5ae4919d5363353f0bd1bf135f3f4502:firestore.rules'],{encoding:'utf8'});
+// Last verified production release before adding immutable tap-sync receipts.
+// This full source was deployed successfully with the previous profile update.
+const beforeDurableTasbih=cp.execFileSync('git',
+ ['show','fd863f86ed73b1e997ca5703080a3c77cc35ee14:firestore.rules'],{encoding:'utf8'});
 if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
    normalize(existing.content)!==normalize(beforeSharing) &&
    normalize(existing.content)!==normalize(beforeFemaleSerial) &&
@@ -130,7 +134,8 @@ if(normalize(existing.content)!==normalize(expected) && normalize(existing.conte
    normalize(existing.content)!==normalize(beforeRuleRepair) &&
    normalize(existing.content)!==normalize(beforeDatedDispatchFix) &&
    normalize(existing.content)!==normalize(beforeFastCount) &&
-   normalize(existing.content)!==normalize(beforeSignedLedger)){
+   normalize(existing.content)!==normalize(beforeSignedLedger) &&
+   normalize(existing.content)!==normalize(beforeDurableTasbih)){
   console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
   // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
   fs.writeFileSync('/tmp/durood-expected.rules',expected);
