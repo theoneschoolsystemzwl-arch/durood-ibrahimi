@@ -99,9 +99,12 @@ for(const item of ["match /genderMembers/{gender}","match /genderStats/{gender}"
   present(rules,item);
 }
 // Newly requested timer and counter behavior must remain in the classic app.
-for(const contract of ['queueTasbihTap','flushTasbihTaps','readerJournalKey',
+for(const contract of ['queueTasbihTap','tasbihSync.enqueue','readerJournalKey',
   'persistReaderJournal','manual-yellow','top-corners','boxed-headline',
   'dialFloating','suppressNextDialClick','15000','--ring-progress'])present(classic,contract);
+present(classic,"tasbihSync.byDay");
+present(rules,"syncReceipts/{receiptId}");
+present(spark,"syncId=null");
 assert.ok(!classic.includes('type:"durood-use-top"'),"Classic must not bounce authenticated parent to login");
 // Classic HTML contains two large inline JS bundles. Validate BOTH using
 // Node's parser, including the module that loads Firebase in the iframe.
