@@ -4123,13 +4123,14 @@ import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=durable-tasbih-20261123-v5";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=durable-tasbih-20261123-v5";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {updateDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const loadedPrayerMonths=new Map();
 const loadingPrayerMonths=new Map();
+const loadingPrayerHistories=new Map();
 let qazaSaveTimer=null;
 let qazaSaveChain=Promise.resolve();
 let qazaSavePending=false, qazaRefreshRevision=0;
@@ -4184,16 +4185,32 @@ async function loadPrayerMonth(month,uid){
   const key=uid+":"+month;
   if(loadedPrayerMonths.has(key))return;
   if(loadingPrayerMonths.has(key))return loadingPrayerMonths.get(key);
+  const startRevision=bridge.prayerRevision();
   const work=(async()=>{
     const result=await prayerMonthSpark(month);
     if(auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)return;
-    bridge.loadPrayerDays(result.days||[],month);
+    bridge.loadPrayerDays(result.days||[],month,startRevision);
     loadedPrayerMonths.set(key,true);
   })().catch(error=>{
     console.warn("Prayer month unavailable",month,error?.code||error?.message);
     bridge.status("namaz-feedback","اس مہینے کا ریکارڈ Firebase سے نہیں ملا۔",false);
   }).finally(()=>loadingPrayerMonths.delete(key));
   loadingPrayerMonths.set(key,work);
+  return work;
+}
+async function loadPrayerHistory(uid){
+  if(!uid||auth.currentUser?.uid!==uid)return;
+  if(loadingPrayerHistories.has(uid))return loadingPrayerHistories.get(uid);
+  const startRevision=bridge.prayerRevision();
+  const work=(async()=>{
+    const result=await prayerHistorySpark();
+    if(auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)return;
+    bridge.loadPrayerHistoryDays(result.days||[],startRevision);
+  })().catch(error=>{
+    console.warn("All-time private prayer history unavailable",error?.code||error?.message);
+    bridge.status("namaz-feedback","پچھلی نمازوں کی مکمل حاضری Firebase سے نہیں مل سکی؛ شمار جزوی ہو سکتا ہے۔",false);
+  }).finally(()=>loadingPrayerHistories.delete(uid));
+  loadingPrayerHistories.set(uid,work);
   return work;
 }
 ui.addEventListener("submit",event=>{
@@ -4210,7 +4227,8 @@ ui.addEventListener("click",event=>{
     const uid=auth.currentUser?.uid;
     setTimeout(()=>{
       const month=bridge.requestedPrayerMonth();
-      if(uid&&month)loadPrayerMonth(month,uid);
+      if(uid&&month)void loadPrayerMonth(month,uid);
+      if(uid)void loadPrayerHistory(uid);
     },0);
   }
 },true);
@@ -4394,7 +4412,7 @@ async function hydrate(){
   if(owner && side==='female')return;
   try{
     const month=localReadingDate().slice(0,7);
-    await loadPrayerMonth(month,profile.uid);
+    await Promise.all([loadPrayerMonth(month,profile.uid),loadPrayerHistory(profile.uid)]);
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
 onAuthStateChanged(auth,async user=>{
@@ -4525,9 +4543,11 @@ ui.addEventListener("click",event=>{
     return;
   }
   if(action==="namaz-mark"||action==="qaza-record"){
-    const day=button.dataset.day;
-    // Let the original calendar and qaza UI validate and update first.
+    const day=button.dataset.day,priorQaza=bridge.qazaRevision();
+    // Let the original calendar and Qaza UI update first.
     if(day)setTimeout(async()=>{
+      // If attendance overwrites a Qaza-paid day, sync the amended Qaza plan too.
+      if(action==="namaz-mark"&&bridge.qazaRevision()!==priorQaza)scheduleQazaSave();
       try{await prayerSaveSpark(day,bridge.prayerStatuses(day));}
       catch(e){bridge.notice("نماز کا ریکارڈ Firebase میں محفوظ نہیں ہوا: "+errorText(e));}
     },0);
