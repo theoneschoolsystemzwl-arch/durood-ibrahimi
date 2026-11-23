@@ -3061,19 +3061,20 @@ function setQazaRecord(id,day,prayer,status,now=Date.now()) {
 
 function ledgerRow(label,values,tone='',withTotals=false) {
   const rowTotal=values.reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+  // Preserve exact values. Only make long displayed numerals smaller to fit the phone.
+  const shown=value=>'<bdi'+(!withTotals?'':Number(value)>=100000?
+    ' class="prayer-ledger-big"':Number(value)>=10000?
+    ' class="prayer-ledger-large"':'')+'>'+formatNumber(value)+'</bdi>';
   return '<tr' + (tone?' class="ledger-'+tone+'"':'') + '><th scope="row"><span>' + label + '</span></th>' +
-    values.map(value=>'<td><bdi>'+formatNumber(value)+'</bdi></td>').join('') +
-    (withTotals?'<td class="prayer-ledger-row-total"><bdi>'+formatNumber(rowTotal)+'</bdi></td>':'')+'</tr>';
+    values.map(value=>'<td>'+shown(value)+'</td>').join('') +
+    (withTotals?'<td class="prayer-ledger-row-total">'+shown(rowTotal)+'</td>':'')+'</tr>';
 }
 
 function ledgerTable({id,title,rows,footer,grandTotal,note,withTotals=false}) {
   return '<section class="qaza-section prayer-ledger ledger-card'+(withTotals?' prayer-ledger-seven':'')+'" aria-labelledby="'+id+'">' +
     '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2></div>'+
-    (withTotals?'<p class="prayer-ledger-scroll-hint">'+
-      tr("Swipe horizontally to view all seven columns.",'ساتوں کالم دیکھنے کے لیے دائیں بائیں سوائپ کریں۔')+'</p>':'')+
-    '<div class="ledger-frame'+(withTotals?' prayer-ledger-scroll':'')+'"'+
-    (withTotals?' role="region" tabindex="0" aria-label="'+tr("Seven-column prayer ledger",'نمازوں کا سات کالموں والا لیجر')+'"':'')+
-    '><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col">'+
+    '<div class="ledger-frame'+(withTotals?' prayer-ledger-fit':'')+'">'+
+    '<table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col">'+
     prayers.map(()=>'<col class="prayer-ledger-prayer-col">').join('')+
     (withTotals?'<col class="prayer-ledger-total-col">':'')+'</colgroup>'+
     tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') +
