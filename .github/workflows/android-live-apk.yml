@@ -29,6 +29,8 @@ jobs:
       - name: Setup Android SDK
         id: android
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
       - name: Install Android 35 components
         id: sdk
