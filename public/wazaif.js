@@ -317,6 +317,13 @@ function metric(label,value,extra=""){
 function compactCount(label,number){
  return '<div class="wz-inline-count"><small>'+esc(label)+'</small><strong>'+fmt(number)+'</strong></div>';
 }
+// Only lengthy Arabic passages become independently scrollable. Short
+// Wazaif keep their full text height; no Quranic wording is shortened.
+function arabicDisplayAttrs(value){
+ return String(value??"").trim().length>250 ?
+  ' class="wz-arabic wz-arabic-scroll" tabindex="0" aria-label="عربی عبارت، مکمل پڑھنے کے لیے اندر اسکرول کریں"' :
+  ' class="wz-arabic"';
+}
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
  const stats=state.groupStats||{},annual=state.yearStats||{},today=readingDay();
@@ -324,7 +331,7 @@ function groupCard(){
  const daily=Number(g.dailyGoal||0),all=Number(stats.total||0);
  const yearGoal=Number(g.yearlyGoal||0),yearTotal=Number(annual.total||0);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+'>📿 تسبیح کریں</button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+'><span class="wz-cta-title">'+esc(g.title)+'</span><span class="wz-cta-action">📿 تسبیح کریں</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
@@ -332,7 +339,7 @@ function groupCard(){
  compactCount("آج باقی",Math.max(0,daily-todayCount))+
  compactCount("مجموعی شمار",all)+compactCount("سالانہ ہدف",yearGoal)+
  compactCount("سالانہ باقی",Math.max(0,yearGoal-yearTotal))+'</div>'+
- '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
+ '<p'+arabicDisplayAttrs(g.arabic)+' lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  (owner()?'<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-group">سیٹنگ</button></div>':'')+
  (!ready?'<p class="wz-help">گروپ کی سیٹنگ Firebase میں محفوظ ہونے کے بعد مشترکہ تسبیح شروع ہوگی۔</p>':'')+
@@ -350,9 +357,9 @@ function taskStatus(task){
 function personalCard(task){
  const stateText=taskStatus(task);
  return '<article class="wz-card wz-personal">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+'>📿 تسبیح کریں</button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+'><span class="wz-cta-title">'+esc(task.title)+'</span><span class="wz-cta-action">📿 تسبیح کریں</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
- '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
+ '<p'+arabicDisplayAttrs(task.arabic)+' lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
  (task.kind==="fixed"?fixedPlanMarkup(task):
   '<div class="wz-inline-counts" aria-label="روزانہ وظیفے کا شمار">'+
   compactCount("آج پڑھا",task.day===readingDay()?task.today:0)+
@@ -374,7 +381,7 @@ function inboxMarkup(){
  state.inbox.map(item=>'<article class="wz-card wz-received">'+
  '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
  '<h3>'+esc(item.title)+'</h3></div></header>'+
- '<p class="wz-arabic" lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
+ '<p'+arabicDisplayAttrs(item.arabic)+' lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
  '<p class="wz-help">'+esc(item.instructions)+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
@@ -670,7 +677,7 @@ function readerMarkup(group){
  '<button class="wz-hero-back" type="button" data-wazifa-action="back">‹ '+esc("وظائف واپس")+'</button>'+
  '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+ 
  '<section class="wz-reading-text wz-reading-text-visible" aria-label="وظیفے کی مکمل تفصیل">'+
- '<h3>عربی عبارت</h3><div class="wz-arabic" lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
+ '<h3>عربی عبارت</h3><div'+arabicDisplayAttrs(w.arabic)+' lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
  '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  (showDates?'<div class="wz-hero-six">'+
