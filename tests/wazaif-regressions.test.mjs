@@ -155,6 +155,35 @@ assert.equal(historyRenderCount,2,"A new server update must repaint the ledger")
 assert(source.includes('const fresh=await getDocFromServer('),
   "After manual Save the client must read the confirmed Firebase ledger");
 assert(source.includes('state.personal=state.personal.map(item=>item.id===task.id?latest:item)'));
+// Arabic text editor must accept a full Surah, never silently truncate a
+// paste at the old 3,000-character browser limit. Confirm backend alignment.
+const editorSource=source.slice(source.indexOf("function formMarkup("),source.indexOf("function heroIcon("));
+assert(editorSource.includes('name="arabic" id="wz-arabic-input" rows="12" required'));
+assert(!editorSource.includes('name="arabic" rows="4" required maxlength="3000"'));
+assert(!/textarea name="arabic"[^>]*maxlength=/.test(editorSource),
+ "Pasting a long Surah must not be silently cut by HTML maxlength");
+assert(source.includes("if(arabic.length>20000)"));
+assert(rules.includes("d.arabic.size() <= 20000"));
+const editorCss=fs.readFileSync("public/wazaif.css","utf8");
+assert(editorCss.includes('textarea[name="arabic"]'));
+assert(editorCss.includes("min-height:260px")&&editorCss.includes("resize:vertical"));
+const counterStart=source.indexOf("function syncArabicCounter(");
+const counterEnd=source.indexOf("function syncForm(){",counterStart);
+assert(counterStart>0&&counterEnd>counterStart);
+const editorContext={};
+vm.createContext(editorContext);
+vm.runInContext(source.slice(counterStart,counterEnd),editorContext);
+const editorNotice={textContent:"",classList:{toggle(name,yes){this.over=Boolean(yes);}}};
+const editorInput={value:"ب".repeat(7000),setCustomValidity(msg){this.error=msg;}};
+const editorForm={elements:{arabic:editorInput},querySelector:()=>editorNotice};
+editorContext.syncArabicCounter(editorForm);
+assert.equal(editorInput.value.length,7000,"A long pasted Surah must remain intact");
+assert.equal(editorInput.error,"");
+assert(editorNotice.textContent.includes("7,000"));
+editorInput.value="ب".repeat(20001);
+editorContext.syncArabicCounter(editorForm);
+assert(editorInput.error.includes("20,000"));
+assert(editorNotice.classList.over,"Oversized Arabic text should give a visible warning");
 // Live Firestore rules must validate the same additions.
 assert(rules.includes("validWzPeriodAppend"));
 assert(rules.includes("wzAllowedContinuedDay"));
