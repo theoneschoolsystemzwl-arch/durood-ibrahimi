@@ -724,7 +724,7 @@ service cloud.firestore {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
         d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
-          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger','continueStartDate','continueDailyGoal','continueBaseTotal','continueGoalHistory','lastReadingDay','lastReadingSource']) &&
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger','continueStartDate','continueDailyGoal','continueBaseTotal','continueGoalHistory','continuePeriods','lastReadingDay','lastReadingSource']) &&
         d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
           'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
         (!('wNumber' in d) || (d.wNumber is int && d.wNumber >= 1 && d.wNumber <= 1000000000)) &&
@@ -741,6 +741,8 @@ service cloud.firestore {
         (!('lastReadingSource' in d) || d.lastReadingSource in ['tasbih','manual']) &&
         (!('continueGoalHistory' in d) || (d.continueGoalHistory is map &&
           d.continueGoalHistory.size() <= 3660)) &&
+        (!('continuePeriods' in d) ||
+          (d.continuePeriods is list && d.continuePeriods.size() <= 50)) &&
         ( (!d.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal'])) ||
           (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
            d.kind == 'fixed' && wzDate(d.continueStartDate) &&
@@ -833,10 +835,35 @@ service cloud.firestore {
     }
     // Choose one write shape before any detailed checks.  This avoids
     // evaluating every mutually-exclusive branch for each Firebase write.
+    // Immutable chronological continuation plans, appended one at a time.
+    function validWzPeriodAppend(d,changed) {
+      let before=resource.data.get('continuePeriods',[]);
+      let after=d.get('continuePeriods',[]);
+      let latest=after[after.size()-1];
+      let lastEnd=before.size() == 0 ? resource.data.endDate :
+        before[before.size()-1].endDate;
+      return changed.hasOnly(['continuePeriods','updatedAt']) &&
+        resource.data.kind == 'fixed' && d.kind == 'fixed' &&
+        !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+        before is list && after is list && after.size() == before.size()+1 &&
+        after.size() <= 50 && after[0:before.size()] == before &&
+        (before.size() == 0 || before[before.size()-1].mode == 'fixed') &&
+        latest is map &&
+        latest.keys().hasAll(['mode','startDate','endDate','goal','durationDays']) &&
+        latest.keys().hasOnly(['mode','startDate','endDate','goal','durationDays']) &&
+        latest.mode in ['fixed','daily'] &&
+        wzDate(latest.startDate) && latest.startDate > lastEnd &&
+        latest.goal is int && latest.goal >= 1 && latest.goal <= 1000000000 &&
+        latest.durationDays is int &&
+        (latest.mode == 'daily' ?
+          (latest.endDate == '' && latest.durationDays == 0) :
+          (wzDate(latest.endDate) && latest.endDate >= latest.startDate &&
+           latest.durationDays >= 1 && latest.durationDays <= 3650));
+    }
     function validWzRegularEdit(d,changed) {
       return changed.hasOnly(['title','arabic','instructions','purpose','kind',
                               'goal','startDate','endDate','durationDays','updatedAt']) &&
-        (!resource.data.keys().hasAny(['continueStartDate']) ||
+        (!resource.data.keys().hasAny(['continueStartDate','continuePeriods']) ||
           (d.kind == resource.data.kind &&
            d.goal == resource.data.goal &&
            d.startDate == resource.data.startDate &&
@@ -859,6 +886,13 @@ service cloud.firestore {
          d.continueBaseTotal == resource.data.continueBaseTotal &&
          validWzGoalHistoryChange());
     }
+    function wzAllowedContinuedDay(d,savedDay) {
+      let plans=d.get('continuePeriods',[]);
+      return plans is list && plans.size() > 0 &&
+        savedDay >= plans[0].startDate &&
+        (plans[plans.size()-1].mode == 'daily' ||
+         savedDay <= plans[plans.size()-1].endDate);
+    }
     function validWzOldCount(d,changed,amount) {
       return changed.hasOnly(['total','today','day','updatedAt','dailyLedger']) &&
         !resource.data.keys().hasAny(['lastReadingDay','lastReadingSource']) &&
@@ -866,7 +900,7 @@ service cloud.firestore {
         d.day >= resource.data.day && d.day >= d.startDate &&
         (d.kind != 'fixed' || d.day <= d.endDate ||
           (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-           d.day >= d.continueStartDate)) &&
+           d.day >= d.continueStartDate) || wzAllowedContinuedDay(d,d.day)) &&
         d.today == (resource.data.day == d.day ? resource.data.today : 0) + amount &&
         (!changed.hasAny(['dailyLedger']) || validWzLegacyLedgerIncrement(amount));
     }
@@ -879,7 +913,7 @@ service cloud.firestore {
         d.day >= savedDay &&
         (d.kind != 'fixed' || savedDay <= d.endDate ||
           (d.keys().hasAll(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
-           savedDay >= d.continueStartDate)) &&
+           savedDay >= d.continueStartDate) || wzAllowedContinuedDay(d,savedDay)) &&
         d.day == (savedDay > resource.data.day ? savedDay : resource.data.day) &&
         d.today == (savedDay == d.day ?
           (d.day == resource.data.day ? resource.data.today : 0) + amount :
@@ -894,7 +928,8 @@ service cloud.firestore {
         (changed.hasAny(['total','today','dailyLedger','lastReadingDay','lastReadingSource']) ?
            (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
              validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
-           (changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
+           (changed.hasAny(['continuePeriods']) ? validWzPeriodAppend(d,changed) :
+             changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
     }
     // A count-only patch cannot alter the immutable, already validated
@@ -920,9 +955,8 @@ service cloud.firestore {
            validWzDatedCount(d,changes,amount) :
            validWzOldCount(d,changes,amount));
     }
-    // One monotonic W-1, W-2, ... counter per authenticated member.
-    // The counter and the new/legacy personal item must be written in one
-    // transaction. Deleted serials are never reused.
+    // Every allocation increments the event counter. The displayed W number
+    // may reuse the lowest vacant slot; concurrent writes still serialize.
     function wzSequencePath(uid) {
       return /databases/$(database)/documents/memberWazaif/$(uid)/meta/sequence;
     }
@@ -937,19 +971,24 @@ service cloud.firestore {
         getAfter(wzSequencePath(uid)).data.next == number &&
         getAfter(wzSequencePath(uid)).data.lastItemId == itemId &&
         getAfter(wzSequencePath(uid)).data.updatedAt == request.time &&
-        number == wzOldSequence(uid) + 1;
+        getAfter(wzSequencePath(uid)).data.next == wzOldSequence(uid) + 1 &&
+        number == getAfter(wzSequencePath(uid)).data.get('lastNumber',
+          getAfter(wzSequencePath(uid)).data.next);
     }
     function validWzSequence(uid,previous) {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
-        d.keys().hasOnly(['next','lastItemId','updatedAt']) &&
+        d.keys().hasOnly(['next','lastNumber','lastItemId','updatedAt']) &&
         d.keys().hasAll(['next','lastItemId','updatedAt']) &&
         d.next is int && d.next == previous + 1 &&
         d.next >= 1 && d.next <= 1000000000 &&
+        (!('lastNumber' in d) || (d.lastNumber is int &&
+         d.lastNumber >= 1 && d.lastNumber <= d.next)) &&
         d.lastItemId is string && d.lastItemId.size() >= 10 &&
         d.lastItemId.size() <= 120 &&
         d.updatedAt == request.time &&
-        getAfter(wzPersonalPath(uid,d.lastItemId)).data.wNumber == d.next;
+        getAfter(wzPersonalPath(uid,d.lastItemId)).data.wNumber ==
+          d.get('lastNumber',d.next);
     }
     match /memberWazaif/{uid}/meta/{docId} {
       allow get: if docId == 'sequence' && self(uid) && currentMember();
