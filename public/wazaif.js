@@ -320,15 +320,12 @@ function compactCount(label,number){
 // Long Arabic passages get a deliberate scroll switch. In the default
 // state the *page* keeps scrolling when the reader swipes on Arabic text.
 // The switch unlocks a bounded Arabic pane for lengthy verses/Surahs.
-function arabicNeedsScroll(value){
- return String(value??"").trim().length>250;
-}
 function arabicScrollControl(value){
- return arabicNeedsScroll(value)?
+ return String(value??"").trim().length>250?
   '<button type="button" class="wz-arabic-scroll-toggle" data-wazifa-action="toggle-arabic-scroll" aria-pressed="false">↕ عربی اسکرول کھولیں</button>' : "";
 }
 function arabicDisplayAttrs(value){
- return arabicNeedsScroll(value)?
+ return String(value??"").trim().length>250?
   ' class="wz-arabic wz-arabic-scroll" tabindex="0" aria-label="مکمل عربی عبارت پڑھنے کے لیے اوپر اسکرول کھولیں دبائیں"' :
   ' class="wz-arabic"';
 }
