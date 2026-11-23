@@ -73,10 +73,14 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
   const snap=await tx.get(ref);
   if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
   const w=snap.data();
-  const continuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
+  const legacyContinuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
    Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
    day>=w.continueStartDate&&w.continueStartDate>w.endDate;
-  if(day<w.startDate||(w.kind==="fixed"&&day>w.endDate&&!continuation))
+  const plannedContinuation=w.kind==="fixed"&&Array.isArray(w.continuePeriods)&&
+   w.continuePeriods.some(p=>p&&day>=p.startDate&&
+     (p.mode==="daily"||(p.mode==="fixed"&&day<=p.endDate)));
+  if(day<w.startDate||(w.kind==="fixed"&&day>w.endDate&&
+      !legacyContinuation&&!plannedContinuation))
    throw Error("منتخب تاریخ وظیفے کی مدت میں نہیں ہے۔");
   const previous=Number(w.total||0);
   if(!Number.isSafeInteger(previous)||previous<0||previous+amount<0)
