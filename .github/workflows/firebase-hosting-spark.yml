@@ -8,6 +8,7 @@ on:
       - 'scripts/guard-firebase-rules.sh'
       - 'scripts/deploy-firestore-rules.sh'
       - 'tests/prayer-regressions.test.mjs'
+      - 'tests/wazaif-regressions.test.mjs'
       - 'firebase.json'
       - '.firebaserc'
       - '.github/workflows/firebase-hosting-spark.yml'
@@ -41,6 +42,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify Wazifa JavaScript syntax and regression behavior
+        run: |
+          node --check public/wazaif.js
+          node --check public/wazaif-counter.js
+          node --check public/wazifa-sharing.js
+          node tests/wazaif-regressions.test.mjs
       - name: Set up Google Cloud SDK for Firebase rules comparison
         uses: google-github-actions/setup-gcloud@v2
       - name: Verify production Firestore rules are unchanged before update
