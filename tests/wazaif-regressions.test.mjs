@@ -78,6 +78,31 @@ assert(source.includes('name="nextEnd" type="date"'));
 
 assert(rules.includes("validWzPeriodRevision"));
 assert(rules.includes("affectedKeys().hasOnly(['goal','startDate','endDate','durationDays'])"));
+// Launch tabs show the Wazifa name before "Tasbih", and the original
+// heading remains below. Long Arabic passages scroll without text truncation.
+const wazifaCss=fs.readFileSync("public/wazaif.css","utf8");
+const personalCardMarkup=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
+const groupCardMarkup=source.slice(source.indexOf("function groupCard("),source.indexOf("function taskStatus("));
+const readerMarkupSource=source.slice(source.indexOf("function readerMarkup("),source.indexOf("function refreshHeroReader("));
+assert(personalCardMarkup.includes('class="wz-cta-title"\'+esc(task.title)'),
+  "Personal tasbih tab must name the Wazifa");
+assert(groupCardMarkup.includes('class="wz-cta-title"\'+esc(g.title)'),
+  "Group tasbih tab must name its Wazifa");
+assert(personalCardMarkup.includes('<h3><bdi dir="ltr" class="wz-serial"'),
+  "Keep the existing name and W number in the card heading");
+assert(readerMarkupSource.includes("arabicDisplayAttrs(w.arabic)"),
+  "Long Arabic must also scroll inside the tasbih reader");
+const attrsStart=source.indexOf("function arabicDisplayAttrs("),attrsEnd=source.indexOf("function groupCard(",attrsStart);
+assert(attrsStart>0&&attrsEnd>attrsStart);
+const arabicCtx={String};vm.createContext(arabicCtx);
+vm.runInContext(source.slice(attrsStart,attrsEnd),arabicCtx);
+assert(!arabicCtx.arabicDisplayAttrs("بسم الله الرحمن الرحيم").includes("wz-arabic-scroll"),
+  "Short Arabic remains fully visible");
+assert(arabicCtx.arabicDisplayAttrs("الحمد لله ".repeat(80)).includes('tabindex="0"'),
+  "Long Arabic is accessible by keyboard and scrolling");
+assert(wazifaCss.includes(".wz-card .wz-arabic-scroll{max-height:min(37dvh,350px)}"));
+assert(wazifaCss.includes(".wz-hero-reader .wz-reading-text-visible .wz-arabic-scroll{max-height:min(48dvh,440px)}"));
+assert(wazifaCss.includes("overflow-y:auto")&&wazifaCss.includes("touch-action:pan-y"));
 // A deleted middle number must be reused for new and incoming tasks.
 assert(sharing.includes("while(used.has(serial))serial++"));
 assert(sharing.includes("lastNumber:serial"));
