@@ -4501,6 +4501,40 @@ ui.addEventListener("click",event=>{
 },true);
 const errorText=e=>String(e?.message||e?.code||"Firebase unavailable").slice(0,180);
 let currentProfile=null;
+// Read the member's historic Durood taps from the existing, same-gender
+// Firebase daily-reader documents. Empty documents mean zero for that day.
+// Read only displayed dates; older dates load when "More" is selected.
+const groupHistoryFetched=new Set();
+let groupHistoryScope="";
+window.duroodRefreshGroupHistory=async function(){
+ const request=bridge.readerHistoryWindow?.();
+ if(!request||auth.currentUser?.uid!==request.uid)return;
+ const scope=request.uid+"|"+request.side;
+ if(groupHistoryScope!==scope){groupHistoryScope=scope;groupHistoryFetched.clear();}
+ const days=request.days.filter(day=>!groupHistoryFetched.has(day));
+ for(let offset=0;offset<days.length;offset+=12){
+   if(auth.currentUser?.uid!==request.uid||groupHistoryScope!==scope)return;
+   const group=days.slice(offset,offset+12);
+   group.forEach(day=>groupHistoryFetched.add(day));
+   const responses=await Promise.all(group.map(async day=>{
+     try{
+       const snap=await getDoc(doc(db,"genderStats",request.side,"days",day,"readers",request.uid));
+       const total=Number(snap.exists()?snap.data().total:0);
+       return {day,total:Number.isSafeInteger(total)&&total>=0?total:0};
+     }catch(error){
+       groupHistoryFetched.delete(day);
+       console.warn("Durood daily history unavailable",day,error?.code||error);
+       return null;
+     }
+   }));
+   if(auth.currentUser?.uid!==request.uid||groupHistoryScope!==scope)return;
+   const records=responses.filter(Boolean);
+   if(records.length)bridge.serverReaderHistory(request.uid,request.side,records);
+   if(records.length!==group.length){
+     bridge.notice("کچھ پچھلے دنوں کا Firebase ریکارڈ لوڈ نہیں ہوا۔ انٹرنیٹ بحال ہونے پر دوبارہ کھولیں۔");
+   }
+ }
+};
 const tasbihSync=createDurableTasbihSync({
  prefix:"durood-classic-counts-v3",
  getUid:()=>auth.currentUser?.uid,
