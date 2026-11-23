@@ -126,7 +126,7 @@ assert.equal(plan.goal,131500,"13 continued daily targets are added to original 
 assert(reader.includes('s.continuing?s.plan.currentDay:elapsed'),"W1 main card shows elapsed days past the original 41");
 
 // Functional regression for carried totals, standalone headings, signed input, and triple-tap edit gate.
-const historyContext={state:{historyLimit:60},Number,Math,Object,fmt:sandbox.fmt,
+const historyContext={state:{historyLimit:60},Number,Math,Object,fmt:sandbox.fmt,esc:x=>String(x),
  datedProgress:()=>[{day,entry:todayEntry,count:587,goal:4000,remaining:4413,previousDue:1000,previousCredit:0}],
  readingPace:()=>10000,readingSources:entry=>({tasbih:entry.tasbihCount,manual:entry.manualCount}),
  durationText:()=> "00:00:00.0",hasContinuation:()=>false,displayRecordDate:()=>day,heroIcon:()=>""};
