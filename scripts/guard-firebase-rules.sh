@@ -141,11 +141,13 @@ const beforeLatestPublished=historicalRules('fb76735c41381b7bbeaaee10c199449bdd1
 // Last successful Nov 23 Wazifa release, including free-slot allocation.
 // Only an exact match may be upgraded; preserve Console edits.
 const beforeGapRepair=historicalRules('a411f72a2a0d1599238396b103a2654429c668d2');
+// Verified W-slot fix deployed successfully on Nov 24; accept only exact historical source.
+const beforeContinuationFix=historicalRules('f650876d714258c9ef25b0b4716e45a5ddfc1b95');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
-  beforeGapRepair
+  beforeGapRepair,beforeContinuationFix
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');
