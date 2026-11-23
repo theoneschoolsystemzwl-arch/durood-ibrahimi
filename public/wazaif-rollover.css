@@ -107,3 +107,54 @@
 .wz-cal-native-label{display:grid;gap:5px;color:#e3f3e8;font:700 .82rem/1.5 var(--ur,serif)}
 .wz-cal-native-label input{width:100%;box-sizing:border-box;min-height:42px;border:1px solid #5ab28c;border-radius:8px;padding:7px;background:#0b4939;color:#fff;color-scheme:dark;font:700 1rem system-ui,sans-serif}
 @media(max-width:390px){.wz-ledger-entry.wz-history-clear{padding:8px 1px}.wz-ledger-item{gap:2px}.wz-ledger-item small{font-size:.66rem}.wz-ledger-item strong{font-size:.84rem}}
+
+
+/* Five-figure single-row Wazifa layout, 23 Nov 2026 */
+.wz-ledger-entry .wz-ledger-five,.wz-hero-reader .wz-five-counts{
+ display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+ grid-auto-flow:column;align-items:stretch;gap:3px;width:100%;min-width:0;direction:rtl;
+}
+.wz-ledger-entry .wz-ledger-five{border-top:1px solid #ffffff1c;padding:4px 0}
+.wz-ledger-five .wz-ledger-item,.wz-hero-reader .wz-five-cell{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ box-sizing:border-box;min-width:0;min-height:44px;gap:0;padding:3px 1px;
+ background:linear-gradient(135deg,#064936,#00362c);border:1px solid #2e8469;
+ border-radius:8px;white-space:normal;text-align:center;
+}
+.wz-ledger-five .wz-ledger-item small,.wz-hero-reader .wz-five-cell small{
+ font:750 clamp(.55rem,2.18vw,.78rem)/1.3 var(--ur,serif);
+ color:#d2f5e5;white-space:nowrap;
+}
+.wz-ledger-five .wz-ledger-item strong,.wz-hero-reader .wz-five-cell strong{
+ font:850 clamp(.68rem,2.85vw,1.05rem)/1.25 system-ui,sans-serif;
+ overflow-wrap:anywhere;max-width:100%;color:#f3fff9;direction:ltr;
+}
+.wz-ledger-five .wz-ledger-item em,.wz-hero-reader .wz-five-cell em{
+ display:block;font:700 clamp(.43rem,1.78vw,.68rem)/1.2 var(--ur,serif);
+ color:#ffd99e;font-style:normal;white-space:nowrap;
+}
+.wz-ledger-five .wz-ledger-green strong,.wz-hero-reader .wz-green strong{color:#76ffb1}
+.wz-ledger-five .wz-ledger-yellow strong,.wz-hero-reader .wz-yellow strong{color:#ffe16e}
+.wz-ledger-five .wz-ledger-pending strong,.wz-hero-reader .wz-red strong{color:#ff8982}
+.wz-ledger-five .wz-ledger-done strong{color:#76ffb1}
+.wz-hero-reader .wz-five-counts{margin:3px 0 4px}
+.wz-hero-reader .wz-five-cell{min-height:46px}
+.wz-five-alert{margin:2px 0 6px;padding:3px 4px;background:#542320;color:#ffe3df;
+ border-radius:7px;text-align:center;font:800 clamp(.67rem,2.55vw,.88rem)/1.55 var(--ur,serif);
+ animation:wz-due-flash 1.4s ease-in-out infinite}
+.wz-five-alert[hidden]{display:none}
+.wz-time-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin:3px 0 7px;
+ direction:rtl;text-align:center}
+.wz-time-three span{min-width:0;padding:3px 1px;background:#073e32;border:1px solid #277f60;
+ border-radius:7px;color:#e4ffee;font:700 clamp(.55rem,2.06vw,.78rem)/1.4 var(--ur,serif)}
+.wz-time-three bdi{display:block;font:800 clamp(.61rem,2.35vw,.84rem)/1.3 system-ui,sans-serif;color:#c8ffdf}
+.wz-history-clear .wz-clear-clock{flex:1;flex-wrap:wrap;gap:3px 7px;
+ font-size:clamp(.57rem,2.17vw,.78rem)}
+.wz-history-clear .wz-clear-clock>span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.wz-history-clear .wz-clear-clock svg{width:14px;height:14px}
+@media(max-width:390px){
+ .wz-ledger-five .wz-ledger-item,.wz-hero-reader .wz-five-cell{padding:3px 0;min-height:42px}
+ .wz-ledger-five .wz-ledger-item strong,.wz-hero-reader .wz-five-cell strong{font-size:clamp(.67rem,2.9vw,.82rem)}
+ .wz-ledger-five .wz-ledger-item em,.wz-hero-reader .wz-five-cell em{font-size:.47rem}
+}
+@media(prefers-reduced-motion:reduce){.wz-five-alert{animation:none}}
