@@ -335,14 +335,28 @@ function durationText(ms){
    .map(n=>String(n).padStart(2,"0")).join(":")+"."+String(Math.floor(whole%1000/100));
 }
 
+// Source totals on older dates may lack separate source fields.
+// Render an unattributed remainder in the dated/manual column without rewriting Firestore.
+function readingSources(entry={},fallbackCount=0){
+ const raw=Number(entry?.count),count=Number.isFinite(raw)&&raw>=0?raw:Math.max(0,Number(fallbackCount)||0);
+ const tasbih=Math.min(count,Math.max(0,Number(entry?.tasbihCount)||0));
+ const explicitManual=Math.min(Math.max(0,count-tasbih),Math.max(0,Number(entry?.manualCount)||0));
+ const legacy=Math.max(0,count-tasbih-explicitManual);
+ return {count,tasbih,manual:explicitManual+legacy,legacy};
+}
 function readingPace(record,live=false){
  const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
  let duration=0,intervals=0;
  for(const entry of Object.values(ledger)){
-  const ms=Number(entry?.durationMs||0),n=Number(entry?.intervals||0);
-  if(Number.isFinite(ms)&&ms>=0&&Number.isFinite(n)&&n>0){duration+=ms;intervals+=n;}
+  const ms=Number(entry?.durationMs||0),n=Math.max(0,Number(entry?.intervals||0));
+  // Earlier sessions stored N-1 button gaps instead of N completed readings.
+  const divisor=Math.max(n,readingSources(entry).tasbih);
+  if(Number.isFinite(ms)&&ms>0&&Number.isFinite(divisor)&&divisor>0){duration+=ms;intervals+=divisor;}
  }
- if(live&&state.clockIntervals>0){duration+=state.tapGapTotalMs;intervals+=state.clockIntervals;}
+ if(live&&state.tapQueue>0){
+  const liveMs=elapsedTime();
+  if(liveMs>0){duration+=liveMs;intervals+=state.tapQueue;}
+ }
  return intervals>0?duration/intervals:0;
 }
 function readingTimes(record,live=false){
@@ -350,7 +364,7 @@ function readingTimes(record,live=false){
  let tasbih=0,manualCount=0;
  for(const entry of Object.values(ledger)){
   tasbih+=Math.max(0,Number(entry?.durationMs)||0);
-  manualCount+=Math.max(0,Number(entry?.manualCount)||0);
+  manualCount+=readingSources(entry).manual;
  }
  if(live&&state.tapQueue>0)tasbih+=elapsedTime();
  const speed=readingPace(record,live),manual=speed>0?Math.round(manualCount*speed):0;
@@ -364,9 +378,9 @@ function dailyFigures(group,w,record,queued=0){
   Number(r?.count??(record?.day===today?record.today:0))||0;
  const queuedToday=state.draftDay===today?queued:0;
  const previous=Math.max(0,Number(r?.previousDue||0)),credit=Math.max(0,Number(r?.previousCredit||0));
- const read=saved+queuedToday;
- return {goal,previous,tasbih:(group?saved:Number(entry.tasbihCount||0))+queuedToday,
-  manual:group?0:Number(entry.manualCount||0),read,pending:Math.max(0,goal+previous-credit-read)};
+ const read=saved+queuedToday,sources=readingSources(entry,saved);
+ return {goal,previous,tasbih:(group?saved:sources.tasbih)+queuedToday,
+  manual:group?0:sources.manual,read,pending:Math.max(0,goal+previous-credit-read)};
 }
 function fiveFigure(label,value,id,klass="",hint=""){
  return '<div class="wz-five-cell '+klass+'"><small>'+label+'</small><strong id="'+id+'">'+fmt(value)+'</strong>'+
@@ -497,8 +511,8 @@ function wazifaHistoryMarkup(record){
  const historicUnallocated=Math.max(0,Number(record?.total||0)-countedDays);
  const rows=allRows.slice(-state.historyLimit).reverse().map(r=>{
   const {day,entry:e,count,goal,remaining,previousDue,previousCredit}=r;
-  const green=Math.max(0,Number(e.tasbihCount||0)),yellow=Math.max(0,Number(e.manualCount||0));
-  const old=Math.max(0,count-green-yellow),time=Number(e.durationMs||0);
+  const source=readingSources(e,count),green=source.tasbih,yellow=source.manual;
+  const time=Math.max(0,Number(e.durationMs||0));
   const outside=goal===0&&count===0&&remaining===0&&
     !hasContinuation(record)&&record.kind==="fixed"&&day>record.endDate;
   const fulfilled=!outside&&remaining===0;
@@ -518,7 +532,6 @@ function wazifaHistoryMarkup(record){
    item("کل",count,"wz-ledger-total")+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+
    '</div></div>'+
    (previousCredit?'<p class="wz-clear-credit">پچھلے دنوں کا زائد شمار: '+fmt(previousCredit)+' (آج کے ہدف میں شامل)</p>':"")+
-   (old?'<p class="wz-clear-legacy">پرانا شمار جس کا ذریعہ محفوظ نہیں تھا: '+fmt(old)+'</p>':"")+
    '<div class="wz-clear-foot"><span class="wz-clear-clock">'+heroIcon("clock")+
    '<span>تسبیح <bdi dir="ltr">'+durationText(time)+'</bdi></span>'+
    (yellow?'<span>دستی '+(pace>0?'<bdi dir="ltr">'+durationText(Math.round(yellow*pace))+'</bdi> تخمینی':'وقت نامعلوم')+'</span>':"")+
