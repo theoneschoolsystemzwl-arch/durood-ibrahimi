@@ -904,7 +904,7 @@ async function saveForm(form){
        endDate,durationDays:kind==="fixed"?durationDays:0,updatedAt:serverTimestamp()};
      const uid=auth.currentUser.uid;
      const existing=state.editId?state.personal.find(item=>item.id===state.editId):null;
-     if(existing&&existing.kind==="fixed"&&kind==="daily"&&fixedExpired(existing)){
+     if(existing&&existing.kind==="fixed"&&kind==="daily"&&(legacyContinuation(existing)||fixedExpired(existing))){
        if(!valid(dailyGoal))throw Error("درست روزانہ ہدف درج کریں۔");
        const already=hasContinuation(existing),start=addDays(existing.endDate,1),today=readingDay();
        const effectiveDay=today<start?start:today;
@@ -1327,11 +1327,14 @@ document.addEventListener("submit",event=>{
     if(op?.status==="complete"){
       const liveCount=Number(task.dailyLedger?.[day]?.count||0);
       const expected=op.baseCount+op.amount;
-      if(op.amount>0?liveCount>=expected:liveCount<=expected){
-        removeManualOperation(key);op=null;
-      }else{
-        throw Error("یہ گنتی پہلے ہی محفوظ ہو چکی ہے؛ تازہ ریکارڈ آنے تک دوبارہ نہ دبائیں۔");
-      }
+      const reflected=op.amount>0?liveCount>=expected:liveCount<=expected;
+      if(!reflected)
+        throw Error("یہ گنتی محفوظ ہوئی ہے؛ سرور کا نیا ریکارڈ آنے تک دوبارہ نہ دبائیں۔");
+      // A quick repeat after a refresh is the same user action, not a new
+      // recitation. A later, intentional edit can start a fresh operation.
+      if(Date.now()-op.createdAt<120000&&op.amount===signedAmount)
+        throw Error("یہی تعداد ابھی محفوظ کی گئی ہے، دوبارہ جمع نہیں ہوگی۔ دو منٹ بعد نئی تبدیلی کریں۔");
+      removeManualOperation(key);op=null;
     }
     if(op&&op.amount!==signedAmount)
       throw Error("پچھلی درخواست نامکمل ہے: "+(op.amount>0?"+":"")+op.amount+
