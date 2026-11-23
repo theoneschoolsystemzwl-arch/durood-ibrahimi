@@ -835,7 +835,7 @@ service cloud.firestore {
     }
     // Choose one write shape before any detailed checks.  This avoids
     // evaluating every mutually-exclusive branch for each Firebase write.
-    // Immutable chronological continuation plans, appended one at a time.
+    // Diagnose owner W-1 expiry rollover in security emulator (no production writes).\n    // Immutable chronological continuation plans, appended one at a time.
     function validWzPeriodAppend(d,changed) {
       let before=resource.data.get('continuePeriods',[]);
       let after=d.get('continuePeriods',[]);
@@ -846,7 +846,8 @@ service cloud.firestore {
         resource.data.kind == 'fixed' && d.kind == 'fixed' &&
         !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
         before is list && after is list && after.size() == before.size()+1 &&
-        after.size() <= 50 && after[0:before.size()] == before &&
+        after.size() <= 50 &&
+        (before.size() == 0 || after[0:before.size()] == before) &&
         (before.size() == 0 || before[before.size()-1].mode == 'fixed') &&
         latest is map &&
         latest.keys().hasAll(['mode','startDate','endDate','goal','durationDays']) &&
