@@ -2395,6 +2395,9 @@ let selectedNamazStatus = 'jamat';
 let selectedNamazMonth = '';
 let renderedNamazDay = '';
 let renderedNamazPhase = '';
+// Protect locally edited dates from an older Firebase history read.
+let prayerLocalRevision=0;
+const prayerEditedDays=new Map();
 
 function prayerMode(personId,day,prayer,today,now=Date.now()) {
   const saved = knownPrayerStatus(personId,day,prayer);
@@ -2446,7 +2449,7 @@ function namaz(person) {
   return '<section class="panel namaz-card ur" aria-labelledby="namaz-title">' +
     tr("<header class=\"namaz-heading\"><h1 id=\"namaz-title\">Daily Prayer Attendance</h1>", '<header class="namaz-heading"><h1 id="namaz-title">روزانہ پانچ وقت نماز کی حاضری</h1>') +
     tr("<p class=\"namaz-today-label\">Today <time datetime=\"", '<p class="namaz-today-label">آج <time datetime="') + today + '">' + esc(namazDateFormat.format(parseDay(today))) + '</time></p></header>' +
-    (!prayerPrefs(person.id).confirmed ? tr("<p class=\"notice section\">For today's attendance <button class=\"link\" data-action=\"open-prayer-timing\">Save your location</button>۔</p>", '<p class="notice section">آج کی حاضری کے لیے <button class="link" data-action="open-prayer-timing">اپنا مقام محفوظ کریں</button>۔</p>') : '') +
+    (!prayerPrefs(person.id).confirmed ? tr("<p class=\"notice section\">For today's attendance <button class=\"link\" data-action=\"open-prayer-timing\">Save your location</button>۔</p>", '<p class="notice section">نماز کے اوقات دیکھنے کے لیے <button class="link" data-action="open-prayer-timing">اپنا مقام محفوظ کریں</button>؛ حاضری ہر وقت لگ سکتی ہے۔</p>') : '') +
     dailyAttendanceLedger(person,now,today) +
     tr("<p class=\"namaz-instruction\">Select an attendance status and tap the prayer.</p>", '<p class="namaz-instruction">پہلے حاضری کی حالت منتخب کریں، پھر مطلوبہ نماز کے خانے پر ٹیپ کریں۔</p>') +
     tr("<div class=\"namaz-options\" role=\"group\" aria-label=\"Attendance status\">", '<div class="namaz-options" role="group" aria-label="حاضری کی حالت">') +
@@ -2465,19 +2468,23 @@ function namaz(person) {
     tr("<colgroup><col class=\"namaz-date-col\"><col span=\"5\"></colgroup><thead><tr><th scope=\"col\">Date</th>", '<colgroup><col class="namaz-date-col"><col span="5"></colgroup><thead><tr><th scope="col">تاریخ</th>') +
     prayers.map(([,label]) => '<th scope="col">' + label + '</th>').join('') +
     '</tr></thead><tbody>' + namazRows(person.id,month,today,now) + '</tbody></table>' +
-    tr("<p class=\"namaz-footer\">An empty cell becomes <strong>Missed</strong> after the prayer window. Select <strong>Made up</strong> after making up a prayer.</p></section>", '<p class="namaz-footer">وقت گزرنے پر خالی خانہ <strong>قضا</strong> دکھاتا ہے۔ قضا پڑھ لینے پر <strong>قضا ادا</strong> لگائیں۔</p></section>');
+    tr("<p class=\"namaz-footer\">An empty cell becomes <strong>Missed</strong> after the prayer window. Select <strong>Made up</strong> after making up a prayer.</p></section>", '<p class="namaz-footer">آج یا کسی پچھلی تاریخ میں باجماعت، بغیر جماعت اور قضا ادا کی حاضری کسی بھی وقت لگائیں؛ وقت گزرنے پر غیر ادا شدہ نماز قضا دکھائی دیتی ہے۔</p></section>');
 }
 
 function setPrayerAttendance(personId,day,prayer,status,today=prayerDate(personId),now=Date.now()) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today || dateKey(parseDay(day)) !== day ||
       !prayers.some(([id]) => id === prayer) || !modeButtons.includes(status)) return false;
-  const phase = attendancePhase(personId,day,prayer,now,today);
-  if ((status === 'jamat' || status === 'solo') && phase !== 'on-time') return false;
-  if (status === 'made' && phase !== 'missed') return false;
+  // Attendance records what the member reports; no prayer-time gate.
+  // Only future/invalid dates remain disallowed.
+  const paid=qazaPlans[personId]?.done?.[prayer];
+  if ((status==='clear'||status==='jamat'||status==='solo')&&paid?.[day]){
+    delete paid[day];
+    qazaLocalRevision++;
+  }
   const days = attendance[personId] ||= {};
+  prayerLocalRevision++;
+  prayerEditedDays.set(day,prayerLocalRevision);
   if (status === 'clear') {
-    const completed = qazaPlans[personId]?.done[prayer];
-    if (completed) delete completed[day];
     if (!days[day]) return true;
     delete days[day][prayer];
     if (!Object.keys(days[day]).length) delete days[day];
@@ -2514,11 +2521,7 @@ function handleNamazAction(action,button,value) {
   const now = Date.now();
   const today = prayerDate(currentUserId,now);
   if (!setPrayerAttendance(currentUserId,day,value,selectedNamazStatus,today,now)) {
-    const phase = attendancePhase(currentUserId,day,value,now,today);
-    const hints = {missed:tr("This prayer window has ended. If you made up the prayer, select «Made up» .", 'اس نماز کا وقت گزر چکا ہے۔ قضا پڑھ لی ہے تو «قضا ادا» منتخب کریں۔'),
-      upcoming:tr("This prayer window has not started yet.", 'اس نماز کا وقت ابھی شروع نہیں ہوا۔'),unknown:tr("Check your location and calculation settings for the local prayer time.", 'اس نماز کا مقامی وقت معلوم کرنے کے لیے اپنا مقام اور حساب چیک کریں۔'),
-      'on-time':tr("The prayer window is open. Select Prayed or Congregation.", 'اس نماز کا وقت جاری ہے۔ ادا یا باجماعت منتخب کریں۔')};
-    setFeedback('namaz-feedback',hints[phase]);
+    setFeedback('namaz-feedback',tr("Select today or an earlier date.",'آج یا پچھلی تاریخ منتخب کریں؛ آئندہ تاریخ کی حاضری نہیں لگ سکتی۔'));
     return true;
   }
   const saved = saveOfflineState();
@@ -2979,7 +2982,9 @@ function qazaRecorded(id,day,prayer) {
 }
 
 function knownPrayerStatus(id,day,prayer) {
-  return attendance[id]?.[day]?.[prayer] || (qazaRecorded(id,day,prayer) ? 'made' : undefined);
+  const saved=attendance[id]?.[day]?.[prayer];
+  // A single prayer paid on the Qaza calendar and in attendance counts once.
+  return alreadyOnTime(saved)?saved:qazaRecorded(id,day,prayer)?'made':saved;
 }
 
 function qazaEligible(id,day,prayer,now,today) {
@@ -3046,6 +3051,8 @@ function setQazaRecord(id,day,prayer,status,now=Date.now()) {
       if (!Object.keys(states).length) delete attendance[id][day];
     }
   }
+  prayerLocalRevision++;
+  prayerEditedDays.set(day,prayerLocalRevision);
   return true;
 }
 
@@ -4048,7 +4055,7 @@ window.duroodClassicBridge = {
     qazaPlans[p.id]=copyQazaPlan(value);
     recoveredLegacyQaza=null;
     qazaEditing=false;qazaDateDraft=null;qazaTargetDraft=null;
-    if(section==='namaz' && namazView==='qaza')render({keepScroll:true});
+    if(section==='namaz')render({keepScroll:true});
   },
   prayerStatuses(day){
     const states={...(attendance[currentUserId]?.[day]||{})};
