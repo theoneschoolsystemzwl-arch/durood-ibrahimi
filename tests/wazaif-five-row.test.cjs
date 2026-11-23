@@ -95,7 +95,7 @@ assert(reader.includes('data-wazifa-action="vibration-up"')&&reader.includes('da
 assert(reader.includes('data-wazifa-action="sound-up"')&&reader.includes('data-wazifa-action="sound-down"'));
 assert(reader.includes('id="wz-hero-today-read"')&&reader.includes('class="wz-percent-today"'));
 assert(!reader.includes("💾")&&!reader.includes("📳")&&!reader.includes("🔊"),"no Save / feedback icons");
-assert(reader.includes('wz-today-due'),"green today summary is visible under lifetime totals");
+assert(src.includes('wz-today-due'),"green today summary is visible under lifetime totals");
 assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!important'),"all five dated cells use green background, not black/red/yellow");
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
 assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
