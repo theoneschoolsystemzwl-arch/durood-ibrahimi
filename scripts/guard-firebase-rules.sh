@@ -134,8 +134,7 @@ const beforeFastCount=historicalRules('6c4c3c510d6f2a1c5b56170b9497ffc42fe696d1'
 const beforeSignedLedger=historicalRules('1ced3cfb5ae4919d5363353f0bd1bf135f3f4502');
 // Last verified production release before adding immutable tap-sync receipts.
 // This full source was deployed successfully with the previous profile update.
-const beforeDurableTasbih=cp.execFileSync('git',
- ['show','fd863f86ed73b1e997ca5703080a3c77cc35ee14');
+const beforeDurableTasbih=historicalRules('fd863f86ed73b1e997ca5703080a3c77cc35ee14');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
