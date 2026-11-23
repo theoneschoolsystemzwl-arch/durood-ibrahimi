@@ -580,13 +580,7 @@ function readerMarkup(group){
  '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-mini-today")+
  heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
- '<div class="wz-hero-daily">'+
- heroTile("آج کا ہدف",fmt(s.dailyGoal),"target")+
- heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-hero-today")+
- heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-hero-day-left")+
- '<div class="wz-hero-remaining">'+heroIcon("hourglass")+'<div><small>'+(s.continuing?'مجموعی باقی':showDates?'مقررہ اختتام تک باقی':'ہدف سے باقی')+'</small>'+
- '<strong id="wz-hero-days-left">'+(s.continuing?fmt(s.left):showDates?remaining+" دن":fmt(s.left))+'</strong></div></div>'+
- '</div>'+
+ fiveFigureMarkup(group,w,record)+
  '<div class="wz-reader-savebar">'+
  (group?'':('<div class="wz-date-select"><small>تسبیح کی منتخب تاریخ</small><input id="wz-save-date" type="hidden" value="'+esc(state.draftDay||today)+'"><button type="button" class="wz-date-button" data-wazifa-action="open-date-picker"><span id="wz-selected-date">'+esc(displayRecordDate(state.draftDay||today))+'</span><span aria-hidden="true">▦</span></button><span id="wz-selected-source" class="wz-date-source">'+((state.draftDay||today)===today?'آج کی تسبیح سبز شمار ہوگی':'اس پچھلی تاریخ کی تسبیح پیلے دستی شمار میں جائے گی')+'</span></div>'))+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>💾 Save · محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
@@ -600,9 +594,10 @@ function readerMarkup(group){
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
  '<small id="wz-live-speed">فی ذکر: —</small>'+
- '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.000</bdi></span></span>'+
+ '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
+ readingTimesMarkup(record)+
  '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">تاریخ منتخب کریں، تسبیح پڑھیں، پھر Save دبائیں۔ پہلے دباؤ سے وقت شروع ہوگا اور Save پر رک کر منتخب دن میں جمع ہوگا۔</p>'+
@@ -629,6 +624,18 @@ function refreshHeroReader(){
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
   if(s.continuing)set("wz-hero-days-left",fmt(left));
  set("wz-mini-today",fmt(todayCount));set("wz-mini-left",fmt(dayLeft));
+ const d=dailyFigures(group,w,record,state.tapQueue);
+ for(const [id,value] of [["wz-five-goal",d.goal],["wz-five-tasbih",d.tasbih],
+  ["wz-five-manual",d.manual],["wz-five-read",d.read],["wz-five-pending",d.pending]])set(id,fmt(value));
+ const pendingCell=root.querySelector("#wz-five-pending")?.closest(".wz-five-cell");
+ if(pendingCell){pendingCell.classList.toggle("wz-red",d.pending>0);
+  pendingCell.classList.toggle("wz-green",d.pending===0);}
+ const notice=root.querySelector("#wz-five-alert");
+ if(notice){notice.hidden=d.pending===0;notice.textContent="آج کا باقی ہدف پورا کریں — "+fmt(d.pending)+" بقایا";}
+ const t=readingTimes(record,true);
+ set("wz-time-real",durationText(t.tasbih));
+ set("wz-time-est",t.hasSpeed?durationText(t.manual):"—");
+ set("wz-time-all",durationText(t.total));
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
  const step=Math.max(1,s.dailyGoal);const cycle=todayCount>0&&todayCount%step===0?step:todayCount%step;
  root.querySelector("#wz-dial").style.setProperty("--wz-ring",Math.floor(cycle/step*100)+"%");
