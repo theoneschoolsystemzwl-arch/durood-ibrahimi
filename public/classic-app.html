@@ -3067,11 +3067,12 @@ function ledgerRow(label,values,tone='') {
 function ledgerTable({id,title,rows,footer,grandTotal,note}) {
   return '<section class="qaza-section prayer-ledger ledger-card" aria-labelledby="'+id+'">' +
     '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2>' +
-    (grandTotal===undefined?'':tr("<span class=\"ledger-total\">Total prayers <bdi>", '<span class="ledger-total">کل نمازیں <bdi>')+formatNumber(grandTotal)+'</bdi></span>') +
     '</div><div class="ledger-frame"><table aria-labelledby="'+id+'"><colgroup><col><col span="5"></colgroup>' +
     tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') + prayers.map(([,label])=>'<th scope="col">'+label+'</th>').join('') +
     '</tr></thead><tbody>' + rows.map(row=>ledgerRow(...row)).join('') +
     '</tbody><tfoot>' + ledgerRow(...footer) + '</tfoot></table></div>' +
+    (grandTotal===undefined?'':'<p class="prayer-ledger-grand">'+tr("All five prayers · Total", 'پانچوں نمازوں کا کل')+
+      ' <strong><bdi>'+formatNumber(grandTotal)+'</bdi></strong></p>') +
     (note?'<p class="qaza-hint">'+note+'</p>':'') + '</section>';
 }
 
