@@ -3929,7 +3929,7 @@ window.duroodClassicBridge = {
     if(percent)percent.textContent=progressPercent()+"%";
   },
   enter(profile,rows,totals,refresh=false){
-    if(!refresh){periodCounts=null;todayReaders=null;}
+    if(!refresh){periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;}
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
@@ -4036,18 +4036,32 @@ window.duroodClassicBridge = {
     window.duroodChatRows=Array.isArray(rows)?rows:[];
     if(section==='messages')render({keepScroll:true});
   },
-  loadPrayerDays(days,month){
+  prayerRevision:()=>prayerLocalRevision,
+  loadPrayerDays(days,month,revision=0){
     const p=currentUser();if(!p)return;
     const records=attendance[p.id] ||= {};
-    // Refresh only the requested month; preserve previously fetched months
-    // and Qaza records instead of erasing all attendance on every login.
+    // Do not overwrite any prayer the member changed after this Firebase read began.
     if(/^\d{4}-(0[1-9]|1[0-2])$/.test(month||'')){
-      for(const day of Object.keys(records))if(day.startsWith(month+'-'))delete records[day];
+      for(const day of Object.keys(records))if(day.startsWith(month+'-')&&
+        (prayerEditedDays.get(day)||0)<=revision)delete records[day];
     }
     for(const item of days){
       if(item?.date&&item?.statuses&&typeof item.statuses==="object" &&
-        (!month||item.date.startsWith(month+'-')))
+        (!month||item.date.startsWith(month+'-')) &&
+        (prayerEditedDays.get(item.date)||0)<=revision)
         records[item.date]={...item.statuses};
+    }
+    if(section==="namaz")render({keepScroll:true});
+  },
+  loadPrayerHistoryDays(days,revision=0){
+    const p=currentUser();if(!p)return;
+    const records=attendance[p.id] ||= {};
+    // Full private attendance history: merge other months, never wipe local edits.
+    for(const item of days){
+      if(typeof item?.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(item.date)||
+         !item.statuses||typeof item.statuses!=="object"||
+         (prayerEditedDays.get(item.date)||0)>revision)continue;
+      records[item.date]={...item.statuses};
     }
     if(section==="namaz")render({keepScroll:true});
   },
