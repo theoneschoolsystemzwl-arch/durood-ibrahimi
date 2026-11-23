@@ -509,3 +509,64 @@
  .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell strong{font-size:clamp(1.06rem,5.0vw,1.35rem)}
  .wz-hero-reader .wz-reader-controls-row .wz-hero-speed small{font-size:clamp(.53rem,1.95vw,.7rem)}
 }
+
+/* 24 Nov: larger reader counters and 20% larger round tasbih dials.
+   Keep floating dials compact and never exceed available mobile width. */
+.wz-hero-reader .wz-reader-controls-row .wz-hero-speed strong{
+  font-size:clamp(1.02rem,4.1vw,1.48rem);
+  line-height:1.18;
+  font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
+.wz-hero-reader .wz-reader-controls-row .wz-hero-speed small{
+  font-size:clamp(.61rem,2.25vw,.82rem);
+}
+.wz-hero-reader .wz-hero-dial:not(.is-floating){
+  width:min(98.4vw,444px,100%);
+  max-width:100%;
+}
+.reader .dial:not(.is-floating){
+  width:min(87.6vw,341px,100%);
+  max-width:100%;
+}
+
+/* Long Arabic passages: swiping the locked text scrolls the page.
+   The user-facing toggle unlocks its own vertical scrolling panel. */
+.wz-arabic-scroll-toggle{
+  display:block;
+  box-sizing:border-box;
+  width:fit-content;
+  max-width:100%;
+  min-height:42px;
+  margin:8px auto 5px;
+  padding:6px 18px;
+  color:#f5fff6;
+  background:linear-gradient(125deg,#075b44,#003f32);
+  border:1px solid #70dbad;
+  border-radius:12px;
+  cursor:pointer;
+  touch-action:manipulation;
+  font:800 clamp(.85rem,3.4vw,1.05rem)/1.6 var(--ur,serif);
+}
+.wz-arabic-scroll-toggle[aria-pressed="true"]{
+  background:linear-gradient(125deg,#0b8865,#066249);
+  border-color:#d5edab;
+}
+.wz-arabic-scroll-toggle:focus-visible{
+  outline:3px solid #f7e1a4;
+  outline-offset:2px;
+}
+.wz-card .wz-arabic-scroll:not(.is-scroll-enabled),
+.wz-hero-reader .wz-reading-text-visible .wz-arabic-scroll:not(.is-scroll-enabled){
+  overflow:clip;
+  overscroll-behavior-y:auto;
+  touch-action:pan-y;
+}
+.wz-card .wz-arabic-scroll.is-scroll-enabled,
+.wz-hero-reader .wz-reading-text-visible .wz-arabic-scroll.is-scroll-enabled{
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior-y:auto;
+  touch-action:pan-y;
+  -webkit-overflow-scrolling:touch;
+}
