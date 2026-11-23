@@ -1198,6 +1198,26 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-history .manual-yellow::after{content:" · offline";font-size:.7em;vertical-align:middle}
 :root[lang="ur"] .reader-history .manual-yellow::after{content:" · آف لائن";font-family:var(--ur,serif)}
 
+/* Joined-date Durood records using the W1 compact six-field layout. */
+.reader-history .record-list{display:grid;gap:7px}
+.reader-history .durood-ledger-row{list-style:none;border:1px solid #2a9676;border-radius:12px;padding:8px;background:#003b2e;color:#eafff3}
+.reader-history .durood-ledger-row.is-complete{border-color:#41d39c}
+.reader-history .durood-ledger-row.is-pending{border-color:#b9765b}
+.reader-history .durood-ledger-heading{display:flex;gap:7px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:.82rem;font-weight:800}
+.reader-history .durood-ledger-status{color:#ffad99}
+.reader-history .is-complete .durood-ledger-status{color:#79ffc1}
+.reader-history .durood-ledger-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;direction:rtl}
+.reader-history .durood-ledger-cell{min-width:0;display:grid;gap:2px;justify-items:center;text-align:center;border:1px solid #24745d;border-radius:8px;padding:5px 2px;background:#002c24}
+.reader-history .durood-ledger-cell small{font:700 clamp(.55rem,2.1vw,.72rem)/1.7 var(--ur,serif);color:#daeee5;overflow-wrap:anywhere}
+.reader-history .durood-ledger-cell strong{font-size:clamp(.76rem,3.1vw,1.08rem);line-height:1.4;overflow-wrap:anywhere}
+.reader-history .durood-ledger-cell.is-tasbih strong,.reader-history .durood-ledger-cell.is-complete strong{color:#71ffac}
+.reader-history .durood-ledger-cell.is-manual strong{color:#ffe36f}
+.reader-history .durood-ledger-cell.is-remaining strong{color:#ffad9b}
+.reader-history .durood-ledger-times{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:6px;font-size:.67rem;color:#c0dfd2;line-height:1.5}
+.reader-history .durood-ledger-more{list-style:none;text-align:center;padding:8px}
+@media(max-width:390px){.reader-history .durood-ledger-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+
 /* Header controls belong to the account/name corner; no detached top row. */
 .app-head{padding-top:4px}
 .profile-card{position:relative}
@@ -1293,6 +1313,7 @@ let dialFloating=false;
 let suppressNextDialClick=false;
 const paceFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
 let readerHistoryTimer=null;
+let readerHistoryLimit=14;
 let soundEnabled = false;
 let soundContext;
 for (const person of users) {
@@ -2057,15 +2078,54 @@ function priorPace(id) {
 
 function historyRows(person,today) {
   const ledger=readingFor(person.id);
-  const days=new Set([today,...Object.keys(ledger.days)]);
-  return Array.from(days).sort().reverse().map(day=>{
-    const item=ledger.days[day]||{},taps=Number(item.taps||0),manual=Number(item.manual||0);
-    const measured=item.intervals?tr("Measured ","ناپا گیا وقت ")+durationLabel(item.ms||0):tr("Measured —","ناپا گیا وقت —");
-    const estimate=item.estimate?' · '+tr("Estimated ","تخمینی وقت ")+durationLabel(item.estimate):'';
-    return '<li class="record-row"><div><strong><time datetime="'+day+'">'+esc(joinDate.format(parseDay(day)))+
-      '</time><span class="record-math">'+displayNumber(taps)+' + '+(manual > 0 ? '<span class="manual-yellow" title="'+tr("Added offline","آف لائن شامل شدہ")+'">'+displayNumber(manual)+'</span>' : displayNumber(0))+' = '+displayNumber(taps+manual)+'</span></strong>'+
-      '<small class="muted">'+tr("Goal ","ہدف ")+displayNumber(item.goal||ledger.goal)+' · '+measured+estimate+'</small></div></li>';
+  const joined=person.joined instanceof Date && Number.isFinite(person.joined.getTime()) ?
+    dateKey(person.joined) : today;
+  const first=joined<=today?joined:today,records=[];
+  let cumulativeGoal=0,cumulativeRead=0;
+  // Create all daily rows from the user's registration day, including zero days.
+  for(let day=first,i=0;day<=today && i<3660;i++){
+    const entry=ledger.days[day]||{},goal=Math.max(1,Number(entry.goal)||ledger.goal||100);
+    const tasbih=Math.max(0,Number(entry.taps)||0),manual=Math.max(0,Number(entry.manual)||0);
+    const count=tasbih+manual,previousDue=Math.max(0,cumulativeGoal-cumulativeRead);
+    const previousCredit=Math.max(0,cumulativeRead-cumulativeGoal);
+    cumulativeGoal+=goal;cumulativeRead+=count;
+    records.push({day,entry,goal,tasbih,manual,count,previousDue,previousCredit,balance:cumulativeRead-cumulativeGoal});
+    const next=parseDay(day);next.setDate(next.getDate()+1);day=dateKey(next);
+  }
+  // Like W1, excess recitations on a later day may clear older pending targets.
+  let highest=-Infinity;
+  for(let i=records.length-1;i>=0;i--){
+    highest=Math.max(highest,records[i].balance);
+    records[i].remaining=Math.max(0,-highest);
+  }
+  const cell=(name,number,klass='')=>'<div class="durood-ledger-cell '+klass+
+    '"><small>'+name+'</small><strong>'+displayNumber(number)+'</strong></div>';
+  const rows=records.slice(-readerHistoryLimit).reverse().map(r=>{
+    const {day,entry,goal,tasbih,manual,count,previousDue,previousCredit,remaining}=r;
+    const completed=remaining===0,netGoal=Math.max(0,goal+previousDue-previousCredit);
+    const status=completed?tr('✓ Completed','✓ ہدف مکمل'):
+      tr('● Outstanding ','● بقایا ')+displayNumber(remaining);
+    const measured=durationLabel(Number(entry.ms)||0);
+    const estimate=entry.estimate?durationLabel(entry.estimate):'—';
+    return '<li class="durood-ledger-row '+(completed?'is-complete':'is-pending')+
+      '"><div class="durood-ledger-heading"><time datetime="'+day+'">'+
+      esc(joinDate.format(parseDay(day)))+'</time><span class="durood-ledger-status">'+status+
+      '</span></div><div class="durood-ledger-grid">'+
+      cell(tr('Goal','ہدف'),netGoal)+
+      cell(tr('Previous due','پچھلا بقایا'),previousDue)+
+      cell(tr('Tasbih','تسبیح'),tasbih,'is-tasbih')+
+      cell(tr('Manual','دستی'),manual,'is-manual')+
+      cell(tr('Total','کل'),count)+
+      cell(tr('Remaining','باقی'),remaining,completed?'is-complete':'is-remaining')+
+      '</div><div class="durood-ledger-times"><span>'+tr('Tasbih time','تسبیح کا وقت')+
+      ' <bdi dir="ltr">'+measured+'</bdi></span><span>'+
+      tr('Estimated manual time','دستی تخمینی وقت')+' <bdi dir="ltr">'+estimate+'</bdi>'+
+      (entry.unestimated?tr(' · unavailable',' · وقت نامعلوم'):'')+'</span></div></li>';
   }).join('');
+  const more=records.length>readerHistoryLimit?
+    '<li class="durood-ledger-more"><button type="button" class="button secondary" data-action="reader-history-more">'+
+    tr('Show older records','مزید پرانا ریکارڈ دکھائیں')+'</button></li>':'';
+  return rows+more;
 }
 
 function readingDialogs() {
@@ -2139,7 +2199,20 @@ function updateClock() {
     // remain visible on the dial until the local calendar day changes.
     else elapsed=idle;
   }
-  clock.textContent=durationLabel(readingSession.ms+elapsed);
+  const measured=readingSession.ms+elapsed;
+  clock.textContent=durationLabel(measured);
+  // First tap starts time; rate projections update continuously thereafter.
+  const person=currentUser();
+  const rate=readingSession.count>0 && measured>0 ?
+    measured/readingSession.count : person?priorPace(person.id):null;
+  for(const [id,value] of [
+    ['pace-sec',rate?paceFormat.format(rate/1000):'—'],
+    ['pace-minute',rate?paceFormat.format(60000/rate):'—'],
+    ['pace-hour',rate?paceFormat.format(3600000/rate):'—']
+  ]){
+    const node=document.getElementById(id);
+    if(node)node.textContent=value;
+  }
 }
 
 function updateReader() {
@@ -2150,8 +2223,8 @@ function updateReader() {
   const live = sessionFor(person.id,key);
   const goal = ledger.goal;
   const count = dayCount(person,key);
-  // Current-session pace starts only after two actual recitations.
-  const rate = live.intervals > 0 && live.ms > 0 ? live.ms / live.intervals : null;
+  // Count every completed recitation as on the Wazaif reader.
+  const rate = live.count>0 && live.ms>0 ? live.ms/live.count : priorPace(person.id);
   set('read-all',formatNumber(score(person,'all','current')));
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
@@ -2258,6 +2331,8 @@ function openManual(key) {
   const dialog = document.getElementById('manual-dialog');
   const form = dialog.querySelector('form');
   form.reset();
+  const person=currentUser();
+  form.elements.day.min=person?.joined instanceof Date ? dateKey(person.joined) : dateKey();
   form.elements.day.max = dateKey();
   form.elements.day.value = key || dateKey();
   const pace = priorPace(currentUserId);
@@ -2293,6 +2368,12 @@ function handleReaderAction(action,button,value) {
     setFeedback('goal-feedback','');
     dialog.showModal();
   } else if (action === 'manual-day') openManual(value);
+  else if (action === 'reader-history-more') {
+    readerHistoryLimit+=30;
+    const target=document.getElementById('daily-records');
+    const person=currentUser();
+    if(target&&person)target.innerHTML=historyRows(person,dateKey());
+  }
   else if (action === 'close-reader-dialog') button.closest('dialog').close();
   else return false;
   return true;
@@ -2317,7 +2398,9 @@ function submitManual(form,data) {
   const key = data.get('day');
   const amount = safePositive(data.get('amount'));
   if (!amount) return setFeedback('manual-feedback',tr("Enter a positive number.", 'مثبت تعداد درج کریں۔'));
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key > dateKey() || key < '1900-01-01' || dateKey(parseDay(key)) !== key) {
+  const member=currentUser();
+  const joined=member?.joined instanceof Date ? dateKey(member.joined) : dateKey();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key > dateKey() || key < joined || dateKey(parseDay(key)) !== key) {
     return setFeedback('manual-feedback',tr("Choose today or an earlier date.", 'آج یا کسی پچھلے دن کی درست تاریخ درج کریں۔'));
   }
   const pace = priorPace(currentUserId);
@@ -4046,7 +4129,7 @@ window.duroodClassicBridge = {
     if(percent)percent.textContent=progressPercent()+"%";
   },
   enter(profile,rows,totals,refresh=false){
-    if(!refresh){periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;}
+    if(!refresh){periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=14;}
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
     const women=rows.filter(x=>x.gender==='female' && ids.has(x.uid)).sort((a,b)=>ids.get(a.uid)-ids.get(b.uid));
