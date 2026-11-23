@@ -84,9 +84,9 @@ const wazifaCss=fs.readFileSync("public/wazaif.css","utf8");
 const personalCardMarkup=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
 const groupCardMarkup=source.slice(source.indexOf("function groupCard("),source.indexOf("function taskStatus("));
 const readerMarkupSource=source.slice(source.indexOf("function readerMarkup("),source.indexOf("function refreshHeroReader("));
-assert(personalCardMarkup.includes('class="wz-cta-title"\'+esc(task.title)'),
+assert(personalCardMarkup.includes('class="wz-cta-title">\'+esc(task.title)'),
   "Personal tasbih tab must name the Wazifa");
-assert(groupCardMarkup.includes('class="wz-cta-title"\'+esc(g.title)'),
+assert(groupCardMarkup.includes('class="wz-cta-title">\'+esc(g.title)'),
   "Group tasbih tab must name its Wazifa");
 assert(personalCardMarkup.includes('<h3><bdi dir="ltr" class="wz-serial"'),
   "Keep the existing name and W number in the card heading");
