@@ -517,9 +517,9 @@ function dailyFigures(group,w,record,queued=0){
 function fiveFigureMarkup(group,w,record){
  const d=dailyFigures(group,w,record,wzSync.pending(group?"_group_":state.readerId,readingDay()));
  return '<section class="wz-today-due" aria-label="آج کی پڑھی گئی اور باقی گنتی">'+
-  '<div class="wz-today-due-cell"><small>آج کل پڑھا</small><strong id="wz-today-read">'+fmt(d.read)+'</strong></div>'+
+  '<div class="wz-today-due-cell"><small>آج کا کل پڑھا گیا</small><strong id="wz-today-read">'+fmt(d.read)+'</strong></div>'+
   '<div class="wz-today-due-cell"><small>آج کا باقی ہدف</small><strong id="wz-five-pending" class="wz-due-number '+(d.pending?'is-pending':'is-done')+'">'+fmt(d.pending)+'</strong></div>'+
-  '<p id="wz-five-alert" class="wz-five-alert" role="status"'+(d.pending?'':' hidden')+'>آج کا باقی ہدف پورا کریں</p>'+
+
   '</section>';
 }
 function displayRecordDate(key){
@@ -728,7 +728,7 @@ function readerMarkup(group){
  '</div>'+
  '<div class="wz-reader-controls-row">'+
  '<div class="wz-hero-speed" aria-label="تسبیح کی رفتار">'+
- '<div><small>فی ذکر وقت</small><strong id="wz-speed-sec">—</strong></div>'+
+ '<div><small>SEC سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
  '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div><small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
  '</div>'+
@@ -780,8 +780,6 @@ function refreshHeroReader(){
  const pendingCell=root.querySelector("#wz-five-pending");
  if(pendingCell){pendingCell.classList.toggle("is-pending",d.pending>0);
   pendingCell.classList.toggle("is-done",d.pending===0);}
- const notice=root.querySelector("#wz-five-alert");
- if(notice){notice.hidden=d.pending===0;notice.textContent="آج کا باقی ہدف پورا کریں";}
  const t=readingTimes(record,true);
  set("wz-time-real",durationText(t.tasbih));
  set("wz-time-est",t.hasSpeed?durationText(t.manual):"—");
