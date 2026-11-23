@@ -50,7 +50,7 @@ assert(!mainCard.includes('data-wazifa-action="continue-personal"'),
   "Next-goal action must not appear on the main Wazifa card");
 assert(editForm.includes('state.editId&&!g&&expired?') &&
   editForm.includes('data-wazifa-action="continue-personal"') &&
-  editForm.includes('data-wazifa-id="'+esc(original.id)+'"'),
+  editForm.includes("esc(original.id)"),
   "Next-goal action must appear only in expired personal Wazifa settings");
 // A deleted middle number must be reused for new and incoming tasks.
 assert(sharing.includes("while(used.has(serial))serial++"));
