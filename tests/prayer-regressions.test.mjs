@@ -222,7 +222,7 @@ assert(ui.includes("if (waiting) {")&&ui.includes("if(qazaMode==='made') qazaSta
   "Successful Qaza completion starts timer; subsequent entries check lock");
 assert(ui.includes("if (hold?.prayer===prayer && hold.day===day) open.push({day,held:true});"),
   "Completed date remains in original open slot until the countdown finishes");
-assert(ui.includes("disabled aria-disabled=\\\"true\\\""),
+assert(ui.includes(' disabled aria-disabled="true"'),
   "Other Qaza attendance buttons are disabled during the hold");
 assert(css.includes(".qaza-holding")&&css.includes(".qaza-hold-count")&&css.includes(".qaza-wait-status"),
   "Completed Qaza cell has distinct confirmation color and countdown styling");
