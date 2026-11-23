@@ -40,7 +40,7 @@ for(const key of requiredActions){
 for(const needle of [
   "restoreMemberPrivateSettings(profile.uid","qazaLocalRevision++",
   "loadPrivateQaza(profile)","qazaSaveSpark(snapshot)",
-  "loadPrayerMonth(month,uid)","loadPrayerDays(days,month)",
+  "loadPrayerMonth(month,uid)","loadPrayerDays(days,month,revision=0)",
   "memberPrivateStorageKey","prayer-calendar-fix.css","requestedPrayerMonth()"
 ]){
  assert(ui.includes(needle),`Missing prayer regression guard: ${needle}`);
