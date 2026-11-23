@@ -1,6 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-3";
 import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=save-ledger-20261123-v5";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -119,8 +120,43 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false
+ seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,lastTapAt:0
 };
+
+const wzSync=createDurableTasbihSync({
+ prefix:"durood-wazaif-sync-v3",
+ getUid:()=>auth.currentUser?.uid,
+ send:op=>op.taskId==="_group_"?
+  recordGroupWazifaOnly(op.count,op.day,op.id):
+  recordPersonalWazifa(op.taskId,op.count,op.day,{
+   durationMs:op.durationMs,intervals:op.intervals,source:op.source,syncId:op.id}),
+ onChange:()=>{updateWzSyncStatus();if(["personal-reader","group-reader"].includes(state.mode))refreshHeroReader();}
+});
+function updateWzSyncStatus(){
+ const el=$("#wz-sync-status");if(!el)return;
+ const {pending,error,online}=wzSync.status();
+ el.dataset.pending=String(pending>0);
+ el.textContent=pending?(!online?
+  "آف لائن: "+fmt(pending)+" تسبیح فون میں محفوظ، انٹرنیٹ کا انتظار":
+  error?"سنک رکا ہوا ہے: "+error+" • "+fmt(pending)+" گنتیاں فون میں محفوظ":
+  fmt(pending)+" تسبیح فون میں محفوظ، Firebase کو بھیجی جا رہی ہیں"):
+  "تمام تسبیح Firebase میں محفوظ ہے؛ Save صرف کاؤنٹر صفر کرے گا";
+}
+function resetWzSession(auto=false){
+ if(!state.tapQueue)return;
+ state.tapQueue=0;state.lastTapAt=0;state.clockMs=0;state.clockStart=null;
+ state.clockLastTap=null;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
+ persistDraft();wzSync.schedule(0);refreshHeroReader();
+ const note=$("#wz-session-note");
+ if(note)note.textContent=auto?
+  "پانچ منٹ کی خاموشی پر کاؤنٹر خود صفر ہوا؛ گنتی محفوظ ہے۔":
+  "Save: کاؤنٹر صفر ہوگیا؛ گنتی محفوظ رہے گی۔";
+}
+function checkWzIdle(){
+ if(["personal-reader","group-reader"].includes(state.mode)&&state.tapQueue>0&&
+  state.lastTapAt&&Date.now()-state.lastTapAt>=300000)resetWzSession(true);
+}
+
 const owner=()=>state.profile?.role==="owner";
 try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
@@ -163,6 +199,7 @@ async function reconcileLegacySerials(){
  return state.migrationPromise;
 }
 function stop(){
+  wzSync.stop();
   state.subscriptions.forEach(fn=>{try{fn();}catch{}});
   state.subscriptions=[];state.started=false;state.migrating=false;state.migrationPromise=null;
 }
@@ -170,9 +207,9 @@ function setMember(profile){
   if(!profile?.uid)return;
   if(state.profile?.uid===profile.uid){state.profile=profile;return;}
   stop();
-  state.profile=profile;state.group=null;state.groupExists=false;state.groupStats=null;
+  state.profile=profile;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
   state.yearStats=null;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
-  state.bootstrapTried=false;state.tapQueue=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
+  state.bootstrapTried=false;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
@@ -672,7 +709,7 @@ function render(){
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
-   root.innerHTML=readerMarkup(state.mode==="group-reader");return;
+   root.innerHTML=readerMarkup(state.mode==="group-reader");refreshHeroReader();return;
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
 }
@@ -717,9 +754,9 @@ function openForm(scope,id=null){
  render();
 }
 function back(){
- persistDraft();
+ persistDraft();wzSync.schedule(0);
  if(state.tapBusy){state.pendingBack=true;return;}
- state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.historyDay=null;state.tapQueue=0;state.tapMetaQueue=[];state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;state.draftDay=null;
+ state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.historyDay=null;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;state.draftDay=null;
  const root=$("#wazaif-root");if(root)root.innerHTML="";
  state.continueFor=null;
  render();
@@ -801,7 +838,7 @@ function persistDraft(){
  const key=draftStorageKey();if(!key)return;
  try{
   if(state.tapQueue>0)localStorage.setItem(key,JSON.stringify({
-   day:state.draftDay,count:state.tapQueue,ms:elapsedTime()}));
+   day:state.draftDay,count:state.tapQueue,ms:elapsedTime(),lastTapAt:state.lastTapAt}));
   else localStorage.removeItem(key);
  }catch{}
 }
