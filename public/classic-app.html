@@ -1174,7 +1174,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./wazaif.css?v=rollover-modal-20261123-v7">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=history-edit-triple-20261123-v16">
 <script defer src="./pull-refresh.js?v=20261123-1"></script>
-<link rel="stylesheet" href="./prayer-calendar-fix.css?v=attendance-anytime-20261123-v2">
+<link rel="stylesheet" href="./prayer-calendar-fix.css?v=prayer-ledger-totals-20261123-v3">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 <style id="tasbih-refresh">
@@ -3059,19 +3059,25 @@ function setQazaRecord(id,day,prayer,status,now=Date.now()) {
   return true;
 }
 
-function ledgerRow(label,values,tone='') {
+function ledgerRow(label,values,tone='',withTotals=false) {
+  const rowTotal=values.reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
   return '<tr' + (tone?' class="ledger-'+tone+'"':'') + '><th scope="row"><span>' + label + '</span></th>' +
-    values.map(value=>'<td><bdi>'+formatNumber(value)+'</bdi></td>').join('') + '</tr>';
+    values.map(value=>'<td><bdi>'+formatNumber(value)+'</bdi></td>').join('') +
+    (withTotals?'<td class="prayer-ledger-row-total"><bdi>'+formatNumber(rowTotal)+'</bdi></td>':'')+'</tr>';
 }
 
-function ledgerTable({id,title,rows,footer,grandTotal,note}) {
-  return '<section class="qaza-section prayer-ledger ledger-card" aria-labelledby="'+id+'">' +
-    '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2>' +
-    '</div><div class="ledger-frame"><table aria-labelledby="'+id+'"><colgroup><col><col span="5"></colgroup>' +
-    tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') + prayers.map(([,label])=>'<th scope="col">'+label+'</th>').join('') +
-    '</tr></thead><tbody>' + rows.map(row=>ledgerRow(...row)).join('') +
-    '</tbody><tfoot>' + ledgerRow(...footer) + '</tfoot></table></div>' +
-    (grandTotal===undefined?'':'<p class="prayer-ledger-grand">'+tr("All five prayers · Total", 'پانچوں نمازوں کا کل')+
+function ledgerTable({id,title,rows,footer,grandTotal,note,withTotals=false}) {
+  return '<section class="qaza-section prayer-ledger ledger-card'+(withTotals?' prayer-ledger-seven':'')+'" aria-labelledby="'+id+'">' +
+    '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2></div>'+
+    '<div class="ledger-frame"><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col"><col span="5">'+
+    (withTotals?'<col class="prayer-ledger-total-col">':'')+'</colgroup>'+
+    tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') +
+    prayers.map(([,label])=>'<th scope="col">'+label+'</th>').join('') +
+    (withTotals?'<th scope="col">'+tr("Total",'ٹوٹل')+'</th>':'')+
+    '</tr></thead><tbody>' + rows.map(row=>ledgerRow(row[0],row[1],row[2]||'',withTotals)).join('') +
+    '</tbody><tfoot>' + ledgerRow(footer[0],footer[1],footer[2]||'',withTotals) + '</tfoot></table></div>' +
+    (grandTotal===undefined?'':'<p class="prayer-ledger-grand">'+
+      (withTotals?tr("Total pending prayers", 'کل باقی نمازیں'):tr("All five prayers · Total", 'پانچوں نمازوں کا کل'))+
       ' <strong><bdi>'+formatNumber(grandTotal)+'</bdi></strong></p>') +
     (note?'<p class="qaza-hint">'+note+'</p>':'') + '</section>';
 }
@@ -3087,49 +3093,53 @@ function qazaLedger(byPrayer) {
 
 // The same original date may exist in both attendance and Qaza payment records.
 // Merge by date and prayer, without requiring a scheduled prayer time to mark attendance.
+// A member's chosen Qaza start establishes all five daily obligations up to today,
+// including dates with no attendance and today's prayers regardless of clock time.
+// An original date/prayer pair can have only one paid/on-time status.
 function prayerLedgerTotals(person,now,today) {
   const records=attendance[person.id]||{},plan=qazaPlans[person.id];
   const joined=prayerDate(person.id,person.joined.getTime());
   const valid=day=>/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(dateNumber(day))&&
     qazaDate(dateNumber(day))===day&&day<=today;
   let start=valid(plan?.start)?plan.start:joined;
-  const explicitDays=new Set(Object.keys(records).filter(valid));
-  for(const [id] of prayers)for(const day of Object.keys(plan?.done?.[id]||{}))
-    if(valid(day))explicitDays.add(day);
-  for(const day of explicitDays)if(day<start)start=day;
-  const pastDays=Math.max(0,dateNumber(today)-dateNumber(start));
-  const yesterday=qazaDate(dateNumber(today)-1);
+  // Without a Qaza start date, show older explicit attendance as before.
+  if(!valid(plan?.start)){
+    for(const day of Object.keys(records))if(valid(day)&&day<start)start=day;
+    for(const [id] of prayers)for(const day of Object.keys(plan?.done?.[id]||{}))
+      if(valid(day)&&day<start)start=day;
+  }
+  const duePerPrayer=valid(start)?Math.max(0,dateNumber(today)-dateNumber(start)+1):0;
   const prayerTotals=prayers.map(([id])=>{
-    const grace=!!pastDays&&attendancePhase(person.id,yesterday,id,now,today)!=='missed';
-    const stats={jamat:0,solo:0,missed:Math.max(0,pastDays-(grace?1:0)),made:0};
-    for(const day of explicitDays){
-      if(day<start||day>today)continue;
+    const stats={jamat:0,solo:0,made:0,missed:0,total:duePerPrayer};
+    const days=new Set(Object.keys(records));
+    for(const day of Object.keys(plan?.done?.[id]||{}))days.add(day);
+    for(const day of days){
+      if(!valid(day)||day<start)continue;
       const status=knownPrayerStatus(person.id,day,id);
-      if(day===today){
-        if(status==='jamat'||status==='solo'||status==='made')stats[status]++;
-        else if(status==='missed'||attendancePhase(person.id,today,id,now,today)==='missed')stats.missed++;
-        continue;
-      }
-      if(status==='jamat'||status==='solo'||status==='made'){
-        if(!(grace&&day===yesterday))stats.missed--;
-        stats[status]++;
-      }
+      if(status==='jamat'||status==='solo'||status==='made')stats[status]++;
     }
-    if(!explicitDays.has(today)&&attendancePhase(person.id,today,id,now,today)==='missed')stats.missed++;
-    return {...stats,total:stats.jamat+stats.solo+stats.made+stats.missed};
+    // Empty attendance, explicit missed/clear and every unrecorded date are Qaza.
+    stats.missed=Math.max(0,stats.total-stats.jamat-stats.solo-stats.made);
+    return stats;
   });
-  return {start,prayerTotals};
+  return {start,prayerTotals,duePerPrayer};
 }
 function dailyAttendanceLedger(person,now,today) {
   const {prayerTotals}=prayerLedgerTotals(person,now,today);
-  const totals=prayerTotals.map(prayer=>prayer.total);
-  const rows=[['jamat',tr("Congregation", 'باجماعت')],['solo',tr("Prayed", 'ادا')],['made',tr("Made up", 'قضا ادا')],['missed',tr("Still missed", 'باقی قضا')]].map(([key,label])=>
-    [label,prayerTotals.map(prayer=>prayer[key]),key]);
+  const values=key=>prayerTotals.map(prayer=>prayer[key]);
+  const remaining=values('missed');
+  const rows=[
+    [tr("Total prayers due", 'کل قضا نمازیں'),values('total'),'total'],
+    [tr("Congregation", 'باجماعت'),values('jamat'),'jamat'],
+    [tr("Prayed alone", 'ادا'),values('solo'),'solo'],
+    [tr("Made up", 'قضا ادا'),values('made'),'made']
+  ];
   return ledgerTable({
-    id:'daily-ledger-title',title:tr("Daily Prayer Ledger", 'روزانہ نمازوں کا لیجر'),rows,footer:[tr("Total", 'کل'),totals],
-    grandTotal:totals.reduce((sum,value)=>sum+value,0),
-    note:tr("Counts use the Qaza calendar start date and all saved attendance, without double counting.",
-      'شمار قضا کیلنڈر کی ابتدائی تاریخ اور تمام محفوظ حاضری سے بنتا ہے؛ ایک نماز دو بار شمار نہیں ہوتی۔')
+    id:'daily-ledger-title',title:tr("Daily Prayer Ledger", 'روزانہ نمازوں کا لیجر'),
+    rows,footer:[tr("Still pending", 'باقی قضا نمازیں'),remaining,'missed'],
+    grandTotal:remaining.reduce((sum,value)=>sum+value,0),withTotals:true,
+    note:tr("From your Qaza start date through today, each daily prayer counts as due. Pending = due − congregation − prayed alone − made up.",
+      'قضا کی ابتدائی تاریخ سے آج تک ہر نماز شامل ہے۔ باقی قضا = کل نمازیں − باجماعت − ادا − قضا ادا۔')
   });
 }
 

@@ -189,3 +189,44 @@
  color:#eafff3;font:800 clamp(.79rem,2.9vw,.95rem)/1.6 var(--ur,serif)
 }
 .namaz-card .prayer-ledger-grand strong{font:850 clamp(1.06rem,4vw,1.35rem)/1.2 system-ui,sans-serif;color:#fff;direction:ltr}
+
+/* Daily prayer accounts: Attendance + five prayers + total, all readable on mobile. */
+:root[data-theme] .namaz-card .prayer-ledger-seven .prayer-ledger-status-col{width:24%}
+:root[data-theme] .namaz-card .prayer-ledger-seven .prayer-ledger-total-col{width:13%}
+:root[data-theme] .namaz-card .prayer-ledger-seven th,
+:root[data-theme] .namaz-card .prayer-ledger-seven td{
+ padding:5px 1px;
+ font-size:clamp(.62rem,2.55vw,.86rem);
+ font-variant-numeric:tabular-nums;
+ overflow-wrap:anywhere;
+ text-align:center;
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven thead th:first-child,
+:root[data-theme] .namaz-card .prayer-ledger-seven tbody th,
+:root[data-theme] .namaz-card .prayer-ledger-seven tfoot th{
+ text-align:start;padding-inline:4px;line-height:1.5
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven tbody th span,
+:root[data-theme] .namaz-card .prayer-ledger-seven tfoot th span{
+ padding:1px;line-height:1.5;background:transparent;color:inherit
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven .prayer-ledger-row-total{
+ background:#136349;color:#fff;font-weight:850;
+ border-inline-start:1px solid #418d70
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven thead th:last-child{
+ background:#08714f;color:#fff
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven tfoot th,
+:root[data-theme] .namaz-card .prayer-ledger-seven tfoot td{
+ background:#14543e;color:#fff;font-weight:850
+}
+:root[data-theme] .namaz-card .prayer-ledger-seven .ledger-total{
+ padding:2px 3px
+}
+@media(max-width:370px){
+ :root[data-theme] .namaz-card .prayer-ledger-seven th,
+ :root[data-theme] .namaz-card .prayer-ledger-seven td{
+  font-size:clamp(.55rem,2.45vw,.72rem);padding:4px 0
+ }
+}
