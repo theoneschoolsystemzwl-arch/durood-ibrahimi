@@ -125,9 +125,11 @@ assert(ledgerHtml.includes('ledger-frame prayer-ledger-scroll'),"The seven-colum
 assert(ledgerHtml.includes('role="region" tabindex="0"'),"Keyboard can focus the scroll region");
 assert(ledgerHtml.includes('prayer-ledger-scroll-hint'),"Small phones display a sideways-swipe hint");
 assert(css.includes("overflow-x:auto!important"),"The ledger no longer clips overflow on a phone");
-assert(css.includes("width:640px!important")&&css.includes("min-width:640px!important"),"Large amounts have guaranteed column width");
-assert(css.includes("inset-inline-start:0")&&css.includes("inset-inline-end:0"),"Row heading and row total remain visible while swiping");
-assert(css.includes("col.prayer-ledger-status-col")&&css.includes("col.prayer-ledger-total-col"),"Explicit widths are provided to the two frozen columns");
+assert(css.includes("width:601px!important")&&css.includes("min-width:601px!important"),"Table has enough space for all seven columns");
+assert(css.includes("position:static!important")&&css.includes("white-space:nowrap!important"),"No sticky edge overlay or vertical letter-by-letter labels");
+assert(css.includes("col.prayer-ledger-status-col")&&css.includes("col.prayer-ledger-prayer-col")&&css.includes("col.prayer-ledger-total-col"),"Every column has its own width");
+assert(ui.includes("prayers.map(()=>'<col class=\"prayer-ledger-prayer-col\">').join('')"),"Five prayer columns are separate, not one span of five");
+assert(!ui.includes('<col span="5">'),"The old grouped column no longer compresses prayer figures");
 assert(!ledgerHtml.includes('id="qaza-ledger-title"'),"Daily ledger does not change the separate Qaza ledger");
 
 assert.equal((ledgerTableHtml.match(/<th scope="col">/g)||[]).length,7,"Attendance, five daily prayers and Total");
