@@ -334,6 +334,61 @@ function durationText(ms){
  return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60]
    .map(n=>String(n).padStart(2,"0")).join(":")+"."+String(Math.floor(whole%1000/100));
 }
+
+function readingPace(record,live=false){
+ const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
+ let duration=0,intervals=0;
+ for(const entry of Object.values(ledger)){
+  const ms=Number(entry?.durationMs||0),n=Number(entry?.intervals||0);
+  if(Number.isFinite(ms)&&ms>=0&&Number.isFinite(n)&&n>0){duration+=ms;intervals+=n;}
+ }
+ if(live&&state.clockIntervals>0){duration+=state.tapGapTotalMs;intervals+=state.clockIntervals;}
+ return intervals>0?duration/intervals:0;
+}
+function readingTimes(record,live=false){
+ const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
+ let tasbih=0,manualCount=0;
+ for(const entry of Object.values(ledger)){
+  tasbih+=Math.max(0,Number(entry?.durationMs)||0);
+  manualCount+=Math.max(0,Number(entry?.manualCount)||0);
+ }
+ if(live&&state.tapQueue>0)tasbih+=elapsedTime();
+ const speed=readingPace(record,live),manual=speed>0?Math.round(manualCount*speed):0;
+ return {tasbih,manual,total:tasbih+manual,hasSpeed:speed>0,manualCount};
+}
+function dailyFigures(group,w,record,queued=0){
+ const today=readingDay(),rows=group?[]:datedProgress(record);
+ const r=rows.length?rows[rows.length-1]:null,entry=record?.dailyLedger?.[today]||{};
+ const goal=group?Number(w.dailyGoal||0):targetForDay(w,today);
+ const saved=group?(record?.day===today?Number(record.today||0):0):
+  Number(r?.count??(record?.day===today?record.today:0))||0;
+ const queuedToday=state.draftDay===today?queued:0;
+ const previous=Math.max(0,Number(r?.previousDue||0)),credit=Math.max(0,Number(r?.previousCredit||0));
+ const read=saved+queuedToday;
+ return {goal,previous,tasbih:(group?saved:Number(entry.tasbihCount||0))+queuedToday,
+  manual:group?0:Number(entry.manualCount||0),read,pending:Math.max(0,goal+previous-credit-read)};
+}
+function fiveFigure(label,value,id,klass="",hint=""){
+ return '<div class="wz-five-cell '+klass+'"><small>'+label+'</small><strong id="'+id+'">'+fmt(value)+'</strong>'+
+  (hint?'<em>'+hint+'</em>':'')+'</div>';
+}
+function fiveFigureMarkup(group,w,record){
+ const d=dailyFigures(group,w,record,state.tapQueue);
+ return '<div class="wz-five-counts" aria-label="روزانہ پانچ اعداد ایک سطر میں">'+
+  fiveFigure("ہدف",d.goal,"wz-five-goal","",d.previous?"پچھلا +"+fmt(d.previous):"")+
+  fiveFigure("تسبیح",d.tasbih,"wz-five-tasbih","wz-green")+
+  fiveFigure("دستی",d.manual,"wz-five-manual","wz-yellow")+
+  fiveFigure("کل",d.read,"wz-five-read")+
+  fiveFigure("بقایا",d.pending,"wz-five-pending",d.pending?"wz-red":"wz-green")+
+  '</div><p id="wz-five-alert" class="wz-five-alert" role="status"'+(d.pending?'':' hidden')+
+  '>آج کا باقی ہدف پورا کریں — '+fmt(d.pending)+' بقایا</p>';
+}
+function readingTimesMarkup(record){
+ const t=readingTimes(record,true);
+ return '<div class="wz-time-three"><span>تسبیح وقت <bdi id="wz-time-real" dir="ltr">'+durationText(t.tasbih)+'</bdi></span>'+
+  '<span>دستی تخمینہ <bdi id="wz-time-est" dir="ltr">'+(t.hasSpeed?durationText(t.manual):"—")+'</bdi></span>'+
+  '<span>کل وقت <bdi id="wz-time-all" dir="ltr">'+durationText(t.total)+'</bdi></span></div>';
+}
 function displayRecordDate(key){
  if(!dayOk(key))return key;
  return new Intl.DateTimeFormat("ur-PK",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"})
