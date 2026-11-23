@@ -992,7 +992,7 @@ document.addEventListener("submit",event=>{
   const amount=Number(raw.replace(/^[+-]/,""));
   const allowed=canEnterDay(task,day);
   const savedCount=Number(task.dailyLedger?.[day]?.count||0);
-  if(!allowed||!/^[-+]?\\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>10000||
+  if(!allowed||!/^[-+]?\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>10000||
     !["add","remove"].includes(operation)||(operation==="remove"&&amount>savedCount)){
    const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="درست تعداد درج کریں۔ کمی صرف اسی دن کی محفوظ تعداد تک ہو سکتی ہے۔";}return;
   }
