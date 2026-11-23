@@ -357,7 +357,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     updatedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(nextW,{
-    continuePeriods:[{mode:"daily",startDate:"2026-11-16",endDate:"",durationDays:0,goal:300}],
+    continuePeriods:[{mode:"daily",startDate:"2026-11-14",endDate:"",durationDays:0,goal:300}],
     updatedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(nextW,{
@@ -400,7 +400,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     updatedAt:serverTimestamp()
   }));
   await assertFails(updateDoc(fixedOnly,{
-    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-12-26",durationDays:42,goal:6000}],
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-14",endDate:"2026-12-26",durationDays:42,goal:6000}],
     updatedAt:serverTimestamp()
   }));
   // Reopen a completed period to correct wrong starting/ending dates.
