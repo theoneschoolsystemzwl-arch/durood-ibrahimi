@@ -15,6 +15,9 @@ on:
 permissions:
   contents: read
   id-token: write
+concurrency:
+  group: firebase-live-production
+  cancel-in-progress: true
 jobs:
   hosting:
     runs-on: ubuntu-latest
