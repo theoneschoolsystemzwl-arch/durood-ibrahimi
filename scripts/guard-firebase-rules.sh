@@ -135,10 +135,13 @@ const beforeSignedLedger=historicalRules('1ced3cfb5ae4919d5363353f0bd1bf135f3f45
 // Last verified production release before adding immutable tap-sync receipts.
 // This full source was deployed successfully with the previous profile update.
 const beforeDurableTasbih=historicalRules('fd863f86ed73b1e997ca5703080a3c77cc35ee14');
+// Exact rules from the last confirmed successful production Spark deploy.
+// The November 23 hosting workflow completed successfully for this commit.
+const beforeLatestPublished=historicalRules('fb76735c41381b7bbeaaee10c199449bdd1f3209');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
-  beforeFastCount,beforeSignedLedger,beforeDurableTasbih
+  beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');
