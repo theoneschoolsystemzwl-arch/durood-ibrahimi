@@ -92,6 +92,19 @@ function dailyConversionHint(t){
  if(legacyContinuation(t))return '<p class="wz-daily-convert-note">پہلے '+fmt(spanDays(t.startDate,t.endDate))+' دن اور اصل '+fmt(t.goal)+' کا ہدف محفوظ ہے۔ روزانہ وظیفہ جاری ہے۔</p>';
  return fixedExpired(t)?'<p class="wz-daily-convert-note">مقررہ مدت مکمل ہے۔ سیٹنگ میں "اگلا ہدف" منتخب کریں؛ سابقہ ریکارڈ محفوظ رہے گا۔</p>':"";
 }
+// Current visible dates come from the latest continuation, not the
+// immutable historical first period. The same source feeds card and reader.
+function visibleWazifaPeriod(task,today=readingDay()){
+ const latest=continuationPeriods(task).at(-1);
+ const legacy=legacyContinuation(task);
+ const start=latest?.startDate||(legacy?task.continueStartDate:task.startDate);
+ const end=latest?(latest.mode==="fixed"?latest.endDate:""):
+   (legacy?"":task.endDate);
+ const mode=latest?.mode||(legacy?"daily":task.kind);
+ const days=mode==="fixed"?spanDays(start,end):Math.max(0,dayOk(start)&&today>=start?spanDays(start,today):0);
+ const elapsed=mode==="fixed"?Math.min(days,Math.max(0,dayDistance(start,today)+1)):days;
+ return {startDate:start,endDate:end,mode,days,elapsed,remaining:mode==="fixed"?Math.max(0,days-elapsed):0};
+}
 function fixedPlan(task){
  if(task?.kind!=="fixed")return null;
  const days=spanDays(task.startDate,task.endDate);
@@ -119,6 +132,7 @@ function fixedPlan(task){
 }
 function fixedPlanMarkup(task,reader=false){
  const p=fixedPlan(task);if(!p)return "";
+ const visible=visibleWazifaPeriod(task);
  const dateTile=(label,date)=>'<div class="wz-stat"><small>'+label+'</small><strong dir="ltr">'+esc(date)+'</strong></div>';
  const statTile=(label,value,id="")=>'<div class="wz-stat"><small>'+label+'</small><strong'+(id?' id="'+id+'"':'')+'>'+fmt(value)+'</strong></div>';
  const dailyTile=statTile(p.continuing?"ڈیلی ہدف":"روزانہ مطلوبہ تعداد",p.daily);
@@ -126,7 +140,7 @@ function fixedPlanMarkup(task,reader=false){
  '<div class="wz-plan-tiles">'+
  statTile("اصل دن",p.days)+statTile(p.continuing?"موجودہ دن":"مکمل دن",p.continuing?p.currentDay:p.elapsed)+
  (p.continuing?'<div class="wz-stat wz-stat-extra"><small>اضافی دن</small><strong>+'+fmt(p.extraDays)+'</strong></div>':statTile("باقی دن",p.remaining))+
- dateTile("آغاز کی تاریخ",task.startDate)+dateTile("اختتامی تاریخ",task.endDate)+
+ dateTile("آغاز کی تاریخ",visible.startDate)+dateTile("اختتامی تاریخ",visible.endDate||"جاری")+
  statTile("کل پڑھے گئے",p.total,reader?"wz-fixed-total":"")+
  dailyTile+statTile("کل ہدف",p.goal)+
  statTile("مجموعی باقی",p.remainingCount,reader?"wz-fixed-left":"")+
@@ -396,7 +410,7 @@ function formMarkup(){
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
  dailyConversionHint(original)+
  (state.editId&&!g&&expired?'<div class="wz-continue-prompt"><p>مقررہ مدت مکمل ہوگئی۔ کیا آپ اس وظیفے کو اگلے دن سے جاری رکھنا چاہتے ہیں؟ سابقہ ہدف اور ریکارڈ محفوظ رہیں گے۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="continue-personal" data-wazifa-id="'+esc(original.id)+'">اگلا ہدف مقرر کریں</button></div>':'')+
- (state.editId&&!g&&continuationPeriods(original).length?'<div class="wz-continue-prompt"><p>موجودہ مرحلے کا ہدف دوبارہ درست کر سکتے ہیں۔ گنتی اور پچھلے مراحل محفوظ رہیں گے۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="edit-continuation" data-wazifa-id="'+esc(original.id)+'">موجودہ ہدف تبدیل کریں</button></div>':'')+
+ (state.editId&&!g&&continuationPeriods(original).length?'<div class="wz-continue-prompt"><p>موجودہ مرحلے کا ہدف، آغاز یا اختتامی تاریخ درست کر سکتے ہیں۔ پہلے کا ریکارڈ محفوظ رہے گا۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="edit-continuation" data-wazifa-id="'+esc(original.id)+'">موجودہ ہدف اور تاریخ تبدیل کریں</button></div>':'')+
  '<div class="wz-date-preview" id="wz-date-preview" role="status"></div>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="active" '+(g&&original.active===false?'':'checked')+'> گروپ وظیفہ فعال رکھیں</label>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="countAsDurood" '+(!g||original.countAsDurood!==false?'checked':'')+'> یہ درود شریف ہے (مجموعی درود میں بھی شمار کریں)</label>'+
@@ -644,7 +658,8 @@ function readerMarkup(group){
  if(!w)return '<button class="wz-button" data-wazifa-action="back">وظائف واپس</button>';
  const record=group?state.groupStats||{}:w;
  const s=heroReadingState(group,w,record);
- const days=s.plan?.days||0,elapsed=s.plan?.elapsed||0,remaining=s.plan?.remaining||0;
+ const visible=!group?visibleWazifaPeriod(w):null;
+ const days=visible?.days||0,elapsed=visible?.elapsed||0,remaining=visible?.remaining||0;
  const showDates=!!s.plan;
  const today=readingDay();
  const history=group?'<p class="wz-history-empty">مشترکہ گروپ کی الگ روزانہ تفصیل تسبیح کے اپنے ریکارڈ میں دیکھیے۔</p>':wazifaHistoryMarkup(record);
@@ -660,11 +675,11 @@ function readerMarkup(group){
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  (showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
- heroTile("کل دن",fmt(days),"date")+
+ heroTile("کل دن",visible.mode==="daily"?"روزانہ":fmt(days),"date")+
  heroTile("مکمل دن",fmt(s.continuing?s.plan.currentDay:elapsed),"check")+
  heroTile(s.continuing?"اضافی دن":"باقی دن",s.continuing?"+"+fmt(s.plan.extraDays):fmt(remaining),"date")+
- heroTile("آغاز تاریخ",w.startDate,"date")+
- heroTile("اختتامی تاریخ",w.endDate,"date")+
+ heroTile("آغاز تاریخ",visible.startDate,"date")+
+ heroTile("اختتامی تاریخ",visible.endDate||"جاری","date")+
  '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-mini-today")+
  heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
@@ -777,19 +792,20 @@ function continuationFormMarkup(){
  '<p class="wz-help">'+esc(task.title)+' · '+esc(wazifaSerial(task))+'</p>'+
  '<p class="wz-help">'+(edit?'اس مرحلے کا ہدف دوبارہ لکھیں۔ پڑھی ہوئی گنتی، پہلے مراحل اور تاریخیں محفوظ رہیں گی؛ اسی مرحلے کا بقایا نئے ہدف کے مطابق دوبارہ حساب ہوگا۔':
    'پچھلی مدت '+esc(previousEnd)+' کو مکمل ہوگئی۔ کیا آپ اسے جاری رکھنا چاہتے ہیں؟ پرانی گنتی اور تمام تاریخیں محفوظ رہیں گی۔')+'</p>'+
- '<label>اس مرحلے کی تاریخ<input name="nextStart" type="date" value="'+esc(next)+'" readonly></label>'+
+ '<label>اس مرحلے کے آغاز کی تاریخ<input name="nextStart" type="date" value="'+esc(next)+'" '+(edit?'':'readonly')+'></label>'+
  '<p class="wz-label">'+(edit?'موجودہ وظیفے کی قسم':'اگلے وظیفے کی قسم')+'</p><div class="wz-kind">'+
  '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="daily" '+(mode==="daily"?'checked':'')+(edit&&mode!=="daily"?' disabled':'')+'><span><b>ڈیلی وظیفہ</b><small>روزانہ بغیر آخری تاریخ کے</small></span></label>'+
  '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="fixed" '+(mode==="fixed"?'checked':'')+(edit&&mode!=="fixed"?' disabled':'')+'><span><b>فکس وظیفہ</b><small>دوبارہ 41 دن یا اپنی مدت</small></span></label></div>'+
  '<div data-wz-next-daily><label>روزانہ ہدف<input name="nextDailyGoal" type="number" min="1" max="1000000000" value="'+esc(dailyGoal)+'"></label></div>'+
  '<div data-wz-next-fixed hidden><label>فکس وظیفے کا مجموعی ہدف<input name="nextFixedGoal" type="number" min="1" max="1000000000" value="'+esc(fixedGoal)+'"></label>'+
- '<label>کتنے دن کا وظیفہ؟<input name="nextDuration" type="number" min="1" max="3650" '+(edit?'readonly ':'')+'value="'+esc(duration)+'"></label></div>'+
- (edit?'<p class="wz-help">پہلے محفوظ کی گئی مدت اور قسم تبدیل نہیں ہوگی؛ صرف اسی مرحلے کا ہدف درست ہوگا۔</p>':'')+
+ '<label>کتنے دن کا وظیفہ؟<input name="nextDuration" type="number" min="1" max="3650" value="'+esc(duration)+'"></label>'+
+ '<label>اختتامی تاریخ<input name="nextEnd" type="date" value="'+esc(edit&&last.mode==="fixed"?last.endDate:addDays(next,duration-1))+'" '+(edit?'':'readonly')+'></label></div>'+
+ (edit?'<p class="wz-help">تاریخ یا مدت بدلنے پر محفوظ گنتی کو خارج کرنا جائز نہیں؛ پرانے مراحل اور وظیفے کی قسم برقرار رہیں گے۔</p>':'')+
  '<div class="wz-date-preview" id="wz-next-preview" role="status"></div>'+
  '<div class="wz-actions"><button type="submit" class="wz-button wz-primary">'+(edit?'تبدیلی محفوظ کریں':'نیا ہدف محفوظ کریں')+'</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="back">منسوخ</button></div></form>';
 }
-function syncContinuationForm(){
+function syncContinuationForm(changed=""){
  const form=$("#wz-continue-form");if(!form)return;
  const mode=form.elements.nextMode.value, fixed=mode==="fixed";
  form.querySelector("[data-wz-next-daily]").hidden=fixed;
@@ -797,14 +813,23 @@ function syncContinuationForm(){
  form.elements.nextDailyGoal.required=!fixed;
  form.elements.nextFixedGoal.required=fixed;
  form.elements.nextDuration.required=fixed;
+ form.elements.nextEnd.required=fixed;
  const preview=form.querySelector("#wz-next-preview"),start=form.elements.nextStart.value;
  if(fixed){
-   const duration=Number(form.elements.nextDuration.value),goal=Number(form.elements.nextFixedGoal.value);
-   const good=Number.isSafeInteger(duration)&&duration>=1&&duration<=3650;
-   preview.textContent=good?"اختتام: "+addDays(start,duration-1)+" · روزانہ مطلوبہ تعداد: "+
-     fmt(Math.ceil(goal/duration)):"دن اور مجموعی ہدف درست درج کریں۔";
+   const endField=form.elements.nextEnd,daysField=form.elements.nextDuration;
+   if(changed==="nextEnd"&&form.dataset.editPeriod==="1"&&
+      spanDays(start,endField.value)>0)daysField.value=String(spanDays(start,endField.value));
+   else if(dayOk(start)&&Number.isSafeInteger(Number(daysField.value))&&
+      Number(daysField.value)>=1&&Number(daysField.value)<=3650)
+     endField.value=addDays(start,Number(daysField.value)-1);
+   const duration=Number(daysField.value),goal=Number(form.elements.nextFixedGoal.value);
+   const good=dayOk(start)&&dayOk(endField.value)&&
+     spanDays(start,endField.value)===duration&&duration>=1&&duration<=3650;
+   preview.textContent=good?"اختتام: "+endField.value+" · روزانہ مطلوبہ تعداد: "+
+     fmt(Math.ceil(goal/duration)):"آغاز، اختتام، کل دن اور مجموعی ہدف درست درج کریں۔";
  }else preview.textContent="آغاز: "+start+" · روزانہ ہدف: "+fmt(Number(form.elements.nextDailyGoal.value));
 }
+
 function render(){
  const root=$("#wazaif-root");
  if(!root||!state.profile)return;
@@ -951,10 +976,13 @@ async function saveContinuationForm(form){
  const daily=Number(form.elements.nextDailyGoal.value);
  const fixedGoal=Number(form.elements.nextFixedGoal.value);
  const duration=Number(form.elements.nextDuration.value);
+ const startDay=form.elements.nextStart.value;
+ const endDay=mode==="fixed"?form.elements.nextEnd.value:"";
  const valid=n=>Number.isSafeInteger(n)&&n>=1&&n<=1000000000;
  if(!["fixed","daily"].includes(mode)||
     (mode==="daily"&&!valid(daily))||
-    (mode==="fixed"&&(!valid(fixedGoal)||!Number.isSafeInteger(duration)||duration<1||duration>3650))){
+    (mode==="fixed"&&(!valid(fixedGoal)||!Number.isSafeInteger(duration)||duration<1||duration>3650||
+      !dayOk(endDay)||spanDays(startDay,endDay)!==duration))||!dayOk(startDay)){
    setError("نیا ہدف اور مدت درست درج کریں۔");return;
  }
  const uid=auth.currentUser?.uid,id=state.continueFor;
@@ -973,12 +1001,27 @@ async function saveContinuationForm(form){
      if(edit){
        const latest=old.at(-1);
        if(!latest||JSON.stringify(latest)!==form.dataset.periodSignature||
-          latest.mode!==mode||latest.startDate!==form.elements.nextStart.value||
-          (mode==="fixed"&&latest.durationDays!==duration))
+          latest.mode!==mode)
          throw Error("مرحلے میں دوسری جگہ تبدیلی ہوئی ہے۔ سیٹنگ دوبارہ کھولیں۔");
-       const newGoal=mode==="fixed"?fixedGoal:daily;
-       if(latest.goal!==newGoal)
-         tx.update(ref,{continuePeriods:[...old.slice(0,-1),{...latest,goal:newGoal}],updatedAt:serverTimestamp()});
+       const lastFixedEnd=old.length>1?old[old.length-2].endDate:current.endDate;
+       if(!dayOk(lastFixedEnd)||startDay<=lastFixedEnd)
+         throw Error("نئی تاریخ پچھلے مرحلے کی اختتامی تاریخ کے بعد ہونی چاہیے۔");
+       const newPeriod={...latest,startDate:startDay,
+         endDate:mode==="fixed"?endDay:"",
+         durationDays:mode==="fixed"?duration:0,
+         goal:mode==="fixed"?fixedGoal:daily};
+       // A corrected date must never push an already saved recitation outside
+       // its period. This checks all dated rows in the transaction snapshot.
+       const ledger=current.dailyLedger||{};
+       for(const [date,entry] of Object.entries(ledger)){
+         if(Number(entry?.count||0)<=0||date<latest.startDate||
+             (latest.mode==="fixed"&&date>latest.endDate))continue;
+         if(date<newPeriod.startDate||
+            (newPeriod.mode==="fixed"&&date>newPeriod.endDate))
+           throw Error("اس تاریخ کی پڑھی ہوئی گنتی محفوظ ہے ("+date+")؛ اسے نئی مدت سے باہر نہیں کر سکتے۔");
+       }
+       if(JSON.stringify(newPeriod)!==JSON.stringify(latest))
+         tx.update(ref,{continuePeriods:[...old.slice(0,-1),newPeriod],updatedAt:serverTimestamp()});
      }else{
        if(!fixedExpired(current)||previousEnd!==form.dataset.previousEnd)
          throw Error("اس وظیفے کا مرحلہ دوسری جگہ تبدیل ہو گیا۔ دوبارہ کھولیں۔");
@@ -992,7 +1035,7 @@ async function saveContinuationForm(form){
      }
    });
    state.continueFor=null;state.continueEdit=false;state.error="";
-   state.shareNotice=form.dataset.editPeriod==="1"?"موجودہ ہدف درست ہوگیا؛ محفوظ گنتی برقرار ہے۔":"اگلے مرحلے کا ہدف محفوظ ہوگیا؛ پچھلا ریکارڈ محفوظ ہے۔";
+   state.shareNotice=form.dataset.editPeriod==="1"?"موجودہ ہدف اور تاریخ درست ہوگئے؛ پرانی گنتی محفوظ ہے۔":"اگلے مرحلے کا ہدف محفوظ ہوگیا؛ پچھلا ریکارڈ محفوظ ہے۔";
    state.mode="list";
    const root=$("#wazaif-root");if(root)root.innerHTML="";
    render();
@@ -1412,7 +1455,7 @@ document.addEventListener("submit",event=>{
  saveForm(event.target);
 },true);
 document.addEventListener("change",event=>{
- if(event.target?.closest("#wz-continue-form")){syncContinuationForm();return;}
+ if(event.target?.closest("#wz-continue-form")){syncContinuationForm(event.target.name);return;}
  if(event.target?.id==="wz-save-date"||event.target?.id==="wz-cal-native-date"){
   if(changeWazifaDay(event.target.value)){
    const dialog=$("#wz-date-dialog");
@@ -1428,6 +1471,10 @@ document.addEventListener("change",event=>{
  }
 },true);
 document.addEventListener("input",event=>{
+ if(event.target?.closest("#wz-continue-form")&&
+    ["nextStart","nextEnd","nextDuration","nextFixedGoal","nextDailyGoal"].includes(event.target.name)){
+   syncContinuationForm(event.target.name);return;
+ }
  if(event.target?.closest("#wazifa-form")&&["durationDays","startDate","goal"].includes(event.target.name))syncForm();
 },true);
 // Do not discard Firestore taps or settings that have not finished saving.

@@ -861,22 +861,35 @@ service cloud.firestore {
           (wzDate(latest.endDate) && latest.endDate >= latest.startDate &&
            latest.durationDays >= 1 && latest.durationDays <= 3650));
     }
-    // An existing latest period may have its numerical goal corrected
-    // repeatedly. Prior periods, dates, kind, duration and counts are immutable.
-    function validWzPeriodGoalRevision(d,changed) {
+    // Allow correction of the last continuation's goal and dates only.
+    // The original Wazifa, previously completed periods and saved ledger
+    // remain immutable. Date corrections cannot overlap an earlier period.
+    function validWzPeriodRevision(d,changed) {
       let before=resource.data.get('continuePeriods',[]);
       let after=d.get('continuePeriods',[]);
+      let priorEnd=before.size() <= 1 ? resource.data.endDate :
+        before[before.size()-2].endDate;
+      let last=after[after.size()-1];
+      let previous=before[before.size()-1];
       return changed.hasOnly(['continuePeriods','updatedAt']) &&
         resource.data.kind == 'fixed' && d.kind == 'fixed' &&
         !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
         before is list && after is list &&
         before.size() > 0 && after.size() == before.size() &&
         (before.size() == 1 || after[0:before.size()-1] == before[0:before.size()-1]) &&
-        after[after.size()-1] is map && before[before.size()-1] is map &&
-        after[after.size()-1].diff(before[before.size()-1]).affectedKeys().hasOnly(['goal']) &&
-        after[after.size()-1].keys().hasAll(['mode','startDate','endDate','durationDays','goal']) &&
-        after[after.size()-1].goal is int &&
-        after[after.size()-1].goal >= 1 && after[after.size()-1].goal <= 1000000000;
+        previous is map && last is map &&
+        last.keys().hasAll(['mode','startDate','endDate','durationDays','goal']) &&
+        last.keys().hasOnly(['mode','startDate','endDate','durationDays','goal']) &&
+        last.diff(previous).affectedKeys().hasOnly(['goal','startDate','endDate','durationDays']) &&
+        last.mode == previous.mode &&
+        wzDate(priorEnd) && wzDate(last.startDate) && last.startDate > priorEnd &&
+        last.goal is int && last.goal >= 1 && last.goal <= 1000000000 &&
+        last.durationDays is int &&
+        (last.mode == 'daily' ?
+          (last.endDate == '' && last.durationDays == 0) :
+          (last.mode == 'fixed' && wzDate(last.endDate) &&
+            last.endDate >= last.startDate &&
+            last.durationDays >= 1 && last.durationDays <= 3650));
     }
     function validWzRegularEdit(d,changed) {
       return changed.hasOnly(['title','arabic','instructions','purpose','kind',
@@ -947,7 +960,7 @@ service cloud.firestore {
            (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
              validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
            (changed.hasAny(['continuePeriods']) ?
-             (validWzPeriodAppend(d,changed) || validWzPeriodGoalRevision(d,changed)) :
+             (validWzPeriodAppend(d,changed) || validWzPeriodRevision(d,changed)) :
              changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
     }
