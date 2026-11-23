@@ -334,6 +334,61 @@ function durationText(ms){
  return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60]
    .map(n=>String(n).padStart(2,"0")).join(":")+"."+String(Math.floor(whole%1000/100));
 }
+
+function readingPace(record,live=false){
+ const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
+ let duration=0,intervals=0;
+ for(const entry of Object.values(ledger)){
+  const ms=Number(entry?.durationMs||0),n=Number(entry?.intervals||0);
+  if(Number.isFinite(ms)&&ms>=0&&Number.isFinite(n)&&n>0){duration+=ms;intervals+=n;}
+ }
+ if(live&&state.clockIntervals>0){duration+=state.tapGapTotalMs;intervals+=state.clockIntervals;}
+ return intervals>0?duration/intervals:0;
+}
+function readingTimes(record,live=false){
+ const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
+ let tasbih=0,manualCount=0;
+ for(const entry of Object.values(ledger)){
+  tasbih+=Math.max(0,Number(entry?.durationMs)||0);
+  manualCount+=Math.max(0,Number(entry?.manualCount)||0);
+ }
+ if(live&&state.tapQueue>0)tasbih+=elapsedTime();
+ const speed=readingPace(record,live),manual=speed>0?Math.round(manualCount*speed):0;
+ return {tasbih,manual,total:tasbih+manual,hasSpeed:speed>0,manualCount};
+}
+function dailyFigures(group,w,record,queued=0){
+ const today=readingDay(),rows=group?[]:datedProgress(record);
+ const r=rows.length?rows[rows.length-1]:null,entry=record?.dailyLedger?.[today]||{};
+ const goal=group?Number(w.dailyGoal||0):targetForDay(w,today);
+ const saved=group?(record?.day===today?Number(record.today||0):0):
+  Number(r?.count??(record?.day===today?record.today:0))||0;
+ const queuedToday=state.draftDay===today?queued:0;
+ const previous=Math.max(0,Number(r?.previousDue||0)),credit=Math.max(0,Number(r?.previousCredit||0));
+ const read=saved+queuedToday;
+ return {goal,previous,tasbih:(group?saved:Number(entry.tasbihCount||0))+queuedToday,
+  manual:group?0:Number(entry.manualCount||0),read,pending:Math.max(0,goal+previous-credit-read)};
+}
+function fiveFigure(label,value,id,klass="",hint=""){
+ return '<div class="wz-five-cell '+klass+'"><small>'+label+'</small><strong id="'+id+'">'+fmt(value)+'</strong>'+
+  (hint?'<em>'+hint+'</em>':'')+'</div>';
+}
+function fiveFigureMarkup(group,w,record){
+ const d=dailyFigures(group,w,record,state.tapQueue);
+ return '<div class="wz-five-counts" aria-label="روزانہ پانچ اعداد ایک سطر میں">'+
+  fiveFigure("ہدف",d.goal,"wz-five-goal","",d.previous?"پچھلا +"+fmt(d.previous):"")+
+  fiveFigure("تسبیح",d.tasbih,"wz-five-tasbih","wz-green")+
+  fiveFigure("دستی",d.manual,"wz-five-manual","wz-yellow")+
+  fiveFigure("کل",d.read,"wz-five-read")+
+  fiveFigure("بقایا",d.pending,"wz-five-pending",d.pending?"wz-red":"wz-green")+
+  '</div><p id="wz-five-alert" class="wz-five-alert" role="status"'+(d.pending?'':' hidden')+
+  '>آج کا باقی ہدف پورا کریں — '+fmt(d.pending)+' بقایا</p>';
+}
+function readingTimesMarkup(record){
+ const t=readingTimes(record,true);
+ return '<div class="wz-time-three"><span>تسبیح وقت <bdi id="wz-time-real" dir="ltr">'+durationText(t.tasbih)+'</bdi></span>'+
+  '<span>دستی تخمینہ <bdi id="wz-time-est" dir="ltr">'+(t.hasSpeed?durationText(t.manual):"—")+'</bdi></span>'+
+  '<span>کل وقت <bdi id="wz-time-all" dir="ltr">'+durationText(t.total)+'</bdi></span></div>';
+}
 function displayRecordDate(key){
  if(!dayOk(key))return key;
  return new Intl.DateTimeFormat("ur-PK",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"})
@@ -437,6 +492,7 @@ function historyEditMarkup(record,day){
 function wazifaHistoryMarkup(record){
  const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
  const allRows=datedProgress(record);
+ const pace=readingPace(record);
  const countedDays=Object.values(ledger).reduce((n,e)=>n+Math.max(0,Number(e?.count||0)),0);
  const historicUnallocated=Math.max(0,Number(record?.total||0)-countedDays);
  const rows=allRows.slice(-state.historyLimit).reverse().map(r=>{
@@ -448,29 +504,31 @@ function wazifaHistoryMarkup(record){
   const fulfilled=!outside&&remaining===0;
   const status=outside?'<span class="wz-day-neutral">مدت مکمل</span>':
     fulfilled?'<span class="wz-day-complete">✓ بقایا مکمل، ہدف پورا</span>':
-    '<span class="wz-day-pending" role="status">● بقایا '+fmt(remaining)+' — پورا کریں</span>';
+    '<span class="wz-day-pending" role="status">● آج کا باقی ہدف پورا کریں — '+fmt(remaining)+' بقایا</span>';
   const extra=count>goal?'<span class="wz-day-extra">اس تاریخ میں زائد '+fmt(count-goal)+'</span>':"";
-  const totalRequired=goal+previousDue;
-  const item=(label,n,klass="")=>'<span class="wz-ledger-item '+klass+'"><small>'+label+'</small><strong>'+fmt(n)+'</strong></span>';
+  const item=(label,n,klass="",hint="")=>'<span class="wz-ledger-item '+klass+'"><small>'+label+'</small><strong>'+fmt(n)+'</strong>'+(hint?'<em>'+hint+'</em>':'')+'</span>';
   return '<div class="wz-history-row wz-history-clear wz-ledger-entry '+(fulfilled?"wz-day-ok":outside?"wz-day-idle":"wz-day-due")+
    '" dir="rtl" role="button" tabindex="0" data-wazifa-action="history-day" data-wazifa-day="'+day+
    '" aria-label="'+esc(displayRecordDate(day))+' کا ریکارڈ تبدیل کریں">'+
    '<div class="wz-clear-heading"><time datetime="'+day+'">'+esc(displayRecordDate(day))+'</time>'+
    '<span class="wz-clear-state">'+status+'</span></div>'+
-   '<div class="wz-ledger-lines">'+
-   '<div class="wz-ledger-line wz-ledger-goals">'+item("آج کا ہدف",goal)+item("پچھلا",previousDue)+item("کل مطلوب",totalRequired,"wz-ledger-emphasis")+'</div>'+
-   '<div class="wz-ledger-line wz-ledger-readings">'+item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+item("پڑھا",count)+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+'</div>'+
-   '</div>'+
+   '<div class="wz-ledger-lines"><div class="wz-ledger-line wz-ledger-five">'+
+   item("ہدف",goal,"wz-ledger-goal",previousDue?"پچھلا +"+fmt(previousDue):"")+
+   item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+
+   item("کل",count,"wz-ledger-total")+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+
+   '</div></div>'+
    (previousCredit?'<p class="wz-clear-credit">پچھلے دنوں کا زائد شمار: '+fmt(previousCredit)+' (آج کے ہدف میں شامل)</p>':"")+
    (old?'<p class="wz-clear-legacy">پرانا شمار جس کا ذریعہ محفوظ نہیں تھا: '+fmt(old)+'</p>':"")+
    '<div class="wz-clear-foot"><span class="wz-clear-clock">'+heroIcon("clock")+
-   '<bdi dir="ltr">'+durationText(time)+'</bdi></span>'+
+   '<span>تسبیح <bdi dir="ltr">'+durationText(time)+'</bdi></span>'+
+   (yellow?'<span>دستی '+(pace>0?'<bdi dir="ltr">'+durationText(Math.round(yellow*pace))+'</bdi> تخمینی':'وقت نامعلوم')+'</span>':"")+
+   '<span>کل <bdi dir="ltr">'+durationText(time+(pace>0?Math.round(yellow*pace):0))+'</bdi></span></span>'+
    extra+'<button type="button" class="wz-history-edit" data-wazifa-action="history-day" data-wazifa-day="'+day+'">تبدیلی</button></div></div>';
  }).join("");
  const more=allRows.length>state.historyLimit?'<button type="button" class="wz-button wz-history-more" data-wazifa-action="history-more">مزید پرانا ریکارڈ دکھائیں</button>':"";
  return (historicUnallocated?'<p class="wz-history-unallocated">پرانے مجموعی شمار میں سے '+fmt(historicUnallocated)+' کی الگ تاریخ محفوظ نہیں تھی؛ اس لیے انہیں کسی غلط دن کے ہدف میں شامل نہیں کیا گیا۔</p>':"")+
  (rows||'<div class="wz-history-empty">ابھی ریکارڈ نہیں۔</div>')+more+
- '<p class="wz-history-note">پچھلا بقایا اگلے دن کے ساتھ جمع ہوگا۔ بعد میں زیادہ پڑھنے سے پچھلی تاریخ کا بقایا ختم ہو کر کارڈ سبز ہو جائے گا۔</p>';
+ '<p class="wz-history-note">پچھلا بقایا اگلے دن جمع ہوگا؛ بعد میں پورا ہونے پر کارڈ سبز ہو جائے گا۔ دستی وقت تسبیح کی اوسط رفتار سے تخمینہ ہے۔</p>';
 }
 function heroReadingState(group,w,record){
  const today=readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
@@ -522,13 +580,7 @@ function readerMarkup(group){
  '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-mini-today")+
  heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
- '<div class="wz-hero-daily">'+
- heroTile("آج کا ہدف",fmt(s.dailyGoal),"target")+
- heroTile("آج پڑھا",fmt(s.todayCount),"book","wz-hero-today")+
- heroTile("آج باقی",fmt(s.dayLeft),"hourglass","wz-hero-day-left")+
- '<div class="wz-hero-remaining">'+heroIcon("hourglass")+'<div><small>'+(s.continuing?'مجموعی باقی':showDates?'مقررہ اختتام تک باقی':'ہدف سے باقی')+'</small>'+
- '<strong id="wz-hero-days-left">'+(s.continuing?fmt(s.left):showDates?remaining+" دن":fmt(s.left))+'</strong></div></div>'+
- '</div>'+
+ fiveFigureMarkup(group,w,record)+
  '<div class="wz-reader-savebar">'+
  (group?'':('<div class="wz-date-select"><small>تسبیح کی منتخب تاریخ</small><input id="wz-save-date" type="hidden" value="'+esc(state.draftDay||today)+'"><button type="button" class="wz-date-button" data-wazifa-action="open-date-picker"><span id="wz-selected-date">'+esc(displayRecordDate(state.draftDay||today))+'</span><span aria-hidden="true">▦</span></button><span id="wz-selected-source" class="wz-date-source">'+((state.draftDay||today)===today?'آج کی تسبیح سبز شمار ہوگی':'اس پچھلی تاریخ کی تسبیح پیلے دستی شمار میں جائے گی')+'</span></div>'))+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>💾 Save · محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
@@ -542,9 +594,10 @@ function readerMarkup(group){
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
  '<small id="wz-live-speed">فی ذکر: —</small>'+
- '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.000</bdi></span></span>'+
+ '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
+ readingTimesMarkup(record)+
  '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">تاریخ منتخب کریں، تسبیح پڑھیں، پھر Save دبائیں۔ پہلے دباؤ سے وقت شروع ہوگا اور Save پر رک کر منتخب دن میں جمع ہوگا۔</p>'+
@@ -571,6 +624,18 @@ function refreshHeroReader(){
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
   if(s.continuing)set("wz-hero-days-left",fmt(left));
  set("wz-mini-today",fmt(todayCount));set("wz-mini-left",fmt(dayLeft));
+ const d=dailyFigures(group,w,record,state.tapQueue);
+ for(const [id,value] of [["wz-five-goal",d.goal],["wz-five-tasbih",d.tasbih],
+  ["wz-five-manual",d.manual],["wz-five-read",d.read],["wz-five-pending",d.pending]])set(id,fmt(value));
+ const pendingCell=root.querySelector("#wz-five-pending")?.closest(".wz-five-cell");
+ if(pendingCell){pendingCell.classList.toggle("wz-red",d.pending>0);
+  pendingCell.classList.toggle("wz-green",d.pending===0);}
+ const notice=root.querySelector("#wz-five-alert");
+ if(notice){notice.hidden=d.pending===0;notice.textContent="آج کا باقی ہدف پورا کریں — "+fmt(d.pending)+" بقایا";}
+ const t=readingTimes(record,true);
+ set("wz-time-real",durationText(t.tasbih));
+ set("wz-time-est",t.hasSpeed?durationText(t.manual):"—");
+ set("wz-time-all",durationText(t.total));
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
  const step=Math.max(1,s.dailyGoal);const cycle=todayCount>0&&todayCount%step===0?step:todayCount%step;
  root.querySelector("#wz-dial").style.setProperty("--wz-ring",Math.floor(cycle/step*100)+"%");
@@ -774,13 +839,17 @@ async function drain(){
  if(state.clockStart!==null){state.clockMs=elapsedTime();state.clockStart=null;}
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=true;
  try{
-  let remaining=state.tapQueue,timeRemaining=state.clockMs;
+  let remaining=state.tapQueue,timeRemaining=state.clockMs,intervalRemaining=state.clockIntervals;
+  const isToday=day===readingDay();
   while(remaining){
    const amount=Math.min(1000,remaining);
    const durationMs=remaining===amount?timeRemaining:Math.floor(timeRemaining*amount/remaining);
+   const intervals=remaining===amount?intervalRemaining:Math.floor(intervalRemaining*amount/remaining);
    if(isGroup)await recordGroupWazifaOnly(amount,day);
-   else await recordPersonalWazifa(taskId,amount,day,{durationMs,intervals:Math.max(0,amount-1),source:day===readingDay()?"tasbih":"manual"});
-   state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;state.clockMs=timeRemaining;
+   else await recordPersonalWazifa(taskId,amount,day,{
+    durationMs:isToday?durationMs:0,intervals:isToday?intervals:0,
+    source:isToday?"tasbih":"manual"});
+   state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;intervalRemaining-=intervals;state.clockMs=timeRemaining;
    persistDraft();
   }
   state.error="";state.clockMs=0;state.clockStart=null;
@@ -794,9 +863,9 @@ async function drain(){
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;
- const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,ms=value%1000;
+ const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,tenth=Math.floor(value%1000/100);
  const clock=$("#wz-clock");
- if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+String(ms).padStart(3,"0");
+ if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+tenth;
  // Each recitation's average time is measured from every completed press interval.
  // After the first press, the live per-zikr timer runs; rates begin on press two.
  const averageMs=state.clockIntervals>0?state.tapGapTotalMs/state.clockIntervals:0;
@@ -804,11 +873,20 @@ function tick(){
  const seconds=averageMs>0?averageMs/1000:liveMs/1000;
  const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
  const perZikr=state.tapQueue>0?pace(seconds)+" ثانیے":"—";
- const perMinute=averageMs>0?pace(60000/averageMs):"—";
- const perHour=averageMs>0?pace(3600000/averageMs):"—";
+ const perMinute=seconds>0?pace(60/seconds):"—";
+ const perHour=seconds>0?pace(3600/seconds):"—";
  for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour],
   ["#wz-live-speed","فی ذکر: "+perZikr],["#wz-speed-status",state.clockIntervals>0?"تمام دباؤ کی اوسط":state.tapQueue>0?"دوسرا دباؤ دیں؛ وقت جاری ہے":"تسبیح شروع کریں"]]){
   const node=$(id);if(node)node.textContent=text;
+ }
+ if(state.tapQueue>0){
+  const record=state.mode==="group-reader"?state.groupStats:state.personal.find(x=>x.id===state.readerId);
+  const t=readingTimes(record,true);
+  for(const [id,value] of [["wz-time-real",durationText(t.tasbih)],
+   ["wz-time-est",t.hasSpeed?durationText(t.manual):"—"],
+   ["wz-time-all",durationText(t.total)]]){
+   const node=$("#"+id);if(node)node.textContent=value;
+  }
  }
  if(state.seenDay!==readingDay()){
   state.seenDay=readingDay();
