@@ -2957,7 +2957,7 @@ function qazaActiveHold() {
   if (saved && Number.isFinite(saved.until) && saved.until>now &&
       saved.until<=now+QAZA_ENTRY_GAP_MS &&
       prayers.some(([id])=>id===saved.prayer) &&
-      /^\\d{4}-\\d{2}-\\d{2}$/.test(saved.day)) {
+      /^\d{4}-\d{2}-\d{2}$/.test(saved.day)) {
     qazaHoldMemory = {...saved,key};
   }
   if (qazaHoldMemory?.key===key && qazaHoldMemory.until>now) return qazaHoldMemory;
