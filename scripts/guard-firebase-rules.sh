@@ -74,7 +74,16 @@ if(!existing || typeof existing.content!=='string'){
   process.exit(1);
 }
 const normalize=s=>s.replace(/\r\n/g,'\n').trim();
-const same=(a,b)=>normalize(a)===normalize(b);
+const same=(a,b)=>typeof a==='string' && normalize(a)===normalize(b);
+function historicalRules(commit) {
+  // Some older repository commits predate firestore.rules entirely. Do not
+  // abort the safety audit for an absent historical path; only accept exact
+  // matches to a source successfully retrieved from a trusted commit.
+  try {
+    return cp.execFileSync('git',['show',commit+':firestore.rules'],{
+      encoding:'utf8',stdio:['ignore','pipe','ignore']});
+  } catch { return null; }
+}
 if(same(existing.content,fs.readFileSync('firestore.rules','utf8'))){
   fs.writeFileSync('/tmp/durood-rules-already-current','1');
   console.log('Firestore rules already published; Hosting may proceed without re-publishing rules.');
@@ -85,64 +94,57 @@ if(same(existing.content,fs.readFileSync('firestore.rules','utf8'))){
 // Confirmed live difference: only this existing AND predicate was moved
 // upward inside allowedMemberCreate. It changes no access semantics, and
 // the exact single relocation is verified before any update is allowed.
-let expected=cp.execFileSync('git',['show','bcf9beace253b59bd92d89ab95f336ab349f5235:firestore.rules'],{encoding:'utf8'});
+let expected=historicalRules('bcf9beace253b59bd92d89ab95f336ab349f5235');
 const sideRule="        (!('sideNumber' in m) || (m.gender == 'female' && m.sideNumber is int && m.sideNumber == previousGenderMembers('female') + 1)) &&\n";
 const predicateAnchor="        m.uid == uid && validUsername(m.username) &&\n";
-if(expected.split(sideRule).length!==2 || expected.split(predicateAnchor).length!==2){
-  console.error('The trusted baseline is not in the expected form; refusing production rules changes.');
-  process.exit(1);
+if(expected && expected.split(sideRule).length===2 && expected.split(predicateAnchor).length===2){
+  expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicateAnchor);
+}else{
+  // This special pre-Wazaif baseline is unavailable or not recognizable;
+  // continue checking later immutable, verified deployment snapshots.
+  expected=null;
 }
-expected=expected.replace(sideRule,'').replace(predicateAnchor,sideRule+predicateAnchor);
 
 // The 23 Nov Wazaif rules were deployed through the verified Firebase
 // Rules REST API. Accept that exact, immutable pre-Qaza production version
 // as an alternate trusted baseline for the Qaza-private-rules upgrade.
-const beforeQaza=cp.execFileSync('git',['show','f024232628303dfaa2428930b3e0be3b0c923841:firestore.rules'],{encoding:'utf8'});
+const beforeQaza=historicalRules('f024232628303dfaa2428930b3e0be3b0c923841');
 // The verified Qaza update was published on 23 Nov. Any new change must
 // match this exact trusted production source before deploying.
-const beforeSharing=cp.execFileSync('git',['show','14f92184d86bdeb88a13b3977c00be22aeb86997:firestore.rules'],{encoding:'utf8'});
+const beforeSharing=historicalRules('14f92184d86bdeb88a13b3977c00be22aeb86997');
 // Wazifa serials and inbox controls from PR #9 are the confirmed live
 // baseline. Never overwrite an unrecognized change made in Firebase Console.
-const beforeFemaleSerial=cp.execFileSync('git',['show','76bfc2c07f21b7708e5d38f8876bd9a943f54dd5:firestore.rules'],{encoding:'utf8'});
+const beforeFemaleSerial=historicalRules('76bfc2c07f21b7708e5d38f8876bd9a943f54dd5');
  // The last successfully deployed web commit kept these exact security rules.
  // Compare live rules against the immutable pre-redesign commit before allowing
  // any new Wazifa ledger rule change; never accept arbitrary Console edits.
-const beforeHeroRedesign=cp.execFileSync('git',['show','1d7041c709a3df502647f5c04c62750a0b3fea80:firestore.rules'],{encoding:'utf8'});
+const beforeHeroRedesign=historicalRules('1d7041c709a3df502647f5c04c62750a0b3fea80');
  // The verified live, audited Wazifa daily-ledger rules immediately before
  // the optional fixed-to-daily upgrade. Match the complete source exactly.
-const beforeFixedDaily=cp.execFileSync('git',['show','46bc214724a4946e00e0de124feadf8371e639be:firestore.rules'],{encoding:'utf8'});
+const beforeFixedDaily=historicalRules('46bc214724a4946e00e0de124feadf8371e639be');
 // Confirmed exact Wazifa source in main immediately before this dated Save upgrade.
-const beforeDatedSave=cp.execFileSync('git',['show','fd8bad24e68f3faad03f365028cf1f90cbdf6739:firestore.rules'],{encoding:'utf8'});
+const beforeDatedSave=historicalRules('fd8bad24e68f3faad03f365028cf1f90cbdf6739');
 // Published W1 dated Save rules from the preceding confirmed Hosting deployment.
-const beforeRuleRepair=cp.execFileSync('git',['show','885869ff2e34141720630feb63812d4f4862edf2:firestore.rules'],{encoding:'utf8'});
-const beforeDatedDispatchFix=cp.execFileSync('git',['show','dfc046aac8295d0dfc861370f02fd2db29720cd8:firestore.rules'],{encoding:'utf8'});
+const beforeRuleRepair=historicalRules('885869ff2e34141720630feb63812d4f4862edf2');
+const beforeDatedDispatchFix=historicalRules('dfc046aac8295d0dfc861370f02fd2db29720cd8');
 // Deployed, verified W1 source before evaluating the optimized count-only rules.
-const beforeFastCount=cp.execFileSync('git',['show','6c4c3c510d6f2a1c5b56170b9497ffc42fe696d1:firestore.rules'],{encoding:'utf8'});
+const beforeFastCount=historicalRules('6c4c3c510d6f2a1c5b56170b9497ffc42fe696d1');
 // Exact rules source from the last successful production Hosting/Rules release
 // (2026-11-23, commit 1ced3cf). Require an exact byte-for-byte match before any change.
-const beforeSignedLedger=cp.execFileSync('git',['show','1ced3cfb5ae4919d5363353f0bd1bf135f3f4502:firestore.rules'],{encoding:'utf8'});
+const beforeSignedLedger=historicalRules('1ced3cfb5ae4919d5363353f0bd1bf135f3f4502');
 // Last verified production release before adding immutable tap-sync receipts.
 // This full source was deployed successfully with the previous profile update.
 const beforeDurableTasbih=cp.execFileSync('git',
- ['show','fd863f86ed73b1e997ca5703080a3c77cc35ee14:firestore.rules'],{encoding:'utf8'});
-if(normalize(existing.content)!==normalize(expected) && normalize(existing.content)!==normalize(beforeQaza) &&
-   normalize(existing.content)!==normalize(beforeSharing) &&
-   normalize(existing.content)!==normalize(beforeFemaleSerial) &&
-   normalize(existing.content)!==normalize(beforeHeroRedesign) &&
-   normalize(existing.content)!==normalize(beforeFixedDaily) &&
-   normalize(existing.content)!==normalize(beforeDatedSave) &&
-   normalize(existing.content)!==normalize(beforeRuleRepair) &&
-   normalize(existing.content)!==normalize(beforeDatedDispatchFix) &&
-   normalize(existing.content)!==normalize(beforeFastCount) &&
-   normalize(existing.content)!==normalize(beforeSignedLedger) &&
-   normalize(existing.content)!==normalize(beforeDurableTasbih)){
-  console.error('Published rules differ from repository baseline. Stop to protect the existing live project.');
-  // Private CI log diagnostic: compare only rule SOURCE, never IAM credentials.
-  fs.writeFileSync('/tmp/durood-expected.rules',expected);
-  fs.writeFileSync('/tmp/durood-actual.rules',existing.content);
-  const diff=cp.spawnSync('diff',['-u','-U1','/tmp/durood-expected.rules','/tmp/durood-actual.rules'],{encoding:'utf8'});
-  console.error('Rules source difference (first 180 lines):\\n'+(diff.stdout||'')
-    .split('\\n').slice(0,180).join('\\n'));
+ ['show','fd863f86ed73b1e997ca5703080a3c77cc35ee14');
+const baselines=[
+  expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
+  beforeFastCount,beforeSignedLedger,beforeDurableTasbih
+].filter(source=>typeof source==='string');
+if(!baselines.some(source=>same(existing.content,source))){
+  console.error('Published rules differ from every verified, available repository baseline.');
+  console.error('Stopping to protect manual Firebase Console changes and existing records.');
+  // This guard never overwrites unverified production rules.
   process.exit(1);
 }
 fs.writeFileSync('/tmp/durood-guarded-ruleset-name',response.name);
