@@ -839,13 +839,17 @@ async function drain(){
  if(state.clockStart!==null){state.clockMs=elapsedTime();state.clockStart=null;}
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=true;
  try{
-  let remaining=state.tapQueue,timeRemaining=state.clockMs;
+  let remaining=state.tapQueue,timeRemaining=state.clockMs,intervalRemaining=state.clockIntervals;
+  const isToday=day===readingDay();
   while(remaining){
    const amount=Math.min(1000,remaining);
    const durationMs=remaining===amount?timeRemaining:Math.floor(timeRemaining*amount/remaining);
+   const intervals=remaining===amount?intervalRemaining:Math.floor(intervalRemaining*amount/remaining);
    if(isGroup)await recordGroupWazifaOnly(amount,day);
-   else await recordPersonalWazifa(taskId,amount,day,{durationMs,intervals:Math.max(0,amount-1),source:day===readingDay()?"tasbih":"manual"});
-   state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;state.clockMs=timeRemaining;
+   else await recordPersonalWazifa(taskId,amount,day,{
+    durationMs:isToday?durationMs:0,intervals:isToday?intervals:0,
+    source:isToday?"tasbih":"manual"});
+   state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;intervalRemaining-=intervals;state.clockMs=timeRemaining;
    persistDraft();
   }
   state.error="";state.clockMs=0;state.clockStart=null;
@@ -859,9 +863,9 @@ async function drain(){
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;
- const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,ms=value%1000;
+ const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,tenth=Math.floor(value%1000/100);
  const clock=$("#wz-clock");
- if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+String(ms).padStart(3,"0");
+ if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+tenth;
  // Each recitation's average time is measured from every completed press interval.
  // After the first press, the live per-zikr timer runs; rates begin on press two.
  const averageMs=state.clockIntervals>0?state.tapGapTotalMs/state.clockIntervals:0;
@@ -869,11 +873,20 @@ function tick(){
  const seconds=averageMs>0?averageMs/1000:liveMs/1000;
  const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
  const perZikr=state.tapQueue>0?pace(seconds)+" ثانیے":"—";
- const perMinute=averageMs>0?pace(60000/averageMs):"—";
- const perHour=averageMs>0?pace(3600000/averageMs):"—";
+ const perMinute=seconds>0?pace(60/seconds):"—";
+ const perHour=seconds>0?pace(3600/seconds):"—";
  for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour],
   ["#wz-live-speed","فی ذکر: "+perZikr],["#wz-speed-status",state.clockIntervals>0?"تمام دباؤ کی اوسط":state.tapQueue>0?"دوسرا دباؤ دیں؛ وقت جاری ہے":"تسبیح شروع کریں"]]){
   const node=$(id);if(node)node.textContent=text;
+ }
+ if(state.tapQueue>0){
+  const record=state.mode==="group-reader"?state.groupStats:state.personal.find(x=>x.id===state.readerId);
+  const t=readingTimes(record,true);
+  for(const [id,value] of [["wz-time-real",durationText(t.tasbih)],
+   ["wz-time-est",t.hasSpeed?durationText(t.manual):"—"],
+   ["wz-time-all",durationText(t.total)]]){
+   const node=$("#"+id);if(node)node.textContent=value;
+  }
  }
  if(state.seenDay!==readingDay()){
   state.seenDay=readingDay();
