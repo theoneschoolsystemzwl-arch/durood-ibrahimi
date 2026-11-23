@@ -80,7 +80,7 @@ assert(complete.includes('id="wz-five-pending"')&&complete.includes("is-done"),"
 assert(!complete.includes('id="wz-five-alert"'),"no redundant reminder for completed or incomplete days");
 assert(!src.includes('id="wz-live-speed"'),"remove per-Zikr subtitle inside circular dial");
 assert(!src.includes('["#wz-live-speed",'));
-assert(src.includes("<small>SEC سیکنڈ</small>"),"SEC seconds is the new rate label");
+assert(src.includes("<small>SEC</small>")&&!src.includes("<small>SEC سیکنڈ</small>"),"Rate label uses SEC alone without the Urdu seconds suffix");
 assert(src.includes("value/(1000*state.tapQueue)"),"speed uses total elapsed divided by zikr count");
 assert(src.includes('durationMs,intervals:isToday?1:0'),"each tap records an interval and sync metadata");
 assert(src.includes('syncId:op.id'),"remote retries must use idempotent receipt");
