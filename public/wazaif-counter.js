@@ -37,17 +37,23 @@ export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null
     updatedAt:serverTimestamp()
   });
 }
-export async function recordGroupWazifaOnly(amount=1,day=readingDay()){
+export async function recordGroupWazifaOnly(amount=1,day=readingDay(),syncId=null){
   const user=auth.currentUser;
   if(!user)throw Error("لاگ اِن ضروری ہے۔");
+  if(syncId && (!/^[a-f0-9]{32}$/.test(syncId)||amount>1000))throw Error("غلط سنک شناخت۔");
+  const receipt=syncId?doc(db,"memberWazaif",user.uid,"syncReceipts",syncId):null;
   return runTransaction(db,async tx=>{
+    if(receipt && (await tx.get(receipt)).exists())return {duplicate:true};
     await addGroupCountsToTransaction(tx,user.uid,amount,day,{durood:false});
+    if(receipt)tx.set(receipt,{uid:user.uid,kind:"group",taskId:"_group_",
+      day,amount,source:"tasbih",createdAt:serverTimestamp()});
+    return {duplicate:false};
   });
 }
 // Each Save is one atomic addition/correction on the selected day.
 // The latest-day summary never rewinds when a previous date is saved.
 export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
-  {durationMs=0,intervals=0,source="tasbih"}={}){
+  {durationMs=0,intervals=0,source="tasbih",syncId=null}={}){
  const user=auth.currentUser;
  if(!user)throw Error("لاگ اِن ضروری ہے۔");
  if(typeof id!=="string"||!/^[A-Za-z0-9]{10,30}$/.test(id)||
@@ -57,9 +63,12 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
     (amount<0&&durationMs!==0)||
     !Number.isSafeInteger(intervals)||intervals<0||intervals>Math.max(0,amount)||
     !/^\d{4}-\d{2}-\d{2}$/.test(day)||day>readingDay()||
-    readingDay(new Date(day+"T12:00:00"))!==day)
+    readingDay(new Date(day+"T12:00:00"))!==day ||
+    (syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||amount<1)))
   throw Error("تعداد، وقت یا تاریخ درست نہیں۔");
+ const receipt=syncId?doc(db,"memberWazaif",user.uid,"syncReceipts",syncId):null;
  return runTransaction(db,async tx=>{
+  if(receipt && (await tx.get(receipt)).exists())return {duplicate:true};
   const ref=doc(db,"memberWazaif",user.uid,"items",id);
   const snap=await tx.get(ref);
   if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
@@ -102,5 +111,8 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
    total:previous+amount,day:latestDay,today:newToday,dailyLedger,
    lastReadingDay:day,lastReadingSource:source,updatedAt:serverTimestamp()
   });
+  if(receipt)tx.set(receipt,{uid:user.uid,kind:"personal",taskId:id,
+    day,amount,source,createdAt:serverTimestamp()});
+  return {duplicate:false};
  });
 }
