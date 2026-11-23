@@ -7,7 +7,7 @@ on:
       - 'android-live/**'
       - '.github/workflows/android-live-apk.yml'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,3 +34,12 @@ jobs:
         with:
           name: Durood-Ibrahim-Urdu-Live-APK
           path: android-live/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish installable Android APK in private GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "android-live-${GITHUB_RUN_NUMBER}" \
+            "android-live/app/build/outputs/apk/debug/app-debug.apk#Durood-Ibrahim-Live.apk" \
+            --title "Durood Ibrahim Live APK ${GITHUB_RUN_NUMBER}" \
+            --notes "Installable debug APK for the current Firebase-hosted Durood app. Web changes appear on next fresh launch/refresh." \
+            --latest
