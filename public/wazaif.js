@@ -572,7 +572,7 @@ function wazifaHistoryMarkup(record){
    '<div class="wz-clear-heading"><time datetime="'+day+'">'+esc(displayRecordDate(day))+'</time>'+
    '<span class="wz-clear-state">'+status+'</span></div>'+
    '<div class="wz-history-row wz-history-clear wz-ledger-entry '+(fulfilled?"wz-day-ok":outside?"wz-day-idle":"wz-day-due")+'"><div class="wz-ledger-lines"><div class="wz-ledger-line wz-ledger-five">'+
-   item("ہدف",goal,"wz-ledger-goal",previousDue?"پچھلا +"+fmt(previousDue):"")+
+   item("ہدف",goal,"wz-ledger-goal",previousDue?'<span>پچھلا +</span><b>'+fmt(previousDue)+'</b>':"")+
    item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+
    item("کل",count,"wz-ledger-total")+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+
    '</div></div>'+
@@ -669,7 +669,7 @@ function readerMarkup(group){
  '</div>'+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
- '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
+ '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
