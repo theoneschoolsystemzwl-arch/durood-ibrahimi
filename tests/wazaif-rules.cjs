@@ -321,6 +321,30 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   }));
   if((await getDoc(secondSlot)).data().wNumber!==2)
     throw Error("W-2 must follow when the recycled W-1 is occupied");
+  // Repro: W-1 originally ended 14 Nov. Saving a DAILY continuation
+  // beginning 15 Nov must not be blocked by Firestore rules.
+  console.log("W1_RULE_TEST_CONTINUATION_REPRO");
+  await assertSucceeds(updateDoc(nextW,{
+    kind:"fixed",goal:1400,startDate:"2026-11-01",endDate:"2026-11-14",
+    durationDays:14,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-15",endDate:"",durationDays:0,goal:100}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(secondSlot,{
+    kind:"fixed",goal:1400,startDate:"2026-11-01",endDate:"2026-11-14",
+    durationDays:14,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(secondSlot,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-11-24",durationDays:10,goal:1000}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(secondSlot,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-11-24",durationDays:10,goal:1000},
+      {mode:"daily",startDate:"2026-11-25",endDate:"",durationDays:0,goal:100}],
+    updatedAt:serverTimestamp()
+  }));
   // An expired fixed plan remains locked until its member explicitly
   // opts into a new daily goal. Original fixed dates, counts and W-number
   // remain immutable across the opt-in and future days.
