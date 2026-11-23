@@ -180,12 +180,16 @@ export async function profileNameSpark(name){
 export function localReadingDate(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
-export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,groupWazifa=false){
+export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,groupWazifa=false,syncId=null){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
     localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
   const uid=requireUser();
   if(!Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("1 سے 10000 تک مکمل عدد درج کریں۔");
+  if(syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||!tasbih||amount>1000))
+    throw Error("غلط تسبیح سنک شناخت۔");
+  const receipt=syncId?doc(db,"memberWazaif",uid,"syncReceipts",syncId):null;
   await runTransaction(db,async tx=>{
+    if(receipt && (await tx.get(receipt)).exists())return;
     const personal=doc(db,"memberCounts",uid);
     const global=doc(db,"publicStats","global");
     const profileRef=memberRef(uid);
@@ -221,6 +225,8 @@ export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,g
       tx.set(reader,{name:profile.data().name,total:increment(amount),lastTap:serverTimestamp(),seen:serverTimestamp()},{merge:true});
     }
     tx.set(doc(sideRef,"days",day),{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
+    if(receipt)tx.set(receipt,{uid,kind:"durood",taskId:"_durood_",day,amount,
+      source:"tasbih",createdAt:serverTimestamp()});
   });
   return {recorded:amount};
 }
