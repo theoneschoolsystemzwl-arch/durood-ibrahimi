@@ -1247,6 +1247,14 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 @keyframes next-prayer-scroll{0%,18%{transform:translateX(5%)}82%,100%{transform:translateX(-9%)}}
 @media(prefers-reduced-motion:reduce){.next-prayer-marquee span{animation:none;white-space:normal}}
 @media(max-width:440px){.profile-card>.top-corners .corner-link{padding:3px 6px;font-size:.67rem}.next-prayer-ticker{min-height:39px}}
+
+/* Readable tasbih numbers and compact timer; all counting behavior is unchanged. */
+.reader .reader-grid .reader-metric small{font-size:clamp(.58rem,2.05vw,.78rem);line-height:1.3}
+.reader .reader-grid .reader-metric strong{font-size:clamp(1.18rem,5.3vw,1.72rem);line-height:1.15;font-weight:850;overflow-wrap:anywhere}
+.reader .pace-grid .reader-metric small{font-size:clamp(.55rem,1.92vw,.73rem);line-height:1.28}
+.reader .pace-grid .reader-metric strong{font-size:clamp(1.02rem,4.45vw,1.46rem);line-height:1.18;font-weight:850}
+.reader .dial .session-clock{font-size:clamp(.85rem,3.7vw,1.2rem);font-weight:850;line-height:1.42}
+.reader .dial.is-floating .session-clock{font-size:clamp(.67rem,2.55vw,.88rem)}
 </style>
 <link rel="stylesheet" href="./dashboard-reference.css?v=profile-centered-20261123-v5">
 </head>
@@ -1316,6 +1324,7 @@ let readingSession = {};
 let dialFloating=false;
 let suppressNextDialClick=false;
 const paceFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
+const tasbihPaceWholeFormat = new Intl.NumberFormat('en',{maximumFractionDigits:0});
 let readerHistoryTimer=null;
 let readerHistoryLimit=31;
 // Group Durood records from Firebase, scoped to the authenticated member and gender.
@@ -2084,6 +2093,13 @@ function durationLabel(ms) {
     value=>String(value).padStart(2,'0')).join(':')+'.'+String(whole%1000).padStart(3,'0');
 }
 
+function compactTasbihClock(ms) {
+  const total=Math.max(0,Math.floor((Number(ms)||0)/1000));
+  const hours=Math.floor(total/3600),minutes=Math.floor(total/60)%60,seconds=total%60;
+  return hours ? hours+':'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0') :
+    minutes ? minutes+':'+String(seconds).padStart(2,'0') : String(seconds);
+}
+
 function priorPace(id) {
   const ordered = Object.keys(readingFor(id).days).sort().reverse();
   for (const key of ordered) {
@@ -2196,7 +2212,7 @@ function tasbih() {
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
     '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Today’s tasbih','آج کی تسبیح') + '</small><strong id="session-count">0</strong>' +
-    tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">00:00:00.000</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">00:00:00.000</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
+    tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="read-status ur" id="read-status" role="status"></p>' +
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
@@ -2218,15 +2234,15 @@ function updateClock() {
     else elapsed=idle;
   }
   const measured=readingSession.ms+elapsed;
-  clock.textContent=durationLabel(measured);
+  clock.textContent=compactTasbihClock(measured);
   // First tap starts time; rate projections update continuously thereafter.
   const person=currentUser();
   const rate=readingSession.count>0 && measured>0 ?
     measured/readingSession.count : person?priorPace(person.id):null;
   for(const [id,value] of [
-    ['pace-sec',rate?paceFormat.format(rate/1000):'—'],
-    ['pace-minute',rate?paceFormat.format(60000/rate):'—'],
-    ['pace-hour',rate?paceFormat.format(3600000/rate):'—']
+    ['pace-sec',rate?tasbihPaceWholeFormat.format(rate/1000):'—'],
+    ['pace-minute',rate?tasbihPaceWholeFormat.format(60000/rate):'—'],
+    ['pace-hour',rate?tasbihPaceWholeFormat.format(3600000/rate):'—']
   ]){
     const node=document.getElementById(id);
     if(node)node.textContent=value;
@@ -2252,9 +2268,9 @@ function updateReader() {
   const inCycle=taps>0 && taps%goal===0 ? goal : taps%goal;
   const dial=document.querySelector('.reader .dial');
   if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/Math.max(1,goal))+'deg');
-  set('pace-sec',rate ? paceFormat.format(rate / 1000) : '—');
-  set('pace-minute',rate ? paceFormat.format(60000 / rate) : '—');
-  set('pace-hour',rate ? paceFormat.format(3600000 / rate) : '—');
+  set('pace-sec',rate ? tasbihPaceWholeFormat.format(rate / 1000) : '—');
+  set('pace-minute',rate ? tasbihPaceWholeFormat.format(60000 / rate) : '—');
+  set('pace-hour',rate ? tasbihPaceWholeFormat.format(3600000 / rate) : '—');
   const percent = Math.floor(count * 100 / goal);
   const remaining = Math.max(0,goal - count);
   set('read-goal-note', remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');

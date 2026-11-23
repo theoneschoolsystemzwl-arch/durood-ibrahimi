@@ -462,6 +462,13 @@ function durationText(ms){
 
 // Source totals on older dates may lack separate source fields.
 // Render an unattributed remainder in the dated/manual column without rewriting Firestore.
+function compactTasbihClock(ms){
+ const total=Math.max(0,Math.floor((Number(ms)||0)/1000));
+ const hours=Math.floor(total/3600),minutes=Math.floor(total/60)%60,seconds=total%60;
+ return hours?hours+":"+String(minutes).padStart(2,"0")+":"+String(seconds).padStart(2,"0"):
+  minutes?minutes+":"+String(seconds).padStart(2,"0"):String(seconds);
+}
+
 function readingSources(entry={},fallbackCount=0){
  const raw=Number(entry?.count),count=Number.isFinite(raw)&&raw>=0?raw:Math.max(0,Number(fallbackCount)||0);
  const tasbih=Math.min(count,Math.max(0,Number(entry?.tasbihCount)||0));
@@ -734,7 +741,7 @@ function readerMarkup(group){
  '</div>'+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
- '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.0</bdi></span></span>'+
+ '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
@@ -1168,13 +1175,13 @@ async function drain(){
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;
- const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,tenth=Math.floor(value%1000/100);
+ const value=elapsedTime();
  const clock=$("#wz-clock");
- if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+tenth;
+ if(clock)clock.textContent=compactTasbihClock(value);
  // Calculate live pace as elapsed session time divided by completed taps.
  // The first tap starts the session, so both time and projection update continuously.
  const seconds=state.tapQueue>0?value/(1000*state.tapQueue):0;
- const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
+ const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:0}):"—";
  const perZikr=seconds>0?pace(seconds)+" ثانیے":"—";
  const perMinute=seconds>0?pace(60/seconds):"—";
  const perHour=seconds>0?pace(3600/seconds):"—";
