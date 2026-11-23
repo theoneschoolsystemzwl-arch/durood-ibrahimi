@@ -2,6 +2,7 @@
 // These tests do not log in as a real member or touch production records.
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
 import {validQazaDay,normalizeQazaPlan,hasQazaPlanData} from "../public/qaza-model.js";
 
 assert.equal(validQazaDay("2003-05-15"),true);
@@ -55,4 +56,91 @@ assert(spark.includes('"memberPrivate",uid,"qaza","plan"'));
 assert(rules.includes("match /memberPrivate/{uid}/qaza/{docId}"));
 assert(rules.includes("validQazaPaid"));
 assert(rules.includes("self(uid) && currentMember()"));
+
+
+// Prayer-time-independent attendance and Qaza-backed all-month ledger.
+const prayerKeys=["fajr","dhuhr","asr","maghrib","isha"];
+const dayToday="2026-11-23",dayPast="2026-11-22";
+const ledgerCtx={
+  prayers:prayerKeys.map(id=>[id,id]),modeButtons:["jamat","solo","made","clear"],
+  attendance:{1:{
+    "2026-11-21":{fajr:"jamat",dhuhr:"solo",maghrib:"missed"},
+    "2026-11-22":{fajr:"jamat",dhuhr:"made",asr:"made",maghrib:"solo"},
+    "2026-11-23":{fajr:"jamat",dhuhr:"solo",asr:"made"}
+  }},
+  qazaPlans:{1:{start:"2026-11-21",target:8,done:{
+    asr:{"2026-11-21":true,"2026-11-22":true},
+    isha:{"2026-11-22":true}
+  }}},
+  prayerDate:()=>dayToday,
+  dateNumber:day=>Date.parse(day+"T00:00:00Z")/86400000,
+  qazaDate:n=>new Date(n*86400000).toISOString().slice(0,10),
+  attendancePhase:(_member,day)=>day===dayToday?"upcoming":"missed",
+  parseDay:key=>new Date(key+"T12:00:00Z"),
+  dateKey:date=>date.toISOString().slice(0,10),
+  prayerLocalRevision:0,prayerEditedDays:new Map(),qazaLocalRevision:0
+};
+vm.createContext(ledgerCtx);
+function addPureSource(from,to){
+  const start=ui.indexOf(from),end=ui.indexOf(to,start);
+  assert(start>=0&&end>start,"Prayer source segment not found: "+from);
+  vm.runInContext(ui.slice(start,end),ledgerCtx);
+}
+addPureSource("function alreadyOnTime(status) {","function qazaEligible(id,day,prayer");
+addPureSource("function prayerLedgerTotals(person,now,today) {","function qazaTopSettings(plan,today)");
+const sampleMember={id:1,joined:new Date("2026-11-23T00:00:00Z")};
+const historyTotals=ledgerCtx.prayerLedgerTotals(sampleMember,0,dayToday);
+assert.equal(historyTotals.start,"2026-11-21","Qaza start, not membership date, determines the baseline");
+const prayer=(id)=>historyTotals.prayerTotals[prayerKeys.indexOf(id)];
+assert.equal(prayer("fajr").jamat,3,"Fajr congregation includes all saved dates");
+assert.equal(prayer("dhuhr").solo,2,"Dhuhr solo attendance counts from past and current day");
+assert.equal(prayer("dhuhr").made,1,"Dhuhr attendance marked Qaza paid counts");
+assert.equal(prayer("asr").made,3,"Asr Qaza calendar and attendance dates are deduplicated");
+assert.equal(prayer("asr").total,3,"Qaza paid must never count as two prayers");
+assert.equal(prayer("maghrib").solo,1);
+assert.equal(prayer("maghrib").missed,1,"Old unrecorded/explicit missed prayer remains Qaza");
+assert.equal(prayer("maghrib").total,2,"Upcoming prayer today is not automatically missed");
+assert.equal(prayer("isha").made,1,"A Qaza payment stored only in Qaza calendar counts");
+assert.equal(prayer("isha").missed,1);
+assert.equal(historyTotals.prayerTotals.reduce((sum,p)=>sum+p.total,0),13,"Overall five-prayer total");
+assert.equal(ledgerCtx.knownPrayerStatus(1,dayPast,"asr"),"made");
+assert.equal(ledgerCtx.knownPrayerStatus(1,dayPast,"fajr"),"jamat");
+
+const markStart=ui.indexOf("function setPrayerAttendance("),markEnd=ui.indexOf("function handleNamazAction(",markStart);
+assert(markStart>=0&&markEnd>markStart);
+const markSource=ui.slice(markStart,markEnd);
+assert(!markSource.includes("phase !== 'on-time'")&&!markSource.includes("phase !== 'missed'"),"No prayer-time restriction on user attendance");
+assert(markSource.includes("day > today"),"Future dates still disallowed");
+vm.runInContext(markSource,ledgerCtx);
+assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","jamat",dayToday,0),true,"Congregation can be recorded before its scheduled window");
+assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","solo",dayToday,0),true,"Solo can be recorded at any time");
+assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","made",dayToday,0),true,"Qaza paid can be recorded at any time");
+assert.equal(ledgerCtx.setPrayerAttendance(1,"2026-11-21","isha","jamat",dayToday,0),true,"Past dates accept congregation");
+assert.equal(ledgerCtx.setPrayerAttendance(1,"2026-11-24","fajr","jamat",dayToday,0),false,"Future dates remain locked");
+assert.equal(ledgerCtx.setPrayerAttendance(1,"2026-02-30","fajr","solo",dayToday,0),false,"Invalid dates remain locked");
+ledgerCtx.qazaPlans[1].done.isha[dayToday]=true;
+const oldQazaRevision=ledgerCtx.qazaLocalRevision;
+assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"isha","solo",dayToday,0),true);
+assert.equal(Boolean(ledgerCtx.qazaPlans[1].done.isha[dayToday]),false,"On-time status clears contradictory Qaza paid flag");
+assert.equal(ledgerCtx.qazaLocalRevision,oldQazaRevision+1,"Qaza correction is scheduled for remote sync");
+assert.equal(ledgerCtx.knownPrayerStatus(1,dayToday,"isha"),"solo");
+assert.equal(ledgerCtx.prayerEditedDays.has(dayToday),true,"Local edits are protected against an in-flight Firebase read");
+
+ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","clear",dayToday,0);
+ledgerCtx.qazaPlan=id=>ledgerCtx.qazaPlans[id];
+ledgerCtx.qazaEligible=()=>false; // Upcoming today: ordinary Qaza eligibility is not yet met.
+addPureSource("function setQazaRecord(id,day,prayer,status,now=Date.now()) {","function ledgerRow(label,values,tone='')");
+assert.equal(ledgerCtx.setQazaRecord(1,dayToday,"maghrib","made",0),true,"Qaza calendar can mark paid today before a prayer window");
+assert.equal(ledgerCtx.qazaPlans[1].done.maghrib[dayToday],true,"Early Qaza is recorded by date");
+assert.equal(ledgerCtx.setQazaRecord(1,"2026-11-24","maghrib","made",0),false,"Qaza calendar does not accept future dates");
+
+assert(ui.includes("function loadPrayerHistory(uid)"),"Fetch historical attendance for the full ledger");
+assert(ui.includes("loadPrayerHistoryDays(result.days||[],startRevision)"),"Hydrate full attendance in the private UI");
+assert(ui.includes("prayerEditedDays.get(item.date)"),"Late Firebase responses may not erase user edits");
+assert(ui.includes('class="prayer-ledger-grand"'),"Grand total is visible below all five prayer columns");
+assert(ui.includes("function qazaDayButton(prayer,label,day,completed,kind='month',early=false)"),"Today's early Qaza entry remains visibly distinct");
+assert(spark.includes("export async function prayerHistorySpark()"));
+assert(spark.includes('getDocs(collection(db,"memberPrivate",uid,"prayers"))'));
+assert(css.includes(".prayer-ledger-grand"));
+
 console.log("Prayer regression checks passed: Qaza migration, date validation, isolated Firebase saves, calendar colors and key buttons.");
