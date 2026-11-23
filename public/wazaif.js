@@ -403,7 +403,8 @@ function formMarkup(){
  const title=g?"گروپ وظیفے کی سیٹنگ":state.editId?"ذاتی وظیفے میں ترمیم":"نیا وظیفہ";
  return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">بند کریں</button><h2>'+title+'</h2></div>'+
  '<form id="wazifa-form" class="wz-form"><label>وظیفے کا نام<input name="title" required maxlength="80" placeholder="مثلاً آیت الکرسی" value="'+esc(original.title||'')+'"></label>'+
- '<label>عربی عبارت / درود<textarea name="arabic" rows="4" required maxlength="3000" placeholder="عربی عبارت درج کریں">'+esc(original.arabic||'')+'</textarea></label>'+
+ '<label>عربی عبارت / درود<textarea name="arabic" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
+ '<p id="wz-arabic-length" class="wz-arabic-length" role="status" aria-live="polite">حروف: 0 / 20,000</p>'+
  '<label>طریقہ / ہدایات<textarea name="instructions" rows="3" maxlength="1200" placeholder="پڑھنے کا طریقہ">'+esc(original.instructions||'')+'</textarea></label>'+
  '<label>وظیفے کا مقصد<textarea name="purpose" rows="3" maxlength="1200" placeholder="اس وظیفے کا مقصد">'+esc(original.purpose||'')+'</textarea></label>'+
  '<p class="wz-label">وظیفے کی قسم منتخب کریں</p><div class="wz-kind">'+kinds.map(([id,name,description])=>
@@ -866,8 +867,19 @@ function render(){
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
 }
+function syncArabicCounter(form){
+ if(!form)return;
+ const textarea=form.elements.arabic,notice=form.querySelector("#wz-arabic-length");
+ if(!textarea||!notice)return;
+ const count=textarea.value.length,maximum=20000;
+ notice.textContent="عربی حروف: "+count.toLocaleString("en")+" / "+maximum.toLocaleString("en")+
+   (count>maximum?" — حد سے زیادہ ہیں، محفوظ کرنے سے پہلے کم کریں۔":"");
+ notice.classList.toggle("is-over-limit",count>maximum);
+ textarea.setCustomValidity(count>maximum?"عربی عبارت 20,000 حروف سے زیادہ نہیں ہو سکتی۔":"");
+}
 function syncForm(){
  const form=$("#wazifa-form");if(!form)return;
+ syncArabicCounter(form);
  const kind=form.elements.kind.value;
  form.querySelectorAll('[data-wz-goal]').forEach(el=>{
    const type=el.dataset.wzGoal;
@@ -928,6 +940,9 @@ async function saveForm(form){
  if(!["daily","fixed","open","group"].includes(kind))return;
  if(kind==="group"&&!owner())return;
  const title=String(data.get("title")||"").trim(),arabic=String(data.get("arabic")||"").trim();
+ if(arabic.length>20000){
+   setError("عربی عبارت کی حد 20,000 حروف ہے، فی الحال "+arabic.length.toLocaleString("en")+" حروف ہیں۔");return;
+ }
  const startDate=String(data.get("startDate")||"");
  const durationDays=Number(data.get("durationDays"));
  const endDate=kind==="fixed"&&Number.isSafeInteger(durationDays)&&durationDays>=1&&durationDays<=3650?
@@ -1506,6 +1521,9 @@ document.addEventListener("input",event=>{
  if(event.target?.closest("#wz-continue-form")&&
     ["nextStart","nextEnd","nextDuration","nextFixedGoal","nextDailyGoal"].includes(event.target.name)){
    syncContinuationForm(event.target.name);return;
+ }
+ if(event.target?.closest("#wazifa-form")&&event.target.name==="arabic"){
+   syncArabicCounter(event.target.closest("#wazifa-form"));return;
  }
  if(event.target?.closest("#wazifa-form")&&["durationDays","startDate","goal"].includes(event.target.name))syncForm();
 },true);
