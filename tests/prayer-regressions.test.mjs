@@ -129,7 +129,7 @@ assert(css.includes("width:601px!important")&&css.includes("min-width:601px!impo
 assert(css.includes("position:static!important")&&css.includes("white-space:nowrap!important"),"No sticky edge overlay or vertical letter-by-letter labels");
 assert(css.includes("col.prayer-ledger-status-col")&&css.includes("col.prayer-ledger-prayer-col")&&css.includes("col.prayer-ledger-total-col"),"Every column has its own width");
 assert(ui.includes("prayers.map(()=>'<col class=\"prayer-ledger-prayer-col\">').join('')"),"Five prayer columns are separate, not one span of five");
-assert(!ui.includes('<col span="5">'),"The old grouped column no longer compresses prayer figures");
+assert(!ui.slice(ui.indexOf("function ledgerTable("),ui.indexOf("function qazaLedger(")).includes('<col span="5">'),"The ledger, not the separate attendance calendar, uses five independent columns");
 assert(!ledgerHtml.includes('id="qaza-ledger-title"'),"Daily ledger does not change the separate Qaza ledger");
 
 assert.equal((ledgerTableHtml.match(/<th scope="col">/g)||[]).length,7,"Attendance, five daily prayers and Total");
