@@ -3135,7 +3135,7 @@ function dailyAttendanceLedger(person,now,today) {
   const values=key=>prayerTotals.map(prayer=>prayer[key]);
   const remaining=values('missed');
   const rows=[
-    [tr("Total prayers due", 'کل قضا نمازیں'),values('total'),'total'],
+    [tr("Total prayers due", 'کل قضا نمازیں'),values('total'),'due'],
     [tr("Congregation", 'باجماعت'),values('jamat'),'jamat'],
     [tr("Prayed alone", 'ادا'),values('solo'),'solo'],
     [tr("Made up", 'قضا ادا'),values('made'),'made']
