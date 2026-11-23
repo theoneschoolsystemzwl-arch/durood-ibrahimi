@@ -248,7 +248,7 @@ function setMember(profile){
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
-  const form=$("#wazifa-form");
+  const form=$("#wazifa-form")||$("#wz-continue-form");
   if(form){
     let region=form.querySelector(".wz-error");
     if(!region){region=document.createElement("p");region.className="wz-error";form.append(region);}
@@ -758,6 +758,44 @@ function refreshHeroReader(){
  }
 }
 
+function continuationFormMarkup(){
+ const task=state.personal.find(item=>item.id===state.continueFor);
+ if(!task||!fixedExpired(task))return '<p class="wz-error">مقررہ وظیفہ ابھی مکمل نہیں ہوا۔</p>';
+ const last=continuationPeriods(task).at(-1);
+ const previousEnd=lastPlanEnd(task),next=addDays(previousEnd,1);
+ const duration=last?.mode==="fixed"?last.durationDays:
+    Math.max(1,Number(task.durationDays)||spanDays(task.startDate,task.endDate)||41);
+ return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">واپس</button><h2>اگلا وظیفہ اور نیا ہدف</h2></div>'+
+ '<form id="wz-continue-form" class="wz-form" data-previous-end="'+esc(previousEnd)+'">'+
+ '<p class="wz-help">'+esc(task.title)+' · '+esc(wazifaSerial(task))+'</p>'+
+ '<p class="wz-help">پچھلی مدت '+esc(previousEnd)+' کو مکمل ہوگئی۔ کیا آپ اسے جاری رکھنا چاہتے ہیں؟ پرانی گنتی اور تمام تاریخیں محفوظ رہیں گی۔</p>'+
+ '<label>اگلے مرحلے کی تاریخ<input name="nextStart" type="date" value="'+esc(next)+'" readonly></label>'+
+ '<p class="wz-label">اگلے وظیفے کی قسم</p><div class="wz-kind">'+
+ '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="daily" checked><span><b>ڈیلی وظیفہ</b><small>روزانہ بغیر آخری تاریخ کے</small></span></label>'+
+ '<label class="wz-kind-choice"><input type="radio" name="nextMode" value="fixed"><span><b>فکس وظیفہ</b><small>دوبارہ 41 دن یا اپنی مدت</small></span></label></div>'+
+ '<div data-wz-next-daily><label>اگلا روزانہ ہدف<input name="nextDailyGoal" type="number" min="1" max="1000000000" value="'+esc(activeDailyGoal(task,previousEnd)||200)+'"></label></div>'+
+ '<div data-wz-next-fixed hidden><label>اگلے فکس وظیفے کا مجموعی ہدف<input name="nextFixedGoal" type="number" min="1" max="1000000000" value="'+esc(task.goal||1000)+'"></label>'+
+ '<label>کتنے دن کا اگلا وظیفہ؟<input name="nextDuration" type="number" min="1" max="3650" value="'+esc(duration)+'"></label></div>'+
+ '<div class="wz-date-preview" id="wz-next-preview" role="status"></div>'+
+ '<div class="wz-actions"><button type="submit" class="wz-button wz-primary">نیا ہدف محفوظ کریں</button>'+
+ '<button type="button" class="wz-button" data-wazifa-action="back">منسوخ</button></div></form>';
+}
+function syncContinuationForm(){
+ const form=$("#wz-continue-form");if(!form)return;
+ const mode=form.elements.nextMode.value, fixed=mode==="fixed";
+ form.querySelector("[data-wz-next-daily]").hidden=fixed;
+ form.querySelector("[data-wz-next-fixed]").hidden=!fixed;
+ form.elements.nextDailyGoal.required=!fixed;
+ form.elements.nextFixedGoal.required=fixed;
+ form.elements.nextDuration.required=fixed;
+ const preview=form.querySelector("#wz-next-preview"),start=form.elements.nextStart.value;
+ if(fixed){
+   const duration=Number(form.elements.nextDuration.value),goal=Number(form.elements.nextFixedGoal.value);
+   const good=Number.isSafeInteger(duration)&&duration>=1&&duration<=3650;
+   preview.textContent=good?"اختتام: "+addDays(start,duration-1)+" · روزانہ مطلوبہ تعداد: "+
+     fmt(Math.ceil(goal/duration)):"دن اور مجموعی ہدف درست درج کریں۔";
+ }else preview.textContent="آغاز: "+start+" · روزانہ ہدف: "+fmt(Number(form.elements.nextDailyGoal.value));
+}
 function render(){
  const root=$("#wazaif-root");
  if(!root||!state.profile)return;
@@ -765,6 +803,10 @@ function render(){
  if(state.mode==="form"){
    if(root.querySelector("#wazifa-form"))return;
    root.innerHTML=formMarkup();syncForm();return;
+ }
+ if(state.mode==="continuation-form"){
+   if(root.querySelector("#wz-continue-form"))return;
+   root.innerHTML=continuationFormMarkup();syncContinuationForm();return;
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
@@ -804,6 +846,13 @@ function syncForm(){
     kind==="open"?"مجموعی ہدف ہوگا، اختتامی تاریخ مقرر نہیں۔":
     "یہ گروپ وظیفہ تمام ممبرز کو سب سے اوپر نظر آئے گا۔";
  }
+}
+function openContinuationForm(id){
+ const task=state.personal.find(item=>item.id===id);
+ if(!task||!fixedExpired(task))return;
+ state.continueFor=id;state.mode="continuation-form";state.error="";
+ const root=$("#wazaif-root");if(root)root.innerHTML="";
+ render();
 }
 function openForm(scope,id=null){
  if(scope==="group"&&!owner())return;
@@ -886,6 +935,48 @@ async function saveForm(form){
    render();
  }catch(e){setError("محفوظ نہیں ہو سکا: "+(e.code||e.message));}
  finally{state.busy=false;if(button.isConnected)button.disabled=false;}
+}
+async function saveContinuationForm(form){
+ if(state.busy)return;
+ const mode=String(new FormData(form).get("nextMode")||"");
+ const daily=Number(form.elements.nextDailyGoal.value);
+ const fixedGoal=Number(form.elements.nextFixedGoal.value);
+ const duration=Number(form.elements.nextDuration.value);
+ const valid=n=>Number.isSafeInteger(n)&&n>=1&&n<=1000000000;
+ if(!["fixed","daily"].includes(mode)||
+    (mode==="daily"&&!valid(daily))||
+    (mode==="fixed"&&(!valid(fixedGoal)||!Number.isSafeInteger(duration)||duration<1||duration>3650))){
+   setError("نیا ہدف اور مدت درست درج کریں۔");return;
+ }
+ const uid=auth.currentUser?.uid,id=state.continueFor;
+ if(!uid||!id){setError("دوبارہ لاگ اِن کریں۔");return;}
+ state.busy=true;const button=form.querySelector('[type="submit"]');
+ if(button)button.disabled=true;
+ try{
+   await runTransaction(db,async tx=>{
+     const ref=doc(db,"memberWazaif",uid,"items",id);
+     const snap=await tx.get(ref);
+     if(!snap.exists())throw Error("وظیفہ موجود نہیں۔");
+     const current=snap.data(),previousEnd=lastPlanEnd(current);
+     if(!fixedExpired(current)||current.kind!=="fixed"||
+        legacyContinuation(current)||previousEnd!==form.dataset.previousEnd)
+       throw Error("اس وظیفے کا مرحلہ دوسری جگہ تبدیل ہو گیا۔ دوبارہ کھولیں۔");
+     const old=continuationPeriods(current);
+     if(old.length>=50)throw Error("اس وظیفے میں مزید مرحلے شامل نہیں ہو سکتے۔");
+     const start=addDays(previousEnd,1);
+     const period={mode,startDate:start,
+       endDate:mode==="fixed"?addDays(start,duration-1):"",
+       durationDays:mode==="fixed"?duration:0,
+       goal:mode==="fixed"?fixedGoal:daily};
+     tx.update(ref,{continuePeriods:[...old,period],updatedAt:serverTimestamp()});
+   });
+   state.continueFor=null;state.error="";
+   state.shareNotice="اگلے مرحلے کا ہدف محفوظ ہوگیا؛ پچھلا ریکارڈ محفوظ ہے۔";
+   state.mode="list";
+   const root=$("#wazaif-root");if(root)root.innerHTML="";
+   render();
+ }catch(error){setError("محفوظ نہیں ہو سکا: "+(error.code||error.message));}
+ finally{state.busy=false;if(button?.isConnected)button.disabled=false;}
 }
 function draftStorageKey(){
  return auth.currentUser&&state.readerId?"durood-wazifa-draft-v2-"+auth.currentUser.uid+"-"+state.readerId:null;
@@ -1091,6 +1182,7 @@ document.addEventListener("click",event=>{
  }
  if(action==="edit-group")return openForm("group");
  if(action==="edit-personal")return openForm("personal",id);
+ if(action==="continue-personal")return openContinuationForm(id);
  if(action==="back")return back();
  if(action==="read-group"){
    if(!state.groupExists||currentGroup().active!==true)return;
@@ -1174,6 +1266,10 @@ document.addEventListener("click",event=>{
  }
 },true);
 document.addEventListener("submit",event=>{
+ if(event.target?.id==="wz-continue-form"){
+  event.preventDefault();event.stopImmediatePropagation();
+  void saveContinuationForm(event.target);return;
+ }
  if(event.target?.id==="wz-manual-form"){
   event.preventDefault();event.stopImmediatePropagation();
   const form=event.target,task=state.personal.find(w=>w.id===state.readerId);
@@ -1213,6 +1309,7 @@ document.addEventListener("submit",event=>{
  saveForm(event.target);
 },true);
 document.addEventListener("change",event=>{
+ if(event.target?.closest("#wz-continue-form")){syncContinuationForm();return;}
  if(event.target?.id==="wz-save-date"||event.target?.id==="wz-cal-native-date"){
   if(changeWazifaDay(event.target.value)){
    const dialog=$("#wz-date-dialog");
