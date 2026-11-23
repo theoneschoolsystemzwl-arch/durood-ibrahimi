@@ -3039,7 +3039,10 @@ function qazaSnapshot(id,now,today) {
 function setQazaRecord(id,day,prayer,status,now=Date.now()) {
   const today = prayerDate(id,now);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(dateNumber(day)) || qazaDate(dateNumber(day))!==day ||
-      !prayers.some(([key])=>key===prayer) || !['made','missed'].includes(status) || !qazaEligible(id,day,prayer,now,today)) return false;
+      !prayers.some(([key])=>key===prayer) || !['made','missed'].includes(status) ||
+      !(qazaEligible(id,day,prayer,now,today)||
+        (status==='made'&&qazaPlan(id).start&&day>=qazaPlan(id).start&&day===today&&
+         !alreadyOnTime(knownPrayerStatus(id,day,prayer))))) return false;
   const plan = qazaPlan(id);
   if (status==='made') {
     if (knownPrayerStatus(id,day,prayer)!=='made') (plan.done[prayer] ||= {})[day] = true;
@@ -3146,11 +3149,11 @@ function qazaTopSettings(plan,today) {
     '<p class="feedback" id="qaza-target-feedback" role="status"></p></form></div>';
 }
 
-function qazaDayButton(prayer,label,day,completed,kind='month') {
+function qazaDayButton(prayer,label,day,completed,kind='month',early=false) {
   const showYear = kind==='next';
   const date = new Date(day+'T00:00:00Z');
-  const state = completed?tr("Made up", 'قضا ادا'):tr("Missed", 'قضا');
-  return '<button class="namaz-cell '+(completed?'qaza-paid':'namaz-missed')+'" data-action="qaza-record" data-value="'+prayer+
+  const state = completed?tr("Made up", 'قضا ادا'):early?tr("Mark made up", 'قضا ادا درج کریں'):tr("Missed", 'قضا');
+  return '<button class="namaz-cell '+(completed?'qaza-paid':early?'namaz-upcoming':'namaz-missed')+'" data-action="qaza-record" data-value="'+prayer+
     '" data-day="'+day+'" data-kind="'+kind+'" aria-label="'+esc(label+'، '+qazaDateFormat.format(date)+'، '+state)+'">'+
     '<time class="qaza-day-date" datetime="'+day+'">'+esc((showYear?qazaDateFormat:qazaShortFormat).format(date))+'</time>' +
     (kind==='month'?'<strong class="prayer-name">'+label+'</strong>':'') +
@@ -3171,10 +3174,13 @@ function qazaCalendar(id,plan,now,today) {
       const open = [], completed = [];
       for (let number=start; number<=end; number++) {
         const day = qazaDate(number);
-        if (!qazaEligible(id,day,prayer,now,today)) continue;
-        (knownPrayerStatus(id,day,prayer)==='made'?completed:open).push(day);
+        const eligible=qazaEligible(id,day,prayer,now,today);
+        const early=day===today&&!eligible&&!alreadyOnTime(knownPrayerStatus(id,day,prayer));
+        if(!eligible&&!early)continue;
+        if(knownPrayerStatus(id,day,prayer)==='made')completed.push(day);
+        else open.push({day,early});
       }
-      const rows = open.map(day=>'<li>'+qazaDayButton(prayer,label,day,false)+'</li>')
+      const rows=open.map(entry=>'<li>'+qazaDayButton(prayer,label,entry.day,false,'month',entry.early)+'</li>')
         .concat(completed.map((day,index)=>'<li'+(index===0&&open.length?' class="qaza-paid-start"':'')+'>'+qazaDayButton(prayer,label,day,true)+'</li>'));
       return '<section class="qaza-column" data-qaza-prayer="'+prayer+'"><h3>'+label+'</h3>' +
         (rows.length?'<ol>'+rows.join('')+'</ol>':tr("<p>No missed prayers</p>", '<p>کوئی قضا نہیں</p>'))+'</section>';
@@ -3293,7 +3299,11 @@ function handleQazaAction(action,button,value) {
       setFeedback('qaza-entry-feedback',old==='made'?tr("This prayer is already marked as made up.", 'یہ قضا پہلے ہی ادا درج ہے۔'):tr("This prayer is already marked as missed.", 'یہ نماز پہلے ہی قضا درج ہے۔'),true);
       return true;
     }
-    if (!setQazaRecord(currentUserId,day,value,qazaMode)) return true;
+    if (!setQazaRecord(currentUserId,day,value,qazaMode)){
+      setFeedback('qaza-entry-feedback',tr("Select Made up to record a Qaza prayer before the normal prayer window ends.",
+        'نماز کا وقت ختم ہونے سے پہلے قضا ادا کرنے کے لیے «قضا ادا» منتخب کریں۔'));
+      return true;
+    }
     qazaLocalRevision++;
     const saved = saveOfflineState();
     const label = prayers.find(([id])=>id===value)[1];
