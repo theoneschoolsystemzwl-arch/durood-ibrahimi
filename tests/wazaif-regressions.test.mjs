@@ -52,6 +52,15 @@ assert(editForm.includes('state.editId&&!g&&expired?') &&
   editForm.includes('data-wazifa-action="continue-personal"') &&
   editForm.includes("esc(original.id)"),
   "Next-goal action must appear only in expired personal Wazifa settings");
+// After saving, the same latest phase may be reopened for repeated goal
+// corrections without reopening the original fixed Wazifa or its ledger.
+assert(editForm.includes('state.editId&&!g&&continuationPeriods(original).length?'));
+assert(editForm.includes('data-wazifa-action="edit-continuation"'));
+assert(source.includes('if(action==="edit-continuation")return openContinuationForm(id,true)'));
+assert(source.includes('data-edit-period="'));
+assert(source.includes('continuePeriods:[...old.slice(0,-1),{...latest,goal:newGoal}]'));
+assert(rules.includes("validWzPeriodGoalRevision"));
+assert(rules.includes("affectedKeys().hasOnly(['goal'])"));
 // A deleted middle number must be reused for new and incoming tasks.
 assert(sharing.includes("while(used.has(serial))serial++"));
 assert(sharing.includes("lastNumber:serial"));

@@ -345,6 +345,64 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
       {mode:"daily",startDate:"2026-11-25",endDate:"",durationDays:0,goal:100}],
     updatedAt:serverTimestamp()
   }));
+  // Existing W-1 daily goal can be revised more than once without altering
+  // its date, original W number, read totals, or previous periods.
+  console.log("W1_RULE_TEST_REPEAT_GOAL");
+  await assertSucceeds(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-15",endDate:"",durationDays:0,goal:150}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-15",endDate:"",durationDays:0,goal:250}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-16",endDate:"",durationDays:0,goal:300}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(nextW,{
+    continuePeriods:[{mode:"daily",startDate:"2026-11-15",endDate:"",durationDays:0,goal:-1}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(secondSlot,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-11-24",durationDays:10,goal:1000},
+      {mode:"daily",startDate:"2026-11-25",endDate:"",durationDays:0,goal:350}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(secondSlot,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-11-24",durationDays:10,goal:2000},
+      {mode:"daily",startDate:"2026-11-25",endDate:"",durationDays:0,goal:350}],
+    updatedAt:serverTimestamp()
+  }));
+  const unchanged=(await getDoc(nextW)).data();
+  if(unchanged.continuePeriods[0].goal!==250||unchanged.goal!==1400||
+     unchanged.startDate!=="2026-11-01"||unchanged.wNumber!==1)
+    throw Error("Repeat-goal edit altered original Wazifa identity or plan");
+  // Fix-period goal correction also allowed when it is the last phase.
+  // Create a distinct account task to verify a fixed phase before it expires.
+  const fixedOnly=doc(owner,"memberWazaif",ownerUid,"items","EditFixedGoalStage001");
+  await assertSucceeds(runTransaction(owner,async tx=>{
+    const seq=await tx.get(ownerSeq);
+    tx.set(fixedOnly,{...outgoing,uid:ownerUid,total:0,today:0,day:"2026-11-23",
+      wNumber:3,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    tx.update(ownerSeq,{next:seq.data().next+1,lastNumber:3,lastItemId:fixedOnly.id,updatedAt:serverTimestamp()});
+  }));
+  await assertSucceeds(updateDoc(fixedOnly,{
+    kind:"fixed",goal:1400,startDate:"2026-11-01",endDate:"2026-11-14",
+    durationDays:14,updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-12-25",durationDays:41,goal:4100}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertSucceeds(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-12-25",durationDays:41,goal:6000}],
+    updatedAt:serverTimestamp()
+  }));
+  await assertFails(updateDoc(fixedOnly,{
+    continuePeriods:[{mode:"fixed",startDate:"2026-11-15",endDate:"2026-12-26",durationDays:42,goal:6000}],
+    updatedAt:serverTimestamp()
+  }));
   // An expired fixed plan remains locked until its member explicitly
   // opts into a new daily goal. Original fixed dates, counts and W-number
   // remain immutable across the opt-in and future days.
