@@ -852,12 +852,25 @@ function restoreDraft(){
     Number.isSafeInteger(draft.count)&&draft.count>0&&draft.count<=1000000){
    state.draftDay=draft.day;state.tapQueue=draft.count;
    state.clockMs=Math.min(86400000,Math.max(0,Number(draft.ms)||0));
+   state.lastTapAt=Math.max(0,Number(draft.lastTapAt)||Date.now());
+   const marker=key+"-v3-imported";
+   if(!localStorage.getItem(marker)){
+    let remaining=wzSync.pending(state.readerId,draft.day)?0:draft.count;
+    while(remaining>0){
+     const n=Math.min(1000,remaining);
+     if(!wzSync.enqueue({taskId:state.readerId,day:draft.day,
+       count:n,source:draft.day===readingDay()?"tasbih":"manual",durationMs:0,
+       intervals:draft.day===readingDay()?n:0}))break;
+     remaining-=n;
+    }
+    if(remaining===0)localStorage.setItem(marker,"1");
+   }
   }
  }catch{}
 }
 function startClock(){
  state.clockStart=null;state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
- state.tapQueue=0;state.tapMetaQueue=[];state.draftDay=readingDay();
+ state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.draftDay=readingDay();
 }
 function tap(){
  if(state.skipDialClick){state.skipDialClick=false;return;}
@@ -876,8 +889,17 @@ function tap(){
    const gap=pressedAt-state.clockLastTap;
    if(gap>0){state.tapGapMs=gap;state.tapGapTotalMs+=gap;state.clockIntervals++;}
  }
+ const day=state.draftDay||readingDay(),isToday=day===readingDay();
+ const durationMs=isToday&&state.clockLastTap!==null?
+  Math.min(86400000,Math.max(0,Math.round(pressedAt-state.clockLastTap))):0;
+ if(!wzSync.enqueue({taskId:state.mode==="group-reader"?"_group_":state.readerId,
+   day,source:isToday?"tasbih":"manual",count:1,
+   durationMs,intervals:isToday?1:0})){
+  setError("فون کی اسٹوریج میں محفوظ نہیں ہو سکا؛ گنتی نہیں بڑھائی گئی۔");return;
+ }
  state.clockLastTap=pressedAt;
- state.tapQueue++;
+ state.tapQueue++;state.lastTapAt=Date.now();
+ try{const k=draftStorageKey();if(k)localStorage.setItem(k+"-v3-imported","1");}catch{}
  playWazifaFeedback();
  persistDraft();
  const el=$("#wz-dial-number");if(el)el.textContent=fmt(state.tapQueue);
@@ -886,35 +908,9 @@ function tap(){
  tick();
 }
 async function drain(){
- if(state.tapBusy||!state.tapQueue)return;
- const isGroup=state.mode==="group-reader",taskId=state.readerId,day=state.draftDay||readingDay();
- if(day>readingDay()){setError("آئندہ تاریخ کا اندراج نہیں ہو سکتا۔");return;}
- if(navigator.onLine===false){setError("انٹرنیٹ دستیاب نہیں۔ گنتی کاؤنٹر میں محفوظ رکھی گئی ہے۔");return;}
- state.tapBusy=true;
- if(state.clockStart!==null){state.clockMs=elapsedTime();state.clockStart=null;}
- const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=true;
- try{
-  let remaining=state.tapQueue,timeRemaining=state.clockMs,intervalRemaining=state.clockIntervals;
-  const isToday=day===readingDay();
-  while(remaining){
-   const amount=Math.min(1000,remaining);
-   const durationMs=remaining===amount?timeRemaining:Math.floor(timeRemaining*amount/remaining);
-   const intervals=remaining===amount?intervalRemaining:Math.floor(intervalRemaining*amount/remaining);
-   if(isGroup)await recordGroupWazifaOnly(amount,day);
-   else await recordPersonalWazifa(taskId,amount,day,{
-    durationMs:isToday?durationMs:0,intervals:isToday?amount:0,
-    source:isToday?"tasbih":"manual"});
-   state.tapQueue-=amount;remaining-=amount;timeRemaining-=durationMs;intervalRemaining-=intervals;state.clockMs=timeRemaining;
-   persistDraft();
-  }
-  state.error="";state.clockMs=0;state.clockStart=null;
-  state.clockLastTap=null;state.tapGapMs=0;state.tapGapTotalMs=0;state.clockIntervals=0;state.historyDay=day;
- }catch(e){setError("گنتی محفوظ نہیں ہوئی؛ دوبارہ Save کریں: "+(e.code||e.message));}
- finally{
-  state.tapBusy=false;
-  if(state.pendingBack){back();return;}
-  render();
- }
+ // Every tap was queued already. Save resets only the visible session.
+ resetWzSession(false);
+ await wzSync.flush();
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;
