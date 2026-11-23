@@ -3069,7 +3069,11 @@ function ledgerRow(label,values,tone='',withTotals=false) {
 function ledgerTable({id,title,rows,footer,grandTotal,note,withTotals=false}) {
   return '<section class="qaza-section prayer-ledger ledger-card'+(withTotals?' prayer-ledger-seven':'')+'" aria-labelledby="'+id+'">' +
     '<div class="ledger-head"><h2 id="'+id+'">'+title+'</h2></div>'+
-    '<div class="ledger-frame"><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col"><col span="5">'+
+    (withTotals?'<p class="prayer-ledger-scroll-hint">'+
+      tr("Swipe horizontally to view all seven columns.",'ساتوں کالم دیکھنے کے لیے دائیں بائیں سوائپ کریں۔')+'</p>':'')+
+    '<div class="ledger-frame'+(withTotals?' prayer-ledger-scroll':'')+'"'+
+    (withTotals?' role="region" tabindex="0" aria-label="'+tr("Seven-column prayer ledger",'نمازوں کا سات کالموں والا لیجر')+'"':'')+
+    '><table aria-labelledby="'+id+'"><colgroup><col class="prayer-ledger-status-col"><col span="5">'+
     (withTotals?'<col class="prayer-ledger-total-col">':'')+'</colgroup>'+
     tr("<thead><tr><th scope=\"col\">Attendance</th>", '<thead><tr><th scope="col">حاضری</th>') +
     prayers.map(([,label])=>'<th scope="col">'+label+'</th>').join('') +
