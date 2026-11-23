@@ -145,11 +145,13 @@ const beforeGapRepair=historicalRules('a411f72a2a0d1599238396b103a2654429c668d2'
 const beforeContinuationFix=historicalRules('f650876d714258c9ef25b0b4716e45a5ddfc1b95');
 // Verified 24 Nov fixed-to-next-goal rule fix, successfully deployed from this exact commit.
 const beforeRepeatedGoalEdit=historicalRules('108aecb903456f4c3b1ffae1013f607d7586b377');
+// Last verified production Firestore rules after repeatable goal editing.
+const beforeDateRevision=historicalRules('eade9e564d308e6f25a76fe80493e0713b284175');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
-  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit
+  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');
