@@ -861,6 +861,23 @@ service cloud.firestore {
           (wzDate(latest.endDate) && latest.endDate >= latest.startDate &&
            latest.durationDays >= 1 && latest.durationDays <= 3650));
     }
+    // An existing latest period may have its numerical goal corrected
+    // repeatedly. Prior periods, dates, kind, duration and counts are immutable.
+    function validWzPeriodGoalRevision(d,changed) {
+      let before=resource.data.get('continuePeriods',[]);
+      let after=d.get('continuePeriods',[]);
+      return changed.hasOnly(['continuePeriods','updatedAt']) &&
+        resource.data.kind == 'fixed' && d.kind == 'fixed' &&
+        !resource.data.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal']) &&
+        before is list && after is list &&
+        before.size() > 0 && after.size() == before.size() &&
+        (before.size() == 1 || after[0:before.size()-1] == before[0:before.size()-1]) &&
+        after[after.size()-1] is map && before[before.size()-1] is map &&
+        after[after.size()-1].diff(before[before.size()-1]).affectedKeys().hasOnly(['goal']) &&
+        after[after.size()-1].keys().hasAll(['mode','startDate','endDate','durationDays','goal']) &&
+        after[after.size()-1].goal is int &&
+        after[after.size()-1].goal >= 1 && after[after.size()-1].goal <= 1000000000;
+    }
     function validWzRegularEdit(d,changed) {
       return changed.hasOnly(['title','arabic','instructions','purpose','kind',
                               'goal','startDate','endDate','durationDays','updatedAt']) &&
@@ -929,7 +946,8 @@ service cloud.firestore {
         (changed.hasAny(['total','today','dailyLedger','lastReadingDay','lastReadingSource']) ?
            (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
              validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
-           (changed.hasAny(['continuePeriods']) ? validWzPeriodAppend(d,changed) :
+           (changed.hasAny(['continuePeriods']) ?
+             (validWzPeriodAppend(d,changed) || validWzPeriodGoalRevision(d,changed)) :
              changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));
     }
