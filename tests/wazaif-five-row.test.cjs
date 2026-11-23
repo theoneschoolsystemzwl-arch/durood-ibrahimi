@@ -41,7 +41,7 @@ assert(css.includes("grid-template-columns:repeat(5,minmax(0,1fr))"));
 assert(src.includes("Math.floor(value%1000/100)")&&!src.includes('String(ms).padStart(3,"0")'));
 assert(src.includes("const perMinute=seconds>0?pace(60/seconds)"));
 assert(src.includes("const perHour=seconds>0?pace(3600/seconds)"));
-assert(src.includes('durationMs:isToday?durationMs:0'));
+assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durable storage before local increment");
 
 const todayEntry={count:587,tasbihCount:15,manualCount:572,durationMs:150000,intervals:14};
 const dayRecord={day,today:587,dailyLedger:{[day]:todayEntry}};
@@ -74,7 +74,9 @@ assert(!src.includes('id="wz-live-speed"'),"remove per-Zikr subtitle inside circ
 assert(!src.includes('["#wz-live-speed",'));
 assert(src.includes("<small>فی ذکر وقت</small>"));
 assert(src.includes("value/(1000*state.tapQueue)"),"speed uses total elapsed divided by zikr count");
-assert(src.includes('intervals:isToday?amount:0'),"saved average includes the first recitation");
+assert(src.includes('durationMs,intervals:isToday?1:0'),"each tap records an interval and sync metadata");
+assert(src.includes('syncId:op.id'),"remote retries must use idempotent receipt");
+assert(src.includes('Date.now()-state.lastTapAt>=300000'),"five-minute inactivity triggers Save");
 assert(css.includes("wz-ledger-green strong")&&css.includes("#1de085"));
 assert(css.includes("wz-ledger-yellow strong")&&css.includes("#ffe25a"));
 assert(css.includes("wz-ledger-pending strong")&&css.includes("#ff6168"));
