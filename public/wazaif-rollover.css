@@ -331,3 +331,84 @@
 @media(prefers-reduced-motion:reduce){
  .wz-history-entry.wz-day-due .wz-day-pending,.wz-today-due-cell .wz-due-number.is-pending{animation:none}
 }
+
+/* 23 Nov W1 history: captions outside the four compact values, triple-tap edit in slot five. */
+.wz-history-entry{cursor:default}
+.wz-history-entry .wz-ledger-five{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:3px;align-items:stretch}
+.wz-history-entry .wz-ledger-slot{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:3px;min-width:0}
+.wz-history-entry .wz-ledger-label{
+ display:block;text-align:center;white-space:nowrap;color:#e5fff1;
+ font:800 clamp(.69rem,2.65vw,.9rem)/1.5 var(--ur,serif);
+ padding:1px 0 0;min-height:18px
+}
+.wz-history-entry .wz-ledger-five .wz-ledger-slot .wz-ledger-item{
+ display:flex;flex-direction:column;justify-content:center;align-items:center;
+ min-width:0;min-height:43px;flex:1;padding:4px 1px;box-sizing:border-box;
+ background:linear-gradient(125deg,#075943,#004b38)!important;
+ border:1px solid #278d6e!important;border-radius:9px
+}
+.wz-history-entry .wz-ledger-five .wz-ledger-item strong{
+ font:850 clamp(.92rem,4.3vw,1.2rem)/1.2 system-ui,sans-serif;
+ letter-spacing:-.04em;color:#fff;direction:ltr;white-space:nowrap;max-width:100%
+}
+.wz-history-entry .wz-ledger-five .wz-ledger-item strong.wz-value-wide{font-size:clamp(.78rem,3.4vw,1rem)}
+.wz-history-entry .wz-ledger-five .wz-ledger-item strong.wz-value-xl{font-size:clamp(.69rem,2.9vw,.86rem)}
+.wz-history-entry .wz-ledger-five .wz-ledger-green strong{color:#10db78!important}
+.wz-history-entry .wz-ledger-five .wz-ledger-yellow strong{color:#ffde3c!important}
+.wz-history-entry .wz-ledger-five .wz-ledger-total strong{color:#fff!important}
+.wz-history-entry .wz-ledger-edit-button{
+ display:flex;justify-content:center;align-items:center;
+ min-width:0;width:100%;min-height:43px;flex:1;box-sizing:border-box;
+ background:linear-gradient(125deg,#087554,#07553e);color:#f4fff6;
+ border:1px solid #3bb28c;border-radius:9px;padding:4px 1px;cursor:pointer;
+ touch-action:manipulation;user-select:none;-webkit-user-select:none;
+ font:800 clamp(.68rem,2.65vw,.91rem)/1.35 var(--ur,serif)
+}
+.wz-history-entry .wz-ledger-edit-button:focus-visible{outline:2px solid #f2db9e;outline-offset:2px}
+.wz-edit-form .wz-edit-fields{display:block}
+.wz-edit-form .wz-edit-fields label{display:grid;gap:5px;font:750 .89rem/1.6 var(--ur,serif)}
+.wz-edit-form .wz-edit-fields input[name="amount"]{min-height:47px}
+.wz-daily-toolbar{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ align-items:stretch;gap:5px;direction:rtl;width:100%;min-width:0;margin:5px 0 7px
+}
+.wz-daily-toolbar .wz-today-due{
+ width:100%;min-width:0;box-sizing:border-box;margin:0;
+ padding:3px 2px;gap:2px;align-items:center;
+ border:1px solid #289b76;border-radius:9px
+}
+.wz-daily-toolbar .wz-today-due-cell{min-width:0;padding:2px 1px;gap:1px}
+.wz-daily-toolbar .wz-today-due-cell small{
+ font:800 clamp(.58rem,2.1vw,.73rem)/1.35 var(--ur,serif);
+ text-align:center;overflow-wrap:anywhere;white-space:normal
+}
+.wz-daily-toolbar .wz-today-due-cell strong{
+ font:850 clamp(.73rem,2.65vw,1rem)/1.15 system-ui,sans-serif;
+ white-space:nowrap;letter-spacing:-.025em
+}
+.wz-daily-toolbar .wz-today-due #wz-five-alert{
+ font:750 clamp(.57rem,1.95vw,.7rem)/1.25 var(--ur,serif);
+ white-space:normal;overflow-wrap:anywhere;min-width:0
+}
+.wz-daily-toolbar .wz-reader-feedback{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ width:100%;height:100%;min-width:0;box-sizing:border-box;align-items:stretch;gap:3px;margin:0;direction:rtl
+}
+.wz-daily-toolbar .wz-feedback-control{
+ box-sizing:border-box;min-width:0;padding:3px 1px;border-radius:9px;gap:2px
+}
+.wz-daily-toolbar .wz-feedback-button{
+ font:750 clamp(.58rem,2.07vw,.73rem)/1.35 var(--ur,serif);
+ min-height:25px;text-align:center;padding:1px 0
+}
+.wz-daily-toolbar .wz-feedback-level{grid-template-columns:minmax(0,1fr) minmax(0,.55fr) minmax(0,1fr);gap:1px}
+.wz-daily-toolbar .wz-feedback-level button{min-width:0;min-height:25px;font-size:1.02rem;padding:0;border-radius:5px}
+.wz-daily-toolbar .wz-feedback-level output{font:800 clamp(.58rem,2.1vw,.76rem)/1.18 system-ui,sans-serif}
+@media(max-width:390px){
+ .wz-history-entry .wz-ledger-five .wz-ledger-slot .wz-ledger-item{min-height:40px;padding:3px 0}
+ .wz-history-entry .wz-ledger-five .wz-ledger-item strong{font-size:clamp(.9rem,4.25vw,1.08rem)}
+ .wz-history-entry .wz-ledger-five .wz-ledger-item strong.wz-value-wide{font-size:clamp(.75rem,3.35vw,.9rem)}
+ .wz-history-entry .wz-ledger-five .wz-ledger-item strong.wz-value-xl{font-size:clamp(.65rem,2.9vw,.78rem)}
+ .wz-history-entry .wz-ledger-edit-button{min-height:40px;font-size:clamp(.61rem,2.3vw,.76rem)}
+ .wz-daily-toolbar{gap:3px}
+}
