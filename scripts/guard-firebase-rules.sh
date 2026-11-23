@@ -156,6 +156,21 @@ const baselines=[
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');
   console.error('Stopping to protect manual Firebase Console changes and existing records.');
+  // Read-only diagnosis: show a bounded diff from the last verified published
+  // source. Never change or deploy rules when an unknown edit is present.
+  const baseline=beforeDateRevision || beforeRepeatedGoalEdit || beforeContinuationFix;
+  if(baseline){
+    const crypto=require('crypto');
+    const sha=text=>crypto.createHash('sha256').update(normalize(text)).digest('hex').slice(0,16);
+    console.error('Verified-baseline hash: '+sha(baseline));
+    console.error('Current published hash: '+sha(existing.content));
+    const left='/tmp/durood-baseline-compare.rules';
+    const right='/tmp/durood-live-compare.rules';
+    fs.writeFileSync(left,normalize(baseline)+'\n',{mode:0o600});
+    fs.writeFileSync(right,normalize(existing.content)+'\n',{mode:0o600});
+    const output=cp.spawnSync('diff',['-U','1',left,right],{encoding:'utf8',maxBuffer:300000});
+    console.error('Safety audit, bounded rule changes:\n'+(output.stdout||'No line diff').slice(0,6000));
+  }
   // This guard never overwrites unverified production rules.
   process.exit(1);
 }
