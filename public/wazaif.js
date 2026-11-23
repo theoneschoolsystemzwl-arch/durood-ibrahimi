@@ -566,7 +566,8 @@ function datedProgress(record){
 }
 function historyEditMarkup(record,day){
  const entry=record?.dailyLedger?.[day]||{},count=Math.max(0,Number(entry.count||0));
- const permitted=canEnterDay(record,day);
+ const permitted=record.kind!=="fixed"||day<=record.endDate||
+   !!periodOnDay(record,day)||(legacyContinuation(record)&&day>=record.continueStartDate);
  return '<form class="wz-edit-form" id="wz-manual-form" data-day="'+esc(day)+'">'+
  '<h3 id="wz-edit-title">روزانہ گنتی میں تبدیلی</h3>'+
  '<p class="wz-edit-date"><time datetime="'+esc(day)+'">'+esc(displayRecordDate(day))+'</time></p>'+
