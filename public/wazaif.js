@@ -492,6 +492,7 @@ function historyEditMarkup(record,day){
 function wazifaHistoryMarkup(record){
  const ledger=record?.dailyLedger&&typeof record.dailyLedger==="object"?record.dailyLedger:{};
  const allRows=datedProgress(record);
+ const pace=readingPace(record);
  const countedDays=Object.values(ledger).reduce((n,e)=>n+Math.max(0,Number(e?.count||0)),0);
  const historicUnallocated=Math.max(0,Number(record?.total||0)-countedDays);
  const rows=allRows.slice(-state.historyLimit).reverse().map(r=>{
@@ -503,29 +504,31 @@ function wazifaHistoryMarkup(record){
   const fulfilled=!outside&&remaining===0;
   const status=outside?'<span class="wz-day-neutral">مدت مکمل</span>':
     fulfilled?'<span class="wz-day-complete">✓ بقایا مکمل، ہدف پورا</span>':
-    '<span class="wz-day-pending" role="status">● بقایا '+fmt(remaining)+' — پورا کریں</span>';
+    '<span class="wz-day-pending" role="status">● آج کا باقی ہدف پورا کریں — '+fmt(remaining)+' بقایا</span>';
   const extra=count>goal?'<span class="wz-day-extra">اس تاریخ میں زائد '+fmt(count-goal)+'</span>':"";
-  const totalRequired=goal+previousDue;
-  const item=(label,n,klass="")=>'<span class="wz-ledger-item '+klass+'"><small>'+label+'</small><strong>'+fmt(n)+'</strong></span>';
+  const item=(label,n,klass="",hint="")=>'<span class="wz-ledger-item '+klass+'"><small>'+label+'</small><strong>'+fmt(n)+'</strong>'+(hint?'<em>'+hint+'</em>':'')+'</span>';
   return '<div class="wz-history-row wz-history-clear wz-ledger-entry '+(fulfilled?"wz-day-ok":outside?"wz-day-idle":"wz-day-due")+
    '" dir="rtl" role="button" tabindex="0" data-wazifa-action="history-day" data-wazifa-day="'+day+
    '" aria-label="'+esc(displayRecordDate(day))+' کا ریکارڈ تبدیل کریں">'+
    '<div class="wz-clear-heading"><time datetime="'+day+'">'+esc(displayRecordDate(day))+'</time>'+
    '<span class="wz-clear-state">'+status+'</span></div>'+
-   '<div class="wz-ledger-lines">'+
-   '<div class="wz-ledger-line wz-ledger-goals">'+item("آج کا ہدف",goal)+item("پچھلا",previousDue)+item("کل مطلوب",totalRequired,"wz-ledger-emphasis")+'</div>'+
-   '<div class="wz-ledger-line wz-ledger-readings">'+item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+item("پڑھا",count)+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+'</div>'+
-   '</div>'+
+   '<div class="wz-ledger-lines"><div class="wz-ledger-line wz-ledger-five">'+
+   item("ہدف",goal,"wz-ledger-goal",previousDue?"پچھلا +"+fmt(previousDue):"")+
+   item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+
+   item("کل",count,"wz-ledger-total")+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+
+   '</div></div>'+
    (previousCredit?'<p class="wz-clear-credit">پچھلے دنوں کا زائد شمار: '+fmt(previousCredit)+' (آج کے ہدف میں شامل)</p>':"")+
    (old?'<p class="wz-clear-legacy">پرانا شمار جس کا ذریعہ محفوظ نہیں تھا: '+fmt(old)+'</p>':"")+
    '<div class="wz-clear-foot"><span class="wz-clear-clock">'+heroIcon("clock")+
-   '<bdi dir="ltr">'+durationText(time)+'</bdi></span>'+
+   '<span>تسبیح <bdi dir="ltr">'+durationText(time)+'</bdi></span>'+
+   (yellow?'<span>دستی '+(pace>0?'<bdi dir="ltr">'+durationText(Math.round(yellow*pace))+'</bdi> تخمینی':'وقت نامعلوم')+'</span>':"")+
+   '<span>کل <bdi dir="ltr">'+durationText(time+(pace>0?Math.round(yellow*pace):0))+'</bdi></span></span>'+
    extra+'<button type="button" class="wz-history-edit" data-wazifa-action="history-day" data-wazifa-day="'+day+'">تبدیلی</button></div></div>';
  }).join("");
  const more=allRows.length>state.historyLimit?'<button type="button" class="wz-button wz-history-more" data-wazifa-action="history-more">مزید پرانا ریکارڈ دکھائیں</button>':"";
  return (historicUnallocated?'<p class="wz-history-unallocated">پرانے مجموعی شمار میں سے '+fmt(historicUnallocated)+' کی الگ تاریخ محفوظ نہیں تھی؛ اس لیے انہیں کسی غلط دن کے ہدف میں شامل نہیں کیا گیا۔</p>':"")+
  (rows||'<div class="wz-history-empty">ابھی ریکارڈ نہیں۔</div>')+more+
- '<p class="wz-history-note">پچھلا بقایا اگلے دن کے ساتھ جمع ہوگا۔ بعد میں زیادہ پڑھنے سے پچھلی تاریخ کا بقایا ختم ہو کر کارڈ سبز ہو جائے گا۔</p>';
+ '<p class="wz-history-note">پچھلا بقایا اگلے دن جمع ہوگا؛ بعد میں پورا ہونے پر کارڈ سبز ہو جائے گا۔ دستی وقت تسبیح کی اوسط رفتار سے تخمینہ ہے۔</p>';
 }
 function heroReadingState(group,w,record){
  const today=readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
