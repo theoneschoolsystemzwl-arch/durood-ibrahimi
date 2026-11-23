@@ -98,11 +98,34 @@ assert.equal(prayer("dhuhr").made,1,"Dhuhr attendance marked Qaza paid counts");
 assert.equal(prayer("asr").made,3,"Asr Qaza calendar and attendance dates are deduplicated");
 assert.equal(prayer("asr").total,3,"Qaza paid must never count as two prayers");
 assert.equal(prayer("maghrib").solo,1);
-assert.equal(prayer("maghrib").missed,1,"Old unrecorded/explicit missed prayer remains Qaza");
-assert.equal(prayer("maghrib").total,2,"Upcoming prayer today is not automatically missed");
+assert.equal(prayer("maghrib").missed,2,"Old missed prayer and unmarked prayer today both remain Qaza");
+assert.equal(prayer("maghrib").total,3,"All days including today are counted from the Qaza start");
 assert.equal(prayer("isha").made,1,"A Qaza payment stored only in Qaza calendar counts");
-assert.equal(prayer("isha").missed,1);
-assert.equal(historyTotals.prayerTotals.reduce((sum,p)=>sum+p.total,0),13,"Overall five-prayer total");
+assert.equal(prayer("isha").missed,2);
+assert.equal(historyTotals.prayerTotals.reduce((sum,p)=>sum+p.total,0),15,"Five prayers over three dates including today");
+assert.equal(historyTotals.prayerTotals.reduce((sum,p)=>sum+p.missed,0),4,"Four remaining Qaza after three congregation, three solo, five made");
+assert(historyTotals.prayerTotals.every(p=>p.total===3),"Every prayer has three due dates regardless of attendance or timing");
+assert(historyTotals.prayerTotals.every(p=>p.missed===p.total-p.jamat-p.solo-p.made),"Every remaining balance is computed from all three paid categories");
+const emptyLedgerCtx={...ledgerCtx,attendance:{2:{}},qazaPlans:{2:{start:"2026-11-21",done:{}}}};
+vm.createContext(emptyLedgerCtx);
+vm.runInContext(ui.slice(ui.indexOf("function prayerLedgerTotals(person,now,today) {"),ui.indexOf("function dailyAttendanceLedger(person,now,today) {")),emptyLedgerCtx);
+const noAttendance=emptyLedgerCtx.prayerLedgerTotals({id:2,joined:new Date("2026-11-23T00:00:00Z")},0,dayToday);
+assert(noAttendance.prayerTotals.every(p=>p.total===3&&p.missed===3),"Unmarked dates, including today, all remain pending");
+assert.equal(noAttendance.prayerTotals.reduce((sum,p)=>sum+p.missed,0),15,"Five prayers over three dates are all Qaza when no attendance exists");
+
+// The new total column sums each attendance category and the final row shows remaining Qaza.
+ledgerCtx.tr=(_english,urdu)=>urdu;
+ledgerCtx.formatNumber=value=>Number(value).toLocaleString("en-US");
+addPureSource("function ledgerRow(label,values,tone=''", "function qazaLedger(byPrayer)");
+const ledgerHtml=ledgerCtx.dailyAttendanceLedger(sampleMember,0,dayToday);
+const ledgerTableHtml=ledgerHtml.slice(ledgerHtml.indexOf("<table"),ledgerHtml.indexOf("</table>")+8);
+assert(ledgerHtml.includes("prayer-ledger-seven"),"Only daily prayer ledger gets the extra Total column");
+assert(ledgerTableHtml.includes('<th scope="col">ٹوٹل</th>'),"The Total heading follows Isha");
+assert.equal((ledgerTableHtml.match(/<th scope="col">/g)||[]).length,7,"Attendance, five daily prayers and Total");
+assert.equal((ledgerTableHtml.match(/class="prayer-ledger-row-total"/g)||[]).length,5,"Four accounting rows and pending footer each have Total");
+assert(ledgerHtml.includes("کل قضا نمازیں")&&ledgerHtml.includes("باقی قضا نمازیں"),"Both total due and pending rows are labeled");
+assert(ledgerHtml.includes("کل باقی نمازیں"),"Bottom grand total displays pending Qaza rather than all prayers");
+assert(ledgerHtml.includes('>15</bdi>')&&ledgerHtml.includes('>4</bdi>'),"Both 15 obligations and 4 pending are visible");
 assert.equal(ledgerCtx.knownPrayerStatus(1,dayPast,"asr"),"made");
 assert.equal(ledgerCtx.knownPrayerStatus(1,dayPast,"fajr"),"jamat");
 
