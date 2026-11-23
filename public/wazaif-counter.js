@@ -74,15 +74,23 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
    throw Error("سابقہ شمار درست نہیں۔");
   const ledger=w.dailyLedger&&typeof w.dailyLedger==="object"?w.dailyLedger:{};
   const old=ledger[day]||{count:0,durationMs:0,intervals:0};
+  const prevCount=Number(old.count||0);
   const prevManual=Number(old.manualCount||0);
-  const newManual=prevManual+(source==="manual"?amount:0);
-  const newCount=Number(old.count||0)+amount;
-  if(newCount<0||newManual<0)throw Error("دستی اندراج میں اتنی تعداد نہیں۔");
+  const prevTasbih=Number(old.tasbihCount||0);
+  const newCount=prevCount+amount;
+  if(newCount<0)throw Error("اس تاریخ کی محفوظ تعداد سے زیادہ کمی ممکن نہیں۔");
+  // A correction removes manual counts first, then unclassified legacy counts,
+  // finally dated tasbih counts; never yields a negative source count.
+  const newManual=amount<0?Math.max(0,prevManual+amount):
+   prevManual+(source==="manual"?amount:0);
+  const newTasbih=amount<0?Math.min(prevTasbih,newCount):
+   prevTasbih+(source==="tasbih"?amount:0);
   const nextEntry={
    count:newCount,
    durationMs:Number(old.durationMs||0)+durationMs,
-   intervals:Number(old.intervals||0)+intervals,
-   tasbihCount:Number(old.tasbihCount||0)+(source==="tasbih"?amount:0),
+   intervals:amount<0?Math.min(Number(old.intervals||0),newCount):
+    Number(old.intervals||0)+intervals,
+   tasbihCount:newTasbih,
    manualCount:newManual
   };
   const dailyLedger={...ledger,[day]:nextEntry};

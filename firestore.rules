@@ -774,10 +774,14 @@ service cloud.firestore {
         entry.count is int && entry.count == oldEntry.count + amount &&
         entry.count >= 0 &&
         entry.tasbihCount is int &&
-        entry.tasbihCount == tasbihBefore + (source == 'tasbih' ? amount : 0) &&
+        entry.tasbihCount == (amount < 0 ?
+          (oldEntry.count + amount < tasbihBefore ? oldEntry.count + amount : tasbihBefore) :
+          tasbihBefore + (source == 'tasbih' ? amount : 0)) &&
         entry.tasbihCount >= 0 &&
         entry.manualCount is int &&
-        entry.manualCount == manualBefore + (source == 'manual' ? amount : 0) &&
+        entry.manualCount == (amount < 0 ?
+          (manualBefore + amount > 0 ? manualBefore + amount : 0) :
+          manualBefore + (source == 'manual' ? amount : 0)) &&
         entry.manualCount >= 0 &&
         (amount >= 0 || source == 'manual') &&
         entry.tasbihCount + entry.manualCount <= entry.count &&
@@ -785,8 +789,11 @@ service cloud.firestore {
         entry.durationMs <= oldEntry.durationMs + 86400000 &&
         entry.durationMs <= 1000000000000 &&
         (amount >= 0 || entry.durationMs == oldEntry.durationMs) &&
-        entry.intervals is int && entry.intervals >= oldEntry.intervals &&
-        entry.intervals <= oldEntry.intervals + (amount > 0 ? amount : 0) &&
+        entry.intervals is int && entry.intervals >= 0 &&
+        (amount < 0 ?
+          entry.intervals == (oldEntry.intervals > entry.count ? entry.count : oldEntry.intervals) :
+          (entry.intervals >= oldEntry.intervals &&
+           entry.intervals <= oldEntry.intervals + amount)) &&
         entry.intervals <= entry.count;
     }
     function validWzGoalHistoryChange() {

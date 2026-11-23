@@ -118,7 +118,7 @@ const state={
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
- tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,
+ tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
  seenDay:readingDay()
 };
 const owner=()=>state.profile?.role==="owner";
@@ -357,7 +357,7 @@ function wazifaCalendarMarkup(record){
   const enabled=canEnterDay(record,day);
   cells+='<button type="button" class="wz-cal-day'+(selected===day?' is-selected':'')+
    (day===readingDay()?' is-today':'')+'" data-wazifa-action="calendar-date" data-wazifa-day="'+day+'"'+
-   (enabled?'':' disabled')+' aria-label="'+esc(displayRecordDate(day))+'"'+
+   (enabled?'':' disabled title="وظیفے کی مدت سے باہر"')+' aria-label="'+esc(displayRecordDate(day))+'"'+
    (selected===day?' aria-pressed="true"':'')+'>'+d+'</button>';
  }
  const label=new Intl.DateTimeFormat("ur-PK",{timeZone:"UTC",month:"long",year:"numeric",numberingSystem:"latn"})
@@ -368,6 +368,7 @@ function wazifaCalendarMarkup(record){
   '<button type="button" class="wz-cal-arrow" data-wazifa-action="calendar-next" aria-label="اگلا مہینہ">›</button></div>'+
   '<div class="wz-cal-grid wz-cal-weekdays">'+["اتوار","پیر","منگل","بدھ","جمعرات","جمعہ","ہفتہ"].map(x=>'<span>'+x+'</span>').join("")+'</div>'+
   '<div class="wz-cal-grid">'+cells+'</div>'+
+  '<label class="wz-cal-native-label">یا تاریخ منتخب کریں <input id="wz-cal-native-date" type="date" min="'+esc(record.startDate)+'" max="'+readingDay()+'" value="'+esc(selected)+'"></label>'+
   '<p class="wz-cal-note">آج کی تسبیح سبز، پچھلی منتخب تاریخ کی تسبیح پیلے دستی شمار میں محفوظ ہوگی۔</p>'+
   '<button type="button" class="wz-button" data-wazifa-action="calendar-close">منسوخ</button></div>';
 }
@@ -380,7 +381,7 @@ function changeWazifaDay(day){
   setError("تاریخ تبدیل کرنے سے پہلے موجودہ تسبیح محفوظ کریں۔");return false;
  }
  state.draftDay=day;state.clockMs=0;state.clockStart=null;state.clockLastTap=null;
- state.clockIntervals=0;state.tapGapMs=0;
+ state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
  const hidden=$("#wz-save-date");if(hidden)hidden.value=day;
  const label=$("#wz-selected-date");if(label)label.textContent=displayRecordDate(day);
  const hint=$("#wz-selected-source");
@@ -414,19 +415,18 @@ function datedProgress(record){
 }
 function historyEditMarkup(record,day){
  const entry=record?.dailyLedger?.[day]||{},count=Math.max(0,Number(entry.count||0));
- const manual=Math.max(0,Number(entry.manualCount||0));
  const permitted=record.kind!=="fixed"||day<=record.endDate||
    hasContinuation(record)&&day>=record.continueStartDate;
  return '<form class="wz-edit-form" id="wz-manual-form" data-day="'+esc(day)+'">'+
  '<h3 id="wz-edit-title">روزانہ گنتی میں تبدیلی</h3>'+
  '<p class="wz-edit-date"><time datetime="'+esc(day)+'">'+esc(displayRecordDate(day))+'</time></p>'+
- '<div class="wz-edit-saved"><small>موجودہ محفوظ تعداد</small><strong>'+fmt(count)+'</strong>'+
- '<small>پیلا (دستی شمار): '+fmt(manual)+' · وقت: <bdi dir="ltr">'+durationText(Number(entry.durationMs||0))+'</bdi></small></div>'+
+ '<div class="wz-edit-saved"><small>موجودہ محفوظ تعداد</small><strong>'+fmt(count)+'</strong></div>'+
  (permitted?'<div class="wz-edit-fields">'+
- '<label>عمل<select name="operation"><option value="add">نئی تعداد جمع کریں (+)</option>'+
- '<option value="remove">پچھلی دستی تعداد کم کریں (−)</option></select></label>'+
- '<label>نئی تعداد<input type="number" name="amount" min="1" max="10000" step="1" autocomplete="off" placeholder="یہاں صرف نئی تعداد لکھیں" required></label>'+
- '<label>وقت (منٹ، اختیاری)<input name="minutes" type="number" min="0" max="1440" step=".01" placeholder="مثلاً 10" autocomplete="off"></label></div>':
+ '<div class="wz-edit-signs" role="group" aria-label="تعداد جمع یا کم کریں">'+
+ '<button type="button" class="wz-sign-button is-selected" aria-pressed="true" data-wazifa-action="edit-sign" data-wazifa-sign="add" title="جمع کریں">+ جمع</button>'+
+ '<button type="button" class="wz-sign-button" aria-pressed="false" data-wazifa-action="edit-sign" data-wazifa-sign="remove" title="کم کریں">− کم</button></div>'+
+ '<input name="operation" type="hidden" value="add">'+
+ '<label>نئی تعداد لکھیں<input type="text" inputmode="numeric" name="amount" pattern="[+-]?[0-9]+" maxlength="7" autocomplete="off" placeholder="مثلاً +100 یا -20" dir="ltr" required></label></div>':
  '<p class="wz-history-note">اس تاریخ کا اندراج وظیفے کی فعال مدت میں نہیں ہے۔</p>')+
  '<p class="wz-edit-error" id="wz-edit-error" role="alert" hidden></p>'+
  '<div class="wz-modal-actions">'+
@@ -450,19 +450,16 @@ function wazifaHistoryMarkup(record){
     fulfilled?'<span class="wz-day-complete">✓ بقایا مکمل، ہدف پورا</span>':
     '<span class="wz-day-pending" role="status">● بقایا '+fmt(remaining)+' — پورا کریں</span>';
   const extra=count>goal?'<span class="wz-day-extra">اس تاریخ میں زائد '+fmt(count-goal)+'</span>':"";
-  const cell=(label,number,klass="")=>'<span class="wz-clear-cell '+klass+'"><small>'+label+'</small><strong>'+fmt(number)+'</strong></span>';
-  return '<div class="wz-history-row wz-history-clear '+(fulfilled?"wz-day-ok":outside?"wz-day-idle":"wz-day-due")+
+  const totalRequired=goal+previousDue;
+  const item=(label,n,klass="")=>'<span class="wz-ledger-item '+klass+'"><small>'+label+'</small><strong>'+fmt(n)+'</strong></span>';
+  return '<div class="wz-history-row wz-history-clear wz-ledger-entry '+(fulfilled?"wz-day-ok":outside?"wz-day-idle":"wz-day-due")+
    '" dir="rtl" role="button" tabindex="0" data-wazifa-action="history-day" data-wazifa-day="'+day+
    '" aria-label="'+esc(displayRecordDate(day))+' کا ریکارڈ تبدیل کریں">'+
    '<div class="wz-clear-heading"><time datetime="'+day+'">'+esc(displayRecordDate(day))+'</time>'+
    '<span class="wz-clear-state">'+status+'</span></div>'+
-   '<div class="wz-clear-grid">'+
-   cell("آج کا ہدف",goal,"wz-clear-goal")+
-   cell("پچھلا بقایا",previousDue,"wz-clear-prev")+
-   cell("تسبیح (سبز)",green,"wz-clear-green")+
-   cell("دستی (پیلا)",yellow,"wz-clear-yellow")+
-   cell("آج کا کل",count,"wz-clear-total")+
-   cell("اب بقایا",remaining,remaining>0?"wz-clear-pending":"wz-clear-paid")+
+   '<div class="wz-ledger-lines">'+
+   '<div class="wz-ledger-line wz-ledger-goals">'+item("آج کا ہدف",goal)+item("پچھلا",previousDue)+item("کل مطلوب",totalRequired,"wz-ledger-emphasis")+'</div>'+
+   '<div class="wz-ledger-line wz-ledger-readings">'+item("تسبیح",green,"wz-ledger-green")+item("دستی",yellow,"wz-ledger-yellow")+item("پڑھا",count)+item("بقایا",remaining,remaining?"wz-ledger-pending":"wz-ledger-done")+'</div>'+
    '</div>'+
    (previousCredit?'<p class="wz-clear-credit">پچھلے دنوں کا زائد شمار: '+fmt(previousCredit)+' (آج کے ہدف میں شامل)</p>':"")+
    (old?'<p class="wz-clear-legacy">پرانا شمار جس کا ذریعہ محفوظ نہیں تھا: '+fmt(old)+'</p>':"")+
@@ -471,8 +468,7 @@ function wazifaHistoryMarkup(record){
    extra+'<button type="button" class="wz-history-edit" data-wazifa-action="history-day" data-wazifa-day="'+day+'">تبدیلی</button></div></div>';
  }).join("");
  const more=allRows.length>state.historyLimit?'<button type="button" class="wz-button wz-history-more" data-wazifa-action="history-more">مزید پرانا ریکارڈ دکھائیں</button>':"";
- return '<p class="wz-history-legend"><span class="wz-history-green">● آج کی تسبیح سبز</span> · <span class="wz-history-yellow">● پچھلی تاریخ / دستی پیلا</span></p>'+
- (historicUnallocated?'<p class="wz-history-unallocated">پرانے مجموعی شمار میں سے '+fmt(historicUnallocated)+' کی الگ تاریخ محفوظ نہیں تھی؛ اس لیے انہیں کسی غلط دن کے ہدف میں شامل نہیں کیا گیا۔</p>':"")+
+ return (historicUnallocated?'<p class="wz-history-unallocated">پرانے مجموعی شمار میں سے '+fmt(historicUnallocated)+' کی الگ تاریخ محفوظ نہیں تھی؛ اس لیے انہیں کسی غلط دن کے ہدف میں شامل نہیں کیا گیا۔</p>':"")+
  (rows||'<div class="wz-history-empty">ابھی ریکارڈ نہیں۔</div>')+more+
  '<p class="wz-history-note">پچھلا بقایا اگلے دن کے ساتھ جمع ہوگا۔ بعد میں زیادہ پڑھنے سے پچھلی تاریخ کا بقایا ختم ہو کر کارڈ سبز ہو جائے گا۔</p>';
 }
@@ -538,14 +534,14 @@ function readerMarkup(group){
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>💾 Save · محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
  '<div class="wz-hero-speed">'+
- '<div>'+heroIcon("bolt")+'<small>فی سیکنڈ</small><strong id="wz-speed-sec">—</strong></div>'+
+ '<div>'+heroIcon("bolt")+'<small>فی ذکر</small><strong id="wz-speed-sec">—</strong></div>'+
  '<div>'+heroIcon("clock")+'<small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div>'+heroIcon("clock")+'<small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
  '<div>'+heroIcon("meter")+'<small>کارکردگی</small><strong id="wz-speed-status">—</strong></div>'+
  '</div>'+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+Math.min(100,Math.floor(s.todayCount/Math.max(1,s.dailyGoal)*100))+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
- '<small id="wz-live-speed">رفتار: — فی سیکنڈ</small>'+
+ '<small id="wz-live-speed">فی ذکر: —</small>'+
  '<span class="wz-dial-clock">'+heroIcon("clock")+'<span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">00:00:00.000</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button>'+
@@ -741,7 +737,7 @@ function restoreDraft(){
  }catch{}
 }
 function startClock(){
- state.clockStart=null;state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;state.tapGapMs=0;
+ state.clockStart=null;state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
  state.tapQueue=0;state.tapMetaQueue=[];state.draftDay=readingDay();
 }
 function tap(){
@@ -759,7 +755,7 @@ function tap(){
  if(state.clockStart===null)state.clockStart=pressedAt;
  if(state.clockLastTap!==null){
    const gap=pressedAt-state.clockLastTap;
-   if(gap>0){state.tapGapMs=gap;state.clockIntervals++;}
+   if(gap>0){state.tapGapMs=gap;state.tapGapTotalMs+=gap;state.clockIntervals++;}
  }
  state.clockLastTap=pressedAt;
  state.tapQueue++;
@@ -788,7 +784,7 @@ async function drain(){
    persistDraft();
   }
   state.error="";state.clockMs=0;state.clockStart=null;
-  state.clockLastTap=null;state.tapGapMs=0;state.clockIntervals=0;state.historyDay=day;
+  state.clockLastTap=null;state.tapGapMs=0;state.tapGapTotalMs=0;state.clockIntervals=0;state.historyDay=day;
  }catch(e){setError("گنتی محفوظ نہیں ہوئی؛ دوبارہ Save کریں: "+(e.code||e.message));}
  finally{
   state.tapBusy=false;
@@ -801,13 +797,17 @@ function tick(){
  const value=elapsedTime(),h=Math.floor(value/3600000),m=Math.floor(value/60000)%60,sec=Math.floor(value/1000)%60,ms=value%1000;
  const clock=$("#wz-clock");
  if(clock)clock.textContent=[h,m,sec].map(x=>String(x).padStart(2,"0")).join(":")+"."+String(ms).padStart(3,"0");
- // Speed is based on the time BETWEEN the last two presses, not total session.
- // 1 second => 60/min, 2 seconds => 30/min, 3 seconds => 20/min.
- const rate=state.clockIntervals>0&&state.tapGapMs>0?1000/state.tapGapMs:0;
- const pace=n=>n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
- const p=pace(rate);
- for(const [id,text] of [["#wz-speed-sec",p],["#wz-speed-min",pace(rate*60)],["#wz-speed-hour",pace(rate*3600)],
-  ["#wz-live-speed","رفتار: "+p+" فی سیکنڈ"],["#wz-speed-status",state.clockIntervals>0?"دو دباؤ کے وقفے سے رفتار":state.tapQueue>0?"دوبارہ دبائیں؛ وقت جاری ہے":"تسبیح شروع کریں"]]){
+ // Each recitation's average time is measured from every completed press interval.
+ // After the first press, the live per-zikr timer runs; rates begin on press two.
+ const averageMs=state.clockIntervals>0?state.tapGapTotalMs/state.clockIntervals:0;
+ const liveMs=state.tapQueue===1?Math.max(0,value):0;
+ const seconds=averageMs>0?averageMs/1000:liveMs/1000;
+ const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:1}):"—";
+ const perZikr=state.tapQueue>0?pace(seconds)+" ثانیے":"—";
+ const perMinute=averageMs>0?pace(60000/averageMs):"—";
+ const perHour=averageMs>0?pace(3600000/averageMs):"—";
+ for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour],
+  ["#wz-live-speed","فی ذکر: "+perZikr],["#wz-speed-status",state.clockIntervals>0?"تمام دباؤ کی اوسط":state.tapQueue>0?"دوسرا دباؤ دیں؛ وقت جاری ہے":"تسبیح شروع کریں"]]){
   const node=$(id);if(node)node.textContent=text;
  }
  if(state.seenDay!==readingDay()){
@@ -852,6 +852,22 @@ document.addEventListener("click",event=>{
  if(!button)return;
  const action=button.dataset.wazifaAction,id=button.dataset.wazifaId;
  event.preventDefault();event.stopImmediatePropagation();
+ if(action==="edit-sign"){
+   const form=button.closest("#wz-manual-form"),mode=button.dataset.wazifaSign;
+   if(!form||!["add","remove"].includes(mode))return;
+   const hidden=form.elements.namedItem("operation"),input=form.elements.namedItem("amount");
+   if(hidden)hidden.value=mode;
+   form.querySelectorAll(".wz-sign-button").forEach(item=>{
+    const active=item.dataset.wazifaSign===mode;
+    item.classList.toggle("is-selected",active);item.setAttribute("aria-pressed",String(active));
+   });
+   if(input){
+    const digits=String(input.value||"").replace(/^[+-]/,"");
+    input.value=(mode==="remove"?"-":"+")+digits;
+    input.focus();input.setSelectionRange(input.value.length,input.value.length);
+   }
+   return;
+ }
  if(action==="new")return openForm("personal");
  if(action==="share-personal"&&id){
    state.shareFor=state.shareFor===id?null:id;state.shareNotice="";render();return;
@@ -971,25 +987,22 @@ document.addEventListener("submit",event=>{
   event.preventDefault();event.stopImmediatePropagation();
   const form=event.target,task=state.personal.find(w=>w.id===state.readerId);
   if(!task||state.busy||state.tapBusy)return;
-  const data=new FormData(form),day=form.dataset.day,amount=Number(data.get("amount"));
-  const operation=String(data.get("operation")),minutes=String(data.get("minutes")||"").trim();
-  const durationMs=minutes===""?0:Math.round(Number(minutes)*60000);
-  const allowed=task.kind!=="fixed"||day<=task.endDate||
-   hasContinuation(task)&&day>=task.continueStartDate;
-  if(!dayOk(day)||day<task.startDate||day>readingDay()||!allowed||!Number.isSafeInteger(amount)||amount<1||amount>10000||
-    !Number.isSafeInteger(durationMs)||durationMs<0||durationMs>86400000||
-    (operation!=="add"&&operation!=="remove")||(operation==="remove"&&durationMs>0)){
-   const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="تعداد، منتخب تاریخ یا وقت درست نہیں۔";}return;
+  const data=new FormData(form),day=form.dataset.day,raw=String(data.get("amount")||"").trim();
+  const operation=raw.startsWith("-")?"remove":raw.startsWith("+")?"add":String(data.get("operation"));
+  const amount=Number(raw.replace(/^[+-]/,""));
+  const allowed=canEnterDay(task,day);
+  const savedCount=Number(task.dailyLedger?.[day]?.count||0);
+  if(!allowed||!/^[-+]?\\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>10000||
+    !["add","remove"].includes(operation)||(operation==="remove"&&amount>savedCount)){
+   const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="درست تعداد درج کریں۔ کمی صرف اسی دن کی محفوظ تعداد تک ہو سکتی ہے۔";}return;
   }
-  const prior=Number(task.dailyLedger?.[day]?.manualCount||0);
-  if(operation==="remove"&&amount>prior){const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="کمی صرف پہلے پیلے رنگ کی دستی تعداد تک ہو سکتی ہے۔";}return;}
   state.busy=true;const submit=form.querySelector('[type="submit"]');if(submit)submit.disabled=true;
   let saved=0;
   (async()=>{
     while(saved<amount){
       const step=Math.min(1000,amount-saved);
       await recordPersonalWazifa(task.id,operation==="remove"?-step:step,day,{
-        durationMs:saved===0?durationMs:0,intervals:0,source:"manual"});
+        durationMs:0,intervals:0,source:"manual"});
       saved+=step;
     }
   })().then(()=>{
@@ -1009,8 +1022,12 @@ document.addEventListener("submit",event=>{
  saveForm(event.target);
 },true);
 document.addEventListener("change",event=>{
- if(event.target?.id==="wz-save-date"){
-  if(!changeWazifaDay(event.target.value))event.target.value=state.draftDay||readingDay();
+ if(event.target?.id==="wz-save-date"||event.target?.id==="wz-cal-native-date"){
+  if(changeWazifaDay(event.target.value)){
+   const dialog=$("#wz-date-dialog");
+   if(dialog?.open&&typeof dialog.close==="function")dialog.close();
+   else dialog?.removeAttribute("open");
+  }else event.target.value=state.draftDay||readingDay();
   return;
  }
  if(event.target?.closest("#wazifa-form")){
