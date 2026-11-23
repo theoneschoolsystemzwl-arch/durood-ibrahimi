@@ -988,7 +988,7 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("pagehide",()=>{persistDraft();wzSync.schedule(0);});
 setInterval(()=>{checkWzIdle();if(wzSync.pending()&&navigator.onLine!==false)wzSync.schedule(0);},20000);
 document.addEventListener("keydown",event=>{
- const row=event.target.closest(".wz-history-clear[data-wazifa-action='history-day']");
+ const row=event.target.closest(".wz-history-entry[data-wazifa-action='history-day']");
  if(row&&event.target===row&&(event.key==="Enter"||event.key===" ")){
   event.preventDefault();row.click();
  }
