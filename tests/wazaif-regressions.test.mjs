@@ -17,7 +17,7 @@ const ctx={
 };
 vm.createContext(ctx);
 vm.runInContext(source.slice(start,end),ctx);
-const f=vm.runInContext("({addDays,spanDays,targetForDay,periodOnDay,runningGoal,fixedExpired,continuationActive,fixedPlan})",ctx);
+const f=vm.runInContext("({addDays,spanDays,targetForDay,periodOnDay,runningGoal,fixedExpired,continuationActive,fixedPlan,visibleWazifaPeriod})",ctx);
 const original={
  kind:"fixed",title:"درود خضری",goal:110,
  startDate:"2026-10-01",endDate:"2026-10-11",
@@ -42,6 +42,19 @@ assert.equal(f.targetForDay({...original,continuePeriods:[extension,daily]},"202
 assert.equal(f.runningGoal({...original,continuePeriods:[extension,daily]},"2026-11-24"),580);
 assert.equal(f.continuationActive({...original,continuePeriods:[extension]}),false);
 assert.equal(f.continuationActive({...original,continuePeriods:[extension,daily]}),true);
+const correctedFixed={...extension,startDate:"2026-10-13",endDate:"2026-11-22"};
+const correctedDaily={...daily,startDate:"2026-11-23"};
+const shifted={...original,continuePeriods:[correctedFixed,correctedDaily]};
+assert.equal(f.visibleWazifaPeriod(shifted,"2026-11-24").startDate,"2026-11-23");
+assert.equal(f.visibleWazifaPeriod(shifted,"2026-11-24").endDate,"");
+assert.equal(f.targetForDay(shifted,"2026-11-24"),20);
+assert.equal(f.visibleWazifaPeriod({...original,continuePeriods:[correctedFixed]},
+  "2026-11-24").startDate,"2026-10-13");
+assert.equal(f.visibleWazifaPeriod({...original,continuePeriods:[correctedFixed]},
+  "2026-11-24").endDate,"2026-11-22");
+assert(source.includes('dateTile("آغاز کی تاریخ",visible.startDate)'));
+assert(source.includes('heroTile("اختتامی تاریخ",visible.endDate||"جاری"'));
+
 // The fixed-expiry "next goal" button belongs inside the personal settings,
 // never on the main Wazifa card. It must remain tied to the edited Wazifa.
 const mainCard=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
@@ -58,9 +71,13 @@ assert(editForm.includes('state.editId&&!g&&continuationPeriods(original).length
 assert(editForm.includes('data-wazifa-action="edit-continuation"'));
 assert(source.includes('if(action==="edit-continuation")return openContinuationForm(id,true)'));
 assert(source.includes('data-edit-period="'));
-assert(source.includes('continuePeriods:[...old.slice(0,-1),{...latest,goal:newGoal}]'));
-assert(rules.includes("validWzPeriodGoalRevision"));
-assert(rules.includes("affectedKeys().hasOnly(['goal'])"));
+assert(source.includes('continuePeriods:[...old.slice(0,-1),newPeriod]'));
+assert(source.includes('if(date<newPeriod.startDate||'),
+  "Saved recitation dates must not fall outside a corrected period");
+assert(source.includes('name="nextEnd" type="date"'));
+
+assert(rules.includes("validWzPeriodRevision"));
+assert(rules.includes("affectedKeys().hasOnly(['goal','startDate','endDate','durationDays'])"));
 // A deleted middle number must be reused for new and incoming tasks.
 assert(sharing.includes("while(used.has(serial))serial++"));
 assert(sharing.includes("lastNumber:serial"));
