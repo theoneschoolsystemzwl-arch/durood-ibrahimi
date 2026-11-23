@@ -1,0 +1,84 @@
+name: Read-only Oct 15 Wazifa ledger audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/wazifa-oct15-readonly-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to the existing Firebase project with GitHub OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read only the owner's Oct 15 Wazifa ledger (never write)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node <<'NODE'
+          const project="durood-e-ibrahimi-global-c74e0";
+          const owner="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
+          const day="2026-10-15";
+          const root="https://firestore.googleapis.com/v1/projects/"+project+"/databases/(default)/documents/";
+          const f=(d,key)=>d?.fields?.[key]||null;
+          const str=(d,key)=>f(d,key)?.stringValue||"";
+          const num=(d,key)=>Number(f(d,key)?.integerValue||0);
+          const ledgerEntry=(w,date)=>f(w,"dailyLedger")?.mapValue?.fields?.[date]?.mapValue?.fields||{};
+          const value=(fields,key)=>Number(fields[key]?.integerValue||0);
+          async function list(path){
+            let token="",items=[];
+            do{
+              const url=new URL(root+path);
+              url.searchParams.set("pageSize","100");
+              if(token)url.searchParams.set("pageToken",token);
+              const response=await fetch(url,{headers:{Authorization:"Bearer "+process.env.ACCESS_TOKEN}});
+              if(!response.ok)throw Error("Firestore read-only listing failed with HTTP "+response.status);
+              const data=await response.json();
+              items.push(...(data.documents||[]));
+              token=data.nextPageToken||"";
+              if(items.length>1000)throw Error("Too many private items; stop audit.");
+            }while(token);
+            return items;
+          }
+          (async()=>{
+            const docs=await list("memberWazaif/"+owner+"/items");
+            const output=docs.filter(d=>{
+              const w=num(d,"wNumber"),title=str(d,"title");
+              return w===3||/خضر|khiz|khidr|khizr/i.test(title);
+            }).map(d=>{
+              const ledger=f(d,"dailyLedger")?.mapValue?.fields||{};
+              const dayLedger=ledgerEntry(d,day);
+              const ledgerSum=Object.values(ledger).reduce((n,e)=>n+value(e.mapValue?.fields||{},"count"),0);
+              const total=num(d,"total");
+              return {
+                wNumber:num(d,"wNumber"),
+                titleMatchesKhizri:/خضر|khiz|khidr|khizr/i.test(str(d,"title")),
+                startDate:str(d,"startDate"),
+                endDate:str(d,"endDate"),
+                october15:{
+                  count:value(dayLedger,"count"),
+                  manualCount:value(dayLedger,"manualCount"),
+                  tasbihCount:value(dayLedger,"tasbihCount"),
+                  hasLedgerEntry:!!ledger[day]
+                },
+                aggregate:{total,ledgerSum,unallocated:total-ledgerSum},
+                dailyLedgerDays:Object.keys(ledger).length
+              };
+            });
+            console.log("READ ONLY Oct 15 Wazifa audit (no names, IDs, credentials or writes):");
+            console.log(JSON.stringify({auditedDate:day,totalPersonalWazaif:docs.length,matchingWazaif:output},null,2));
+          })().catch(err=>{
+            console.error("Read-only audit unavailable:",err.message);
+            process.exitCode=1;
+          });
+          NODE
