@@ -78,16 +78,24 @@ assert(source.includes('name="nextEnd" type="date"'));
 
 assert(rules.includes("validWzPeriodRevision"));
 assert(rules.includes("affectedKeys().hasOnly(['goal','startDate','endDate','durationDays'])"));
-// Launch tabs show the Wazifa name before "Tasbih", and the original
-// heading remains below. Long Arabic passages scroll without text truncation.
+// Both Tasbih launch buttons are elegant single-line tabs. The original
+// name + W-number remain in the card heading; no prayer-beads emoji is added.
 const wazifaCss=fs.readFileSync("public/wazaif.css","utf8");
 const personalCardMarkup=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
 const groupCardMarkup=source.slice(source.indexOf("function groupCard("),source.indexOf("function taskStatus("));
 const readerMarkupSource=source.slice(source.indexOf("function readerMarkup("),source.indexOf("function refreshHeroReader("));
-assert(personalCardMarkup.includes('class="wz-cta-title">\'+esc(task.title)'),
-  "Personal tasbih tab must name the Wazifa");
-assert(groupCardMarkup.includes('class="wz-cta-title">\'+esc(g.title)'),
-  "Group tasbih tab must name its Wazifa");
+assert(personalCardMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(task.title))'),
+  "Personal Tasbih tab must show the Wazifa title and Tasbih in one span");
+assert(groupCardMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(g.title))'),
+  "Group Tasbih tab must show the Wazifa title and Tasbih in one span");
+assert(!personalCardMarkup.includes("📿")&&!groupCardMarkup.includes("📿"),
+  "Launch tabs must not show a Tasbih icon");
+assert(!personalCardMarkup.includes("wz-cta-action")&&!groupCardMarkup.includes("wz-cta-action"),
+  "The launch tab must not split its label over two lines");
+assert(wazifaCss.includes(".wz-tasbih-cta .wz-cta-single{"));
+assert(wazifaCss.includes("white-space:nowrap")&&wazifaCss.includes("overflow-x:auto"),
+  "Tab labels remain on one line, with sideways scroll for unusually long names");
+assert(wazifaCss.includes("border-radius:16px 16px 6px 6px"));
 assert(personalCardMarkup.includes('<h3><bdi dir="ltr" class="wz-serial"'),
   "Keep the existing name and W number in the card heading");
 assert(readerMarkupSource.includes("arabicDisplayAttrs(w.arabic)"),
@@ -96,6 +104,9 @@ const attrsStart=source.indexOf("function arabicDisplayAttrs("),attrsEnd=source.
 assert(attrsStart>0&&attrsEnd>attrsStart);
 const arabicCtx={String};vm.createContext(arabicCtx);
 vm.runInContext(source.slice(attrsStart,attrsEnd),arabicCtx);
+assert.equal(arabicCtx.tasbihTabLabel("آیت الکرسی"),"آیت الکرسی تسبیح");
+assert.equal(arabicCtx.tasbihTabLabel("آیت الکرسی تسبیح"),"آیت الکرسی تسبیح");
+assert.equal(arabicCtx.tasbihTabLabel("سورۃ یٰسین"),"سورۃ یٰسین تسبیح");
 assert(!arabicCtx.arabicDisplayAttrs("بسم الله الرحمن الرحيم").includes("wz-arabic-scroll"),
   "Short Arabic remains fully visible");
 assert(arabicCtx.arabicDisplayAttrs("الحمد لله ".repeat(80)).includes('tabindex="0"'),
