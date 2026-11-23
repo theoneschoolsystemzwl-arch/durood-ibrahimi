@@ -6,40 +6,104 @@ on:
     paths:
       - 'android-live/**'
       - '.github/workflows/android-live-apk.yml'
+
 permissions:
   contents: write
+  issues: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout source
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        id: java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        id: android
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 components
+        id: sdk
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Gradle 8.9
+        id: gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Generate Android icons from existing Muhammad tasbih
+
+      - name: Generate original Muhammad ﷺ launcher icons
+        id: icons
         run: |
-          python3 -m pip install pillow
+          python3 -m pip install --user pillow
           python3 android-live/make_icons.py public/tasbih-calligraphy.webp android-live/app/src/main/res
-      - name: Compile installable debug APK
-        run: gradle -p android-live :app:assembleDebug --no-daemon
-      - name: Publish APK file
+          test -s android-live/app/src/main/res/mipmap-mdpi/ic_launcher.png
+
+      - name: Compile installable Android APK
+        id: compile
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p android-live :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee android-build.log
+          test -s android-live/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload compiled APK
+        id: artifact
         uses: actions/upload-artifact@v4
         with:
           name: Durood-Ibrahim-Urdu-Live-APK
           path: android-live/app/build/outputs/apk/debug/app-debug.apk
-      - name: Publish installable Android APK in private GitHub Releases
+          if-no-files-found: error
+
+      - name: Publish APK to private GitHub Release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "android-live-${GITHUB_RUN_NUMBER}" \
             "android-live/app/build/outputs/apk/debug/app-debug.apk#Durood-Ibrahim-Live.apk" \
             --title "Durood Ibrahim Live APK ${GITHUB_RUN_NUMBER}" \
-            --notes "Installable debug APK for the current Firebase-hosted Durood app. Web changes appear on next fresh launch/refresh." \
+            --notes "App uses the existing Firebase-hosted live website. Future website content/design updates load when the app starts or is refreshed." \
             --latest
+
+      - name: Save failed stage and build output in private GitHub issue
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo "## Android CI troubleshooting"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo ""
+            echo "| Stage | Outcome |"
+            echo "|---|---|"
+            echo "| Checkout | ${{ steps.checkout.outcome }} |"
+            echo "| Java | ${{ steps.java.outcome }} |"
+            echo "| Android SDK | ${{ steps.android.outcome }} |"
+            echo "| SDK packages | ${{ steps.sdk.outcome }} |"
+            echo "| Gradle | ${{ steps.gradle.outcome }} |"
+            echo "| Icons | ${{ steps.icons.outcome }} |"
+            echo "| APK Compile | ${{ steps.compile.outcome }} |"
+            echo "| Artifact | ${{ steps.artifact.outcome }} |"
+            echo "| Release | ${{ steps.release.outcome }} |"
+            if [ -f android-build.log ]; then
+              echo ""
+              echo "## Last 100 lines of Gradle output"
+              echo '~~~'
+              tail -n 100 android-build.log
+              echo '~~~'
+            fi
+          } > android-failure.md
+          gh issue create --repo "${GITHUB_REPOSITORY}" \
+            --title "Android APK build diagnostic - run #${GITHUB_RUN_NUMBER}" \
+            --body-file android-failure.md
