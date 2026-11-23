@@ -2,7 +2,7 @@
 // invitation inbox. All numbering + acceptance is atomic in Firestore.
 import {auth,db} from "./firebase-client.js";
 import {collection,doc,query,where,limit,startAfter,getDoc,getDocs,
-  runTransaction,setDoc,deleteDoc,serverTimestamp}
+  runTransaction,setDoc,deleteDoc,serverTimestamp,getDocFromServer,getDocsFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 const OWNER_UID="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
@@ -18,12 +18,49 @@ function currentUid(){
   if(!uid)throw Error("وظیفہ شیئر کرنے سے پہلے لاگ اِن کریں۔");
   return uid;
 }
-function nextSerial(snapshot){
-  const old=Number(snapshot.exists()?snapshot.data().next:0);
-  if(!Number.isSafeInteger(old)||old<0||old>=MAX_SERIAL)throw Error("وظائف کی سیریل گنتی دستیاب نہیں۔");
-  return old+1;
+// The sequence document serializes allocations, even when an older W slot is reused.
+// Query the owner's current items from the server, never a cached/UI list.
+const serialRetry="WAZIFA_SERIAL_CHANGED";
+async function allocateSerial(uid,writeItem){
+  const counter=seqRef(uid);
+  for(let attempt=0;attempt<6;attempt++){
+    const [before,items]=await Promise.all([
+      getDocFromServer(counter),
+      getDocsFromServer(query(personalCollection(uid),limit(100)))
+    ]);
+    if(items.size>=100)throw Error("وظائف کی حد پوری ہوگئی؛ نمبر محفوظ نہیں ہو سکا۔");
+    const used=new Set();
+    items.forEach(item=>{
+      const n=item.data().wNumber;
+      if(Number.isSafeInteger(n)&&n>0)used.add(n);
+    });
+    let serial=1;
+    while(used.has(serial))serial++;
+    const previous=before.exists()?before.data():null;
+    const eventNumber=Number(previous?.next||0)+1;
+    if(!Number.isSafeInteger(eventNumber)||eventNumber<1||eventNumber>MAX_SERIAL)
+      throw Error("وظائف کی سیریل گنتی دستیاب نہیں۔");
+    try{
+      return await runTransaction(db,async tx=>{
+        const current=await tx.get(counter);
+        sameUid(uid);
+        const latest=current.exists()?current.data():null;
+        if(Number(latest?.next||0)!==Number(previous?.next||0)||
+           String(latest?.lastItemId||"")!==String(previous?.lastItemId||""))
+          throw Error(serialRetry);
+        const result=await writeItem(tx,serial);
+        if(result?.skip)return result.value;
+        tx.set(counter,{next:eventNumber,lastNumber:serial,lastItemId:result.id,
+          updatedAt:serverTimestamp()});
+        return {...result,wNumber:serial};
+      });
+    }catch(error){
+      if(error.message===serialRetry&&attempt<5)continue;
+      throw error;
+    }
+  }
+  throw Error("نمبر بدل گیا؛ دوبارہ کوشش کریں۔");
 }
-function serialData(n){return {next:n,lastItemId:"",updatedAt:serverTimestamp()};}
 function sameUid(expected){if(auth.currentUser?.uid!==expected)throw Error("اکاؤنٹ تبدیل ہو گیا، دوبارہ کوشش کریں۔");}
 export function wazifaSerial(task){return Number.isSafeInteger(task?.wNumber)&&task.wNumber>0?"W-"+task.wNumber:"نمبر لگ رہا ہے…";}
 export function validMemberSerial(value){
@@ -46,30 +83,23 @@ function displayMemberSerial(profile){
     "DI-"+Number(profile.memberNumber);
 }
 export async function assignLegacyWazifaSerial(itemId){
-  const uid=currentUid();
-  const ref=itemRef(uid,itemId),counter=seqRef(uid);
-  return runTransaction(db,async tx=>{
-    const [item,sequence]=await Promise.all([tx.get(ref),tx.get(counter)]);
-    sameUid(uid);
-    if(!item.exists())return null;
-    if(Number.isSafeInteger(item.data().wNumber)&&item.data().wNumber>0)return item.data().wNumber;
-    const next=nextSerial(sequence);
-    tx.update(ref,{wNumber:next,updatedAt:serverTimestamp()});
-    tx.set(counter,{next,lastItemId:itemId,updatedAt:serverTimestamp()});
-    return next;
+  const uid=currentUid(),ref=itemRef(uid,itemId);
+  const assigned=await allocateSerial(uid,async(tx,n)=>{
+    const item=await tx.get(ref);
+    if(!item.exists())return {skip:true,value:null};
+    if(Number.isSafeInteger(item.data().wNumber)&&item.data().wNumber>0)
+      return {skip:true,value:item.data().wNumber};
+    tx.update(ref,{wNumber:n,updatedAt:serverTimestamp()});
+    return {id:itemId};
   });
+  return typeof assigned==="number"||assigned===null?assigned:assigned.wNumber;
 }
 export async function createPersonalWazifaWithSerial(data){
-  const uid=currentUid();
-  const counter=seqRef(uid),ref=doc(personalCollection(uid));
-  return runTransaction(db,async tx=>{
-    const current=await tx.get(counter);
-    sameUid(uid);
-    const next=nextSerial(current);
+  const uid=currentUid(),ref=doc(personalCollection(uid));
+  return allocateSerial(uid,async(tx,n)=>{
     tx.set(ref,{...data,uid,total:0,today:0,day:todayLocal(),
-      wNumber:next,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    tx.set(counter,{next,lastItemId:ref.id,updatedAt:serverTimestamp()});
-    return {id:ref.id,wNumber:next};
+      wNumber:n,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    return {id:ref.id};
   });
 }
 function todayLocal(){
@@ -131,20 +161,17 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
 }
 export async function acceptSharedWazifa(inboxId){
   const uid=currentUid();
-  const received=inboxRef(uid,inboxId),counter=seqRef(uid),newItem=doc(personalCollection(uid));
-  return runTransaction(db,async tx=>{
-    const [message,seq]=await Promise.all([tx.get(received),tx.get(counter)]);
-    sameUid(uid);
+  const received=inboxRef(uid,inboxId),newItem=doc(personalCollection(uid));
+  return allocateSerial(uid,async(tx,n)=>{
+    const message=await tx.get(received);
     if(!message.exists())throw Error("یہ شیئرڈ وظیفہ پہلے ہی محفوظ یا حذف ہو چکا ہے۔");
     const source=message.data();
     if(source.recipientUid!==uid)throw Error("یہ پیغام آپ کے اکاؤنٹ کا نہیں۔");
     const config=Object.fromEntries(DATA_KEYS.map(key=>[key,source[key]]));
-    const next=nextSerial(seq);
     tx.set(newItem,{...config,uid,total:0,today:0,day:todayLocal(),
-      wNumber:next,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    tx.set(counter,{next,lastItemId:newItem.id,updatedAt:serverTimestamp()});
+      wNumber:n,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     tx.delete(received);
-    return {wNumber:next,id:newItem.id};
+    return {id:newItem.id};
   });
 }
 export async function discardSharedWazifa(inboxId){

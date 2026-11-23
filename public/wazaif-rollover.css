@@ -412,3 +412,17 @@
  .wz-history-entry .wz-ledger-edit-button{min-height:40px;font-size:clamp(.61rem,2.3vw,.76rem)}
  .wz-daily-toolbar{gap:3px}
 }
+
+/* New fixed-expiry continuation is intentionally compact on mobile. */
+.wz-continue-prompt{
+ margin:7px 0;padding:10px;border-radius:11px;
+ border:1px solid #2b9b76;background:rgba(4,70,49,.68);
+ display:grid;gap:7px
+}
+.wz-continue-prompt p{margin:0;font-weight:750;line-height:1.6}
+.wz-continue-prompt button{max-width:100%;white-space:normal}
+#wz-continue-form [data-wz-next-daily],
+#wz-continue-form [data-wz-next-fixed]{display:grid;gap:8px}
+#wz-continue-form [data-wz-next-daily][hidden],
+#wz-continue-form [data-wz-next-fixed][hidden]{display:none!important}
+#wz-continue-form .wz-actions{display:flex;gap:7px;flex-wrap:wrap}

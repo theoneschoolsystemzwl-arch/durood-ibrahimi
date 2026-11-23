@@ -64,7 +64,7 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
     !Number.isSafeInteger(intervals)||intervals<0||intervals>Math.max(0,amount)||
     !/^\d{4}-\d{2}-\d{2}$/.test(day)||day>readingDay()||
     readingDay(new Date(day+"T12:00:00"))!==day ||
-    (syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||amount<1)))
+    (syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||amount===0)))
   throw Error("تعداد، وقت یا تاریخ درست نہیں۔");
  const receipt=syncId?doc(db,"memberWazaif",user.uid,"syncReceipts",syncId):null;
  return runTransaction(db,async tx=>{
@@ -73,10 +73,14 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
   const snap=await tx.get(ref);
   if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
   const w=snap.data();
-  const continuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
+  const legacyContinuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
    Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
    day>=w.continueStartDate&&w.continueStartDate>w.endDate;
-  if(day<w.startDate||(w.kind==="fixed"&&day>w.endDate&&!continuation))
+  const plannedContinuation=w.kind==="fixed"&&Array.isArray(w.continuePeriods)&&
+   w.continuePeriods.some(p=>p&&day>=p.startDate&&
+     (p.mode==="daily"||(p.mode==="fixed"&&day<=p.endDate)));
+  if(day<w.startDate||(w.kind==="fixed"&&day>w.endDate&&
+      !legacyContinuation&&!plannedContinuation))
    throw Error("منتخب تاریخ وظیفے کی مدت میں نہیں ہے۔");
   const previous=Number(w.total||0);
   if(!Number.isSafeInteger(previous)||previous<0||previous+amount<0)
@@ -112,7 +116,7 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
    lastReadingDay:day,lastReadingSource:source,updatedAt:serverTimestamp()
   });
   if(receipt)tx.set(receipt,{uid:user.uid,kind:"personal",taskId:id,
-    day,amount,source,createdAt:serverTimestamp()});
+    day,amount:Math.abs(amount),source,createdAt:serverTimestamp()});
   return {duplicate:false};
  });
 }
