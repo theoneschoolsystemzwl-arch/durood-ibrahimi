@@ -70,6 +70,27 @@
 /* Put personal tasbih above the personal wazifa type and title. */
 .wz-tasbih-top{margin-bottom:12px}
 .wz-tasbih-cta{display:block;width:100%;min-height:64px;font-family:var(--ur,serif);font-size:clamp(1.1rem,4.6vw,1.5rem);font-weight:800;line-height:1.9;text-align:center;border:2px solid #65f9a0;border-radius:16px;background:linear-gradient(110deg,#057e37,#10b953);color:#fff;box-shadow:0 5px 18px #00180d80,inset 0 1px 0 #e7ffe633}
+/* Keep the selected Wazifa's name directly on its launch tab. The name
+   also stays in the card heading under the tab. */
+.wz-tasbih-cta .wz-cta-title{display:block;max-width:100%;font:800 clamp(1.03rem,4.2vw,1.5rem)/1.65 var(--ur,serif);overflow-wrap:anywhere;white-space:normal}
+.wz-tasbih-cta .wz-cta-action{display:block;font:800 clamp(.9rem,3.7vw,1.22rem)/1.65 var(--ur,serif);white-space:normal}
+.wz-tasbih-cta:has(.wz-cta-title){padding:7px 12px;min-height:68px}
+
+/* Long verses remain intact. Only the Arabic portion scrolls vertically so
+   long Surahs do not push the Tasbih controls off-screen. */
+.wz-card .wz-arabic-scroll,
+.wz-hero-reader .wz-reading-text-visible .wz-arabic-scroll{
+ display:block;box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden;
+ overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+ scrollbar-width:thin;scrollbar-color:#74ceaa #063e32;
+ border:1px solid #2f8566;border-radius:11px;background:#01382b77;
+ padding:10px 8px;white-space:pre-line
+}
+.wz-card .wz-arabic-scroll{max-height:min(37dvh,350px)}
+.wz-hero-reader .wz-reading-text-visible .wz-arabic-scroll{max-height:min(48dvh,440px)}
+.wz-arabic-scroll:focus-visible{outline:2px solid #f7e1a4;outline-offset:2px}
+.wz-arabic-scroll::-webkit-scrollbar{width:6px}
+.wz-arabic-scroll::-webkit-scrollbar-thumb{background:#5fbf93;border-radius:9px}
 .wz-tasbih-cta:not(:disabled):active{filter:brightness(1.15)}
 .wz-tasbih-cta:focus-visible{outline:3px solid #faffb7;outline-offset:3px}
 
