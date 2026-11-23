@@ -77,6 +77,15 @@ jobs:
             --notes "App uses the existing Firebase-hosted live website. Future website content/design updates load when the app starts or is refreshed." \
             --latest
 
+      - name: Record successful APK download in private build report
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "${GITHUB_REPOSITORY}" \
+            --title "Android APK READY - run #${GITHUB_RUN_NUMBER}" \
+            --body "Android APK created successfully. Download from: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/android-live-${GITHUB_RUN_NUMBER}" || true
+
       - name: Save failed stage and build output in private GitHub issue
         if: ${{ failure() }}
         env:
