@@ -31,6 +31,14 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    .filter(x=>(!taskId||x.taskId===taskId)&&(!day||x.day===day))
    .reduce((n,x)=>n+Math.max(0,Number(x.count)||0),0);
  }
+ function byDay(taskId=null){
+  const days={};
+  for(const item of [...journal.pending,...(journal.inflight?[journal.inflight]:[])]){
+   if(taskId&&item.taskId!==taskId)continue;
+   days[item.day]=(days[item.day]||0)+Math.max(0,Number(item.count)||0);
+  }
+  return days;
+ }
  function status(){return {pending:pending(),error:lastError,online:navigator.onLine!==false,busy};}
  function start(uid){
   if(!uid||ownerUid===uid)return;
@@ -94,5 +102,5 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  function stop(){clearTimeout(timer);timer=null;ownerUid=null;journal={pending:[],inflight:null};lastError="";}
  window.addEventListener("online",()=>schedule(0));
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)schedule(0);});
- return {start,stop,enqueue,pending,status,schedule,flush};
+ return {start,stop,enqueue,pending,byDay,status,schedule,flush};
 }
