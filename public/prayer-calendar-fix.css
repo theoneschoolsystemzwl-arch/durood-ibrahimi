@@ -267,3 +267,57 @@
   padding-inline:2px!important;font-size:clamp(.58rem,2.65vw,.77rem)
  }
 }
+
+
+/* A newly completed Qaza prayer stays in place for 15 seconds before moving
+   to the completed list. All other attendance buttons are temporarily locked. */
+:root[data-theme] .namaz-card .namaz-cell.qaza-holding,
+.namaz-card .namaz-cell.qaza-holding {
+  background:linear-gradient(155deg,#077e5c,#0b654c)!important;
+  border:2px solid #a2f4ce!important;
+  color:#fff!important;
+  box-shadow:0 0 0 1px #2db68b inset!important;
+  opacity:1!important;
+  cursor:wait;
+}
+:root[data-theme] .namaz-card .namaz-cell.qaza-holding :is(span,strong,time),
+.namaz-card .namaz-cell.qaza-holding :is(span,strong,time) {
+  color:#fff!important;
+}
+.namaz-card .qaza-hold-count {
+  display:block;
+  margin-top:2px;
+  border-radius:6px;
+  padding:1px 2px;
+  background:#e6fff0;
+  color:#064f37!important;
+  font:750 clamp(.62rem,2.6vw,.82rem)/1.45 system-ui,sans-serif;
+  direction:ltr;
+  white-space:nowrap;
+}
+:root[data-theme] .namaz-card .namaz-cell.qaza-holding .qaza-hold-count,
+.namaz-card .namaz-cell.qaza-holding .qaza-hold-count {
+  color:#064f37!important;
+}
+.namaz-card .qaza-wait-status {
+  margin:7px 0;
+  padding:7px 9px;
+  border-radius:9px;
+  border:1px solid #59c99e;
+  background:#084c39;
+  color:#e7fff3;
+  font-size:clamp(.78rem,2.9vw,.94rem);
+  line-height:1.8;
+  text-align:center;
+}
+.namaz-card .qaza-wait-status bdi {
+  display:inline-block;
+  min-width:2.1ch;
+  margin:0 2px;
+  color:#ffde89;
+  font:800 1.15em/1.3 system-ui,sans-serif;
+}
+.namaz-card .qaza-next-card .qaza-holding,
+.namaz-card .qaza-column .qaza-holding {
+  min-height:65px;
+}
