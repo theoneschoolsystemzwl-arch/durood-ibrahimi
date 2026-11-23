@@ -90,10 +90,10 @@ assert(!reader.includes("تسبیح کی منتخب تاریخ")&&!reader.includ
 assert(reader.includes('data-wazifa-action="open-date-picker"')&&reader.includes('data-wazifa-action="save-taps"'));
 assert(reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
 assert(reader.includes('class="wz-reader-controls-row"')&&reader.includes('class="wz-hero-speed"'),"speed, date and Save share one line");
-assert(reader.includes('class="wz-reader-feedback"')&&css.includes("width:50%"),"feedback buttons occupy half width");
+assert(reader.includes('class="wz-daily-toolbar"')&&reader.includes('class="wz-reader-feedback"'),"today/due and sound/vibration share a row");
 assert(reader.includes('data-wazifa-action="vibration-up"')&&reader.includes('data-wazifa-action="vibration-down"'));
 assert(reader.includes('data-wazifa-action="sound-up"')&&reader.includes('data-wazifa-action="sound-down"'));
-assert(reader.includes('id="wz-hero-today-read"')&&reader.includes('class="wz-percent-today"'));
+assert(!reader.includes('id="wz-hero-today-read"')&&!reader.includes('class="wz-percent-today"'),"remove redundant percentage and today tiles");
 assert(!reader.includes("💾")&&!reader.includes("📳")&&!reader.includes("🔊"),"no Save / feedback icons");
 assert(src.includes('wz-today-due'),"green today summary is visible under lifetime totals");
 assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!important'),"all five dated cells use green background, not black/red/yellow");
@@ -101,12 +101,16 @@ assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due
 assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
 assert(src.includes('navigator.vibrate?.(8+state.vibrateLevel*16)'),"vibration duration responds to selected level");
-assert(src.includes('closest(".wz-history-entry[data-wazifa-action='),"keyboard users can open dated editing form");
+assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
 const histStart=src.indexOf("function wazifaHistoryMarkup(record){"),histEnd=src.indexOf("function heroReadingState(group,w,record)");
 const historySource=src.slice(histStart,histEnd);
 assert(histStart>0&&histEnd>histStart);
 assert(historySource.indexOf("wz-clear-heading")<historySource.indexOf('wz-history-row wz-history-clear'),"date heading sits outside and above the five boxes");
-assert(historySource.includes("wz-previous-due")&&historySource.includes("پچھلا +</span><b>"),"older due numeric uses same font size as target");
+assert(historySource.includes("const netGoal=Math.max(0,goal+previousDue-previousCredit)"),"daily displayed goal includes carried debts and credits");
+assert(!historySource.includes('item("بقایا"'),"daily due box replaced by edit button");
+assert(historySource.includes('class="wz-ledger-slot wz-ledger-edit-slot"'),"edit occupies the fifth box");
+assert(historySource.includes("wz-ledger-label"),"all number captions sit outside their boxes");
+assert(!historySource.includes("wz-previous-due"),"previous debt is not displayed separately");
 const pstart=src.indexOf("const dayOk="),pend=src.indexOf("function fixedPlanMarkup(task");
 assert(pstart>=0&&pend>pstart,"W1 date helpers should be available");
 const plans={readingDay:()=>day,fmt:x=>String(x)};vm.createContext(plans);
@@ -121,4 +125,42 @@ assert.equal(plan.currentDay,54,"total elapsed day number must keep counting");
 assert.equal(plan.goal,131500,"13 continued daily targets are added to original 125,000");
 assert(reader.includes('s.continuing?s.plan.currentDay:elapsed'),"W1 main card shows elapsed days past the original 41");
 
-console.log("Wazifa daily ledger and compact reader design regression checks passed");
+// Functional regression for carried totals, standalone headings, signed input, and triple-tap edit gate.
+const historyContext={state:{historyLimit:60},Number,Math,Object,fmt:sandbox.fmt,
+ datedProgress:()=>[{day,entry:todayEntry,count:587,goal:4000,remaining:4413,previousDue:1000,previousCredit:0}],
+ readingPace:()=>10000,readingSources:entry=>({tasbih:entry.tasbihCount,manual:entry.manualCount}),
+ durationText:()=> "00:00:00.0",hasContinuation:()=>false,displayRecordDate:()=>day,heroIcon:()=>""};
+vm.createContext(historyContext);
+vm.runInContext(historySource,historyContext);
+const hRecord={kind:"daily",startDate:day,total:587,dailyLedger:{[day]:todayEntry}};
+let hMarkup=historyContext.wazifaHistoryMarkup(hRecord);
+assert(hMarkup.includes(">5,000</strong>"),"4000 today + 1000 previous = one goal 5000");
+assert.equal((hMarkup.match(/class="wz-ledger-label"/g)||[]).length,5,"five captions are outside of boxes");
+assert.equal((hMarkup.match(/class="wz-ledger-item /g)||[]).length,4,"four values plus the change button");
+assert.equal((hMarkup.match(/class="wz-ledger-edit-button"/g)||[]).length,0,"edit button has compound class, not a duplicate"); 
+assert.equal((hMarkup.match(/data-wazifa-action="history-day"/g)||[]).length,1,"only change button is editable");
+assert(!hMarkup.includes('role="button"'),"tapping the row cannot open correction");
+historyContext.datedProgress=()=>[{day,entry:todayEntry,count:587,goal:4000,remaining:1913,previousDue:0,previousCredit:1500}];
+hMarkup=historyContext.wazifaHistoryMarkup(hRecord);
+assert(hMarkup.includes(">2,500</strong>"),"4000 today - 1500 previous excess = goal 2500");
+
+const modalStart=src.indexOf("function historyEditMarkup(record,day){"),modalEnd=src.indexOf("function wazifaHistoryMarkup(record){");
+const modalContext={fmt:sandbox.fmt,esc:x=>String(x),displayRecordDate:()=>day,hasContinuation:()=>false};
+vm.createContext(modalContext);vm.runInContext(src.slice(modalStart,modalEnd),modalContext);
+const mMarkup=modalContext.historyEditMarkup(hRecord,day);
+assert(!mMarkup.includes('wz-edit-signs')&&!mMarkup.includes('name="operation"'),"no plus/minus tabs or hidden operation");
+assert(mMarkup.includes('name="amount"')&&mMarkup.includes('pattern="[+-]?[0-9]+"'),"one field accepts +/- input");
+assert(src.includes('raw.startsWith("-")?"remove":"add"'),"unsuffixed positive numbers add by default");
+
+const tapStart=src.indexOf("function advanceHistoryEditTap(tracker,day,now){"),tapEnd=src.indexOf("const historyEditTap=",tapStart);
+const tapContext={};vm.createContext(tapContext);vm.runInContext(src.slice(tapStart,tapEnd),tapContext);
+const tracker={day:"",count:0,last:0};
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,1000),false);
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,1200),false);
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,1400),true,"third tap opens edit");
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,1500),false,"gate resets after opening");
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4201),false,"timeout restarts the count");
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4400),false);
+assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4600),true);
+assert(css.includes('.wz-daily-toolbar .wz-reader-feedback')&&css.includes('width:100%'),"feedback fits same row as reduced due panel");
+console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
