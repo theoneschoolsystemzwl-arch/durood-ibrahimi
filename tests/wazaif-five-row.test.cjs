@@ -7,7 +7,7 @@ assert(start>0&&end>start,"pure counting and timing helpers must be present");
 const day="2026-11-23";
 const state={draftDay:day,tapQueue:0,clockIntervals:0,tapGapTotalMs:0};
 const sandbox={
- state,Number,Math,Object,esc:x=>String(x),
+ state,wzSync:{pending:()=>0},Number,Math,Object,esc:x=>String(x),
  fmt:x=>Math.max(0,Number(x)||0).toLocaleString("en"),
  readingDay:()=>day,datedProgress:()=>[],
  targetForDay:()=>4000,elapsedTime:()=>0,
