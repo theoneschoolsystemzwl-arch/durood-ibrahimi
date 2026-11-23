@@ -210,8 +210,8 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   await assertFails(getDoc(doc(owner,"memberPrivate",memberUid,"qaza","other")));
   await assertFails(getDocs(collection(owner,"memberPrivate",ownerUid,"qaza")));
 
-  // Private numbering: each member starts at W-1, then W-2. An old serial
-  // can never be recycled after deletion. No one else can mutate the sequence.
+  // Private numbering starts at W-1 and fills deleted gaps first.
+  // The event counter advances on every allocation; no other account can mutate it.
   const oldLegacy=doc(member,"memberWazaif",memberUid,"items","LegacyWazifaRecord0001");
   await env.withSecurityRulesDisabled(async ctx=>{
     await setDoc(doc(ctx.firestore(),"memberWazaif",memberUid,"items",oldLegacy.id),
@@ -307,11 +307,20 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   console.log("W1_RULE_TEST_STEP_39");await assertSucceeds(runTransaction(owner,async tx=>{
     const seq=await tx.get(ownerSeq);
     tx.set(nextW,{...outgoing,uid:ownerUid,total:0,today:0,day:"2026-11-23",
-      wNumber:seq.data().next+1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    tx.update(ownerSeq,{next:seq.data().next+1,lastItemId:nextW.id,updatedAt:serverTimestamp()});
+      wNumber:1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    tx.update(ownerSeq,{next:seq.data().next+1,lastNumber:1,lastItemId:nextW.id,updatedAt:serverTimestamp()});
   }));
-  if((await getDoc(nextW)).data().wNumber!==2)
-    throw Error("W-1 was reused after deleting a saved Wazifa");
+  if((await getDoc(nextW)).data().wNumber!==1)
+    throw Error("Deleted W-1 must be reused before allocating W-2");
+  const secondSlot=doc(owner,"memberWazaif",ownerUid,"items","ThirdSavedWazifa002");
+  console.log("W1_RULE_TEST_STEP_39B");await assertSucceeds(runTransaction(owner,async tx=>{
+    const seq=await tx.get(ownerSeq);
+    tx.set(secondSlot,{...outgoing,uid:ownerUid,total:0,today:0,day:"2026-11-23",
+      wNumber:2,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    tx.update(ownerSeq,{next:seq.data().next+1,lastNumber:2,lastItemId:secondSlot.id,updatedAt:serverTimestamp()});
+  }));
+  if((await getDoc(secondSlot)).data().wNumber!==2)
+    throw Error("W-2 must follow when the recycled W-1 is occupied");
   // An expired fixed plan remains locked until its member explicitly
   // opts into a new daily goal. Original fixed dates, counts and W-number
   // remain immutable across the opt-in and future days.
@@ -359,7 +368,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     continueDailyGoal:0,updatedAt:serverTimestamp()
   }));
   console.log("Fixed-to-daily continuation tests passed: opt-in, next-day counting, immutable history, safe daily goal.");
-  console.log("W serial and share tests passed: per-UID W-1, migration, same-gender DI lookup, inbox accept/reject, never-reused serials.");
+  console.log("W serial and share tests passed: per-UID W-1, migration, same-gender DI lookup, inbox accept/reject, recycled vacant serials.");
   console.log("Qaza security tests passed: per-UID date retention, Owner isolation, valid goals and paid records.");
   console.log("Wazaif security tests passed: owner-only group settings, personal privacy, group accounting and inactive blocking.");
  }finally{await env.cleanup();}

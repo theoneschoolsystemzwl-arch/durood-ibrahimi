@@ -138,10 +138,14 @@ const beforeDurableTasbih=historicalRules('fd863f86ed73b1e997ca5703080a3c77cc35e
 // Exact rules from the last confirmed successful production Spark deploy.
 // The November 23 hosting workflow completed successfully for this commit.
 const beforeLatestPublished=historicalRules('fb76735c41381b7bbeaaee10c199449bdd1f3209');
+// Last successful Nov 23 Wazifa release, including free-slot allocation.
+// Only an exact match may be upgraded; preserve Console edits.
+const beforeGapRepair=historicalRules('a411f72a2a0d1599238396b103a2654429c668d2');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
-  beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished
+  beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
+  beforeGapRepair
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');

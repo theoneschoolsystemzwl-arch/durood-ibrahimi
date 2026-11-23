@@ -55,4 +55,10 @@ assert(counter.includes("day,amount:Math.abs(amount),source,createdAt:serverTime
 assert(rules.includes("validWzPeriodAppend"));
 assert(rules.includes("wzAllowedContinuedDay"));
 assert(rules.includes("lastNumber"));
+assert(!rules.includes("getAfter(wzSequencePath(uid)).data.next == number"),
+  "Reused W slots must not be denied just because the allocation event counter is higher");
+assert(rules.includes("getAfter(wzSequencePath(uid)).data.next == wzOldSequence(uid) + 1"),
+  "Every W slot allocation must still advance the immutable event counter");
+assert(rules.includes("number == getAfter(wzSequencePath(uid)).data.get('lastNumber'"),
+  "The W number must match the serial explicitly assigned in the transaction");
 console.log("Wazifa regression checks passed (numbering, fixed continuation, dated totals, retry receipts).");

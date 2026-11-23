@@ -968,7 +968,8 @@ service cloud.firestore {
     }
     function wzAllocated(uid,itemId,number) {
       return number is int && number >= 1 && number <= 1000000000 &&
-        getAfter(wzSequencePath(uid)).data.next == number &&
+        // The event counter grows monotonically, while the visible W slot
+        // may be reused after a personal Wazifa is deleted.
         getAfter(wzSequencePath(uid)).data.lastItemId == itemId &&
         getAfter(wzSequencePath(uid)).data.updatedAt == request.time &&
         getAfter(wzSequencePath(uid)).data.next == wzOldSequence(uid) + 1 &&
