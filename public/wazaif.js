@@ -324,6 +324,12 @@ function arabicDisplayAttrs(value){
   ' class="wz-arabic wz-arabic-scroll" tabindex="0" aria-label="عربی عبارت، مکمل پڑھنے کے لیے اندر اسکرول کریں"' :
   ' class="wz-arabic"';
 }
+// Each launch tab contains one clean, single-line name (no tasbih emoji).
+// Avoid repeating the suffix when the Wazifa name already contains it.
+function tasbihTabLabel(title){
+ const name=String(title||"").trim();
+ return /تسبیح\s*$/u.test(name)?name:name+" تسبیح";
+}
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
  const stats=state.groupStats||{},annual=state.yearStats||{},today=readingDay();
@@ -331,7 +337,7 @@ function groupCard(){
  const daily=Number(g.dailyGoal||0),all=Number(stats.total||0);
  const yearGoal=Number(g.yearlyGoal||0),yearTotal=Number(annual.total||0);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+'><span class="wz-cta-title">'+esc(g.title)+'</span><span class="wz-cta-action">📿 تسبیح کریں</span></button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(g.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
@@ -357,7 +363,7 @@ function taskStatus(task){
 function personalCard(task){
  const stateText=taskStatus(task);
  return '<article class="wz-card wz-personal">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+'><span class="wz-cta-title">'+esc(task.title)+'</span><span class="wz-cta-action">📿 تسبیح کریں</span></button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  '<p'+arabicDisplayAttrs(task.arabic)+' lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
  (task.kind==="fixed"?fixedPlanMarkup(task):

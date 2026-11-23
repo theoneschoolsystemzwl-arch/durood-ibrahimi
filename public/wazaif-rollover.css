@@ -4,7 +4,7 @@
 .wz-inline-count small{color:#c8f4da;font:700 clamp(.68rem,2.45vw,.9rem)/1.6 var(--ur,serif)}
 .wz-inline-count strong{color:#fff;font:800 clamp(.93rem,3.6vw,1.3rem)/1.4 system-ui,sans-serif;overflow-wrap:anywhere}
 .wz-group .wz-tasbih-top{margin:0 0 10px}
-.wz-group .wz-tasbih-cta{min-height:66px;font-size:clamp(1.16rem,4.8vw,1.5rem)}
+.wz-group .wz-tasbih-cta{min-height:54px;font-size:clamp(1.05rem,4.3vw,1.45rem)}
 .wz-group .wz-actions{margin-top:5px}
 .wz-history-row{position:relative;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
 .wz-history-row.wz-day-ok{border-color:#1acd82;background:linear-gradient(120deg,#064a35,#003b2d)}
