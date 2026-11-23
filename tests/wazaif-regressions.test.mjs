@@ -42,6 +42,16 @@ assert.equal(f.targetForDay({...original,continuePeriods:[extension,daily]},"202
 assert.equal(f.runningGoal({...original,continuePeriods:[extension,daily]},"2026-11-24"),580);
 assert.equal(f.continuationActive({...original,continuePeriods:[extension]}),false);
 assert.equal(f.continuationActive({...original,continuePeriods:[extension,daily]}),true);
+// The fixed-expiry "next goal" button belongs inside the personal settings,
+// never on the main Wazifa card. It must remain tied to the edited Wazifa.
+const mainCard=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
+const editForm=source.slice(source.indexOf("function formMarkup("),source.indexOf("function heroIcon("));
+assert(!mainCard.includes('data-wazifa-action="continue-personal"'),
+  "Next-goal action must not appear on the main Wazifa card");
+assert(editForm.includes('state.editId&&!g&&expired?') &&
+  editForm.includes('data-wazifa-action="continue-personal"') &&
+  editForm.includes('data-wazifa-id="'+esc(original.id)+'"'),
+  "Next-goal action must appear only in expired personal Wazifa settings");
 // A deleted middle number must be reused for new and incoming tasks.
 assert(sharing.includes("while(used.has(serial))serial++"));
 assert(sharing.includes("lastNumber:serial"));

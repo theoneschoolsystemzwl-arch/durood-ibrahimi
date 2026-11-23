@@ -90,7 +90,7 @@ function dailyConversionHint(t){
  if(continuationPeriods(t).length)
   return '<p class="wz-daily-convert-note">پرانا ہدف اور تمام سابقہ ادوار محفوظ ہیں۔ نئی مقررہ مدت صرف "اگلا ہدف" سے بنائیں۔</p>';
  if(legacyContinuation(t))return '<p class="wz-daily-convert-note">پہلے '+fmt(spanDays(t.startDate,t.endDate))+' دن اور اصل '+fmt(t.goal)+' کا ہدف محفوظ ہے۔ روزانہ وظیفہ جاری ہے۔</p>';
- return fixedExpired(t)?'<p class="wz-daily-convert-note">مقررہ مدت مکمل ہے۔ کارڈ پر "اگلا ہدف" منتخب کریں؛ سابقہ ریکارڈ محفوظ رہے گا۔</p>':"";
+ return fixedExpired(t)?'<p class="wz-daily-convert-note">مقررہ مدت مکمل ہے۔ سیٹنگ میں "اگلا ہدف" منتخب کریں؛ سابقہ ریکارڈ محفوظ رہے گا۔</p>':"";
 }
 function fixedPlan(task){
  if(task?.kind!=="fixed")return null;
@@ -344,7 +344,6 @@ function personalCard(task){
   compactCount("آج پڑھا",task.day===readingDay()?task.today:0)+
   compactCount("آج ہدف",targetForDay(task,readingDay()))+
   compactCount("مجموعی شمار",task.total||0)+'</div><p class="wz-help">آغاز '+esc(task.startDate)+'</p>')+
- (fixedExpired(task)?'<div class="wz-continue-prompt"><p>مقررہ مدت مکمل ہوگئی۔ کیا آپ یہ وظیفہ اگلے دن سے جاری رکھنا چاہتے ہیں؟</p><button type="button" class="wz-button wz-primary" data-wazifa-action="continue-personal" data-wazifa-id="'+esc(task.id)+'">اگلا ہدف مقرر کریں</button></div>':'')+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
@@ -396,6 +395,7 @@ function formMarkup(){
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
  dailyConversionHint(original)+
+ (state.editId&&!g&&expired?'<div class="wz-continue-prompt"><p>مقررہ مدت مکمل ہوگئی۔ کیا آپ اس وظیفے کو اگلے دن سے جاری رکھنا چاہتے ہیں؟ سابقہ ہدف اور ریکارڈ محفوظ رہیں گے۔</p><button type="button" class="wz-button wz-primary" data-wazifa-action="continue-personal" data-wazifa-id="'+esc(original.id)+'">اگلا ہدف مقرر کریں</button></div>':'')+
  '<div class="wz-date-preview" id="wz-date-preview" role="status"></div>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="active" '+(g&&original.active===false?'':'checked')+'> گروپ وظیفہ فعال رکھیں</label>'+
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="countAsDurood" '+(!g||original.countAsDurood!==false?'checked':'')+'> یہ درود شریف ہے (مجموعی درود میں بھی شمار کریں)</label>'+
