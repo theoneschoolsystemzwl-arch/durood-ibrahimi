@@ -30,6 +30,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Generate PWA Android launcher PNG icons
+        run: |
+          python3 -m pip install pillow
+          python3 -c 'from PIL import Image; im=Image.open("public/tasbih-calligraphy.webp").convert("RGB"); [(im.resize((n,n),Image.Resampling.LANCZOS).save("public/icon-%d.png"%n)) for n in (192,512)]'
       - name: Publish existing web app only - never deploy Firestore rules
         run: |
           npm install --global firebase-tools@15
