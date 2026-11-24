@@ -1371,6 +1371,22 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
  :root[data-theme] .dashboard-home #group-target-cards .group-countdown em{font-size:.46rem}
 }
 </style>
+<style id="compact-readers-heading">
+:root[data-theme] .dashboard-home .readers-section{padding:6px 7px!important;margin:4px 0 7px!important;border-radius:15px}
+:root[data-theme] .dashboard-home .reader-card-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;margin:0 0 5px;min-width:0}
+:root[data-theme] .dashboard-home .reader-card-heading h2{flex:1 1 auto;min-width:0;white-space:nowrap;justify-content:flex-start;gap:3px;width:auto;margin:0!important;padding:2px 5px;font-size:clamp(.73rem,3.15vw,1.1rem);line-height:1.8;border-radius:10px}
+:root[data-theme] .dashboard-home .reader-card-heading h2 span{font-size:.9em}
+:root[data-theme] .dashboard-home .reader-date-nav{display:grid;grid-template-columns:27px auto 27px;align-items:center;gap:3px;flex:0 0 auto;margin:0}
+:root[data-theme] .dashboard-home .reader-date-nav button{padding:0!important;min-width:27px;min-height:27px!important;height:27px;border-radius:7px;font:700 1.12rem/1 system-ui,sans-serif}
+:root[data-theme] .dashboard-home #reader-list-date{font:700 clamp(.65rem,2.6vw,.85rem)/1.2 system-ui,sans-serif;color:#f8e8b2;text-align:center;white-space:nowrap}
+:root[data-theme] .dashboard-home .reader-audit-summary{padding:3px 5px;margin:3px 0;border:1px solid var(--line);border-radius:7px;font-size:.7rem;line-height:1.7}
+:root[data-theme] .dashboard-home .reader-list{gap:4px}
+:root[data-theme] .dashboard-home .reader-list li{padding:4px 6px;gap:5px}
+:root[data-theme] .dashboard-home .reader-list .dashboard-reader-rank{min-height:29px}
+:root[data-theme] .dashboard-home .dashboard-reader-avatar,:root[data-theme] .dashboard-home .dashboard-reader-avatar .avatar{width:33px;height:33px;min-width:33px;min-height:33px}
+:root[data-theme] .dashboard-home #reader-audit:empty,:root[data-theme] .dashboard-home #legacy-reader-check:empty{display:none}
+@media(max-width:340px){:root[data-theme] .dashboard-home .reader-card-heading{gap:3px}:root[data-theme] .dashboard-home .reader-card-heading h2{font-size:.68rem;padding:1px 3px}:root[data-theme] .dashboard-home .reader-card-heading h2 span{display:none}:root[data-theme] .dashboard-home .reader-date-nav{grid-template-columns:24px auto 24px;gap:2px}:root[data-theme] .dashboard-home .reader-date-nav button{min-width:24px;min-height:24px!important;height:24px}}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -2144,7 +2160,7 @@ function readerAuditMarkup(){
  if(!Array.isArray(rows)||!Number.isSafeInteger(total)||total<0)return "";
  const listed=rows.reduce((sum,row)=>sum+(Number(row.total)||0)+(Number(row.manualTotal)||0),0);
  const missing=total-listed;
- return '<div style="padding:7px;margin:6px 0;border:1px solid var(--line);border-radius:8px;font-size:.75rem">'+
+ return '<div class="reader-audit-summary">'+
    tr("Saved day total: ","تاریخ کا محفوظ کل شمار: ")+displayNumber(total)+' · '+
    tr("Listed members: ","فہرست کا شمار: ")+displayNumber(listed)+
    (missing>0?"":missing<0?'<p style="margin:4px 0;color:#c98b24">'+tr("Totals differ; verify after sync.","شمار میں فرق ہے؛ سنک کے بعد تصدیق کریں۔")+'</p>':"")+'</div>';
@@ -2212,9 +2228,9 @@ function overview() {
    '<div class="recitation-periods">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
-   '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
+   '<section class="panel section readers-section"><div class="reader-card-heading"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
-   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr" style="display:grid;grid-template-columns:40px minmax(110px,1fr) 40px;gap:6px;align-items:center;max-width:280px;margin:6px auto"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0">−</button><bdi id="reader-list-date" style="text-align:center;font-weight:700">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'<div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
+   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'">−</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'</div><div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
    '</div>';
 }
 
