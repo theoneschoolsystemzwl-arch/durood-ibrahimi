@@ -1352,7 +1352,7 @@ function currentPhotoSelection(){
 }
 let message = '';
 const peekTimers = new WeakMap();
-const communityGoal = 125000;
+// Group targets are loaded from the owner's saved Wazaif settings.
 const demoAmounts = [11,33,7,21,16,9,25];
 const recentSaves = [];
 let joinDate = new Intl.DateTimeFormat(locale(),{numberingSystem:'latn',day:'numeric',month:'long',year:'numeric'});
@@ -1832,8 +1832,34 @@ function profileCard(person) {
     '</span></div></section></header>';
 }
 
-function progressPercent() {
-  return Math.min(100, Math.floor(globalTotal * 100 / communityGoal));
+let dashboardGroupSettings=null,dashboardGroupStats=null,dashboardGroupYear=null;
+function groupProgressValue(goal,count){
+  if(!Number.isSafeInteger(goal)||goal<=0||!Number.isSafeInteger(count)||count<0)return null;
+  return Math.min(100,Math.round(count*10000/goal)/100);
+}
+function groupDashboardProgress(){
+  const cfg=dashboardGroupSettings;
+  if(!cfg)return '<p class="dashboard-progress-note">'+tr("Group targets not loaded","گروپ کے محفوظ اہداف دستیاب نہیں")+'</p>';
+  const today=dateKey();
+  const daily=dashboardGroupStats===null?null:dashboardGroupStats.day===today?Number(dashboardGroupStats.today||0):0;
+  const annual=dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null;
+  const make=(label,goal,count)=>{
+    const valid=Number.isSafeInteger(goal)&&goal>0,percent=groupProgressValue(goal,count);
+    return '<div class="goal-progress"><p class="dashboard-progress-note">'+label+'</p>'+
+      '<div class="dashboard-progress-meta"><span class="dashboard-goal-value">'+(valid?displayNumber(goal):'—')+
+      '</span><strong>'+(percent===null?'—':percent.toFixed(2)+'%')+'</strong></div>'+
+      (valid&&percent!==null?'<progress aria-label="'+esc(label)+'" max="'+goal+'" value="'+Math.min(goal,count)+'"></progress>':'')+
+      '<small class="muted">'+tr("Read: ","پڑھا: ")+(count===null?'—':displayNumber(count))+
+      ' · '+tr("Remaining: ","باقی: ")+(valid&&count!==null?displayNumber(Math.max(0,goal-count)):'—')+'</small></div>';
+  };
+  return '<p class="dashboard-progress-note">'+tr("Shared group Wazifa targets","گروپ وظیفے کے مشترکہ اہداف")+
+    ' · '+(cfg.active===true?tr("Active","جاری"):tr("Inactive","بند"))+'</p>'+
+    make(tr("Daily goal","روزانہ ہدف"),Number(cfg.dailyGoal),daily)+
+    make(tr("Annual goal","سالانہ ہدف"),Number(cfg.yearlyGoal),annual);
+}
+function refreshDashboardGroupProgress(){
+ const target=document.getElementById("dashboard-group-progress");
+ if(target)target.innerHTML=groupDashboardProgress();
 }
 
 function liveFeed() {
@@ -1890,12 +1916,7 @@ function overview() {
    '<div class="recitation-periods">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
-   '<div class="goal-progress"><p class="dashboard-progress-note">'+
-   tr("Shared Durood recitation progress","اجتماعی درود کی پیش رفت")+'</p>'+
-   '<div class="dashboard-progress-meta"><span class="dashboard-goal-value">'+displayNumber(communityGoal)+
-   '</span><strong id="goal-percent">'+progressPercent()+'%</strong></div>'+
-   '<progress id="goal-progress" aria-label="'+tr("Community goal progress","اجتماعی ہدف کی پیش رفت")+
-   '" max="'+communityGoal+'" value="'+Math.min(communityGoal,globalTotal)+'"></progress></div>'+
+   '<section id="dashboard-group-progress" aria-live="polite">'+groupDashboardProgress()+'</section>'+ 
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
    '</h2><div id="today-readers">'+readerList()+'</div></section>'+
@@ -1915,8 +1936,7 @@ function simulateSave() {
   if (recentSaves.length > 4) recentSaves.pop();
   document.getElementById('global-total').textContent = formatNumber(globalTotal);
   document.getElementById('live-saved').textContent = formatNumber(liveAdded);
-  document.getElementById('goal-percent').textContent = progressPercent() + '%';
-  document.getElementById('goal-progress').value = Math.min(communityGoal,globalTotal);
+  refreshDashboardGroupProgress();
   document.getElementById('live-feed').innerHTML = liveFeed();
 }
 
@@ -4223,6 +4243,13 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  groupSettings(value){
+    dashboardGroupSettings=value||null;
+    this.groupTitle(value?.title);
+    refreshDashboardGroupProgress();
+  },
+  groupProgressStats(value){dashboardGroupStats=value;refreshDashboardGroupProgress();},
+  groupProgressYear(value){dashboardGroupYear=value;refreshDashboardGroupProgress();},
   groupTitle(value){
     dashboardGroupTitle=typeof value==='string'?value.trim():'';
     document.querySelectorAll('[data-dashboard-group-title],[data-reader-group-title]').forEach(node=>{
@@ -4306,14 +4333,11 @@ window.duroodClassicBridge = {
     if(el)el.textContent=formatNumber(value);
     const readGlobal=document.getElementById("read-global");
     if(readGlobal)readGlobal.textContent=formatNumber(value);
-    const progress=document.getElementById("goal-progress");
-    if(progress)progress.value=Math.min(value,communityGoal);
-    const percent=document.getElementById("goal-percent");
-    if(percent)percent.textContent=progressPercent()+"%";
+    // The side's historical Durood total is independent of the Wazifa goal bars.
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      periodCounts=null;todayReaders=null;dashboardGroupTitle='';prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -4725,8 +4749,23 @@ function observeCounters(side){
   const observedUid=auth.currentUser?.uid;
   const stopGroupTitle=onSnapshot(doc(db,"wazaifSettings","group"),snap=>{
     if(auth.currentUser?.uid===observedUid && (!snap.metadata.fromCache || snap.exists()))
-      bridge.groupTitle(snap.data()?.title);
+      bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
+  const stillCurrent=()=>auth.currentUser?.uid===observedUid;
+  const stopGroupStats=onSnapshot(doc(db,"wazaifGroupStats","main"),snap=>{
+    if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))bridge.groupProgressStats(snap.exists()?snap.data():{});
+  },err=>{if(stillCurrent())bridge.groupProgressStats(null);console.warn("Group stats unavailable",err.code);});
+  let stopGroupYear=()=>{},watchedYear="";
+  const watchGroupYear=()=>{
+    const year=localReadingDate().slice(0,4);
+    if(watchedYear===year)return;
+    watchedYear=year;stopGroupYear();bridge.groupProgressYear(null);
+    stopGroupYear=onSnapshot(doc(db,"wazaifGroupStats","main","years",year),snap=>{
+      if(stillCurrent()&&watchedYear===year&&(!snap.metadata.fromCache||snap.exists()))
+        bridge.groupProgressYear(snap.exists()?snap.data():{year,total:0});
+    },err=>{if(stillCurrent())bridge.groupProgressYear(null);console.warn("Group year unavailable",err.code);});
+  };
+  watchGroupYear();
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},timer,rows=null,myRow=null,lastPing=0;
   const pulse=setInterval(()=>{
@@ -4738,6 +4777,7 @@ function observeCounters(side){
     }
   },15000);
   function watchDays(){
+    watchGroupYear();refreshDashboardGroupProgress();
     stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);
     const now=new Date(),today=localReadingDate(now);
     const readers=collection(sideRef,"days",today,"readers");
@@ -4770,7 +4810,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopGroupTitle();stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{stopGroupTitle();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
