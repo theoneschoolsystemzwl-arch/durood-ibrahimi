@@ -835,10 +835,24 @@
 /* SVG circle is independent of mobile browser gradient rendering.
    Its 100-unit path means one successful tap draws exactly 1% of the ring.
    stroke-dashoffset reaches 0 at 100 and returns to 99 at 101. */
+/* The SVG belongs to the circle button, NOT to the taller session card.
+   Without a positioned dial, absolute inset:0 stretches this circle across
+   the controls and three progress bars on Android screens. */
+.wz-hero-reader .wz-hero-dial:not(.is-floating){
+  position:relative;isolation:isolate;
+}
+.wz-hero-reader .wz-hero-dial.is-floating{
+  position:fixed;isolation:isolate;
+}
 .wz-hero-reader .wz-hero-dial .wz-dial-ring-svg{
-  position:absolute;inset:0;width:100%;height:100%;overflow:visible;
-  z-index:2;transform:rotate(-90deg);
-  pointer-events:none;fill:none
+  position:absolute;inset:0;display:block;box-sizing:border-box;
+  width:100%;height:100%;max-width:100%;max-height:100%;
+  overflow:hidden;z-index:1;transform:rotate(-90deg);
+  transform-origin:50% 50%;pointer-events:none;fill:none
+}
+.wz-hero-reader .wz-hero-dial > strong,
+.wz-hero-reader .wz-hero-dial > span{
+  position:relative;z-index:2;
 }
 .wz-hero-reader .wz-hero-dial .wz-dial-ring-track{
   stroke:#34715ec4;stroke-width:2.65;fill:none
