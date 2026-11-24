@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:allowBackup="false"
-        android:label="Durood Online"
+        android:label="Durood Sharif Global"
         android:icon="@drawable/tasbih_logo"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"

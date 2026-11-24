@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<title>Durood-e-Ibrahimi Global</title>
+<title>Durood Sharif Global</title>
 <link rel="stylesheet" href="./arabic-fonts.css?v=1">
 <style>
 /* Noto Sans Arabic. Copyright 2015-2020 Google LLC. All Rights Reserved.
@@ -225,7 +225,7 @@ textarea { min-height: 80px; resize: vertical; }
 .demo-box .button { padding-inline: 7px; }
 .demo-box p { margin-top: 7px; color: hsl(calc(var(--theme-hue) - 8.12) calc(18.18% * var(--theme-saturation)) 34.51%); font-size: .78rem; }
 .oath { border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; background: #f8fbf8; }
-.oath summary { cursor: pointer; font-weight: 700; color: var(--deep); }
+.oath h3 { font-size: inherit; margin: 0; font-weight: 700; color: var(--deep); }
 .oath p { padding-block: 7px; }
 .oath label { display: flex; align-items: flex-start; gap: 8px; font-size: .88rem; }
 .shell { min-height: 100svh; }
@@ -1578,7 +1578,7 @@ function authMarkup() {
   return '<main class="auth"><header class="art"><span class="auth-symbol" aria-hidden="true">✧</span>' +
     (screen === 'login' ? ur(tr("Enter your Login ID and password. For a new account, get an invite code from a member.", 'لاگ اِن کے لیے اپنی آئی ڈی اور پاس ورڈ درج کریں۔ نیا اکاؤنٹ بنانے کے لیے کسی موجودہ ممبر سے دعوتی کوڈ لیں۔'),'p','auth-guide') : '') +
     '<p lang="ar" dir="rtl" class="salawat">اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ</p>' +
-    tr("<div class=\"brand-title\">Durood-e-Ibrahimi Global</div>", '<div class="brand-title">درودِ ابراہیمی گلوبل</div>') +
+    tr("<div class=\"brand-title\">Durood Sharif Global</div>", '<div class="brand-title">درود شریف گلوبل</div>') +
     '</header><section class="auth-inner"><div class="auth-card">' + form +
     (message ? ur(esc(message),'p','feedback ok section') : '') + '</div>' + extras + '</section></main>';
 }
@@ -3857,7 +3857,6 @@ function changeLanguage(value) {
   const fields = Array.from(app.querySelectorAll('form input[name],form select[name],form textarea[name]'))
     .filter(field => !field.readOnly && field.type !== 'file')
     .map(field => ({form:field.form?.id,name:field.name,value:field.value,checked:field.checked}));
-  const oathOpen = app.querySelector('.oath')?.open;
   language = value;
   try { localStorage.setItem('durood-language',value); } catch {}
   refreshLocale();
@@ -3870,8 +3869,6 @@ function changeLanguage(value) {
     if (input.type === 'checkbox') input.checked = field.checked;
     else input.value = field.value;
   }
-  const oath = app.querySelector('.oath');
-  if (oath) oath.open = oathOpen;
   updateRegistrationButton();
   app.querySelector('[data-action="language"]')?.focus({preventScroll:true});
 }
@@ -3889,23 +3886,23 @@ function updateRegistrationButton() {
 }
 
 function pledgeMarkup() {
-  return '<details class="oath"><summary>' + tr('Read and accept the pledge','حلف نامہ پڑھیں اور قبول کریں') +
-    '</summary><p>' + tr(
+  return '<section class="oath" aria-labelledby="classic-oath-title"><h3 id="classic-oath-title">' + tr('Read and accept the pledge','حلف نامہ پڑھیں اور قبول کریں') +
+    '</h3><p>' + tr(
       'I swear that I will recite Durood sincerely and record only what I have actually recited. I will never knowingly add a false count, through the Tasbih counter or a manual entry. I will make every effort to offer the five daily prayers, stay in a state of wudu, and invite at least ten people to recite Durood Sharif and join this app.',
       'میں حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔ میں پانچ وقت نماز ادا کرنے، باوضو رہنے اور کم از کم دس لوگوں کو درود شریف پڑھنے کی دعوت دے کر اس ایپ میں شامل کرنے کی پوری کوشش کروں گا۔'
     ) + '</p><div class="pledge-checks">' +
     '<label><input type="checkbox" name="male" value="yes" required><span>' + tr('I am male','میں مرد ہوں') + '</span></label>' +
     '<label><input type="checkbox" name="muslim" value="yes" required><span>' + tr('I am Muslim','میں مسلمان ہوں') + '</span></label>' +
     '<label><input type="checkbox" id="accept-oath" name="oath" value="yes" required><span>' +
-    tr('I have read this pledge and accept it','میں نے یہ حلف پڑھ کر قبول کیا ہے') + '</span></label></div></details>';
+    tr('I have read this pledge and accept it','میں نے یہ حلف پڑھ کر قبول کیا ہے') + '</span></label></div></section>';
 }
 
 function about() {
   const founder = tr('Dr Sheraz Anjum Sulheri','ڈاکٹر شہراز انجم سلہری');
-  const teacher = tr('Pir Hafiz Abdul Wahab Qadri','پیر حافظ عبدالوہاب قادری');
+  const teacher = tr('Pir Hafiz Abdul Wahab Qadri Sahib','پیر حافظ عبدالوہاب قادری صاحب');
   const profiles = [
     {name:founder,role:tr('Founder','بانی'),initials:tr('SA','ش ا'),photo:'./about-founder-photo.svg'},
-    {name:teacher,role:tr('Respected teacher','استادِ محترم'),initials:tr('AQ','ع ق'),photo:'./about-teacher-photo.svg'}
+    {name:teacher,role:tr('Respected teacher (my spiritual guide)','استادِ محترم (میرے پیر و مرشد)'),initials:tr('AQ','ع ق'),photo:'./about-teacher-photo.svg'}
   ];
   const hadiths = [
     {
@@ -3929,7 +3926,7 @@ function about() {
   ];
   return '<article class="about-page" aria-labelledby="about-title">' +
     '<header class="about-hero"><p class="about-bismillah" lang="ar" dir="rtl">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>' +
-    '<h1 id="about-title">' + tr('Durood-e-Ibrahimi Global','درودِ ابراہیمی گلوبل') + '</h1>' +
+    '<h1 id="about-title">' + tr('Durood Sharif Global','درود شریف گلوبل') + '</h1>' +
     '<p class="about-kicker">' + tr('About the App','ایپ کا تعارف') + '</p></header>' +
     '<section class="about-people" aria-label="' + tr('Founder and teacher','بانی اور استادِ محترم') + '">' +
     profiles.map(person => '<div class="about-person"><div class="about-photo">' +
@@ -3938,8 +3935,8 @@ function about() {
       '</div><h2 dir="auto">' + person.name + '</h2><p dir="auto">' + person.role + '</p></div>').join('') +
     '</section>' +
     '<section class="about-block about-mission" aria-labelledby="about-mission"><h2 id="about-mission">' + tr('Why this app exists','ہماری دعوت کا مقصد') + '</h2>' +
-    '<p>' + tr('My respected teacher, Pir Hafiz Abdul Wahab Qadri, invited me to recite Durood Sharif. As I made it a daily practice, it deepened my spiritual life. He then entrusted me with carrying that invitation to others. Durood-e-Ibrahimi Global grew out of that responsibility.',
-      'میرے استادِ محترم پیر حافظ عبدالوہاب قادری نے مجھے درود شریف پڑھنے کی دعوت دی۔ جب میں نے اسے اپنے معمول میں شامل کیا تو اس سے میری روحانی زندگی کو تقویت ملی۔ استادِ محترم نے پھر مجھے یہی دعوت دوسروں تک پہنچانے کی ذمہ داری سونپی۔ درودِ ابراہیمی گلوبل اسی ذمہ داری کو نبھانے کی ایک کوشش ہے۔') + '</p>' +
+    '<p>' + tr('My respected teacher (my spiritual guide), Pir Hafiz Abdul Wahab Qadri Sahib, invited me to recite Durood Sharif. As I made it a daily practice, it deepened my spiritual life. He then entrusted me with carrying that invitation to others. Durood Sharif Global grew out of that responsibility.',
+      'میرے استادِ محترم (میرے پیر و مرشد) پیر حافظ عبدالوہاب قادری صاحب نے مجھے درود شریف پڑھنے کی دعوت دی۔ جب میں نے اسے اپنے معمول میں شامل کیا تو اس سے میری روحانی زندگی کو تقویت ملی۔ میرے پیر و مرشد نے پھر مجھے یہی دعوت دوسروں تک پہنچانے کی ذمہ داری سونپی۔ درود شریف گلوبل اسی ذمہ داری کو نبھانے کی ایک کوشش ہے۔') + '</p>' +
     '<p>' + tr('The app has one purpose: to invite people to recite Durood Sharif with sincerity, seeking Allah’s pleasure and hoping for reward in the Hereafter. It helps us make recitation a daily practice and extend the same invitation to others with kindness. The counter helps us keep track of what we have read. The reward is with Allah.',
       'اس ایپ کا واحد مقصد یہ ہے کہ ہم اخلاص کے ساتھ، اللہ کی رضا اور آخرت کے اجر کی امید میں، خود درود شریف پڑھیں اور دوسروں کو بھی محبت سے اس کی دعوت دیں۔ ایپ روزانہ درود پڑھنے کا معمول بنانے اور پڑھی ہوئی تعداد دیانت داری سے درج کرنے میں مدد دیتی ہے۔ اس نیک عمل کا اجر اللہ تعالیٰ کے پاس ہے۔') + '</p>' +
     '<p class="about-prayer">' + tr('May Allah grant us sincerity, accept our recitation, and make this effort a means of good for us in the Hereafter. Ameen.',
@@ -3949,14 +3946,6 @@ function about() {
     '<p class="about-translation">' + tr('Allah sends blessings upon the Prophet, and His angels pray for him. Believers, send blessings upon him and greet him with peace.',
       'بے شک اللہ نبی ﷺ پر رحمت نازل فرماتا ہے اور اس کے فرشتے آپ ﷺ کے لیے رحمت کی دعا کرتے ہیں۔ اے ایمان والو! تم بھی آپ ﷺ پر درود بھیجو اور خوب سلام بھیجو۔') + '</p>' +
     '<a class="about-source" href="https://quran.com/al-ahzab/56" target="_blank" rel="noopener noreferrer">' + tr('Surah Al-Ahzab 33:56','سورۃ الاحزاب، آیت ۵۶') + '</a></section>' +
-    '<section class="about-block about-scripture" aria-labelledby="about-durood"><h2 id="about-durood">' + tr('Durood-e-Ibrahimi','درودِ ابراہیمی') + '</h2>' +
-    '<div class="about-arabic" lang="ar" dir="rtl">' + duroodIbrahimi + '</div>' +
-    '<h3>' + tr('Translation','ترجمہ') + '</h3><p>' +
-    tr('O Allah, send Your blessings upon Muhammad and the family of Muhammad as You sent Your blessings upon Ibrahim and the family of Ibrahim. You are the Praiseworthy, the Glorious.',
-      'اے اللہ! محمد ﷺ پر اور آلِ محمد پر رحمت نازل فرما، جیسے تو نے ابراہیم علیہ السلام پر اور آلِ ابراہیم پر رحمت نازل فرمائی۔ بے شک تو سزاوارِ حمد اور بزرگی والا ہے۔') + '</p><p>' +
-    tr('O Allah, bestow Your blessing upon Muhammad and the family of Muhammad as You bestowed Your blessing upon Ibrahim and the family of Ibrahim. You are the Praiseworthy, the Glorious.',
-      'اے اللہ! محمد ﷺ پر اور آلِ محمد پر برکت عطا فرما، جیسے تو نے ابراہیم علیہ السلام پر اور آلِ ابراہیم پر برکت عطا فرمائی۔ بے شک تو سزاوارِ حمد اور بزرگی والا ہے۔') + '</p>' +
-    '<a class="about-source" href="https://sunnah.com/bukhari:3370" target="_blank" rel="noopener noreferrer">' + tr('Sahih al-Bukhari 3370','صحیح بخاری ۳۳۷۰') + '</a></section>' +
     '<section class="about-block about-virtues" aria-labelledby="about-hadiths"><h2 id="about-hadiths">' + tr('What the hadiths teach','درود شریف اور دعوت کی فضیلت') + '</h2>' +
     '<div class="about-hadiths">' + hadiths.map(item => '<article class="about-hadith"><h3>' + item.title + '</h3><p>' + item.body +
       '</p><a class="about-source" href="' + item.url + '" target="_blank" rel="noopener noreferrer">' + item.source + '</a></article>').join('') + '</div></section>' +
@@ -3975,7 +3964,7 @@ function about() {
 function render({keepScroll = false} = {}) {
   document.documentElement.lang = language;
   document.documentElement.dir = tr('ltr','rtl');
-  document.title = tr('Durood-e-Ibrahimi Global','درودِ ابراہیمی گلوبل');
+  document.title = tr('Durood Sharif Global','درود شریف گلوبل');
   const person = currentUser();
   applyMemberTheme(person?.id);
   const navScroll = app.querySelector('.nav-inner')?.scrollLeft || 0;
@@ -4046,7 +4035,6 @@ async function register(data) {
     return setFeedback('feedback',tr('Enter a valid, unused invite code.','درست اور غیر استعمال شدہ دعوتی کوڈ درج کریں۔'));
   }
   if (registrationChecks.some(field => data.get(field) !== 'yes')) {
-    document.querySelector('#register .oath').open = true;
     return setFeedback('feedback',tr('Read the pledge and check all three boxes.','حلف پڑھیں اور تینوں خانوں پر نشان لگائیں۔'));
   }
   const verifier = await offlineVerifier(data.get('password'));

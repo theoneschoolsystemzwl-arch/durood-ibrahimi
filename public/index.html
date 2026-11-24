@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#004d3b">
-  <meta name="description" content="Durood-e-Ibrahimi Global — official member portal">
-  <title>درود ابراہیم صلی اللہ علیہ وسلم</title>
+  <meta name="description" content="Durood Sharif Global — official member portal">
+  <title>درود شریف گلوبل</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/webp" href="/tasbih-calligraphy.webp">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,8 +23,8 @@
       <span class="brand-glyph" aria-hidden="true">✦</span>
       <div class="brand-lines">
         <p lang="ar" class="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
-        <h1>درودِ ابراہیمی گلوبل</h1>
-        <p class="subtitle">Durood-e-Ibrahimi Global</p>
+        <h1>درود شریف گلوبل</h1>
+        <p class="subtitle">Durood Sharif Global</p>
       </div>
     </div>
     <p class="salawat" lang="ar">اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ</p>
@@ -83,12 +83,12 @@
           <label>Invite Code
             <input name="invite" dir="ltr" class="latin-input" autocomplete="off" autocapitalize="none" maxlength="6" minlength="6" required placeholder="ممبر کا دعوتی کوڈ">
           </label>
-          <details class="pledge">
-            <summary>حلف نامہ پڑھیں — Read pledge</summary>
+          <section class="pledge" aria-labelledby="pledge-title">
+            <h3 id="pledge-title">حلف نامہ — Pledge</h3>
             <p id="gender-oath-text" aria-live="polite">میں مرد ہوں اور حلف دیتا ہوں کہ درود شریف اخلاص سے پڑھوں گا اور صرف اتنی تعداد درج کروں گا جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گا۔</p>
             <p id="prayer-oath-text" aria-live="polite">میں پانچ وقت کی نماز پڑھنے کی کوشش کروں گا۔</p>
             <p id="invite-oath-text" aria-live="polite">میں دس ممبرز کو درود شریف پڑھنے کی دعوت دینے کی کوشش کروں گا اور انہیں اس گروپ کا حصہ بناؤں گا۔</p>
-          </details>
+          </section>
           <div class="checks">
             <label><input type="checkbox" name="muslim" required> <span>میں مسلمان ہوں</span></label>
             <label><input type="checkbox" name="genderOath" required> <span id="gender-oath-check-label">میں مرد ہوں اور اس حلف کی تصدیق کرتا ہوں</span></label>
@@ -102,7 +102,7 @@
     </section>
 
     <section id="portal" hidden aria-label="ممبر ڈیش بورڈ">
-      <iframe id="classic-frame" class="classic-frame" title="Durood-e-Ibrahimi Global — Original Dashboard" src="about:blank" allow="fullscreen; geolocation" allowfullscreen hidden></iframe>
+      <iframe id="classic-frame" class="classic-frame" title="Durood Sharif Global — Original Dashboard" src="about:blank" allow="fullscreen; geolocation" allowfullscreen hidden></iframe>
       <div class="welcome-panel panel">
         <div>
           <p class="eyebrow">آپ کا اکاؤنٹ</p>
@@ -217,10 +217,10 @@
         <p id="referrals-message" class="message" role="status"></p>
       </section>
       <section class="panel" data-page="about" hidden>
-        <h2>درودِ ابراہیمی گلوبل — تعارف</h2>
-        <p>اس ایپ کا مقصد درودِ ابراہیمی کی روزانہ تلاوت، درست شمار، نماز کے ریکارڈ اور دعوتِ درود کو منظم کرنا ہے۔</p>
+        <h2>درود شریف گلوبل — تعارف</h2>
+        <p>اس ایپ کا مقصد درود شریف کی روزانہ تلاوت، درست شمار، نماز کے ریکارڈ اور دعوتِ درود کو منظم کرنا ہے۔</p>
         <p>بانی: ڈاکٹر شہراز انجم سلہری</p>
-        <p>استادِ محترم: پیر حافظ عبدالوہاب قادری</p>
+        <p>استادِ محترم (میرے پیر و مرشد): پیر حافظ عبدالوہاب قادری صاحب</p>
         <p class="muted">اپنی تسبیح، نماز اور دعوتی ریکارڈ کو اپنے ممبر اکاؤنٹ کے ذریعے دیکھیں۔</p>
       </section>
       <section id="admin-panel" class="panel" data-page="owner" hidden>
@@ -232,7 +232,7 @@
       </section>
     </section>
   </main>
-  <footer>© Durood-e-Ibrahimi Global · Secure member portal</footer>
+  <footer>© Durood Sharif Global · Secure member portal</footer>
 <script>
   // Even if a CDN module fails to download, the page will not remain stuck
   // forever with no recovery action. This does not sign out or clear data.
