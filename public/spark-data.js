@@ -220,9 +220,12 @@ export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,g
       gender,totalRecitations:sideTotal+amount,lastEntryAmount:amount,lastEntryDay:day,
       lastEntryUid:uid,updatedAt:serverTimestamp()
     });
+    // Keep manual and tasbih counts distinct. Both appear in today's reader list.
+    const reader=doc(sideRef,"days",day,"readers",uid);
     if(tasbih){
-      const reader=doc(sideRef,"days",day,"readers",uid);
       tx.set(reader,{name:profile.data().name,total:increment(amount),lastTap:serverTimestamp(),seen:serverTimestamp()},{merge:true});
+    }else{
+      tx.set(reader,{name:profile.data().name,total:increment(0),manualTotal:increment(amount),lastManual:serverTimestamp(),seen:serverTimestamp()},{merge:true});
     }
     tx.set(doc(sideRef,"days",day),{day,total:increment(amount),updatedAt:serverTimestamp()},{merge:true});
     if(receipt)tx.set(receipt,{uid,kind:"durood",taskId:"_durood_",day,amount,

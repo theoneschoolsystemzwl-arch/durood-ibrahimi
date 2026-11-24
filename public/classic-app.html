@@ -2123,11 +2123,12 @@ function liveFeed() {
 let todayReaders=null;
 function readerList(){
  if(!todayReaders)return tr("Loading today’s list…","آج کی فہرست لوڈ ہو رہی ہے…");
- if(!todayReaders.length)return tr("No tasbih recorded today.","آج ابھی کسی نے تسبیح درج نہیں کی۔");
+ if(!todayReaders.length)return tr("No Durood recorded today.","آج ابھی کسی نے درود شریف درج نہیں کیا۔");
  const now=Date.now();
  return '<ol class="reader-list">'+todayReaders.map((row,index)=>{
-   const online=now-row.seen<90000,active=online && now-row.lastTap<90000;
-   const seconds=Math.max(0,Math.floor((now-row.lastTap)/1000));
+   const online=now-row.seen<90000,active=online && row.lastTap>0 && now-row.lastTap<90000;
+   const lastReading=Math.max(row.lastTap||0,row.lastManual||0);
+   const seconds=Math.max(0,Math.floor((now-lastReading)/1000));
    const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
    // Join the reader UID to the authenticated member directory, never guess an ID or level.
    const person=users.find(member=>member.uid===row.uid && !member.deleted);
@@ -2139,8 +2140,8 @@ function readerList(){
      '<span class="reader-person"><b>'+esc(person?.name||row.name)+'</b>'+
        '<span class="reader-meta"><bdi dir="ltr">'+memberId+'</bdi><span> · '+tr('Level','لیول')+' '+esc(level)+'</span></span>'+
        '<small>'+status+' · '+
-       tr("Last tap","آخری تسبیح")+' '+(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(row.lastTap)))+
-       '</small></span><strong class="dashboard-reader-count">'+displayNumber(row.total)+'</strong></li>';
+       tr("Last reading","آخری شمار")+' '+(lastReading?(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(lastReading))):"—")+
+       '</small></span><strong class="dashboard-reader-count">'+displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0))+'</strong></li>';
  }).join('')+'</ol>';
 }
 
@@ -4845,7 +4846,7 @@ import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=group-four-goals-20261124-v21";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=all-readers-20261124-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
@@ -5165,14 +5166,16 @@ function observeCounters(side){
     const now=new Date(),today=localReadingDate(now);
     const readers=collection(sideRef,"days",today,"readers");
     stopRows=onSnapshot(query(readers,orderBy("total","desc")),{includeMetadataChanges:true},snap=>{
-      if(snap.metadata.fromCache && snap.empty)return;
+      if(!stillCurrent()||(snap.metadata.fromCache && snap.empty))return;
       rows=snap.docs.map(item=>{
         const data=item.data({serverTimestamps:"estimate"});
-        return {uid:item.id,name:data.name,total:data.total,lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
-      });
+        return {uid:item.id,name:data.name,total:Math.max(0,Number(data.total)||0),
+          manualTotal:Math.max(0,Number(data.manualTotal)||0),lastManual:data.lastManual?.toMillis()||0,
+          lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
+      }).filter(row=>row.total+row.manualTotal>0).sort((a,b)=>(b.total+b.manualTotal)-(a.total+a.manualTotal));
       myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
       bridge.readers(rows);
-    },e=>console.warn("Readers",e.code));
+    },e=>{if(stillCurrent())bridge.readers(null);console.warn("Readers",e.code);});
     const monday=new Date(now);
     monday.setDate(now.getDate()-(now.getDay()+6)%7);
     const week=localReadingDate(monday),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";

@@ -540,17 +540,22 @@ service cloud.firestore {
       function ownReader(){
         return self(uid) && currentMember() && myGender()==gender;
       }
-      function savedReader(previous){
+      function savedReader(previous,previousManual,previousTap,previousManualTime){
         let d=request.resource.data;
         let side=getAfter(genderStatsPath(gender)).data;
+        let manual=d.get('manualTotal',0);
         return ownReader() && side.updatedAt==request.time && side.lastEntryUid==uid &&
-          side.lastEntryDay==day && d.keys().hasOnly(['name','total','seen','lastTap']) &&
-          d.name==get(memberPath(uid)).data.name && d.lastTap==request.time && d.seen==request.time &&
-          d.total is int && d.total==previous+side.lastEntryAmount;
+          side.lastEntryDay==day && d.keys().hasOnly(['name','total','seen','lastTap','manualTotal','lastManual']) &&
+          d.name==get(memberPath(uid)).data.name && d.seen==request.time &&
+          d.total is int && d.total>=0 && manual is int && manual>=0 &&
+          ((d.total==previous+side.lastEntryAmount && manual==previousManual &&
+            d.get('lastTap',null)==request.time && d.get('lastManual',null)==previousManualTime) ||
+           (d.total==previous && manual==previousManual+side.lastEntryAmount &&
+            d.get('lastTap',null)==previousTap && d.get('lastManual',null)==request.time));
       }
       allow read: if validGender(gender) && (owner() || (currentMember() && myGender()==gender));
-      allow create: if savedReader(0);
-      allow update: if savedReader(resource.data.total) || (ownReader() &&
+      allow create: if savedReader(0,0,null,null);
+      allow update: if savedReader(resource.data.total,resource.data.get('manualTotal',0),resource.data.get('lastTap',null),resource.data.get('lastManual',null)) || (ownReader() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']) &&
         request.resource.data.seen==request.time);
     }
