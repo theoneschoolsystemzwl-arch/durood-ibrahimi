@@ -2151,7 +2151,7 @@ function readerList(){
        '<span class="reader-meta"><bdi dir="ltr">'+memberId+'</bdi><span> · '+tr('Level','لیول')+' '+esc(level)+'</span></span>'+
        '<small>'+status+' · '+
        tr("Last reading","آخری شمار")+' '+(lastReading?(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(lastReading))):"—")+
-       '</small></span><strong class="dashboard-reader-count">'+displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0))+'</strong></li>';
+       '</small><small>'+tr("Tasbih: ","تسبیح: ")+displayNumber(Number(row.total)||0)+' · '+tr("Offline: ","آف لائن: ")+displayNumber(Number(row.manualTotal)||0)+'</small></span><strong class="dashboard-reader-count">'+displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0))+'</strong></li>';
  }).join('')+'</ol>';
 }
 
@@ -2515,7 +2515,7 @@ function readingDialogs() {
     tr("<button class=\"button\">Set goal</button></div></form></dialog>", '<button class="button">ہدف مقرر کریں</button></div></form></dialog>') +
     tr("<dialog id=\"manual-dialog\" aria-labelledby=\"manual-title\"><h2 id=\"manual-title\">Add offline Durood</h2>", '<dialog id="manual-dialog" aria-labelledby="manual-title"><h2 id="manual-title">آف لائن درود شامل کریں</h2>') +
     ur(tr("Add Durood recited away from the app. It will be included in your total.", 'ہاتھ یا تسبیح پر پڑھے گئے درود کی تعداد شامل کریں۔ یہ موجودہ شمار میں جمع ہوگی۔')) +
-    tr("<form id=\"manual-form\" class=\"form\"><label class=\"field\">Recitation date<input name=\"day\" type=\"date\" min=\"1900-01-01\" required></label>", '<form id="manual-form" class="form"><label class="field">پڑھنے کی تاریخ<input name="day" type="date" min="1900-01-01" required></label>') +
+    tr("<form id=\"manual-form\" class=\"form\"><label class=\"field\">Today’s date<input name=\"day\" type=\"date\" readonly required></label>", '<form id="manual-form" class="form"><label class="field">آج کی تاریخ<input name="day" type="date" readonly required></label>') +
     tr("<label class=\"field\">Number of recitations to add<input name=\"amount\" type=\"number\" min=\"1\" max=\"1000000\" step=\"1\" required></label>", '<label class="field">شامل کرنے کے لیے درود کی تعداد<input name="amount" type="number" min="1" max="1000000" step="1" required></label>') +
     '<p id="manual-pace" class="ur"></p>' + feedback('manual-feedback') +
     tr("<div class=\"form-actions\"><button type=\"button\" class=\"button secondary\" data-action=\"close-reader-dialog\">Cancel</button>", '<div class="form-actions"><button type="button" class="button secondary" data-action="close-reader-dialog">منسوخ کریں</button>') +
@@ -2716,10 +2716,11 @@ function openManual(key) {
   const dialog = document.getElementById('manual-dialog');
   const form = dialog.querySelector('form');
   form.reset();
-  const person=currentUser();
-  form.elements.day.min=person?.joined instanceof Date ? dateKey(person.joined) : dateKey();
-  form.elements.day.max = dateKey();
-  form.elements.day.value = key || dateKey();
+  const today=dateKey();
+  form.elements.day.min=today;
+  form.elements.day.max=today;
+  form.elements.day.value=today;
+  form.elements.day.readOnly=true;
   const pace = priorPace(currentUserId);
   document.getElementById('manual-pace').textContent = pace ?
     tr("Previous measured pace ", 'گزشتہ ناپی گئی رفتار ') + paceFormat.format(pace / 1000) + tr(" sec per Durood. The time is an estimate.", ' سیکنڈ فی درود ہے۔ مدت تخمینی ہوگی۔') :
@@ -2799,8 +2800,8 @@ function submitManual(form,data) {
   if (!amount) return setFeedback('manual-feedback',tr("Enter a positive number.", 'مثبت تعداد درج کریں۔'));
   const member=currentUser();
   const joined=member?.joined instanceof Date ? dateKey(member.joined) : dateKey();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || key > dateKey() || key < joined || dateKey(parseDay(key)) !== key) {
-    return setFeedback('manual-feedback',tr("Choose today or an earlier date.", 'آج یا کسی پچھلے دن کی درست تاریخ درج کریں۔'));
+  if (key !== dateKey() || key < joined) {
+    return setFeedback('manual-feedback',tr("Offline Durood can only be added for today.", 'آف لائن درود صرف آج کی تاریخ میں شامل ہو سکتا ہے۔'));
   }
   const pace = priorPace(currentUserId);
   const readingDay = getReadingDay(currentUserId,key);
@@ -4875,7 +4876,7 @@ import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=all-readers-20261124-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=manual-today-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
@@ -5216,7 +5217,7 @@ function observeCounters(side){
     stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);refreshReaderDateControls();
     const now=new Date(),today=localReadingDate(now);
     const readers=collection(sideRef,"days",today,"readers");
-    stopRows=onSnapshot(query(readers,orderBy("total","desc")),{includeMetadataChanges:true},snap=>{
+    stopRows=onSnapshot(readers,{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||(snap.metadata.fromCache && snap.empty))return;
       rows=decodeReaderRows(snap);
       myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
@@ -5548,8 +5549,11 @@ ui.addEventListener("submit",event=>{
   if(form.id==="manual-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const d=new FormData(form),amount=Number(d.get("amount")),day=String(d.get("day")||"");
-    if(!Number.isSafeInteger(amount)||amount<1||amount>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day)||day>localReadingDate()){
-      bridge.status("manual-feedback","درست تاریخ اور 1 تا 10000 تعداد درج کریں۔");return;
+    if(day!==localReadingDate()){
+      bridge.status("manual-feedback","آف لائن درود صرف آج کی تاریخ میں شامل ہو سکتا ہے۔ دوبارہ فارم کھولیں۔");return;
+    }
+    if(!Number.isSafeInteger(amount)||amount<1||amount>10000){
+      bridge.status("manual-feedback","1 تا 10000 تعداد درج کریں۔");return;
     }
     const button=form.querySelector('button[type="submit"],button:not([type])');
     if(button)button.disabled=true;

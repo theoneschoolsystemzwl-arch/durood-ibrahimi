@@ -183,6 +183,7 @@ export function localReadingDate(date=new Date()){
 export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,groupWazifa=false,syncId=null){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
     localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
+  if(!tasbih && day!==localReadingDate())throw Error("آف لائن درود صرف آج کی تاریخ میں شامل ہو سکتا ہے۔");
   const uid=requireUser();
   if(!Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("1 سے 10000 تک مکمل عدد درج کریں۔");
   if(syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||!tasbih||amount>1000))
