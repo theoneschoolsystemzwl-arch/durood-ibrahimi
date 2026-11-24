@@ -272,8 +272,11 @@ assert(reader.includes("<small>مجموعی ہدف</small>"),
 assert(src.includes('function setWazifaImmersive(enabled)')&&
   src.includes('classList.toggle("wz-immersive-reader"'),
   "fullscreen has a working WebView CSS fallback");
-assert(src.includes('window.DuroodAndroid?.setImmersive?.(state.immersive)'),
+assert(src.includes('window.DuroodAndroid.setImmersive(state.immersive)'),
   "new Android versions can hide system bars natively");
+assert(src.includes('document.documentElement.requestFullscreen()')&&
+  src.includes('document.exitFullscreen?.()'),
+  "browsers with fullscreen support use the real fullscreen API");
 assert(css.includes("body.wz-immersive-reader #wazaif-root")&&
   css.includes("position:fixed!important"),
   "reader focus view displays over existing bottom navigation");
