@@ -1837,6 +1837,65 @@ function groupProgressValue(goal,count){
   if(!Number.isSafeInteger(goal)||goal<=0||!Number.isSafeInteger(count)||count<0)return null;
   return Math.min(100,Math.round(count*10000/goal)/100);
 }
+const groupTargetKeys=["dailyGoal","weeklyGoal","monthlyGoal","yearlyGoal"];
+const groupTargetLabels=["روزانہ ہدف","ہفتہ وار ہدف","ماہانہ ہدف","سالانہ ہدف"];
+let memberGoalRows=null,memberGroupDays=null,memberGroupSummary=null;
+function resolveMemberGroupTargets(rows,config,day){
+ const selected=(rows||[]).filter(r=>r.date<=day).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+ const mode=selected?.mode==="personal"?"personal":"owner";
+ const source=mode==="personal"?selected:config;
+ return {mode,...Object.fromEntries(groupTargetKeys.map(k=>[k,Number.isSafeInteger(source?.[k])&&source[k]>0?source[k]:0]))};
+}
+function memberGroupTargets(day=dateKey()){
+ return resolveMemberGroupTargets(memberGoalRows,dashboardGroupSettings,day);
+}
+window.duroodMemberGroupTargets=memberGroupTargets;
+function memberGroupProgressMarkup(){
+ const goals=memberGroupTargets(),today=dateKey();
+ const dates=memberGroupDays===null?null:{...memberGroupDays};
+ if(dates&&memberGroupSummary?.day&&!(memberGroupSummary.day in dates))dates[memberGroupSummary.day]=Number(memberGroupSummary.today||0);
+ const monday=parseDay(today);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
+ const starts=[today,dateKey(monday),today.slice(0,7)+"-01",today.slice(0,4)+"-01-01"];
+ return '<div class="panel-head"><h3>میرے ذاتی اہداف</h3><button type="button" class="button secondary" data-group-target-settings>ہدف سیٹنگ</button></div>'+
+ '<p class="muted">'+(memberGoalRows===null?"سیٹنگ لوڈ ہو رہی ہے":goals.mode==="owner"?"مالک کی سیٹنگ کے مطابق":"میرے مقرر کردہ اہداف")+'</p>'+
+ groupTargetKeys.map((key,i)=>{
+  const goal=goals[key],count=dates===null?null:Object.entries(dates).filter(([d])=>d>=starts[i]&&d<=today).reduce((n,[,v])=>n+v,0);
+  const percent=groupProgressValue(goal,count);
+  return '<div class="goal-progress"><div class="dashboard-progress-meta"><span>'+groupTargetLabels[i]+'</span><strong>'+(percent===null?"—":percent.toFixed(2)+"%")+'</strong></div>'+
+    (percent===null?"":'<progress aria-label="'+groupTargetLabels[i]+'" max="'+goal+'" value="'+Math.min(count,goal)+'"></progress>')+
+    '<small class="muted">محفوظ: '+(count===null?"—":displayNumber(count))+' / '+(goal?displayNumber(goal):"—")+' · باقی: '+(percent===null?"—":displayNumber(Math.max(0,goal-count)))+'</small></div>';
+ }).join("");
+}
+function refreshMemberGroupProgress(){
+ document.querySelectorAll("[data-member-group-progress]").forEach(el=>{el.innerHTML=memberGroupProgressMarkup();});
+}
+window.duroodMemberGroupProgressMarkup=memberGroupProgressMarkup;
+window.duroodRefreshMemberGroupProgress=refreshMemberGroupProgress;
+function openMemberGroupTargetSettings(){
+ if(!currentUser()?.uid||memberGoalRows===null){window.duroodClassicBridge?.notice("گروپ ہدف کی سیٹنگ لوڈ نہیں ہوئی۔ انٹرنیٹ چیک کریں۔");return;}
+ const old=document.getElementById("member-group-target-dialog");if(old?.open)return;old?.remove();
+ const goals=memberGroupTargets(),dialog=document.createElement("dialog");
+ dialog.id="member-group-target-dialog";dialog.dir="rtl";
+ dialog.innerHTML='<h2>گروپ وظیفہ — میری ہدف سیٹنگ</h2><form class="form"><label><input type="radio" name="mode" value="owner" '+(goals.mode==="owner"?"checked":"")+'> مالک کے مقرر کردہ اہداف</label><label><input type="radio" name="mode" value="personal" '+(goals.mode==="personal"?"checked":"")+'> میرے اپنے اہداف</label><div data-personal-fields>'+groupTargetKeys.map((k,i)=>'<label class="field">'+groupTargetLabels[i]+'<input type="number" name="'+k+'" min="1" max="1000000000" step="1" value="'+(goals[k]||"")+'"></label>').join("")+'</div><p class="muted">تبدیلی آج سے لاگو ہوگی؛ اجتماعی شمار اور پہلے سے محفوظ تسبیح برقرار رہے گی۔</p><p data-target-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-target>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
+ const form=dialog.querySelector("form"),fields=dialog.querySelector("[data-personal-fields]");
+ const sync=()=>{const personal=form.elements.mode.value==="personal";fields.hidden=!personal;fields.style.display=personal?"":"none";for(const input of fields.querySelectorAll("input")){input.disabled=!personal;input.required=personal;}};
+ form.addEventListener("change",sync);sync();
+ dialog.querySelector("[data-close-target]").addEventListener("click",()=>dialog.close());
+ dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+ form.addEventListener("submit",async event=>{
+  event.preventDefault();event.stopImmediatePropagation();
+  const uid=currentUser()?.uid,day=dateKey(),mode=form.elements.mode.value,button=form.querySelector('[type="submit"]'),note=form.querySelector("[data-target-feedback]");
+  if(button.disabled)return;
+  const target={date:day,mode,...Object.fromEntries(groupTargetKeys.map(k=>[k,mode==="personal"?Number(form.elements[k].value):0]))};
+  if(mode==="personal"&&groupTargetKeys.some(k=>!Number.isSafeInteger(target[k])||target[k]<1||target[k]>1000000000)){note.textContent="چاروں درست اہداف درج کریں۔";return;}
+  button.disabled=true;
+  try{await window.duroodSaveMemberGroupTargets(uid,target);if(currentUser()?.uid===uid){window.duroodClassicBridge.memberTargetRows(uid,[...(memberGoalRows||[]).filter(r=>r.date!==day),target]);dialog.close();}}
+  catch(error){note.textContent="سیٹنگ محفوظ نہیں ہوئی۔ دوبارہ کوشش کریں۔";}finally{button.disabled=false;}
+ });
+ document.body.append(dialog);dialog.showModal();
+}
+window.duroodOpenMemberGroupTargetSettings=openMemberGroupTargetSettings;
+document.addEventListener("click",event=>{if(event.target.closest("[data-group-target-settings]")){event.preventDefault();event.stopImmediatePropagation();openMemberGroupTargetSettings();}},true);
 function groupDashboardProgress(){
   const cfg=dashboardGroupSettings;
   if(!cfg)return '<p class="dashboard-progress-note">'+tr("Group targets not loaded","گروپ کے محفوظ اہداف دستیاب نہیں")+'</p>';
@@ -1925,7 +1984,8 @@ function overview() {
    '<div class="recitation-periods">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
-   '<section id="dashboard-group-progress" aria-live="polite">'+groupDashboardProgress()+'</section>'+ 
+   '<section id="dashboard-group-progress" aria-live="polite">'+groupDashboardProgress()+'</section>'+
+   '<section class="panel section" data-member-group-progress>'+memberGroupProgressMarkup()+'</section>'+ 
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
    '</h2><div id="today-readers">'+readerList()+'</div></section>'+
@@ -2095,6 +2155,8 @@ function readingFor(id) {
 
 function readerGoalFor(ledger,day){
   const dates=Object.keys(ledger.goals||{}).filter(d=>d<=day).sort();
+  const selected=memberGroupTargets(day).dailyGoal;
+  if(selected>0)return selected;
   const value=dates.length?Number(ledger.goals[dates.at(-1)]):Number(ledger.days[day]?.goal||100);
   return Number.isSafeInteger(value)&&value>=1&&value<=1000000?value:100;
 }
@@ -2297,7 +2359,7 @@ function tasbih() {
     tr("<div class=\"reader-metric\"><small>Daily goal</small><strong id=\"read-target\">100</strong></div>", '<div class="reader-metric"><small>روزانہ ہدف</small><strong id="read-target">100</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Community</small><strong id=\"read-global\">0</strong></div></div>", '<div class="reader-metric"><small>اجتماعی شمار</small><strong id="read-global">0</strong></div></div>') +
     '<div class="reader-progress"><div class="reader-goal-note"><strong id="read-goal-note"></strong>' +
-    tr("<button class=\"button secondary\" data-action=\"daily-goal\">Set daily goal</button></div>", '<button class="button secondary" data-action="daily-goal">روزانہ ہدف مقرر کریں</button></div>') +
+    tr("<button class=\"button secondary\" data-group-target-settings>Goal settings</button></div>", '<button class="button secondary" data-group-target-settings>میری ہدف سیٹنگ</button></div>') +
     tr("<progress id=\"read-progress\" aria-label=\"Daily goal progress\" max=\"100\" value=\"0\"></progress></div>", '<progress id="read-progress" aria-label="روزانہ ہدف کی پیش رفت" max="100" value="0"></progress></div>') +
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
@@ -2306,6 +2368,7 @@ function tasbih() {
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
+    '<section class="panel section" data-member-group-progress>'+memberGroupProgressMarkup()+'</section>'+
     '<p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
     tr("<button class=\"button\" data-action=\"manual-day\">Add offline Durood</button></div>", '<button class="button" data-action="manual-day">آف لائن درود شامل کریں</button></div>') +
@@ -4255,7 +4318,21 @@ window.duroodClassicBridge = {
   groupSettings(value){
     dashboardGroupSettings=value||null;
     this.groupTitle(value?.title);
-    refreshDashboardGroupProgress();
+    refreshDashboardGroupProgress();refreshMemberGroupProgress();
+    window.duroodWazaif?.refreshGroupTargets?.();
+    if(section==="wazifa-reader")updateReader();
+  },
+  memberTargetRows(uid,rows){
+    if(currentUser()?.uid!==uid)return;
+    memberGoalRows=rows;refreshMemberGroupProgress();
+    window.duroodWazaif?.refreshGroupTargets?.();
+    if(section==="wazifa-reader")updateReader();
+  },
+  memberGroupCounts(uid,days,summary){
+    if(currentUser()?.uid!==uid)return;
+    if(days!==undefined)memberGroupDays=days;
+    if(summary!==undefined)memberGroupSummary=summary;
+    refreshMemberGroupProgress();
   },
   groupProgressStats(value){dashboardGroupStats=value;refreshDashboardGroupProgress();},
   groupProgressYear(value){dashboardGroupYear=value;refreshDashboardGroupProgress();},
@@ -4347,7 +4424,7 @@ window.duroodClassicBridge = {
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -4547,7 +4624,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=group-four-goals-20261124-v21";
+import "./wazaif.js?release=member-group-goals-20261124-v22";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
@@ -4680,6 +4757,10 @@ window.duroodLoadReaderGoals=function(){
      bridge.readerGoalHistory(uid,snap.docs.map(x=>x.data()));
  },error=>{goalWatchUid="";console.warn("Private Durood targets unavailable",error?.code||error);});
 };
+window.duroodSaveMemberGroupTargets=async function(uid,value){
+ if(!uid||auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)throw Error("Account changed");
+ await setDoc(doc(db,"memberPrivate",uid,"groupTargets",value.date),{...value,updatedAt:serverTimestamp()});
+};
 const groupHistoryFetched=new Set();
 let groupHistoryScope="";
 window.duroodRefreshGroupHistory=async function(){
@@ -4762,6 +4843,16 @@ function observeCounters(side){
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>auth.currentUser?.uid===observedUid;
+  const stopMemberTargets=onSnapshot(collection(db,"memberPrivate",observedUid,"groupTargets"),{includeMetadataChanges:true},snap=>{
+    if(stillCurrent()&&!snap.metadata.fromCache)bridge.memberTargetRows(observedUid,snap.docs.map(x=>x.data()));
+  },err=>{if(stillCurrent())bridge.memberTargetRows(observedUid,null);console.warn("Member group targets",err.code);});
+  const memberGroupRef=doc(db,"wazaifGroupStats","main","members",observedUid);
+  const stopMemberGroup=onSnapshot(memberGroupRef,{includeMetadataChanges:true},snap=>{
+    if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))bridge.memberGroupCounts(observedUid,undefined,snap.exists()?snap.data():{});
+  },err=>console.warn("Member group summary",err.code));
+  const stopMemberDays=onSnapshot(collection(memberGroupRef,"days"),{includeMetadataChanges:true},snap=>{
+    if(stillCurrent()&&!snap.metadata.fromCache)bridge.memberGroupCounts(observedUid,Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count])));
+  },err=>console.warn("Member group dates",err.code));
   const stopGroupStats=onSnapshot(doc(db,"wazaifGroupStats","main"),snap=>{
     if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))bridge.groupProgressStats(snap.exists()?snap.data():{});
   },err=>{if(stillCurrent())bridge.groupProgressStats(null);console.warn("Group stats unavailable",err.code);});
@@ -4828,7 +4919,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopGroupTitle();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
