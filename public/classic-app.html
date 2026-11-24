@@ -2130,11 +2130,17 @@ function priorPace(id) {
   return null;
 }
 
+function registrationDate(profile){
+  const raw=profile?.createdAt??(profile&&Object.hasOwn(profile,'registrationDate')?profile.registrationDate:profile?.joined);
+  const date=raw?.toDate?.()??(Number.isFinite(raw?.seconds)?new Date(raw.seconds*1000):raw instanceof Date?raw:null);
+  return date instanceof Date&&Number.isFinite(date.getTime())?date:null;
+}
 function historyRows(person,today) {
   const ledger=readingFor(person.id);
-  const joined=person.joined instanceof Date && Number.isFinite(person.joined.getTime()) ?
-    dateKey(person.joined) : today;
-  const first=joined<=today?joined:today,records=[];
+  const registered=registrationDate(person);
+  const joined=registered?dateKey(registered):null;
+  if(!joined||joined>today)return '<li class="ur">رکنیت کی اصل تاریخ دستیاب نہیں۔</li>';
+  const first=joined,records=[];
   let cumulativeGoal=0,cumulativeRead=0;
   // Create all daily rows from the user's registration day, including zero days.
   for(let day=first,i=0;day<=today && i<3660;i++){
@@ -2307,8 +2313,8 @@ function updateReader() {
     if(target && section==='wazifa-reader' && currentUser()?.id===person.id){
       target.innerHTML=historyRows(person,dateKey());
       const caption=document.getElementById('group-record-caption');
-      const joined=person.joined instanceof Date&&Number.isFinite(person.joined.getTime())?person.joined:parseDay(dateKey());
-      if(caption)caption.textContent=tr('Membership date: ','تاریخِ رکنیت: ')+joinDate.format(joined);
+      const joined=registrationDate(person);
+      if(caption)caption.textContent=tr('Membership date: ','تاریخِ رکنیت: ')+(joined?joinDate.format(joined):'—');
     }
   },180);
   updateClock();
@@ -4213,9 +4219,10 @@ window.duroodClassicBridge = {
     if(section!=='wazifa-reader'||!person?.uid)return null;
     const side=String(window.duroodCurrentSide||'');
     if(!['male','female'].includes(side))return null;
-    const joined=person.joined instanceof Date && Number.isFinite(person.joined.getTime())?
-      dateKey(person.joined):dateKey();
-    const today=dateKey(),first=joined<=today?joined:today,days=[];
+    const registered=registrationDate(person);
+    if(!registered)return null;
+    const joined=dateKey(registered),today=dateKey(),first=joined,days=[];
+    if(first>today)return null;
     let day=today;
     for(let i=0;day>=first&&i<readerHistoryLimit&&i<3660;i++){
       if(day!==today)days.push(day);
@@ -4292,7 +4299,7 @@ window.duroodClassicBridge = {
         isFoundingSpouse:x.gender==="female" && sideNumber===1,
         sideNumber,
         inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
-        disabled:x.disabled===true,joined:x.joined instanceof Date?x.joined:new Date(),
+        disabled:x.disabled===true,joined:registrationDate(x)||new Date(),registrationDate:registrationDate(x),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":
           x.gender==="male"?"Male":"",phone:"",address:"",photo:x.photo||"",
         deleted:x.deleted===true
@@ -4301,7 +4308,7 @@ window.duroodClassicBridge = {
     if(!getUser(Number(profile.memberNumber))) {
       users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,isOwner:profile.role==="owner",name:profile.name||"Owner",
         username:profile.username||"owner",inviter:null,daily:0,
-        added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:new Date(),
+        added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:registrationDate(profile)||new Date(),registrationDate:registrationDate(profile),
         age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
     }
     for(const member of users)if(member.isFoundingSpouse)member.sideNumber=1;
@@ -4463,7 +4470,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=group-daily-20261124-v17";
+import "./wazaif.js?release=group-joining-date-20261124-v18";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
@@ -4795,7 +4802,7 @@ async function hydrate(){
       uid:d.uid,name:d.name,username:d.username,gender:d.gender,
       memberNumber:d.memberNumber,sideNumber:d.sideNumber,deleted:d.deleted===true,
       disabled:d.disabled===true,inviterUid:d.inviterUid||null,
-      joined:d.createdAt?.toDate?.()||new Date()
+      joined:registrationDate(d),registrationDate:registrationDate(d)
     }));
   const memberCounts=Object.fromEntries(counts);
   if(count?.exists())memberCounts[profile.uid]=Number(count.get("total")||0);
