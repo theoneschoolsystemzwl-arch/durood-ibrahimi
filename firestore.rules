@@ -627,12 +627,14 @@ service cloud.firestore {
     function validWzGroup() {
       let d=request.resource.data;
       return d.keys().hasOnly(['title','arabic','instructions','purpose','kind',
-         'dailyGoal','yearlyGoal','startDate','active','countAsDurood','createdAt','updatedAt']) &&
+         'dailyGoal','weeklyGoal','monthlyGoal','yearlyGoal','startDate','active','countAsDurood','createdAt','updatedAt']) &&
         d.keys().hasAll(['title','arabic','instructions','purpose','kind',
          'dailyGoal','yearlyGoal','startDate','active','countAsDurood','createdAt','updatedAt']) &&
         wzSafeText(d) && d.kind == 'group' &&
         d.active is bool && d.countAsDurood is bool &&
         d.dailyGoal is int && d.dailyGoal >= 1 && d.dailyGoal <= 1000000000 &&
+        (!('weeklyGoal' in d) || (d.weeklyGoal is int && d.weeklyGoal >= 1 && d.weeklyGoal <= 1000000000)) &&
+        (!('monthlyGoal' in d) || (d.monthlyGoal is int && d.monthlyGoal >= 1 && d.monthlyGoal <= 1000000000)) &&
         d.yearlyGoal is int && d.yearlyGoal >= 1 && d.yearlyGoal <= 1000000000 &&
         d.updatedAt == request.time;
     }
@@ -688,6 +690,33 @@ service cloud.firestore {
       allow list, delete: if false;
       allow create: if validWzStats(0,'',0);
       allow update: if validWzStats(resource.data.total,resource.data.day,resource.data.today);
+    }
+    // Dated shared group totals, independent of private members and legacy Durood totals.
+    function wzLegacyGroupDay(date) {
+      return exists(wzStatsPath()) && get(wzStatsPath()).data.day == date ?
+        get(wzStatsPath()).data.today : 0;
+    }
+    function validWzGroupDay(date,previous) {
+      let d=request.resource.data;
+      let stats=getAfter(wzStatsPath()).data;
+      return wzGroupEnabled() &&
+        date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') &&
+        d.keys().hasOnly(['date','count','updatedAt']) &&
+        d.keys().hasAll(['date','count','updatedAt']) &&
+        d.date == date && d.count is int && d.count >= 0 &&
+        d.updatedAt == request.time && stats.updatedAt == request.time &&
+        stats.lastUid == request.auth.uid &&
+        stats.total == wzOldTotal() + stats.lastAmount &&
+        validWzIncrement(stats.lastAmount) &&
+        ((stats.day == date && d.count == previous + stats.lastAmount) ||
+          (!exists(/databases/$(database)/documents/wazaifGroupStats/main/days/$(date)) &&
+            stats.day != date && previous > 0 && d.count == previous));
+    }
+    match /wazaifGroupStats/main/days/{date} {
+      allow get, list: if currentMember();
+      allow create: if validWzGroupDay(date,wzLegacyGroupDay(date));
+      allow update: if validWzGroupDay(date,resource.data.count);
+      allow delete: if false;
     }
     function validWzMember(uid,previous,oldDay,oldToday) {
       let d=request.resource.data;
