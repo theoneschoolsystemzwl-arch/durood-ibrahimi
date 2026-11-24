@@ -1832,7 +1832,7 @@ function profileCard(person) {
     '</span></div></section></header>';
 }
 
-let dashboardGroupSettings=null,dashboardGroupStats=null,dashboardGroupYear=null;
+let dashboardGroupSettings=null,dashboardGroupStats=null,dashboardGroupYear=null,dashboardGroupDays=null;
 function groupProgressValue(goal,count){
   if(!Number.isSafeInteger(goal)||goal<=0||!Number.isSafeInteger(count)||count<0)return null;
   return Math.min(100,Math.round(count*10000/goal)/100);
@@ -1841,7 +1841,13 @@ function groupDashboardProgress(){
   const cfg=dashboardGroupSettings;
   if(!cfg)return '<p class="dashboard-progress-note">'+tr("Group targets not loaded","گروپ کے محفوظ اہداف دستیاب نہیں")+'</p>';
   const today=dateKey();
-  const daily=dashboardGroupStats===null?null:dashboardGroupStats.day===today?Number(dashboardGroupStats.today||0):0;
+  const dates=dashboardGroupDays===null?null:{...dashboardGroupDays};
+  if(dates&&dashboardGroupStats?.day&&!(dashboardGroupStats.day in dates))dates[dashboardGroupStats.day]=Number(dashboardGroupStats.today||0);
+  const monday=parseDay(today);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
+  const weekStart=dateKey(monday),monthStart=today.slice(0,7)+"-01";
+  const sumSince=start=>dates===null?null:Object.entries(dates).filter(([day])=>day>=start&&day<=today).reduce((sum,[,count])=>sum+count,0);
+  const daily=dates?.[today]??(dashboardGroupStats===null?null:dashboardGroupStats.day===today?Number(dashboardGroupStats.today||0):0);
+  const weekly=sumSince(weekStart),monthly=sumSince(monthStart);
   const annual=dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null;
   const make=(label,goal,count)=>{
     const valid=Number.isSafeInteger(goal)&&goal>0,percent=groupProgressValue(goal,count);
@@ -1855,7 +1861,10 @@ function groupDashboardProgress(){
   return '<p class="dashboard-progress-note">'+tr("Shared group Wazifa targets","گروپ وظیفے کے مشترکہ اہداف")+
     ' · '+(cfg.active===true?tr("Active","جاری"):tr("Inactive","بند"))+'</p>'+
     make(tr("Daily goal","روزانہ ہدف"),Number(cfg.dailyGoal),daily)+
-    make(tr("Annual goal","سالانہ ہدف"),Number(cfg.yearlyGoal),annual);
+    make(tr("Weekly goal","ہفتہ وار ہدف"),Number(cfg.weeklyGoal),weekly)+
+    make(tr("Monthly goal","ماہانہ ہدف"),Number(cfg.monthlyGoal),monthly)+
+    make(tr("Annual goal","سالانہ ہدف"),Number(cfg.yearlyGoal),annual)+
+    '<small class="muted">'+tr("Weekly and monthly totals use saved dated group entries; earlier dates without records are not estimated.","ہفتہ وار اور ماہانہ شمار محفوظ تاریخ وار گروپ ریکارڈ سے ہے؛ پرانی غیر محفوظ تاریخوں کا اندازہ نہیں لگایا گیا۔")+'</small>';
 }
 function refreshDashboardGroupProgress(){
  const target=document.getElementById("dashboard-group-progress");
@@ -4250,6 +4259,7 @@ window.duroodClassicBridge = {
   },
   groupProgressStats(value){dashboardGroupStats=value;refreshDashboardGroupProgress();},
   groupProgressYear(value){dashboardGroupYear=value;refreshDashboardGroupProgress();},
+  groupProgressDays(value){dashboardGroupDays=value;refreshDashboardGroupProgress();},
   groupTitle(value){
     dashboardGroupTitle=typeof value==='string'?value.trim():'';
     document.querySelectorAll('[data-dashboard-group-title],[data-reader-group-title]').forEach(node=>{
@@ -4337,7 +4347,7 @@ window.duroodClassicBridge = {
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -4537,12 +4547,12 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=clear-arabic-naskh-20261124-v20";
+import "./wazaif.js?release=group-four-goals-20261124-v21";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=group-daily-20261124-v17";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=group-four-goals-20261124-v21";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
@@ -4767,7 +4777,7 @@ function observeCounters(side){
   };
   watchGroupYear();
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
-  let stopDays=()=>{},stopRows=()=>{},timer,rows=null,myRow=null,lastPing=0;
+  let stopDays=()=>{},stopRows=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
   const pulse=setInterval(()=>{
     if(document.hidden)return;
     if(rows)bridge.readers(rows);
@@ -4793,6 +4803,14 @@ function observeCounters(side){
     const monday=new Date(now);
     monday.setDate(now.getDate()-(now.getDay()+6)%7);
     const week=localReadingDate(monday),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
+    stopSharedDays();bridge.groupProgressDays(null);
+    const groupDaysQuery=query(collection(db,"wazaifGroupStats","main","days"),where("date",">=",week<month?week:month),where("date","<=",today));
+    stopSharedDays=onSnapshot(groupDaysQuery,{includeMetadataChanges:true},snap=>{
+      if(!stillCurrent()||(snap.metadata.fromCache&&snap.empty))return;
+      const values={};
+      snap.forEach(item=>{const d=item.data();if(Number.isSafeInteger(d.count)&&d.count>=0)values[item.id]=d.count;});
+      bridge.groupProgressDays(values);
+    },err=>{if(stillCurrent())bridge.groupProgressDays(null);console.warn("Group dated totals unavailable",err.code);});
     const days=query(collection(sideRef,"days"),where("day",">=",week<year?week:year),where("day","<=",today));
     stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
       if(snap.metadata.fromCache && snap.empty){bridge.periodTotals(null);return;}
@@ -4810,7 +4828,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopGroupTitle();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{stopGroupTitle();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
