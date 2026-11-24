@@ -18,10 +18,12 @@ vm.runInContext(src.slice(start,end),sandbox);
 const compactStart=src.indexOf("function compactTasbihClock(ms){");
 assert(compactStart>=0&&compactStart<start,"compact Tasbih dial timer must exist");
 vm.runInContext(src.slice(compactStart,start),sandbox);
-assert.equal(sandbox.compactTasbihClock(0),"0");
-assert.equal(sandbox.compactTasbihClock(59000),"59");
-assert.equal(sandbox.compactTasbihClock(65000),"1:05");
-assert.equal(sandbox.compactTasbihClock(3661000),"1:01:01");
+assert.equal(sandbox.compactTasbihClock(0),"0.0");
+assert.equal(sandbox.compactTasbihClock(59000),"59.0");
+assert.equal(sandbox.compactTasbihClock(65000),"1:05.0");
+assert.equal(sandbox.compactTasbihClock(3661000),"1:01:01.0");
+assert.equal(sandbox.compactTasbihClock(6150),"6.1");
+assert.equal(sandbox.compactTasbihClock(6259),"6.2");
 const record={day,today:3000,dailyLedger:{
  [day]:{count:3000,tasbihCount:2000,manualCount:1000,durationMs:100000,intervals:10}
 }};
@@ -46,7 +48,7 @@ assert.equal(time.tasbih,100000);assert.equal(time.manual,1000000);
 assert.equal(time.total,1100000);assert.equal(sandbox.readingPace({dailyLedger:{[day]:{durationMs:100000,intervals:10}}}),10000);
 assert(css.includes("grid-template-columns:repeat(5,minmax(0,1fr))"));
 assert(src.includes("if(clock)clock.textContent=compactTasbihClock(value);"),"dial has no millisecond suffix or leading hours");
-assert(src.includes('maximumFractionDigits:0'),"Tasbih pace is displayed as whole numbers");
+assert(src.includes('minimumFractionDigits:1,maximumFractionDigits:1'),"Tasbih pace uses one decimal place");
 assert(src.includes("const perMinute=seconds>0?pace(60/seconds)"));
 assert(src.includes("const perHour=seconds>0?pace(3600/seconds)"));
 assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durable storage before local increment");
@@ -110,7 +112,8 @@ assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!importan
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
 assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
-assert(src.includes('navigator.vibrate?.(8+state.vibrateLevel*16)'),"vibration duration responds to selected level");
+assert(src.includes('window.DuroodAndroid.vibrate(state.vibrateLevel)'),"native Android vibration bridge responds to the chosen level");
+assert(src.includes('navigator.vibrate?.(20+state.vibrateLevel*12)'),"browser vibration remains as a fallback");
 assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
 const histStart=src.indexOf("function wazifaHistoryMarkup(record){"),histEnd=src.indexOf("function heroReadingState(group,w,record)");
 const historySource=src.slice(histStart,histEnd);
@@ -258,4 +261,20 @@ assert(ringSelector.includes("position:absolute;inset:0")&&ringSelector.includes
   "SVG must be clipped to the actual dial");
 assert(ringSelector.includes("max-width:100%;max-height:100%"),
   "the SVG must never exceed the circular button dimensions");
+// Remaining percentage is still displayed, but its colored progress moves
+// forward with completed work, rather than shrinking as the balance falls.
+assert(reader.includes('id="wz-remaining-progress-bar" max="100" value="\'+progress+\'"'),
+  "middle progress bar fills according to work completed");
+assert(src.includes("if(remainingBar)remainingBar.value=percent;"),
+  "live updates fill the remaining-row bar as work is completed");
+assert(reader.includes("<small>مجموعی ہدف</small>"),
+  "top bar shows a compact total-goal label");
+assert(src.includes('function setWazifaImmersive(enabled)')&&
+  src.includes('classList.toggle("wz-immersive-reader"'),
+  "fullscreen has a working WebView CSS fallback");
+assert(src.includes('window.DuroodAndroid?.setImmersive?.(state.immersive)'),
+  "new Android versions can hide system bars natively");
+assert(css.includes("body.wz-immersive-reader #wazaif-root")&&
+  css.includes("position:fixed!important"),
+  "reader focus view displays over existing bottom navigation");
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
