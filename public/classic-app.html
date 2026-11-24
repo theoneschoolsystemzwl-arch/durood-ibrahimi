@@ -4788,10 +4788,17 @@ import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=group-four-goals-20261124-v21";
-import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
+const LOGOUT_KEY="durood-explicit-logout-v1";
+let classicSigningOut=false;
+function classicLogoutBlocked(){
+  if(classicSigningOut)return true;
+  if(window.parent!==window && window.parent.duroodLogoutBlocked?.())return true;
+  try{return localStorage.getItem(LOGOUT_KEY)==="1";}catch{return false;}
+}
 const loadedPrayerMonths=new Map();
 const loadingPrayerMonths=new Map();
 const loadingPrayerHistories=new Map();
@@ -5119,6 +5126,7 @@ function observeCounters(side){
   stopCounters=()=>{stopGoalDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
+  if(classicLogoutBlocked())return;
   const user=auth.currentUser;
   if(!user){
     stopCounters();
@@ -5136,7 +5144,7 @@ async function hydrate(){
       profile.pledgeAcceptedAt=own.data().pledgeAcceptedAt??null;
     }
   }catch(error){console.warn("Membership date refresh unavailable",error?.code||error);}
-  if(auth.currentUser?.uid!==user.uid)return;
+  if(classicLogoutBlocked()||auth.currentUser?.uid!==user.uid)return;
   window.duroodWazaif?.setMember?.(profile);
   const owner=profile.role==="owner";
   const side=owner && window.duroodOwnerSide==="female"?"female":
@@ -5210,7 +5218,7 @@ async function hydrate(){
     try{ownRow.photo=(await getDoc(doc(db,"memberPhotos",profile.uid))).data()?.image||"";}
     catch(error){console.warn("Profile photo unavailable",error.code);}
   }
-  if(auth.currentUser?.uid!==profile.uid)return;
+  if(classicLogoutBlocked()||auth.currentUser?.uid!==profile.uid)return;
   if(window.duroodCurrentSide!==side)return;
   bridge.enter(profile,rows,{memberCounts},true);
   if(owner && side==='female')return;
@@ -5220,6 +5228,15 @@ async function hydrate(){
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
 onAuthStateChanged(auth,async user=>{
+  if(classicLogoutBlocked()){
+    stopGoalWatch();goalWatchUid="";stopCounters();
+    // The parent owns the active logout; never copy its cached user back.
+    if(window.parent===window&&!classicSigningOut){
+      if(user)try{await firebaseSignOut(auth);}catch(error){console.warn("Logout restoration blocked",error?.code||error);}
+      window.location.replace("/");
+    }
+    return;
+  }
   if(!user){
     stopGoalWatch();goalWatchUid="";
     stopCounters();
@@ -5229,7 +5246,12 @@ onAuthStateChanged(auth,async user=>{
       // never redirect the parent to its login page.
       const parentUser=window.parent.duroodParentAuthUser?.();
       if(parentUser && window.parent.duroodVerifiedProfile?.(parentUser.uid)){
-        try{await updateCurrentUser(auth,parentUser);return;}
+        try{
+          if(classicLogoutBlocked())return;
+          await updateCurrentUser(auth,parentUser);
+          if(classicLogoutBlocked())await firebaseSignOut(auth);
+          return;
+        }
         catch(error){console.warn("Classic auth synchronization",error?.code||error);}
       }
       window.parent.postMessage({type:"durood-classic-auth-pending"},location.origin);
@@ -5297,8 +5319,21 @@ ui.addEventListener("click",event=>{
   }
   if(action==="logout"){
     event.stopImmediatePropagation();event.preventDefault();
-    signOut(auth).then(()=>window.location.replace("/"))
-      .catch(e=>bridge.notice(errorText(e)));return;
+    if(classicSigningOut)return;
+    classicSigningOut=true;button.disabled=true;
+    const embedded=window.parent!==window;
+    const delegate=embedded&&window.parent.duroodExplicitLogout;
+    const work=typeof delegate==="function"
+      ? delegate()
+      : (async()=>{
+          try{localStorage.setItem(LOGOUT_KEY,"1");}catch{}
+          try{await signOut(auth);}
+          catch(error){try{localStorage.removeItem(LOGOUT_KEY);}catch{}throw error;}
+          if(embedded)window.parent.location.replace("/");
+          else window.location.replace("/");
+        })();
+    work.catch(e=>{classicSigningOut=false;button.disabled=false;bridge.notice(errorText(e));});
+    return;
   }
   if(action==="create-invite"){
     event.stopImmediatePropagation();event.preventDefault();

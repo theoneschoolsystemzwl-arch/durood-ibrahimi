@@ -6,7 +6,7 @@ import {
 } from "./member-auth.js?release=fast-login-reader-v4";
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js?release=fast-login-reader-v4";
-import {sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {sendPasswordResetEmail,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 import {initializeCommunityPages,activateMemberHome} from "./community-pages.js";
@@ -14,10 +14,18 @@ import {initializeCommunityPages,activateMemberHome} from "./community-pages.js"
 initializeCommunityPages();
 const $=selector=>document.querySelector(selector);
 const appState={tab:"login",profile:null,busy:false,signingIn:false,registering:false,loadingAuth:true};
-// The frame reuses the profile already checked by login, after Firebase restores the same UID.
-window.duroodVerifiedProfile=uid=>auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
-// Same-origin dashboard can reuse the verified user rather than treating its first empty Auth tick as a logout.
-window.duroodParentAuthUser=()=>appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
+// Explicit logout must win over the two Auth contexts' automatic restoration.
+const LOGOUT_KEY="durood-explicit-logout-v1";
+let signingOut=false,logoutMarked=false;
+try{logoutMarked=localStorage.getItem(LOGOUT_KEY)==="1";}catch{}
+function logoutBlocked(){return signingOut||logoutMarked;}
+function markLogout(value){
+  logoutMarked=value;
+  try{if(value)localStorage.setItem(LOGOUT_KEY,"1");else localStorage.removeItem(LOGOUT_KEY);}catch{}
+}
+window.duroodLogoutBlocked=logoutBlocked;
+window.duroodVerifiedProfile=uid=>!logoutBlocked() && auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
+window.duroodParentAuthUser=()=>!logoutBlocked() && appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
 let classicFrameRequested=false;
 let classicReadyUid=null;
 let dashboardTimer;
@@ -189,12 +197,15 @@ $("#forgot-password").addEventListener("click",async()=>{
 
 $("#access-form").addEventListener("submit",async event=>{
   event.preventDefault();
-  if(appState.busy)return;
+  if(appState.busy||signingOut)return;
   const accessForm=event.currentTarget;
   const form=new FormData(accessForm);
   updateBusy(true);
   message("#auth-message","");
   try{
+    // Only a fresh, user-submitted login or registration may lift the logout block.
+    if(logoutMarked && auth.currentUser)await firebaseSignOut(auth);
+    markLogout(false);
     if(appState.tab==="login"){
       // Prevent the auth-state listener from racing the explicit login's profile lookup.
       appState.signingIn=true;
@@ -268,7 +279,7 @@ function showSignedOut() {
   view("#admin-panel",false);
 }
 function showSignedIn(profile){
-  if(!profile?.uid || auth.currentUser?.uid!==profile.uid)return;
+  if(logoutBlocked()||!profile?.uid || auth.currentUser?.uid!==profile.uid)return;
   clearTimeout(nullAuthTimer);
   const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
   lastAuthenticatedUid=profile.uid;
@@ -289,7 +300,7 @@ function showSignedIn(profile){
 }
 function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
-  if(!frame||!appState.profile||!auth.currentUser||classicFrameRequested)return;
+  if(logoutBlocked()||!frame||!appState.profile||!auth.currentUser||classicFrameRequested)return;
   // Load the original UI just once. Do not download its 580 KB HTML twice.
   // Its Firebase data is loaded in the frame and must not be simulated here.
   classicFrameRequested=true;
@@ -302,13 +313,13 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=durable-sync-20261123-v14";
+  frame.src="./classic-app.html?release=explicit-logout-20261124-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
 function revealOriginalDashboard(){
   const frame=$("#classic-frame");
-  if(!frame||!appState.profile||auth.currentUser?.uid!==classicReadyUid)return;
+  if(logoutBlocked()||!frame||!appState.profile||auth.currentUser?.uid!==classicReadyUid)return;
   frame.hidden=false;
   clearTimeout(dashboardTimer);
   view("#loading",false);
@@ -321,7 +332,7 @@ function revealOriginalDashboard(){
 // explicitly confirms that it has rendered with the current Firebase user.
 window.addEventListener("message",event=>{
   const frame=$("#classic-frame");
-  if(!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
+  if(logoutBlocked()||!frame||event.origin!==location.origin||event.source!==frame.contentWindow)return;
   if(event.data?.type==="durood-use-top")return; // An embedded view must not navigate the authenticated parent.
   if(event.data?.type==="durood-classic-ready" &&
      appState.profile?.uid===event.data.uid){
@@ -404,6 +415,12 @@ document.addEventListener("durood:before-refresh",event=>{
 });
 onAuthStateChanged(auth,async user=>{
   const current=++authGeneration;
+  if(signingOut)return;
+  if(logoutMarked){
+    if(user)try{await firebaseSignOut(auth);}catch(error){console.warn("Logout restoration blocked",error?.code||error);}
+    if(logoutMarked&&!signingOut)showSignedOut();
+    return;
+  }
   if(appState.registering || appState.signingIn)return;
   if(!user){
     // Two same-origin Firebase Auth contexts (portal + WebView iframe) can
@@ -448,7 +465,7 @@ onAuthStateChanged(auth,async user=>{
   showSignedIn(profile);
 });
 $("#loading-retry").addEventListener("click",async()=>{
-  if(appState.busy)return;
+  if(logoutBlocked()||appState.busy)return;
   if(!auth.currentUser){showSignedOut();return;}
   $("#loading-retry").hidden=true;
   try{
@@ -462,8 +479,31 @@ $("#loading-retry").addEventListener("click",async()=>{
     showSignedIn(profile);
   }catch(error){showProfileRetry(error);}
 });
+async function explicitLogout(){
+  if(signingOut)return;
+  signingOut=true;
+  markLogout(true);
+  ++authGeneration;
+  clearTimeout(nullAuthTimer);
+  clearTimeout(dashboardTimer);
+  try{
+    // Release the existing member lease before signing out of Firebase.
+    await signOut(auth);
+    showSignedOut();
+    switchTab("login");
+    $("#access-form").reset();
+    message("#auth-message","");
+  }catch(error){
+    // Preserve the existing session if its lease cannot be released offline.
+    markLogout(false);
+    throw error;
+  }finally{signingOut=false;}
+}
+window.duroodExplicitLogout=explicitLogout;
 $("#signout").addEventListener("click",async()=>{
-  try{await signOut(auth);showSignedOut();}catch(err){message("#reading-message",errorText(err));}
+  const button=$("#signout");button.disabled=true;
+  try{await explicitLogout();}catch(err){message("#reading-message",errorText(err));}
+  finally{button.disabled=false;}
 });
 async function addRecitations(amount,tasbih=false){
   if(appState.busy||!auth.currentUser)return;
