@@ -1324,7 +1324,7 @@ function tick(){
  const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{minimumFractionDigits:1,maximumFractionDigits:1}):"—";
  const perZikr=seconds>0?pace(seconds):"—";
  const perMinute=seconds>0?pace(60/seconds):"—";
- const perHour=seconds>0?pace(3600/seconds):"—";
+ const perHour=seconds>0?(3600/seconds).toLocaleString("en",{maximumFractionDigits:0}):"—";
  for(const [id,text] of [["#wz-speed-sec",perZikr],["#wz-speed-min",perMinute],["#wz-speed-hour",perHour]]){
   const node=$(id);if(node)node.textContent=text;
  }
