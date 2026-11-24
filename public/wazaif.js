@@ -2,7 +2,7 @@
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
-import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=group-daily-20261124-v1";
+import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=group-periods-20261124-v2";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
@@ -522,6 +522,8 @@ function formMarkup(){
  ).join('')+'</div>'+
  '<div class="wz-form-goals"><label class="wz-goal-field" data-wz-goal="daily">روزانہ ہدف<input name="dailyGoal" type="number" min="1" max="1000000000" value="'+esc(legacy?activeDailyGoal(original):expired?Math.ceil(original.goal/spanDays(original.startDate,original.endDate)):original.dailyGoal||original.goal||200)+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="total">کل ہدف<input name="goal" type="number" min="1" max="1000000000" '+(continued?'readonly ':'')+'value="'+esc(original.goal||1000)+'"></label>'+
+ '<label class="wz-goal-field" data-wz-goal="week">ہفتہ وار ہدف<input name="weeklyGoal" type="number" min="1" max="1000000000" value="'+esc(original.weeklyGoal||"")+'"></label>'+
+ '<label class="wz-goal-field" data-wz-goal="month">ماہانہ ہدف<input name="monthlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.monthlyGoal||"")+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||readingDay())+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
@@ -1142,7 +1144,7 @@ function syncForm(){
  const kind=form.elements.kind.value;
  form.querySelectorAll('[data-wz-goal]').forEach(el=>{
    const type=el.dataset.wzGoal;
-   el.hidden=!(kind==="group"?(type==="daily"||type==="year"):kind==="daily"?type==="daily":type==="total");
+   el.hidden=!(kind==="group"?["daily","week","month","year"].includes(type):kind==="daily"?type==="daily":type==="total");
    el.querySelector("input").required=!el.hidden;
  });
  const end=form.querySelector("[data-wz-end]");
@@ -1207,13 +1209,13 @@ async function saveForm(form){
  const durationDays=Number(data.get("durationDays"));
  const endDate=kind==="fixed"&&Number.isSafeInteger(durationDays)&&durationDays>=1&&durationDays<=3650?
    addDays(startDate,durationDays-1):"";
- const goal=Number(data.get("goal")),dailyGoal=Number(data.get("dailyGoal")),yearlyGoal=Number(data.get("yearlyGoal"));
+ const goal=Number(data.get("goal")),dailyGoal=Number(data.get("dailyGoal")),yearlyGoal=Number(data.get("yearlyGoal")),weeklyGoal=Number(data.get("weeklyGoal")),monthlyGoal=Number(data.get("monthlyGoal"));
  if(!title||!arabic||!dayOk(startDate)||(kind==="fixed"&&(!dayOk(endDate)||endDate<startDate))){
    setError("عنوان، عبارت اور تاریخ درست درج کریں۔");return;
  }
  const valid=n=>Number.isSafeInteger(n)&&n>=1&&n<=1000000000;
  if((kind==="daily"&&!valid(dailyGoal))||(kind==="fixed"||kind==="open")&&!valid(goal)||
-   kind==="group"&&(!valid(dailyGoal)||!valid(yearlyGoal))){
+   kind==="group"&&(!valid(dailyGoal)||!valid(weeklyGoal)||!valid(monthlyGoal)||!valid(yearlyGoal))){
    setError("ہدف 1 سے ایک ارب کے درمیان مکمل عدد درج کریں۔");return;
  }
  const common={title,arabic,instructions:String(data.get("instructions")||"").trim(),
@@ -1221,7 +1223,7 @@ async function saveForm(form){
  state.busy=true;const button=form.querySelector('[type="submit"]');button.disabled=true;
  try{
    if(kind==="group"){
-     const value={...common,kind:"group",dailyGoal,yearlyGoal,
+     const value={...common,kind:"group",dailyGoal,weeklyGoal,monthlyGoal,yearlyGoal,
        active:data.has("active"),countAsDurood:data.has("countAsDurood"),updatedAt:serverTimestamp()};
      const ref=doc(db,"wazaifSettings","group");
      if(state.groupExists)await updateDoc(ref,value);
