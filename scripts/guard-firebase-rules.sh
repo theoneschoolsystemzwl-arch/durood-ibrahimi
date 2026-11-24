@@ -150,11 +150,13 @@ const beforeDateRevision=historicalRules('eade9e564d308e6f25a76fe80493e0713b2841
 // Confirmed live Firebase deployment from 24 Nov after Wazifa continuation date edit.
 // Accept only the exact immutable source; any Console modifications still block.
 const afterDateRevision=historicalRules('d6b06c5824a4e3f3210b5cc3c16a2bec6af52730');
+// Exact pre-aggregation rules; retain the full-source comparison guard.
+const beforeAggregateGoals=historicalRules('10c6525c38eb48137068fa7bcb236a05387bccc0');
 const baselines=[
   expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
-  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision
+  beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals
 ].filter(source=>typeof source==='string');
 if(!baselines.some(source=>same(existing.content,source))){
   console.error('Published rules differ from every verified, available repository baseline.');

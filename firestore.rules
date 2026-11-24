@@ -392,7 +392,8 @@ service cloud.firestore {
     }
     // Each member owns their effective-dated daily target.
     match /memberPrivate/{uid}/duroodGoals/{date} {
-      allow get, list: if self(uid) && currentMember();
+      // Owner may calculate shared targets; only the member may write their own goal.
+      allow get, list: if (self(uid) && currentMember()) || owner();
       allow create, update: if self(uid) && currentMember() &&
         date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') &&
         request.resource.data.keys().hasOnly(['date','goal','updatedAt']) &&
@@ -405,7 +406,8 @@ service cloud.firestore {
     }
     // Per-member group goal preferences, effective from the selected local day.
     match /memberPrivate/{uid}/groupTargets/{date} {
-      allow get, list: if self(uid) && currentMember();
+      // Owner may calculate shared targets; only the member may write their own goal.
+      allow get, list: if (self(uid) && currentMember()) || owner();
       allow create, update: if self(uid) && currentMember() &&
         date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') &&
         request.resource.data.keys().hasOnly(['date','mode','dailyGoal','weeklyGoal','monthlyGoal','yearlyGoal','updatedAt']) &&

@@ -1839,63 +1839,54 @@ function groupProgressValue(goal,count){
 }
 const groupTargetKeys=["dailyGoal","weeklyGoal","monthlyGoal","yearlyGoal"];
 const groupTargetLabels=["روزانہ ہدف","ہفتہ وار ہدف","ماہانہ ہدف","سالانہ ہدف"];
-let memberGoalRows=null,memberGroupDays=null,memberGroupSummary=null;
-function resolveMemberGroupTargets(rows,config,day){
- const selected=(rows||[]).filter(r=>r.date<=day).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
- const mode=selected?.mode==="personal"?"personal":"owner";
- const source=mode==="personal"?selected:config;
- return {mode,...Object.fromEntries(groupTargetKeys.map(k=>[k,Number.isSafeInteger(source?.[k])&&source[k]>0?source[k]:0]))};
+let memberGoalRows=null,memberReaderGoalRows=null,memberGroupDays=null,memberGroupSummary=null,ownerGoalRows=null;
+// A member contributes exactly one effective daily target. Legacy personal settings
+// are honored until replaced by an equally recent or newer Tasbih daily target.
+function effectiveGroupDailyGoal(dailyRows,legacyRows,day){
+ const valid=n=>Number.isSafeInteger(n)&&n>=1&&n<=1000000000;
+ const latest=rows=>(rows||[]).filter(r=>typeof r.date==="string"&&r.date<=day).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+ const daily=latest((dailyRows||[]).filter(r=>valid(r.goal))),legacy=latest(legacyRows);
+ if(daily&&(!legacy||daily.date>=legacy.date||legacy.mode!=="personal"))return daily.goal;
+ return legacy?.mode==="personal"&&valid(legacy.dailyGoal)?legacy.dailyGoal:0;
+}
+function goalPeriods(daily,day){
+ const [year,month]=day.split("-").map(Number);
+ const monthDays=new Date(year,month,0).getDate();
+ const yearDays=(year%4===0&&(year%100!==0||year%400===0))?366:365;
+ return {dailyGoal:daily,weeklyGoal:daily*7,monthlyGoal:daily*monthDays,yearlyGoal:daily*yearDays};
 }
 function memberGroupTargets(day=dateKey()){
- return resolveMemberGroupTargets(memberGoalRows,dashboardGroupSettings,day);
+ return goalPeriods(effectiveGroupDailyGoal(memberReaderGoalRows,memberGoalRows,day),day);
+}
+function aggregateGroupTargets(rows,day){
+ if(rows===null)return null;
+ return goalPeriods(rows.reduce((sum,r)=>sum+effectiveGroupDailyGoal(r.daily,r.legacy,day),0),day);
 }
 window.duroodMemberGroupTargets=memberGroupTargets;
-function memberGroupProgressMarkup(){
- const goals=memberGroupTargets(),today=dateKey();
- const dates=memberGroupDays===null?null:{...memberGroupDays};
- if(dates&&memberGroupSummary?.day&&!(memberGroupSummary.day in dates))dates[memberGroupSummary.day]=Number(memberGroupSummary.today||0);
- const monday=parseDay(today);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
- const starts=[today,dateKey(monday),today.slice(0,7)+"-01",today.slice(0,4)+"-01-01"];
- return '<div class="panel-head"><h3>میرے ذاتی اہداف</h3><button type="button" class="button secondary" data-group-target-settings>ہدف سیٹنگ</button></div>'+
- '<p class="muted">'+(memberGoalRows===null?"سیٹنگ لوڈ ہو رہی ہے":goals.mode==="owner"?"مالک کی سیٹنگ کے مطابق":"میرے مقرر کردہ اہداف")+'</p>'+
- groupTargetKeys.map((key,i)=>{
-  const goal=goals[key],count=dates===null?null:Object.entries(dates).filter(([d])=>d>=starts[i]&&d<=today).reduce((n,[,v])=>n+v,0);
-  const percent=groupProgressValue(goal,count);
-  return '<div class="goal-progress"><div class="dashboard-progress-meta"><span>'+groupTargetLabels[i]+'</span><strong>'+(percent===null?"—":percent.toFixed(2)+"%")+'</strong></div>'+
-    (percent===null?"":'<progress aria-label="'+groupTargetLabels[i]+'" max="'+goal+'" value="'+Math.min(count,goal)+'"></progress>')+
-    '<small class="muted">محفوظ: '+(count===null?"—":displayNumber(count))+' / '+(goal?displayNumber(goal):"—")+' · باقی: '+(percent===null?"—":displayNumber(Math.max(0,goal-count)))+'</small></div>';
- }).join("");
-}
+window.duroodAggregateGroupTargets=()=>aggregateGroupTargets(ownerGoalRows,dateKey());
 function refreshMemberGroupProgress(){
- document.querySelectorAll("[data-member-group-progress]").forEach(el=>{el.innerHTML=memberGroupProgressMarkup();});
+ window.duroodWazaif?.refreshGroupTargets?.();
 }
-window.duroodMemberGroupProgressMarkup=memberGroupProgressMarkup;
-window.duroodRefreshMemberGroupProgress=refreshMemberGroupProgress;
-function openMemberGroupTargetSettings(){
- if(!currentUser()?.uid||memberGoalRows===null){window.duroodClassicBridge?.notice("گروپ ہدف کی سیٹنگ لوڈ نہیں ہوئی۔ انٹرنیٹ چیک کریں۔");return;}
- const old=document.getElementById("member-group-target-dialog");if(old?.open)return;old?.remove();
- const goals=memberGroupTargets(),dialog=document.createElement("dialog");
- dialog.id="member-group-target-dialog";dialog.dir="rtl";
- dialog.innerHTML='<h2>گروپ وظیفہ — میری ہدف سیٹنگ</h2><form class="form"><label><input type="radio" name="mode" value="owner" '+(goals.mode==="owner"?"checked":"")+'> مالک کے مقرر کردہ اہداف</label><label><input type="radio" name="mode" value="personal" '+(goals.mode==="personal"?"checked":"")+'> میرے اپنے اہداف</label><div data-personal-fields>'+groupTargetKeys.map((k,i)=>'<label class="field">'+groupTargetLabels[i]+'<input type="number" name="'+k+'" min="1" max="1000000000" step="1" value="'+(goals[k]||"")+'"></label>').join("")+'</div><p class="muted">تبدیلی آج سے لاگو ہوگی؛ اجتماعی شمار اور پہلے سے محفوظ تسبیح برقرار رہے گی۔</p><p data-target-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-target>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
- const form=dialog.querySelector("form"),fields=dialog.querySelector("[data-personal-fields]");
- const sync=()=>{const personal=form.elements.mode.value==="personal";fields.hidden=!personal;fields.style.display=personal?"":"none";for(const input of fields.querySelectorAll("input")){input.disabled=!personal;input.required=personal;}};
- form.addEventListener("change",sync);sync();
- dialog.querySelector("[data-close-target]").addEventListener("click",()=>dialog.close());
+function openMemberDailyTarget(){
+ if(!currentUser()?.uid||memberReaderGoalRows===null||memberGoalRows===null){window.duroodClassicBridge?.notice("روزانہ ہدف لوڈ نہیں ہوا۔ انٹرنیٹ چیک کریں۔");return;}
+ const old=document.getElementById("member-daily-goal-dialog");if(old?.open)return;old?.remove();
+ const goal=memberGroupTargets().dailyGoal,dialog=document.createElement("dialog");
+ dialog.id="member-daily-goal-dialog";dialog.dir="rtl";
+ dialog.innerHTML='<h2>میرا روزانہ ہدف</h2><form class="form"><label class="field">روزانہ درود / وظیفہ کی تعداد<input name="goal" type="number" min="1" max="1000000" step="1" required value="'+(goal||"")+'"></label><p class="muted">یہ ہدف خودکار طور پر اجتماعی روزانہ، ہفتہ وار، ماہانہ اور سالانہ اہداف میں شامل ہوگا۔</p><p data-goal-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-goal>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
+ const form=dialog.querySelector("form");
+ dialog.querySelector("[data-close-goal]").addEventListener("click",()=>dialog.close());
  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
  form.addEventListener("submit",async event=>{
   event.preventDefault();event.stopImmediatePropagation();
-  const uid=currentUser()?.uid,day=dateKey(),mode=form.elements.mode.value,button=form.querySelector('[type="submit"]'),note=form.querySelector("[data-target-feedback]");
-  if(button.disabled)return;
-  const target={date:day,mode,...Object.fromEntries(groupTargetKeys.map(k=>[k,mode==="personal"?Number(form.elements[k].value):0]))};
-  if(mode==="personal"&&groupTargetKeys.some(k=>!Number.isSafeInteger(target[k])||target[k]<1||target[k]>1000000000)){note.textContent="چاروں درست اہداف درج کریں۔";return;}
+  const uid=currentUser()?.uid,day=dateKey(),goal=Number(form.elements.goal.value),button=form.querySelector('[type="submit"]'),note=form.querySelector("[data-goal-feedback]");
+  if(button.disabled||!Number.isSafeInteger(goal)||goal<1||goal>1000000)return;
   button.disabled=true;
-  try{await window.duroodSaveMemberGroupTargets(uid,target);if(currentUser()?.uid===uid){window.duroodClassicBridge.memberTargetRows(uid,[...(memberGoalRows||[]).filter(r=>r.date!==day),target]);dialog.close();}}
-  catch(error){note.textContent="سیٹنگ محفوظ نہیں ہوئی۔ دوبارہ کوشش کریں۔";}finally{button.disabled=false;}
+  try{await window.duroodSaveReaderGoal(uid,day,goal);if(currentUser()?.uid===uid){window.duroodClassicBridge.readerGoalHistory(uid,[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}]);dialog.close();}}
+  catch(error){note.textContent="ہدف محفوظ نہیں ہوا۔ دوبارہ کوشش کریں۔";}finally{button.disabled=false;}
  });
  document.body.append(dialog);dialog.showModal();
 }
-window.duroodOpenMemberGroupTargetSettings=openMemberGroupTargetSettings;
-document.addEventListener("click",event=>{if(event.target.closest("[data-group-target-settings]")){event.preventDefault();event.stopImmediatePropagation();openMemberGroupTargetSettings();}},true);
+document.addEventListener("click",event=>{if(event.target.closest("[data-group-daily-goal]")){event.preventDefault();event.stopImmediatePropagation();openMemberDailyTarget();}},true);
 function groupDashboardProgress(){
   const cfg=dashboardGroupSettings;
   if(!cfg)return '<p class="dashboard-progress-note">'+tr("Group targets not loaded","گروپ کے محفوظ اہداف دستیاب نہیں")+'</p>';
@@ -1984,8 +1975,6 @@ function overview() {
    '<div class="recitation-periods">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
-   '<section id="dashboard-group-progress" aria-live="polite">'+groupDashboardProgress()+'</section>'+
-   '<section class="panel section" data-member-group-progress>'+memberGroupProgressMarkup()+'</section>'+ 
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
    '</h2><div id="today-readers">'+readerList()+'</div></section>'+
@@ -2154,11 +2143,9 @@ function readingFor(id) {
 }
 
 function readerGoalFor(ledger,day){
+  if(currentUser()?.uid)return memberGroupTargets(day).dailyGoal;
   const dates=Object.keys(ledger.goals||{}).filter(d=>d<=day).sort();
-  const selected=memberGroupTargets(day).dailyGoal;
-  if(selected>0)return selected;
-  const value=dates.length?Number(ledger.goals[dates.at(-1)]):Number(ledger.days[day]?.goal||100);
-  return Number.isSafeInteger(value)&&value>=1&&value<=1000000?value:100;
+  return dates.length?Number(ledger.goals[dates.at(-1)])||0:0;
 }
 function getReadingDay(id, key) {
   const ledger = readingFor(id);
@@ -2359,7 +2346,7 @@ function tasbih() {
     tr("<div class=\"reader-metric\"><small>Daily goal</small><strong id=\"read-target\">100</strong></div>", '<div class="reader-metric"><small>روزانہ ہدف</small><strong id="read-target">100</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Community</small><strong id=\"read-global\">0</strong></div></div>", '<div class="reader-metric"><small>اجتماعی شمار</small><strong id="read-global">0</strong></div></div>') +
     '<div class="reader-progress"><div class="reader-goal-note"><strong id="read-goal-note"></strong>' +
-    tr("<button class=\"button secondary\" data-group-target-settings>Goal settings</button></div>", '<button class="button secondary" data-group-target-settings>میری ہدف سیٹنگ</button></div>') +
+    tr("<button class=\"button secondary\" data-group-daily-goal>Goal settings</button></div>", '<button class="button secondary" data-group-daily-goal>روزانہ ہدف مقرر کریں</button></div>') +
     tr("<progress id=\"read-progress\" aria-label=\"Daily goal progress\" max=\"100\" value=\"0\"></progress></div>", '<progress id="read-progress" aria-label="روزانہ ہدف کی پیش رفت" max="100" value="0"></progress></div>') +
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
@@ -2368,7 +2355,6 @@ function tasbih() {
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
-    '<section class="panel section" data-member-group-progress>'+memberGroupProgressMarkup()+'</section>'+
     '<p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
     tr("<button class=\"button\" data-action=\"manual-day\">Add offline Durood</button></div>", '<button class="button" data-action="manual-day">آف لائن درود شامل کریں</button></div>') +
@@ -2427,11 +2413,11 @@ function updateReader() {
   set('pace-sec',rate ? tasbihPaceWholeFormat.format(rate / 1000) : '—');
   set('pace-minute',rate ? tasbihPaceWholeFormat.format(60000 / rate) : '—');
   set('pace-hour',rate ? tasbihPaceWholeFormat.format(3600000 / rate) : '—');
-  const percent = Math.min(100,Math.round(count * 1000 / goal)/10);
+  const percent = goal>0?Math.min(100,Math.round(count * 1000 / goal)/10):0;
   const remaining = Math.max(0,goal - count);
-  set('read-goal-note', remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');
+  set('read-goal-note', !goal ? tr("Set your daily goal","اپنا روزانہ ہدف مقرر کریں") : remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');
   const progress = document.getElementById('read-progress');
-  progress.max = goal;
+  progress.max = goal||1;
   progress.value = Math.min(goal,count);
   // The dial updates instantly. Rebuild the long dated history once after a
   // short burst of taps instead of rerendering every row for every recitation.
@@ -2593,6 +2579,7 @@ function submitDailyGoal(form,data) {
     if(currentUser()?.id!==person.id)return;
     const ledger=readingFor(person.id);
     (ledger.goals||={})[day]=goal;ledger.goal=goal;
+    if(person.uid)window.duroodClassicBridge.readerGoalHistory(person.uid,[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}]);
     getReadingDay(person.id,day).goal=goal;
     persistReaderJournal(readerPendingTotals);
     form.closest('dialog')?.close();
@@ -4316,6 +4303,7 @@ window.duroodClassicBridge = {
     window.duroodWazaif?.refreshGroupTargets?.();
     if(section==="wazifa-reader")updateReader();
   },
+  aggregateGoalRows(uid,rows){if(currentUser()?.uid!==uid)return;ownerGoalRows=rows;window.duroodWazaif?.refreshGroupTargets?.();},
   memberGroupCounts(uid,days,summary){
     if(currentUser()?.uid!==uid)return;
     if(days!==undefined)memberGroupDays=days;
@@ -4340,6 +4328,7 @@ window.duroodClassicBridge = {
   },
   readerGoalHistory(uid,rows){
     const person=currentUser();if(person?.uid!==uid)return;
+    memberReaderGoalRows=rows;
     const ledger=readingFor(person.id);
     const remote={};
     for(const row of rows||[]){
@@ -4351,6 +4340,7 @@ window.duroodClassicBridge = {
     const goals=firstRemote?Object.fromEntries(Object.entries(ledger.goals||{}).filter(([day])=>day<firstRemote)):{...(ledger.goals||{})};
     ledger.goals={...goals,...remote};ledger.goal=readerGoalFor(ledger,dateKey());
     persistReaderJournal(readerPendingTotals);
+    refreshMemberGroupProgress();
     if(section==='wazifa-reader')updateReader();
   },
   readerHistoryWindow(){
@@ -4412,7 +4402,7 @@ window.duroodClassicBridge = {
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -4831,6 +4821,32 @@ function observeCounters(side){
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>auth.currentUser?.uid===observedUid;
+  window.duroodLoadReaderGoals();
+  let stopGoalDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
+  const publishGoals=()=>{
+    if(!stillCurrent())return;
+    const rows=[...goalMembers.values()];
+    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null&&r.legacy!==null)?rows.map(r=>({daily:r.daily,legacy:r.legacy})):null);
+  };
+  if(currentProfile?.role==="owner"){
+    stopGoalDirectory=onSnapshot(collection(db,"members"),{includeMetadataChanges:true},snap=>{
+      if(!stillCurrent()||snap.metadata.fromCache)return;
+      goalDirectoryReady=true;
+      const active=new Set(snap.docs.filter(d=>d.data().disabled!==true&&d.data().deleted!==true).map(d=>d.id));
+      for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
+      for(const uid of active)if(!goalMembers.has(uid)){
+        const r={daily:null,legacy:null,stops:[]};goalMembers.set(uid,r);
+        for(const [key,name] of [["daily","duroodGoals"],["legacy","groupTargets"]]){
+          r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
+            if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
+            r[key]=goals.docs.map(d=>d.data());publishGoals();
+          },err=>{r[key]=null;publishGoals();console.warn("Group goal unavailable",err.code);}));
+        }
+      }
+      publishGoals();
+    },err=>{goalDirectoryReady=false;publishGoals();console.warn("Group goal directory unavailable",err.code);});
+  }
+
   const stopMemberTargets=onSnapshot(collection(db,"memberPrivate",observedUid,"groupTargets"),{includeMetadataChanges:true},snap=>{
     if(stillCurrent()&&!snap.metadata.fromCache)bridge.memberTargetRows(observedUid,snap.docs.map(x=>x.data()));
   },err=>{if(stillCurrent())bridge.memberTargetRows(observedUid,null);console.warn("Member group targets",err.code);});
@@ -4860,6 +4876,7 @@ function observeCounters(side){
   const pulse=setInterval(()=>{
     if(document.hidden)return;
     if(rows)bridge.readers(rows);
+    if(currentProfile?.role==="owner")publishGoals();
     if(myRow && Date.now()-lastPing>=45000){
       lastPing=Date.now();
       updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
@@ -4907,7 +4924,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{stopGoalDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
