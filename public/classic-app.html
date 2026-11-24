@@ -1442,7 +1442,12 @@ let readerHistoryLimit=31;
 // Group Durood records from Firebase, scoped to the authenticated member and gender.
 // Local per-tap journal remains separate so offline taps are never double-counted.
 let readerServerScope="";
-let readerServerTotals=Object.create(null);
+let readerServerTotals=Object.create(null),readerServerManual=Object.create(null);
+function verifiedDuroodManual(person,day){
+ const local=Math.max(0,Number(readingFor(person.id).days[day]?.manual)||0);
+ const scope=person.uid+"|"+String(window.duroodCurrentSide||"");
+ return Math.max(local,readerServerScope===scope?Number(readerServerManual[day])||0:0);
+}
 let readerPendingTotals=Object.create(null);
 function verifiedDuroodTaps(person,day){
   const local=Math.max(0,Number(readingFor(person.id).days[day]?.taps)||0);
@@ -2123,13 +2128,13 @@ let todayReaders=null,previousDayReaders=null,readerListDay=null,readerListError
 let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
 function legacyRepairTarget(){
- if(readerListDay!==legacyRepairDay||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
+ if(readerDayLabel()!==legacyRepairDay||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
  const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="DI-2");
  return matches.length===1?matches[0]:null;
 }
 function legacyRepairButton(missing,rows){
  const target=legacyRepairTarget();
- if(!target||missing<100||rows.some(row=>row.uid===target.uid&&Number(row.manualTotal)>0))return "";
+ if(!target||(!rows.some(row=>row.uid===target.uid&&row.legacyOnly)&&missing<100)||rows.some(row=>row.uid===target.uid&&Number(row.manualTotal)>0&&!row.legacyOnly))return "";
  return '<button type="button" class="button secondary" data-action="repair-di2-legacy" style="margin-top:6px">'+
   tr("Link 100 existing offline Durood to ","پہلے سے محفوظ 100 آف لائن درود منسلک کریں: ")+esc(memberName(target))+' (DI-2)</button>';
 }
@@ -2398,7 +2403,7 @@ function getReadingDay(id, key) {
 function dayCount(person,key) {
   const entry = readingFor(person.id).days[key];
   return (key === demoDay ? person.daily : 0) +
-    verifiedDuroodTaps(person,key) + (entry?.manual || 0);
+    verifiedDuroodTaps(person,key) + verifiedDuroodManual(person,key);
 }
 
 function readingTotal(id,span,history) {
@@ -2502,7 +2507,7 @@ function historyRows(person,today) {
   // Create all daily rows from the user's registration day, including zero days.
   for(let day=first,i=0;day<=today && i<3660;i++){
     const entry=ledger.days[day]||{},goal=readerGoalFor(ledger,day);
-    const tasbih=verifiedDuroodTaps(person,day),manual=Math.max(0,Number(entry.manual)||0);
+    const tasbih=verifiedDuroodTaps(person,day),manual=verifiedDuroodManual(person,day);
     const count=tasbih+manual,previousDue=Math.max(0,cumulativeGoal-cumulativeRead);
     const previousCredit=Math.max(0,cumulativeRead-cumulativeGoal);
     cumulativeGoal+=goal;cumulativeRead+=count;
@@ -4651,12 +4656,13 @@ window.duroodClassicBridge = {
     if(person?.uid!==uid||side!==window.duroodCurrentSide)return;
     const scope=uid+'|'+side;
     if(readerServerScope!==scope){
-      readerServerScope=scope;readerServerTotals=Object.create(null);
+      readerServerScope=scope;readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
     }
     for(const row of counts||[]){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(row.day))continue;
       const value=Number(row.total);
       if(Number.isSafeInteger(value)&&value>=0)readerServerTotals[row.day]=value;
+      if(Number.isSafeInteger(row.manualTotal)&&row.manualTotal>=0)readerServerManual[row.day]=row.manualTotal;
     }
     if(section==='wazifa-reader')updateReader();
   },
@@ -4669,7 +4675,7 @@ window.duroodClassicBridge = {
     if(person?.uid&&Array.isArray(rows)&&['male','female'].includes(window.duroodCurrentSide)){
       const mine=rows.find(row=>row.uid===person.uid);
       this.serverReaderHistory(person.uid,window.duroodCurrentSide,
-        [{day:globalDateKey(),total:Math.max(0,Number(mine?.total)||0)}]);
+        [{day:globalDateKey(),total:Math.max(0,Number(mine?.total)||0),manualTotal:Math.max(0,Number(mine?.manualTotal)||0)}]);
     }
     const list=document.getElementById("today-readers");
     if(list)list.innerHTML=readerList();
@@ -4704,7 +4710,7 @@ window.duroodClassicBridge = {
       liveGroupMemberCounts=new Map();
       liveMemberPhotos=new Map();
       periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
-      readerServerScope="";readerServerTotals=Object.create(null);
+      readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
@@ -4933,7 +4939,7 @@ import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?rel
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const LOGOUT_KEY="durood-explicit-logout-v1";
@@ -5087,7 +5093,8 @@ window.duroodRefreshGroupHistory=async function(){
      try{
        const snap=await getDoc(doc(db,"genderStats",request.side,"days",day,"readers",request.uid));
        const total=Number(snap.exists()?snap.data().total:0);
-       return {day,total:Number.isSafeInteger(total)&&total>=0?total:0};
+       const manualTotal=Number(snap.exists()?snap.data().manualTotal||0:0);
+       return {day,total:Number.isSafeInteger(total)&&total>=0?total:0,manualTotal:Number.isSafeInteger(manualTotal)&&manualTotal>=0?manualTotal:0};
      }catch(error){
        groupHistoryFetched.delete(day);
        console.warn("Durood daily history unavailable",day,error?.code||error);
@@ -5155,18 +5162,22 @@ function observeCounters(side){
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
   const photoStops=new Map();
+  let photoDirectory=[];
   function watchPhotos(uids){
+    photoDirectory=uids;
     const desired=new Set([observedUid,...uids]);
     for(const [uid,stop] of photoStops)if(!desired.has(uid)){stop();photoStops.delete(uid);}
     for(const uid of desired)if(uid&&!photoStops.has(uid)){
       const stop=onSnapshot(doc(db,"memberPhotos",uid),{includeMetadataChanges:true},snap=>{
         if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))
           bridge.memberPhoto(uid,snap.exists()?snap.data().image:"");
-      },err=>console.warn("Member photo unavailable",err.code));
+      },err=>{photoStops.delete(uid);console.warn("Member photo unavailable",err.code);});
       photoStops.set(uid,stop);
     }
   }
   watchPhotos([]);
+  const retryPhotos=()=>{if(stillCurrent())watchPhotos(photoDirectory);};
+  window.addEventListener("focus",retryPhotos);
   bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
@@ -5251,8 +5262,8 @@ function observeCounters(side){
       const combined=baseRows.map(r=>({...r}));
       if(repair){
         const existing=combined.find(r=>r.uid===repair.uid);
-        if(existing)existing.manualTotal=Math.max(existing.manualTotal||0,100);
-        else combined.push({uid:repair.uid,name:repair.name,total:0,manualTotal:100,lastManual:0,lastTap:0,seen:0});
+        if(existing){if(!existing.manualTotal){existing.manualTotal=100;existing.legacyOnly=true;}}
+        else combined.push({uid:repair.uid,name:repair.name,total:0,manualTotal:100,lastManual:0,lastTap:0,seen:0,legacyOnly:true});
       }
       bridge.previousReaders(day,combined.sort((a,b)=>(b.total+b.manualTotal)-(a.total+a.manualTotal)));
     };
@@ -5276,16 +5287,28 @@ function observeCounters(side){
     repairingLegacy=true;
     try{
       const dayRef=doc(sideRef,"days",legacyRepairDay);
-      const fixRef=doc(dayRef,"legacyAttribution","DI-2");
-      const [daySnap,readerSnap,memberSnap,fixSnap]=await Promise.all([getDoc(dayRef),getDocs(collection(dayRef,"readers")),getDoc(doc(db,"members",uid)),getDoc(fixRef)]);
+      const fixRef=doc(dayRef,"legacyAttribution","DI-2-reader");
+      const priorRef=doc(dayRef,"legacyAttribution","DI-2");
+      const readerRef=doc(dayRef,"readers",uid),memberRef=doc(db,"members",uid);
+      const [daySnap,readerSnap,priorSnap]=await Promise.all([getDocFromServer(dayRef),getDocsFromServer(collection(dayRef,"readers")),getDocFromServer(priorRef)]);
       if(!stillCurrent()||legacyRepairTarget()?.uid!==uid)return;
-      if([daySnap,readerSnap,memberSnap,fixSnap].some(s=>s.metadata.fromCache))throw Error("Firebase کا تازہ ریکارڈ دستیاب نہیں۔");
-      if(fixSnap.exists())throw Error("یہ اصلاح پہلے سے محفوظ ہے۔");
       const records=decodeReaderRows(readerSnap);
       const total=Number(daySnap.data()?.total),listed=records.reduce((n,r)=>n+r.total+r.manualTotal,0);
       if(!Number.isSafeInteger(total)||total-listed<100||records.some(r=>r.uid===uid&&r.manualTotal>0))throw Error("پہلے سے محفوظ 100 درود کا فرق ثابت نہیں ہوا؛ کوئی تبدیلی نہیں کی گئی۔");
-      if(!memberSnap.exists()||memberSnap.data().deleted===true||memberSnap.data().gender==="female")throw Error("ممبر کی شناخت کی تصدیق نہیں ہوئی۔");
-      await setDoc(fixRef,{uid,name:memberSnap.data().name,amount:100,day:legacyRepairDay,verifiedBy:observedUid,createdAt:serverTimestamp()});
+      if(priorSnap.exists()&&priorSnap.data().uid!==uid)throw Error("پرانے اندراج کی ممبر شناخت مختلف ہے۔");
+      await runTransaction(db,async tx=>{
+        const [day,member,reader,fix,prior]=await Promise.all([tx.get(dayRef),tx.get(memberRef),tx.get(readerRef),tx.get(fixRef),tx.get(priorRef)]);
+        if(fix.exists())return;
+        if(!day.exists()||day.data().total!==total)throw Error("تاریخ کا شمار بدل گیا؛ دوبارہ جانچ کریں۔");
+        if(!member.exists()||member.data().deleted===true||member.data().gender==="female"||member.data().role==="owner")throw Error("ممبر کی شناخت کی تصدیق نہیں ہوئی۔");
+        if(prior.exists()&&prior.data().uid!==uid)throw Error("پرانے اندراج کی ممبر شناخت مختلف ہے۔");
+        const existing=reader.exists()?reader.data():{};
+        if(Number(existing.manualTotal||0)!==0)throw Error("دستی شمار پہلے سے موجود ہے؛ دوبارہ شامل نہیں کیا گیا۔");
+        const taps=Number(existing.total||0);
+        if(!Number.isSafeInteger(taps)||taps<0)throw Error("موجودہ تسبیح شمار درست نہیں۔");
+        tx.set(fixRef,{uid,name:member.data().name,amount:100,day:legacyRepairDay,verifiedBy:observedUid,createdAt:serverTimestamp()});
+        tx.set(readerRef,{name:member.data().name,total:taps,manualTotal:100},{merge:true});
+      });
       if(stillCurrent())bridge.notice("DI-2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔");
     }catch(err){if(stillCurrent())bridge.notice(errorText(err));}
     finally{repairingLegacy=false;}
@@ -5349,7 +5372,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   if(classicLogoutBlocked())return;

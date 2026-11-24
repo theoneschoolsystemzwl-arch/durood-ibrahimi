@@ -561,8 +561,26 @@ service cloud.firestore {
             d.get('lastTap',null)==previousTap && d.get('lastManual',null)==request.time));
       }
       allow read: if validGender(gender) && (owner() || (currentMember() && myGender()==gender));
-      allow create: if savedReader(0,0,null,null);
-      allow update: if savedReader(resource.data.total,resource.data.get('manualTotal',0),resource.data.get('lastTap',null),resource.data.get('lastManual',null)) || (ownReader() &&
+      function repairMarker(){
+        return /databases/$(database)/documents/genderStats/$(gender)/days/$(day)/legacyAttribution/DI-2-reader;
+      }
+      function verifiedLegacyReader(previous,previousManual,previousTap,previousManualTime,previousSeen){
+        let d=request.resource.data;
+        return owner() && gender=='male' && day=='2026-11-24' &&
+          !exists(repairMarker()) && getAfter(repairMarker()).data.uid==uid &&
+          getAfter(repairMarker()).data.amount==100 &&
+          getAfter(repairMarker()).data.createdAt==request.time &&
+          exists(memberPath(uid)) && genderOf(get(memberPath(uid)).data)=='male' &&
+          get(memberPath(uid)).data.role!='owner' &&
+          d.keys().hasOnly(['name','total','manualTotal','lastTap','lastManual','seen']) &&
+          d.name==get(memberPath(uid)).data.name && d.total==previous &&
+          previousManual==0 && d.manualTotal==100 &&
+          d.get('lastTap',null)==previousTap && d.get('lastManual',null)==previousManualTime &&
+          d.get('seen',null)==previousSeen;
+      }
+      allow create: if savedReader(0,0,null,null) || verifiedLegacyReader(0,0,null,null,null);
+      allow update: if savedReader(resource.data.total,resource.data.get('manualTotal',0),resource.data.get('lastTap',null),resource.data.get('lastManual',null)) ||
+        verifiedLegacyReader(resource.data.total,resource.data.get('manualTotal',0),resource.data.get('lastTap',null),resource.data.get('lastManual',null),resource.data.get('seen',null)) || (ownReader() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']) &&
         request.resource.data.seen==request.time);
     }
@@ -570,7 +588,7 @@ service cloud.firestore {
     // personal counters are changed by this repair.
     match /genderStats/{gender}/days/{day}/legacyAttribution/{repairId} {
       allow get: if owner();
-      allow create: if owner() && gender=='male' && day=='2026-11-24' && repairId=='DI-2' &&
+      allow create: if owner() && gender=='male' && day=='2026-11-24' && repairId=='DI-2-reader' &&
         request.resource.data.keys().hasOnly(['uid','name','amount','day','verifiedBy','createdAt']) &&
         request.resource.data.uid is string &&
         exists(memberPath(request.resource.data.uid)) &&
@@ -580,7 +598,8 @@ service cloud.firestore {
         request.resource.data.name==get(memberPath(request.resource.data.uid)).data.name &&
         request.resource.data.amount==100 && request.resource.data.day==day &&
         request.resource.data.verifiedBy==request.auth.uid && request.resource.data.createdAt==request.time &&
-        get(/databases/$(database)/documents/genderStats/$(gender)/days/$(day)).data.total>=100;
+        get(/databases/$(database)/documents/genderStats/$(gender)/days/$(day)).data.total>=100 &&
+        getAfter(/databases/$(database)/documents/genderStats/$(gender)/days/$(day)/readers/$(request.resource.data.uid)).data.manualTotal==100;
       allow update, delete, list: if false;
     }
     function allowedChatSide(gender) {
