@@ -16,6 +16,39 @@
   <script type="module" src="./app.js?release=pkt-auto-daily-repair-20261125-v4"></script>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
+
+<style id="gold-blue-brand-card">
+/* Only the public welcome header; leave login form and member themes unchanged. */
+:root[data-theme] body > .brand-head {
+  position:relative; isolation:isolate; box-sizing:border-box;
+  width:calc(100% - 12px); max-width:960px; margin:6px auto 0;
+  padding:20px clamp(13px,4vw,34px) 23px;
+  border:3px solid #b98b31; border-radius:23px;
+  background:radial-gradient(ellipse at 50% 12%,#f6fcff 0%,transparent 65%),linear-gradient(145deg,#e2f2ff,#d3e8f9 55%,#edf8ff);
+  color:#163b6c; box-shadow:inset 0 0 0 3px #ffedba,inset 0 0 0 5px #d2ad61,0 5px 18px #001c2e40;
+}
+:root[data-theme] body > .brand-head::before,
+:root[data-theme] body > .brand-head::after {
+  content:""; position:absolute; width:26px; height:26px; pointer-events:none; z-index:-1;
+  border:1.5px solid #bd9345;
+}
+:root[data-theme] body > .brand-head::before {top:10px;right:10px;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
+:root[data-theme] body > .brand-head::after {bottom:10px;left:10px;border-right:0;border-top:0;border-radius:0 0 0 10px}
+:root[data-theme] .brand-head .header-scripture {
+  padding:0 0 12px; border-bottom:1px solid #c6a15a; margin-bottom:12px!important;
+}
+:root[data-theme] .brand-head .header-scripture .salawat {
+  color:#123e77; font-size:clamp(1.16rem,3.7vw,1.55rem); font-weight:600; line-height:2;
+}
+:root[data-theme] .brand-head p[lang="ur"] {color:#234c7c;font-size:clamp(.98rem,3vw,1.12rem)!important;line-height:2.3!important;overflow-wrap:break-word}
+:root[data-theme] .brand-head .header-scripture small {color:#81580e;font-weight:700}
+:root[data-theme] .brand-head .brand-shell {gap:9px;margin:0 auto 12px;padding:0 0 12px;border-bottom:1px solid #c6a15a;align-items:center}
+:root[data-theme] .brand-head .brand-glyph {color:#9b6b15;font-size:30px;line-height:1}
+:root[data-theme] .brand-head .basmala {color:#84590d;font-weight:600;font-size:1.14rem;line-height:2}
+:root[data-theme] .brand-head h1 {color:#123d77;font-size:clamp(1.8rem,6vw,2.55rem);line-height:1.65;text-shadow:0 1px 0 #fff}
+:root[data-theme] .brand-head .subtitle {color:#80570e;font-weight:700;letter-spacing:.04em}
+:root[data-theme] .brand-head > .salawat {color:#85590d;font-weight:600;font-size:clamp(1.16rem,3.8vw,1.6rem);line-height:2.1}
+</style>
 </head>
 <body>
   <header class="brand-head">
