@@ -107,7 +107,19 @@ public class MainActivity extends Activity {
     final int flags=enabled?
       View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
       View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_STABLE:0;
-    getWindow().getDecorView().setSystemUiVisibility(flags);
+    if(Build.VERSION.SDK_INT>=30){
+      android.view.WindowInsetsController controller=getWindow().getInsetsController();
+      if(controller!=null){
+        if(enabled){
+          controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+          controller.hide(android.view.WindowInsets.Type.statusBars()|android.view.WindowInsets.Type.navigationBars());
+        }else{
+          controller.show(android.view.WindowInsets.Type.statusBars()|android.view.WindowInsets.Type.navigationBars());
+        }
+      }
+    }else{
+      getWindow().getDecorView().setSystemUiVisibility(flags);
+    }
   }
   private final class ReaderHaptics{
     @JavascriptInterface public void vibrate(int level){
