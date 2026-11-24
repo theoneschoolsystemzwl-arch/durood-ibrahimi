@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
     private TextView retryView;
     private boolean pageFailed=false;
     private boolean nativeImmersive=false;
+    private volatile boolean mainPageTrusted=false;
 
     private void showRetry() {
         pageFailed=true;
@@ -90,6 +91,8 @@ public final class MainActivity extends Activity {
             });
             web.setWebViewClient(new WebViewClient() {
                 @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    Uri uri=Uri.parse(url==null?"":url);
+                    mainPageTrusted="https".equals(uri.getScheme())&&WEB_HOST.equals(uri.getHost());
                     pageFailed=false;
                     if(retryView!=null)retryView.setVisibility(View.GONE);
                 }
@@ -165,9 +168,8 @@ public final class MainActivity extends Activity {
         finishImage(null);
     }
     private boolean trustedPage() {
-        if(web==null)return false;
-        Uri url=Uri.parse(web.getUrl()==null?"":web.getUrl());
-        return "https".equals(url.getScheme())&&WEB_HOST.equals(url.getHost());
+        // JavaScriptInterface runs off the UI thread; do not call WebView.getUrl().
+        return mainPageTrusted;
     }
     private void updateImmersive(boolean enabled) {
         nativeImmersive=enabled;
@@ -199,7 +201,7 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed() {
         if(nativeImmersive){
             updateImmersive(false);
-            web.evaluateJavascript("document.body.classList.remove('wz-immersive-reader')",null);
+            web.evaluateJavascript("window.dispatchEvent(new Event('durood-exit-immersive'))",null);
             return;
         }
         if(web!=null && web.canGoBack())web.goBack();
