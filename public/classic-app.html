@@ -1530,7 +1530,10 @@ function treeMemberLabel(person) {
 }
 
 function groupMemberCount(person) {
-  return directMembers(person.id).length + (person.gender === 'Female' && groupName(person.id) === 'A' ? 1 : 0);
+  if(!person || person.deleted) return 0;
+  // Count the member themself, followed by their own non-deleted direct members on the same side.
+  const female=person.gender==='Female';
+  return 1+directMembers(person.id).filter(member=>!member.deleted && (member.gender==='Female')===female).length;
 }
 
 function score(person, span, history) {
@@ -1891,11 +1894,11 @@ function settings(person) {
 
 function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
-  const inviteCount = person.id === 1 ? Number(window.duroodOwnerInviteTotal || 0) : directMembers(person.id).length;
+  const inviteCount = groupMemberCount(person);
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     topCornerControls() + '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
-    '<small class="muted direct-invites">' + tr('Direct invites: ', 'آپ کے شامل کردہ ممبرز: ') +
+    '<small class="muted direct-invites">' + tr('Members (including you): ', 'آپ کے شامل کردہ ممبرز: ') +
     displayNumber(inviteCount) + '</small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
@@ -4000,7 +4003,9 @@ function womenSectionCard(person) {
   const founder = visibleMembers().find(member => member.isFoundingSpouse);
   return '<header class="app-head"><section class="profile-card">' + topCornerControls() + '<div class="profile-greeting">' +
     (founder ? avatar(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
-    (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong></div></div>' +
+    (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong>' +
+    '<small class="muted direct-invites">' + tr('Members (including founder): ', 'آپ کے شامل کردہ ممبرز: ') +
+    displayNumber(groupMemberCount(founder)) + '</small></div></div>' +
     '<div class="profile-card-foot">' + sectionSwitch(person) + '</div></section></header>';
 }
 
