@@ -164,8 +164,10 @@ if(!lastVerifiedLive){
   console.error('Could not read the last confirmed production rules source. Refusing overwrite.');
   process.exit(1);
 }
+// Spark run 45412511600 explicitly published the goal-enabled rules from this commit.
+const afterDailyGoalFix=historicalRules('47de0727fb67b7d198e9881f064e37818c36fccb');
 const baselines=[
-  lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
   beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals

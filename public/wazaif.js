@@ -504,7 +504,7 @@ function autoGroupGoalMarkup(){
  const goals=window.duroodAggregateGroupTargets?.();
  const labels=[["dailyGoal","روزانہ ہدف"],["weeklyGoal","ہفتہ وار ہدف"],["monthlyGoal","ماہانہ ہدف"],["yearlyGoal","سالانہ ہدف"]];
  return labels.map(([key,label])=>'<label class="wz-goal-field">'+label+'<input type="text" readonly value="'+(goals?fmt(goals[key]):"لوڈ ہو رہا ہے")+'"></label>').join("")+
- '<p class="wz-help">موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سال 365 یا 366 دن۔</p>';
+ '<p class="wz-help">موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سالانہ ہدف منتخب مدت کے محفوظ اہداف اور باقی دنوں کے حساب سے۔</p>';
 }
 function formMarkup(){
  const g=state.formScope==="group";
@@ -514,6 +514,7 @@ function formMarkup(){
  const kinds=[["daily","ڈیلی وظیفہ","ہر روز پڑھنا ہے"],["fixed","فکس وظیفہ","مقررہ تاریخ تک"],["open","اوپن وظیفہ","اپنی مرضی سے"]];
  if(owner())kinds.push(["group","گروپ وظیفہ","تمام ممبرز کے لیے"]);
  const title=g?"گروپ وظیفے کی سیٹنگ":state.editId?"ذاتی وظیفے میں ترمیم":"نیا وظیفہ";
+ const annual=window.duroodAnnualTargetPeriod?.(original);
  return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">بند کریں</button><h2>'+title+'</h2></div>'+
  '<form id="wazifa-form" class="wz-form"><label>وظیفے کا نام<input name="title" required maxlength="80" placeholder="مثلاً آیت الکرسی" value="'+esc(original.title||'')+'"></label>'+
  '<label>عربی عبارت / درود<textarea name="arabic" lang="ar" dir="rtl" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
@@ -529,6 +530,8 @@ function formMarkup(){
  '<label class="wz-goal-field" data-wz-goal="month">ماہانہ ہدف<input name="monthlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.monthlyGoal||"")+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-form-goals" data-wz-auto-goals hidden>'+autoGroupGoalMarkup()+'</div>'+
+ '<div class="wz-dates" data-wz-annual-dates hidden><label>سالانہ ہدف کی آغاز تاریخ<input name="annualStartDate" type="date" value="'+esc(annual?.start||readingDay())+'"></label>'+
+ '<label>سالانہ ہدف کی اختتامی تاریخ<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">اختتام کے بعد اگلی سالانہ مدت خودکار شروع ہوگی۔ مجموعی ہدف برقرار رہے گا۔</p></div>'+
  '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||readingDay())+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
@@ -1158,6 +1161,13 @@ function syncForm(){
    el.querySelector("input").required=!el.hidden;
  });
  form.querySelector("[data-wz-auto-goals]").hidden=kind!=="group";
+ const annualFields=form.querySelector("[data-wz-annual-dates]");
+ annualFields.hidden=kind!=="group";
+ for(const input of annualFields.querySelectorAll("input")){input.required=kind==="group";input.disabled=kind!=="group";}
+ if(kind==="group"&&!form.elements.annualEndDate.value&&dayOk(form.elements.annualStartDate.value)){
+   const p=window.duroodAnnualTargetPeriod?.({annualStartDate:form.elements.annualStartDate.value,startDate:form.elements.annualStartDate.value});
+   if(p)form.elements.annualEndDate.value=p.end;
+ }
  const end=form.querySelector("[data-wz-end]");
  const daysField=form.querySelector("[data-wz-days]");
  end.hidden=kind!=="fixed";daysField.hidden=kind!=="fixed";
@@ -1234,7 +1244,12 @@ async function saveForm(form){
  try{
    if(kind==="group"){
      const prior=currentGroup(),legacy=n=>valid(n)?n:1;
-     const value={...common,kind:"group",dailyGoal:legacy(prior.dailyGoal),weeklyGoal:legacy(prior.weeklyGoal),monthlyGoal:legacy(prior.monthlyGoal),yearlyGoal:legacy(prior.yearlyGoal),
+     let annualStartDate=String(data.get("annualStartDate")||""),annualEndDate=String(data.get("annualEndDate")||"");
+     const realDate=d=>dayOk(d)&&new Date(d+"T12:00:00Z").toISOString().slice(0,10)===d;
+     if(!realDate(annualStartDate)||!realDate(annualEndDate)||annualEndDate<annualStartDate||spanDays(annualStartDate,annualEndDate)>366)throw Error("سالانہ ہدف کے لیے 1 تا 366 دن کی درست مدت مقرر کریں۔");
+     const current=window.duroodAnnualTargetPeriod?.(prior);
+     if(current?.start===annualStartDate&&current?.end===annualEndDate&&prior.annualStartDate&&prior.annualEndDate){annualStartDate=prior.annualStartDate;annualEndDate=prior.annualEndDate;}
+     const value={...common,annualStartDate,annualEndDate,kind:"group",dailyGoal:legacy(prior.dailyGoal),weeklyGoal:legacy(prior.weeklyGoal),monthlyGoal:legacy(prior.monthlyGoal),yearlyGoal:legacy(prior.yearlyGoal),
        active:data.has("active"),countAsDurood:data.has("countAsDurood"),updatedAt:serverTimestamp()};
      const ref=doc(db,"wazaifSettings","group");
      if(state.groupExists)await updateDoc(ref,value);

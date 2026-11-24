@@ -227,6 +227,16 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([member(100),member(0)],"2026-11-24").dailyGoal,100);
  assert.equal(aggregate([{daily:[{date:"2026-11-23",goal:100},{date:"2026-11-24",goal:0}],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:200}]}],"2026-11-24").dailyGoal,0);
  assert.equal(aggregate([{daily:[],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:500}]}],"2026-11-24").dailyGoal,0);
+ const period={annualStartDate:"2026-11-24",annualEndDate:"2027-11-23"};
+ const rolling=aggregate([member(100),member(100,"2026-11-25")],"2026-11-25",period);
+ assert.equal(rolling.overallGoal,300);
+ assert.equal(rolling.yearlyGoal,72900);
+ const next=aggregate([member(100)],"2027-11-24",period);
+ assert.equal(next.annualStartDate,"2027-11-24");
+ assert.equal(next.annualEndDate,"2028-11-23");
+ assert.equal(next.overallGoal,36600);assert.equal(next.yearlyGoal,36600);
+ assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:50}]}],"2026-11-25",period).overallGoal,150);
+ assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100}],active:false,inactiveDay:"2026-11-25"}],"2026-11-26",period).overallGoal,200);
  assert.equal(aggregate(null,"2026-11-24"),null);
  assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
  assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
