@@ -71,6 +71,12 @@ verified_live_commit=3f4e00eef12192b0370189f3eebdb0c6b4c7125c
 if ! git cat-file -e "$verified_live_commit:firestore.rules" 2>/dev/null; then
   git fetch --quiet --no-tags --depth=1 origin "$verified_live_commit"
 fi
+# Spark run 45418278107 confirmed the complete rules release on 24 Nov.
+# Explicitly fetch its immutable source, even outside the shallow history.
+verified_group_release=58ae04928c2372e61e75b212b840ce8c0865ee64
+if ! git cat-file -e "$verified_group_release:firestore.rules" 2>/dev/null; then
+  git fetch --quiet --no-tags --depth=1 origin "$verified_group_release"
+fi
 node <<'NODE'
 const fs=require('fs'),cp=require('child_process');
 const response=JSON.parse(fs.readFileSync('/tmp/durood-firebase-active-rules.json','utf8'));
@@ -166,8 +172,9 @@ if(!lastVerifiedLive){
 }
 // Spark run 45412511600 explicitly published the goal-enabled rules from this commit.
 const afterDailyGoalFix=historicalRules('47de0727fb67b7d198e9881f064e37818c36fccb');
+const afterGroupLedgerRelease=historicalRules('58ae04928c2372e61e75b212b840ce8c0865ee64');
 const baselines=[
-  afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
   beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals
