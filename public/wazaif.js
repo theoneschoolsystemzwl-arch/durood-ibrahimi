@@ -221,8 +221,24 @@ function vibrateWazifa(){
  }catch{}
  try{return navigator.vibrate?.(20+state.vibrateLevel*12)===true;}catch{return false;}
 }
-function setWazifaImmersive(enabled){
+let wzFullscreenHistory=false;
+let wzFullscreenScroll=null;
+function setWazifaImmersive(enabled,fromBack=false){
+ const wasImmersive=state.immersive;
  state.immersive=!!enabled;
+ if(state.immersive&&!wasImmersive){
+  wzFullscreenScroll={x:window.scrollX,y:window.scrollY};
+  try{
+   history.pushState({...history.state,wzTasbihFullscreen:true},"");
+   wzFullscreenHistory=true;
+  }catch{}
+ }else if(!state.immersive&&wasImmersive){
+  const savedScroll=wzFullscreenScroll;wzFullscreenScroll=null;
+  if(savedScroll)requestAnimationFrame(()=>window.scrollTo(savedScroll.x,savedScroll.y));
+  const shouldPop=wzFullscreenHistory&&!fromBack&&history.state?.wzTasbihFullscreen;
+  wzFullscreenHistory=false;
+  if(shouldPop)try{history.back();}catch{}
+ }
  document.body.classList.toggle("wz-immersive-reader",state.immersive);
  const button=$("#wazaif-root [data-wazifa-action='toggle-fullscreen']");
  if(button){
@@ -252,8 +268,21 @@ document.addEventListener("fullscreenchange",()=>{
  if(!document.fullscreenElement&&state.immersive&&typeof window.DuroodAndroid?.setImmersive!=="function")
   setWazifaImmersive(false);
 });
-window.addEventListener("durood-exit-immersive",()=>{
+function exitWazifaFullscreen(){
  if(state.immersive)setWazifaImmersive(false);
+}
+window.addEventListener("durood-exit-immersive",exitWazifaFullscreen);
+try{
+ if(window.parent!==window)window.parent.addEventListener("durood-exit-immersive",exitWazifaFullscreen);
+}catch{}
+window.addEventListener("popstate",()=>{
+ if(state.immersive&&!history.state?.wzTasbihFullscreen)
+  setWazifaImmersive(false,true);
+});
+document.addEventListener("keydown",event=>{
+ if(event.key==="Escape"&&state.immersive&&!document.querySelector("dialog[open]")){
+  event.preventDefault();exitWazifaFullscreen();
+ }
 });
 function playWazifaFeedback(){
  vibrateWazifa();
