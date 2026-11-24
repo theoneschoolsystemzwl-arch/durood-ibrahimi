@@ -1255,6 +1255,14 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .pace-grid .reader-metric strong{font-size:clamp(1.02rem,4.45vw,1.46rem);line-height:1.18;font-weight:850}
 .reader .dial .session-clock{font-size:clamp(.85rem,3.7vw,1.2rem);font-weight:850;line-height:1.42}
 .reader .dial.is-floating .session-clock{font-size:clamp(.67rem,2.55vw,.88rem)}
+/* Group reader: the counter is the focus; the daily ledger appears once below. */
+.reader .reader-grid{margin-top:8px}
+.reader .dial:not(.is-floating){width:min(69vw,272px);margin:12px auto 5px;touch-action:manipulation}
+.reader .group-tap-help,.reader .group-record-caption{font-size:.73rem;text-align:center;margin:4px 0;color:var(--read-text,#c0dfd2);line-height:1.6}
+.reader .group-record-caption{text-align:start}
+.reader .read-status{min-height:1.4em;margin:4px 0}
+.reader .reader-history .record-list{padding-inline-start:0}
+@media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
 <link rel="stylesheet" href="./dashboard-reference.css?v=profile-centered-20261123-v5">
 </head>
@@ -2209,7 +2217,6 @@ function tasbih() {
     '</button><button class="button" data-action="reader-vibrate" aria-pressed="' + Boolean(prayerPrefs(currentUserId).readerVibrate) +
     tr("\">Vibrate ", '">وائبریشن ') + (prayerPrefs(currentUserId).readerVibrate ? tr("On", 'چالو') : tr("Off", 'بند')) +
     tr("</button><button class=\"button\" data-action=\"reader-fullscreen\">Full screen</button></div></div>", '</button><button class="button" data-action="reader-fullscreen">پوری اسکرین</button></div></div>') +
-    '<section class="reader-history reader-history-preview" aria-label="آج کا روزانہ ریکارڈ"><h3>'+tr("Today’s daily record","آج کا روزانہ ریکارڈ")+'</h3><ul class="record-list" id="read-today-summary"></ul></section>' +
     tr("<div class=\"reader-grid\"><div class=\"reader-metric\"><small>My total</small><strong id=\"read-all\">0</strong></div>", '<div class="reader-grid"><div class="reader-metric"><small>میرا مجموعی درود</small><strong id="read-all">0</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Today</small><strong id=\"read-today\">0</strong></div>", '<div class="reader-metric"><small>آج کا درود</small><strong id="read-today">0</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Daily goal</small><strong id=\"read-target\">100</strong></div>", '<div class="reader-metric"><small>روزانہ ہدف</small><strong id="read-target">100</strong></div>') +
@@ -2223,10 +2230,11 @@ function tasbih() {
     '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Today’s tasbih','آج کی تسبیح') + '</small><strong id="session-count">0</strong>' +
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
-    '<p class="read-status ur" id="read-status" role="status"></p>' +
+    '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
+    '<p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
     tr("<button class=\"button\" data-action=\"manual-day\">Add offline Durood</button></div>", '<button class="button" data-action="manual-day">آف لائن درود شامل کریں</button></div>') +
-    '<ul class="record-list" id="daily-records"></ul></section></div>' + readingDialogs() + '</section>';
+    '<p class="group-record-caption" id="group-record-caption"></p><ul class="record-list" id="daily-records"></ul></section></div>' + readingDialogs() + '</section>';
 }
 
 function updateClock() {
@@ -2281,7 +2289,7 @@ function updateReader() {
   set('pace-sec',rate ? tasbihPaceWholeFormat.format(rate / 1000) : '—');
   set('pace-minute',rate ? tasbihPaceWholeFormat.format(60000 / rate) : '—');
   set('pace-hour',rate ? tasbihPaceWholeFormat.format(3600000 / rate) : '—');
-  const percent = Math.floor(count * 100 / goal);
+  const percent = Math.min(100,Math.round(count * 1000 / goal)/10);
   const remaining = Math.max(0,goal - count);
   set('read-goal-note', remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');
   const progress = document.getElementById('read-progress');
@@ -2294,8 +2302,9 @@ function updateReader() {
     const target=document.getElementById('daily-records');
     if(target && section==='wazifa-reader' && currentUser()?.id===person.id){
       target.innerHTML=historyRows(person,dateKey());
-      const summary=document.getElementById('read-today-summary');
-      if(summary)summary.innerHTML=target.firstElementChild?.outerHTML||'';
+      const caption=document.getElementById('group-record-caption');
+      const joined=person.joined instanceof Date&&Number.isFinite(person.joined.getTime())?person.joined:parseDay(dateKey());
+      if(caption)caption.textContent=tr('Membership date: ','تاریخِ رکنیت: ')+joinDate.format(joined);
     }
   },180);
   updateClock();
@@ -4177,11 +4186,15 @@ window.duroodClassicBridge = {
   readerGoalHistory(uid,rows){
     const person=currentUser();if(person?.uid!==uid)return;
     const ledger=readingFor(person.id);
-    const goals={...(ledger.goals||{})};
+    const remote={};
     for(const row of rows||[]){
-      if(/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isSafeInteger(row.goal)&&row.goal>=1&&row.goal<=1000000)goals[row.date]=row.goal;
+      if(/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isSafeInteger(row.goal)&&row.goal>=1&&row.goal<=1000000)remote[row.date]=row.goal;
     }
-    ledger.goals=goals;ledger.goal=readerGoalFor(ledger,dateKey());
+    const firstRemote=Object.keys(remote).sort()[0];
+    // Preserve local legacy targets before the first cloud target only;
+    // never let a synthetic local default override newer cloud settings.
+    const goals=firstRemote?Object.fromEntries(Object.entries(ledger.goals||{}).filter(([day])=>day<firstRemote)):{...(ledger.goals||{})};
+    ledger.goals={...goals,...remote};ledger.goal=readerGoalFor(ledger,dateKey());
     persistReaderJournal(readerPendingTotals);
     if(section==='wazifa-reader')updateReader();
   },
@@ -4563,13 +4576,15 @@ window.duroodSaveReaderGoal=async function(uid,day,goal){
  if(auth.currentUser?.uid!==uid||currentProfile?.uid!==uid||bridge.userForCurrent()!==uid)throw Error("Account changed");
  await setDoc(doc(db,"memberPrivate",uid,"duroodGoals",day),{date:day,goal,updatedAt:serverTimestamp()});
 };
-window.duroodLoadReaderGoals=async function(){
+let goalWatchUid="",stopGoalWatch=()=>{};
+window.duroodLoadReaderGoals=function(){
  const uid=auth.currentUser?.uid;
- if(!uid||bridge.userForCurrent()!==uid)return;
- try{
-   const snap=await getDocs(collection(db,"memberPrivate",uid,"duroodGoals"));
-   if(auth.currentUser?.uid===uid&&bridge.userForCurrent()===uid)bridge.readerGoalHistory(uid,snap.docs.map(x=>x.data()));
- }catch(error){console.warn("Private Durood targets unavailable",error?.code||error);}
+ if(!uid||bridge.userForCurrent()!==uid||goalWatchUid===uid)return;
+ stopGoalWatch();goalWatchUid=uid;
+ stopGoalWatch=onSnapshot(collection(db,"memberPrivate",uid,"duroodGoals"),snap=>{
+   if(auth.currentUser?.uid===uid&&bridge.userForCurrent()===uid&&!snap.metadata.fromCache)
+     bridge.readerGoalHistory(uid,snap.docs.map(x=>x.data()));
+ },error=>{goalWatchUid="";console.warn("Private Durood targets unavailable",error?.code||error);});
 };
 const groupHistoryFetched=new Set();
 let groupHistoryScope="";
@@ -4785,6 +4800,7 @@ async function hydrate(){
 }
 onAuthStateChanged(auth,async user=>{
   if(!user){
+    stopGoalWatch();goalWatchUid="";
     stopCounters();
     if(window.parent!==window){
       // The parent may have just signed in while this fresh iframe still
