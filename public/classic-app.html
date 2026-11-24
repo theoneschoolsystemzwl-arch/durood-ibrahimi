@@ -1532,9 +1532,12 @@ function treeMemberLabel(person) {
 let liveGroupMemberCounts=new Map();
 function groupMemberCount(person) {
   if(!person || person.deleted) return 0;
-  if(liveGroupMemberCounts.has(person.uid))return liveGroupMemberCounts.get(person.uid);
+  // Only the founding owner and founding woman count themselves.
+  // Everyone else earns one level per directly invited member.
+  const base=(person.isOwner===true||person.id===1||person.isFoundingSpouse===true)?1:0;
+  if(liveGroupMemberCounts.has(person.uid))return base+liveGroupMemberCounts.get(person.uid);
   const female=person.gender==='Female';
-  return 1+directMembers(person.id).filter(member=>!member.deleted && (member.gender==='Female')===female).length;
+  return base+directMembers(person.id).filter(member=>!member.deleted && (member.gender==='Female')===female).length;
 }
 function refreshMemberCountLabels(){
   const person=ownerViewingWomen()?visibleMembers().find(m=>m.isFoundingSpouse):currentUser();
@@ -1913,7 +1916,7 @@ function profileCard(person) {
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     topCornerControls() + '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
-    '<small class="muted direct-invites">' + tr('Members (including you): ', 'آپ کے شامل کردہ ممبرز: ') +
+    '<small class="muted direct-invites">' + tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ') +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
@@ -4496,8 +4499,9 @@ window.duroodClassicBridge = {
     const gender=m=>m.gender==="female"?"female":"male";
     const eligible=rows.filter(m=>m.deleted!==true&&gender(m)===side);
     const counts=new Map();
-    if(owner){for(const m of eligible)counts.set(m.uid,1);}
-    else counts.set(uid,1);
+    // Store direct invite counts only; groupMemberCount applies the founder bonus.
+    if(owner){for(const m of eligible)counts.set(m.uid,0);}
+    else counts.set(uid,0);
     for(const m of eligible){
       if(m.uid!==m.inviterUid&&counts.has(m.inviterUid))counts.set(m.inviterUid,counts.get(m.inviterUid)+1);
     }
