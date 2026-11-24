@@ -207,9 +207,9 @@ function checkWzIdle(){
 const owner=()=>state.profile?.role==="owner";
 try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
- state.vibrateEnabled=localStorage.getItem("durood-wz-vibration")==="1";
+ state.vibrateEnabled=localStorage.getItem("durood-wz-vibration-v2")!=="0";
   state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
-  state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)));
+  state.vibrateLevel=Math.min(10,Math.max(1,Number(localStorage.getItem("durood-wz-vibration-level"))||10));
 }catch{}
 let wzTapAudio=null;
 function vibrateWazifa(){
@@ -223,7 +223,12 @@ function vibrateWazifa(){
    const bridge=target.DuroodAndroid;
    if(typeof bridge?.vibrate==="function"){
     const accepted=bridge.vibrate(state.vibrateLevel);
-    if(accepted!==false)return true;
+    if(accepted===true)return true;
+    if(accepted===undefined){
+     // Older APK exposes a void bridge, so also try the browser fallback.
+     try{target.navigator.vibrate?.(40+state.vibrateLevel*16);}catch{}
+     return true;
+    }
    }
   }catch{}
  }
@@ -786,11 +791,11 @@ function heroReadingState(group,w,record){
  return {todayCount,total,plan,dailyGoal,totalGoal,left,percent,dayLeft,continuing};
 }
 // Reader-only Arabic ticker preferences; no impact on the saved recitation count.
-let wzArabicSpeed=200,wzArabicFont=24;
+let wzArabicSpeed=300,wzArabicFont=24;
 try{
- const speed=Number(localStorage.getItem("durood-wz-marquee-speed-v2")||200);
+ const speed=Number(localStorage.getItem("durood-wz-marquee-speed-v3")||300);
  const font=Number(localStorage.getItem("durood-wz-marquee-font")||24);
- if(Number.isFinite(speed))wzArabicSpeed=Math.max(10,Math.min(200,speed));
+ if(Number.isFinite(speed))wzArabicSpeed=Math.max(10,Math.min(400,speed));
  if(Number.isFinite(font))wzArabicFont=Math.max(16,Math.min(40,font));
 }catch{}
 function arabicTickerMarkup(arabic){
@@ -1496,9 +1501,9 @@ document.addEventListener("click",event=>{
  }
  if(["ticker-speed-up","ticker-speed-down","ticker-font-up","ticker-font-down"].includes(action)){
   const delta=action.endsWith("-up")?1:-1;
-  if(action.startsWith("ticker-speed"))wzArabicSpeed=Math.max(10,Math.min(200,wzArabicSpeed+5*delta));
+  if(action.startsWith("ticker-speed"))wzArabicSpeed=Math.max(10,Math.min(400,wzArabicSpeed+5*delta));
   else wzArabicFont=Math.max(16,Math.min(40,wzArabicFont+2*delta));
-  try{localStorage.setItem("durood-wz-marquee-speed-v2",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
+  try{localStorage.setItem("durood-wz-marquee-speed-v3",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
   syncArabicTicker();return;
  }
  if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
@@ -1514,10 +1519,11 @@ document.addEventListener("click",event=>{
  if(action==="toggle-sound"||action==="toggle-vibration"){
   const sound=action==="toggle-sound",key=sound?"soundEnabled":"vibrateEnabled";
   state[key]=!state[key];
-  try{localStorage.setItem(sound?"durood-wz-sound":"durood-wz-vibration",state[key]?"1":"0");}catch{}
+  try{localStorage.setItem(sound?"durood-wz-sound":"durood-wz-vibration-v2",state[key]?"1":"0");}catch{}
   button.setAttribute("aria-pressed",String(state[key]));
   button.textContent=sound?"ساؤنڈ":"وائبریشن";
   if(!sound&&state.vibrateEnabled){
+   if(state.vibrateLevel===0){state.vibrateLevel=10;try{localStorage.setItem("durood-wz-vibration-level","10");}catch{}const level=$("#wz-vibration-level");if(level)level.textContent="10";}
    if(!vibrateWazifa()){
     const note=$("#wz-session-note");
     if(note)note.textContent="اس WebView میں وائبریشن دستیاب نہیں۔ نئی Android APK میں ہپٹک سپورٹ شامل کی گئی ہے۔";
