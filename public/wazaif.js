@@ -214,12 +214,23 @@ try{
 let wzTapAudio=null;
 function vibrateWazifa(){
  if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
- try{
-  if(typeof window.DuroodAndroid?.vibrate==="function"){
-   window.DuroodAndroid.vibrate(state.vibrateLevel);return true;
-  }
- }catch{}
- try{return navigator.vibrate?.(20+state.vibrateLevel*12)===true;}catch{return false;}
+ // The reader runs inside a same-origin frame; some WebViews expose the
+ // native interface only on the top-level page.
+ const targets=[window];
+ try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.push(window.parent);}catch{}
+ for(const target of targets){
+  try{
+   const bridge=target.DuroodAndroid;
+   if(typeof bridge?.vibrate==="function"){
+    const accepted=bridge.vibrate(state.vibrateLevel);
+    if(accepted!==false)return true;
+   }
+  }catch{}
+ }
+ for(const target of targets){
+  try{if(target.navigator.vibrate?.(35+state.vibrateLevel*14)===true)return true;}catch{}
+ }
+ return false;
 }
 let wzFullscreenHistory=false;
 let wzFullscreenScroll=null;
@@ -775,11 +786,11 @@ function heroReadingState(group,w,record){
  return {todayCount,total,plan,dailyGoal,totalGoal,left,percent,dayLeft,continuing};
 }
 // Reader-only Arabic ticker preferences; no impact on the saved recitation count.
-let wzArabicSpeed=35,wzArabicFont=24;
+let wzArabicSpeed=200,wzArabicFont=24;
 try{
- const speed=Number(localStorage.getItem("durood-wz-marquee-speed")||35);
+ const speed=Number(localStorage.getItem("durood-wz-marquee-speed-v2")||200);
  const font=Number(localStorage.getItem("durood-wz-marquee-font")||24);
- if(Number.isFinite(speed))wzArabicSpeed=Math.max(10,Math.min(100,speed));
+ if(Number.isFinite(speed))wzArabicSpeed=Math.max(10,Math.min(200,speed));
  if(Number.isFinite(font))wzArabicFont=Math.max(16,Math.min(40,font));
 }catch{}
 function arabicTickerMarkup(arabic){
@@ -1485,9 +1496,9 @@ document.addEventListener("click",event=>{
  }
  if(["ticker-speed-up","ticker-speed-down","ticker-font-up","ticker-font-down"].includes(action)){
   const delta=action.endsWith("-up")?1:-1;
-  if(action.startsWith("ticker-speed"))wzArabicSpeed=Math.max(10,Math.min(100,wzArabicSpeed+5*delta));
+  if(action.startsWith("ticker-speed"))wzArabicSpeed=Math.max(10,Math.min(200,wzArabicSpeed+5*delta));
   else wzArabicFont=Math.max(16,Math.min(40,wzArabicFont+2*delta));
-  try{localStorage.setItem("durood-wz-marquee-speed",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
+  try{localStorage.setItem("durood-wz-marquee-speed-v2",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
   syncArabicTicker();return;
  }
  if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
