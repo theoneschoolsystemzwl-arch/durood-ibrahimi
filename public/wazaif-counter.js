@@ -7,15 +7,16 @@ export function readingDay(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
 export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null}={}){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day) || day>readingDay() || readingDay(new Date(day+"T12:00:00"))!==day ||
      !Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("غلط شمار یا تاریخ۔");
   const configRef=doc(db,"wazaifSettings","group");
   const statsRef=doc(db,"wazaifGroupStats","main");
   const memberRef=doc(db,"wazaifGroupStats","main","members",uid);
+  const dailyRef=doc(memberRef,"days",day);
   const year=day.slice(0,4);
   const yearRef=doc(db,"wazaifGroupStats","main","years",year);
-  const [config,stats,member,yearStats]=await Promise.all([
-    tx.get(configRef),tx.get(statsRef),tx.get(memberRef),tx.get(yearRef)
+  const [config,stats,member,yearStats,daily]=await Promise.all([
+    tx.get(configRef),tx.get(statsRef),tx.get(memberRef),tx.get(yearRef),tx.get(dailyRef)
   ]);
   if(!config.exists()||config.data().active!==true)throw Error("گروپ وظیفہ فعال نہیں ہے۔");
   if(durood!==null && config.data().countAsDurood!==durood)throw Error("گروپ وظیفے کی قسم بدل گئی ہے۔ صفحہ تازہ کریں۔");
@@ -24,6 +25,21 @@ export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null
   const yr=yearStats.exists()?yearStats.data():{};
   const total=Number(prev.total||0),ownTotal=Number(own.total||0),yearTotal=Number(yr.total||0);
   if(![total,ownTotal,yearTotal].every(n=>Number.isSafeInteger(n)&&n>=0))throw Error("گروپ شمار درست نہیں۔");
+  // Before the first rollover, preserve the legacy last-day summary.
+  const legacyDay=own.day,legacyCount=Number(own.today||0);
+  let previousDayRef=null,previousDaySnap=null;
+  if(legacyDay!==day&&/^\d{4}-\d{2}-\d{2}$/.test(legacyDay||"")&&
+      Number.isSafeInteger(legacyCount)&&legacyCount>0){
+    previousDayRef=doc(memberRef,"days",legacyDay);
+    previousDaySnap=await tx.get(previousDayRef);
+  }
+  const previousCount=daily.exists()?Number(daily.data().count):
+    (legacyDay===day?legacyCount:0);
+  if(!Number.isSafeInteger(previousCount)||previousCount<0)throw Error("روزانہ شمار درست نہیں۔");
+  if(previousDayRef&&!previousDaySnap.exists())tx.set(previousDayRef,{
+    uid,date:legacyDay,count:legacyCount,updatedAt:serverTimestamp()
+  });
+  tx.set(dailyRef,{uid,date:day,count:previousCount+amount,updatedAt:serverTimestamp()});
   tx.set(statsRef,{
     total:total+amount,day,year,today:(prev.day===day?Number(prev.today||0):0)+amount,
     lastUid:uid,lastAmount:amount,updatedAt:serverTimestamp()
