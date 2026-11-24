@@ -403,6 +403,25 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
+    // Per-member group goal preferences, effective from the selected local day.
+    match /memberPrivate/{uid}/groupTargets/{date} {
+      allow get, list: if self(uid) && currentMember();
+      allow create, update: if self(uid) && currentMember() &&
+        date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') &&
+        request.resource.data.keys().hasOnly(['date','mode','dailyGoal','weeklyGoal','monthlyGoal','yearlyGoal','updatedAt']) &&
+        request.resource.data.keys().hasAll(['date','mode','dailyGoal','weeklyGoal','monthlyGoal','yearlyGoal','updatedAt']) &&
+        request.resource.data.date == date &&
+        request.resource.data.updatedAt == request.time &&
+        ((request.resource.data.mode == 'owner' &&
+          request.resource.data.dailyGoal == 0 && request.resource.data.weeklyGoal == 0 &&
+          request.resource.data.monthlyGoal == 0 && request.resource.data.yearlyGoal == 0) ||
+         (request.resource.data.mode == 'personal' &&
+          request.resource.data.dailyGoal is int && request.resource.data.dailyGoal >= 1 && request.resource.data.dailyGoal <= 1000000000 &&
+          request.resource.data.weeklyGoal is int && request.resource.data.weeklyGoal >= 1 && request.resource.data.weeklyGoal <= 1000000000 &&
+          request.resource.data.monthlyGoal is int && request.resource.data.monthlyGoal >= 1 && request.resource.data.monthlyGoal <= 1000000000 &&
+          request.resource.data.yearlyGoal is int && request.resource.data.yearlyGoal >= 1 && request.resource.data.yearlyGoal <= 1000000000));
+      allow delete: if false;
+    }
     match /memberPrivate/{uid}/{doc=**} {
       allow read, write: if false;
     }
