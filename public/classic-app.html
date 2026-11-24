@@ -1387,6 +1387,14 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .dashboard-home #reader-audit:empty,:root[data-theme] .dashboard-home #legacy-reader-check:empty{display:none}
 @media(max-width:340px){:root[data-theme] .dashboard-home .reader-card-heading{gap:3px}:root[data-theme] .dashboard-home .reader-card-heading h2{font-size:.68rem;padding:1px 3px}:root[data-theme] .dashboard-home .reader-card-heading h2 span{display:none}:root[data-theme] .dashboard-home .reader-date-nav{grid-template-columns:24px auto 24px;gap:2px}:root[data-theme] .dashboard-home .reader-date-nav button{min-width:24px;min-height:24px!important;height:24px}}
 </style>
+<style id="member-wird-compact">
+:root[data-theme] .member-photo-wird{display:inline-flex;flex-direction:column;align-items:center;gap:2px;flex:none;max-width:100%}
+:root[data-theme] .member-wird{display:inline-flex;flex-direction:column;align-items:center;gap:0;line-height:1.25;color:#fff;min-width:0}
+:root[data-theme] .member-wird small{font:600 .78rem/1.5 var(--ur,serif);color:#f5df9e}
+:root[data-theme] .member-wird bdi{font:800 clamp(.88rem,3.4vw,1.15rem)/1.25 system-ui,sans-serif;color:#d5ffe9;overflow-wrap:anywhere;max-width:100%}
+:root[data-theme] .tree-node .member-wird{margin-top:1px}
+:root[data-theme] .member-content .member-wird{align-items:flex-start}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -1496,7 +1504,13 @@ const memberName = person => person.id<=seedRows.length && person.name===seedRow
   tr(person.name,demoNames[person.name] || person.name) : person.name;
 const currentUser = () => getUser(currentUserId);
 const formatNumber = value => number.format(value);
-const directMembers = id => users.filter(person => person.inviter === id);
+const directMembers = id => {
+  const parent=getUser(id);
+  if(!parent)return [];
+  return users.filter(person=>person.id!==id&&
+    (person.gender==='Female')===(parent.gender==='Female')&&
+    (parent.uid&&person.inviterUid ? person.inviterUid===parent.uid : person.inviter===id));
+};
 const displayNumber = value => '<bdi>' + formatNumber(value) + '</bdi>';
 const displayId = id => '<bdi dir="ltr">' + serial(id) + '</bdi>';
 
@@ -1547,12 +1561,32 @@ function ownedGroupName(id) {
 }
 
 function treeMemberLabel(person) {
-  if (person.gender !== 'Female') return '<span class="pill"><bdi>' + ownedGroupName(person.id) + '</bdi></span>';
   const group = hasGroup(person.id) ? '<bdi>' + groupName(person.id) + '</bdi>' : '';
   return '<span class="pill tree-member-label" dir="ltr">' + displayId(person.id) + group + '</span>';
 }
 
 let liveGroupMemberCounts=new Map();
+let savedMemberWirds=new Map(),savedMemberWirdsComplete=false;
+function memberWirdText(person){
+  if(!person)return '—';
+  if(!person.uid)return formatNumber(score(person,'all','current'));
+  if(savedMemberWirds.has(person.uid))return formatNumber(savedMemberWirds.get(person.uid));
+  if(savedMemberWirdsComplete&&!(ownerViewingWomen()&&person.isOwner))return formatNumber(0);
+  return '—';
+}
+function memberWirdMarkup(person){
+  return '<span class="member-wird"><small>'+tr('Wird','ورد')+'</small><bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi></span>';
+}
+function photoWithWird(person,large=false){
+  return '<span class="member-photo-wird">'+avatar(person,large)+memberWirdMarkup(person)+'</span>';
+}
+function refreshMemberWirds(){
+  const byUid=new Map(users.map(p=>[p.uid||'local:'+p.id,p]));
+  document.querySelectorAll('[data-member-wird]').forEach(node=>{
+    const p=byUid.get(node.dataset.memberWird);
+    if(p)node.textContent=memberWirdText(p);
+  });
+}
 function groupMemberCount(person) {
   if(!person || person.deleted) return 0;
   // Only the founding owner and founding woman count themselves.
@@ -1756,9 +1790,9 @@ function treeNode(person, isRoot = false) {
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
     '<span class="node-dot level-' + level + '" data-tree-member-level="'+person.id+'" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
-    esc(memberName(person)) + '</strong>' + treeMemberLabel(person) +
+    esc(memberName(person)) + '</strong>' + treeMemberLabel(person) + memberWirdMarkup(person) +
     (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
-    (isRoot && person.gender !== 'Female' ? '<small>' + displayId(person.id) + '</small>' : '') + '</' + tag + '>';
+    '</' + tag + '>';
 }
 
 function stat(label, value) {
@@ -1795,7 +1829,7 @@ function groups() {
   return heading(title,tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
     (branches.length ? '' : ur(tr('No groups yet.','ابھی کوئی گروپ موجود نہیں۔'),'p','panel empty')) +
     '<div class="groups">' + branches.map(person =>
-      '<article class="panel group-card"><div class="identity">' + avatar(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
+      '<article class="panel group-card"><div class="identity">' + photoWithWird(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Group members · ", '</bdi></small><span>گروپ کے ارکان · ') + displayNumber(groupMemberCount(person)) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
       displayNumber(descendants(person.id).size) + '</span></div><button class="button secondary" data-action="group" data-value="' + person.id +
@@ -1837,7 +1871,7 @@ function directory() {
       '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
       tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + ownedGroupName(person.id) + '</bdi>' +
-      ' · ' + displayNumber(score(person,'all','current')) + tr(" Durood</small>", ' درود</small>') +
+      '</small>' + memberWirdMarkup(person) +
       (person.disabled ? tr("<small class=\"account-status disabled\">Suspended</small>", '<small class="account-status disabled">معطل</small>') : '') + '</span><span class="chevron" aria-hidden="true">‹</span></button>'
     ).join('') + '</div>';
 }
@@ -1948,7 +1982,7 @@ function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
   const inviteCount = groupMemberCount(person);
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
-    topCornerControls() + '<div class="profile-greeting">' + avatar(person,true) + '<div class="profile-copy">' +
+    topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
     '<small class="muted direct-invites">' + tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ') +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
@@ -4160,7 +4194,7 @@ function appFooter(person) {
 function womenSectionCard(person) {
   const founder = visibleMembers().find(member => member.isFoundingSpouse);
   return '<header class="app-head"><section class="profile-card">' + topCornerControls() + '<div class="profile-greeting">' +
-    (founder ? avatar(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
+    (founder ? photoWithWird(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
     (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong>' +
     '<small class="muted direct-invites">' + tr('Members (including founder): ', 'آپ کے شامل کردہ ممبرز: ') +
     '<bdi data-profile-member-count>'+(founder?formatNumber(groupMemberCount(founder)):"—")+'</bdi></small>'+
@@ -4654,6 +4688,12 @@ window.duroodClassicBridge = {
     if(section==="wazifa-reader")updateReader();
   },
   aggregateGoalRows(uid,rows){if(currentUser()?.uid!==uid)return;ownerGoalRows=rows;refreshDashboardTargetCards();window.duroodWazaif?.refreshGroupTargets?.();},
+  savedWirdTotals(uid,rows,complete,side){
+    if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
+    savedMemberWirds=new Map(rows.filter(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0).map(r=>[r.uid,r.total]));
+    savedMemberWirdsComplete=complete===true;
+    refreshMemberWirds();
+  },
   liveMemberCounts(uid,rows,owner,side){
     if(currentUser()?.uid!==uid)return;
     const gender=m=>m.gender==="female"?"female":"male";
@@ -4784,10 +4824,14 @@ window.duroodClassicBridge = {
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
       liveGroupMemberCounts=new Map();
+      savedMemberWirds=new Map();savedMemberWirdsComplete=false;
       liveMemberPhotos=new Map();
       periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
+    }
+    for(const [uid,total] of Object.entries(totals.memberCounts||{})){
+      if(!savedMemberWirds.has(uid)&&Number.isSafeInteger(total)&&total>=0)savedMemberWirds.set(uid,total);
     }
     const ids=new Map(rows.filter(x=>Number.isSafeInteger(Number(x.memberNumber)) && Number(x.memberNumber)>0)
       .map(x=>[x.uid,Number(x.memberNumber)]));
@@ -4831,14 +4875,14 @@ window.duroodClassicBridge = {
       restoreReaderJournal(profile.uid,Number(profile.memberNumber)||1);
       signIn(users.find(m=>m.uid===profile.uid)?.id??Number(profile.memberNumber));
     }
-    else if(["overview","tree","profile","directory"].includes(section))render({keepScroll:true});
+    else if(["overview","tree","profile","directory","groups","members"].includes(section))render({keepScroll:true});
     else {
       const dateNode=document.querySelector(".profile-card .join-date bdi");
       const person=currentUser();
       if(dateNode&&person)dateNode.textContent=membershipDateLabel(person);
       if(section==="wazifa-reader")updateReader();
     }
-    refreshMemberCountLabels();
+    refreshMemberCountLabels();refreshMemberWirds();
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
@@ -5335,6 +5379,13 @@ function observeCounters(side){
     },err=>{if(stillCurrent())bridge.groupProgressYear(null);console.warn("Group year unavailable",err.code);});
   };
   watchGroupYear();
+  const wirdQuery=currentProfile?.role==="owner"
+    ?query(collection(db,"memberCounts"),where("gender","==",side))
+    :query(collection(db,"memberCounts"),where("gender","==",side),limit(200));
+  const stopWirdTotals=onSnapshot(wirdQuery,{includeMetadataChanges:true},snap=>{
+    if(!stillCurrent()||snap.metadata.fromCache)return;
+    bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
+  },err=>console.warn("Saved member Wird totals unavailable",err.code));
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
   let historyGeneration=0;
@@ -5477,7 +5528,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   if(classicLogoutBlocked())return;
@@ -5542,8 +5593,8 @@ async function hydrate(){
   // Only fetch the selected side; the Firebase Rules also validate gender.
   const counts=new Map();
   try{
-    const ranked=await getDocs(query(collection(db,"memberCounts"),
-      where("gender","==",side),limit(200)));
+    const ranked=await getDocs(owner?query(collection(db,"memberCounts"),where("gender","==",side)):
+      query(collection(db,"memberCounts"),where("gender","==",side),limit(200)));
     for(const item of ranked.docs){
       counts.set(item.id,Number(item.get("total")||0));
     }
