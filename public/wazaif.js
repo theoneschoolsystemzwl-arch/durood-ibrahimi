@@ -229,8 +229,29 @@ function setWazifaImmersive(enabled){
   button.setAttribute("aria-pressed",String(state.immersive));
   button.textContent=state.immersive?"فل سکرین بند کریں":"فل سکرین";
  }
- try{window.DuroodAndroid?.setImmersive?.(state.immersive);}catch{}
+ let nativeMode=false;
+ try{
+  if(typeof window.DuroodAndroid?.setImmersive==="function"){
+   window.DuroodAndroid.setImmersive(state.immersive);nativeMode=true;
+  }
+ }catch{}
+ // Standard browsers may support native fullscreen while older Android
+ // WebViews do not. Either way the in-app focus mode above remains usable.
+ if(!nativeMode){
+  try{
+   if(state.immersive&&!document.fullscreenElement&&document.documentElement.requestFullscreen){
+    const pending=document.documentElement.requestFullscreen();
+    pending?.catch?.(()=>{});
+   }else if(!state.immersive&&document.fullscreenElement){
+    const pending=document.exitFullscreen?.();pending?.catch?.(()=>{});
+   }
+  }catch{}
+ }
 }
+document.addEventListener("fullscreenchange",()=>{
+ if(!document.fullscreenElement&&state.immersive&&typeof window.DuroodAndroid?.setImmersive!=="function")
+  setWazifaImmersive(false);
+});
 window.addEventListener("durood-exit-immersive",()=>{
  if(state.immersive)setWazifaImmersive(false);
 });
