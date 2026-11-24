@@ -872,3 +872,42 @@
     flex-basis:88px;width:88px;min-width:88px;max-width:88px
   }
 }
+/* Accessible focus mode for existing Android WebView/PWA and desktop browsers.
+   The current reader is a scrollable viewport above the app navigation; the
+   native APK additionally hides system bars through the optional JS bridge. */
+body.wz-immersive-reader{overflow:hidden!important}
+body.wz-immersive-reader #wazaif-root{
+ position:fixed!important;
+ inset:0!important;
+ z-index:2147480000!important;
+ box-sizing:border-box!important;
+ width:100vw!important;max-width:100vw!important;
+ height:100vh!important;height:100dvh!important;max-height:100dvh!important;
+ margin:0!important;padding:0!important;
+ border:0!important;border-radius:0!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+ overscroll-behavior:contain;
+ background:#002e25!important;
+ -webkit-overflow-scrolling:touch;
+}
+body.wz-immersive-reader .bottom-nav,
+body.wz-immersive-reader .app-footer{visibility:hidden!important}
+body.wz-immersive-reader #wazaif-root .wz-hero-reader{
+ margin:0 auto!important;
+ border-radius:0!important;
+ width:100%!important;
+ max-width:880px!important;
+ min-height:100%!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-content{
+ padding-bottom:max(24px,env(safe-area-inset-bottom))!important;
+}
+.wz-hero-reader .wz-session-card .wz-progress-trio .wz-hero-progress .wz-progress-copy small{
+ font-size:clamp(.55rem,1.95vw,.72rem);
+ color:#e3fae8;
+}
+.wz-hero-reader .wz-reader-fullscreen[aria-pressed="true"]{
+ background:linear-gradient(120deg,#169d76,#065640)!important;
+ border-color:#95f9bb!important;
+ box-shadow:0 0 10px #25eeb755!important;
+}
