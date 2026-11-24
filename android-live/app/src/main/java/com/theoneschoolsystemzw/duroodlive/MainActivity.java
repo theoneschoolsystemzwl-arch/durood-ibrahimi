@@ -6,6 +6,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.content.Context;
+import android.webkit.JavascriptInterface;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -24,6 +29,7 @@ public class MainActivity extends Activity {
   private static final int FILE_PICK=4201;
   private WebView web;
   private ValueCallback<Uri[]> filePicker;
+  private boolean nativeImmersive=false;
 
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
@@ -31,6 +37,7 @@ public class MainActivity extends Activity {
     getWindow().setNavigationBarColor(Color.rgb(0,55,43));
     web=new WebView(this);
     web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+    web.addJavascriptInterface(new ReaderHaptics(),"DuroodAndroid");
     setContentView(web);
     WebSettings settings=web.getSettings();
     settings.setJavaScriptEnabled(true);
@@ -85,7 +92,38 @@ public class MainActivity extends Activity {
     if(item.getItemId()==2){startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(HOME)));return true;}
     return super.onOptionsItemSelected(item);
   }
+  private boolean trustedPage(){
+    if(web==null)return false;
+    Uri url=Uri.parse(web.getUrl()==null?"":web.getUrl());
+    return "https".equals(url.getScheme())&&HOST.equals(url.getHost());
+  }
+  private void updateImmersive(boolean enabled){
+    nativeImmersive=enabled;
+    final int flags=enabled?
+      View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
+      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_STABLE:0;
+    getWindow().getDecorView().setSystemUiVisibility(flags);
+  }
+  private final class ReaderHaptics{
+    @JavascriptInterface public void vibrate(int level){
+      if(!trustedPage())return;
+      final int safe=Math.max(0,Math.min(10,level));
+      if(safe==0)return;
+      runOnUiThread(()->{
+        final Vibrator motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+        if(motor==null||!motor.hasVibrator())return;
+        final long duration=20L+safe*12L;
+        if(Build.VERSION.SDK_INT>=26)motor.vibrate(VibrationEffect.createOneShot(duration,VibrationEffect.DEFAULT_AMPLITUDE));
+        else motor.vibrate(duration);
+      });
+    }
+    @JavascriptInterface public void setImmersive(boolean enabled){
+      if(!trustedPage())return;
+      runOnUiThread(()->updateImmersive(enabled));
+    }
+  }
   @Override public void onBackPressed(){
+    if(nativeImmersive){updateImmersive(false);web.evaluateJavascript("document.body.classList.remove('wz-immersive-reader')",null);return;}
     if(web!=null&&web.canGoBack())web.goBack();
     else super.onBackPressed();
   }
