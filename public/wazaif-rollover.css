@@ -570,3 +570,162 @@
   touch-action:pan-y;
   -webkit-overflow-scrolling:touch;
 }
+/* Approved 24 Nov reader: two progress bars; the daily bar has no
+   heading and receives all available horizontal space. */
+.wz-hero-reader .wz-hero-progress{direction:ltr;gap:10px;align-items:center}
+.wz-hero-reader .wz-hero-progress>span{
+  order:2;font:850 clamp(.96rem,3.8vw,1.3rem)/1.25 system-ui,sans-serif;
+  letter-spacing:.01em;white-space:nowrap;color:#effff8
+}
+.wz-hero-reader .wz-hero-progress>progress{order:1;flex:1;width:0;min-width:0;height:13px}
+.wz-hero-reader .wz-daily-toolbar{
+  display:flex;flex-direction:column;gap:6px;width:100%;margin:7px 0 5px;
+}
+.wz-hero-reader .wz-daily-toolbar .wz-reader-feedback{
+  display:grid!important;grid-template-columns:minmax(0,1.45fr) minmax(0,1.45fr) minmax(0,.72fr);
+  direction:ltr;align-items:stretch;gap:4px;width:100%;margin:0;height:auto;
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-control{
+  box-sizing:border-box;display:flex;flex-direction:row;align-items:center;justify-content:space-between;
+  min-width:0;min-height:43px;gap:1px;padding:3px 2px;border:1px solid #28d8a7;
+  border-radius:11px;background:linear-gradient(125deg,#064f3c,#003f31);
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-button{
+  display:block;min-width:0;flex:1 1 auto;max-width:42%;min-height:31px;
+  border:1px solid #74dfad;border-radius:8px;background:linear-gradient(135deg,#aaffd7,#64d8b1);
+  color:#003c2d;font:850 clamp(.56rem,1.85vw,.78rem)/1.3 var(--ur,serif);
+  white-space:nowrap;text-align:center;cursor:pointer
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-button[aria-pressed="false"]{
+  background:linear-gradient(140deg,#135a45,#054234);border-color:#3d866c;color:#d0dfd5
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-level{
+  flex:1 1 58%;display:grid;grid-template-columns:minmax(0,1fr) 19px minmax(0,1fr);
+  gap:1px;align-items:center;min-width:0
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-level button{
+  min-width:0;min-height:30px;padding:0;border:1px solid #37b892;
+  border-radius:6px;background:#00523e;font:900 clamp(.9rem,3.2vw,1.2rem)/1 system-ui,sans-serif
+}
+.wz-hero-reader .wz-daily-toolbar .wz-feedback-level output{
+  min-width:0;text-align:center;font:850 clamp(.75rem,2.8vw,.98rem)/1 system-ui,sans-serif
+}
+.wz-reader-fullscreen{
+  box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+  min-width:0;min-height:43px;padding:3px;border:1px solid #27c99b;border-radius:11px;
+  background:linear-gradient(130deg,#065d44,#003c30);color:#f3fff9;
+  font:800 clamp(.58rem,2vw,.83rem)/1.35 var(--ur,serif);white-space:normal;
+  text-align:center;cursor:pointer;touch-action:manipulation
+}
+.wz-reader-fullscreen:focus-visible,.wz-day-step:focus-visible{
+  outline:2px solid #f3e6a7;outline-offset:2px
+}
+/* Exactly five selected-day data boxes, no duplicate date. */
+.wz-hero-reader .wz-daily-toolbar .wz-today-due{
+  box-sizing:border-box;display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  width:100%;min-width:0;margin:0;gap:4px;padding:0;background:none;border:0;
+}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell{
+  box-sizing:border-box;min-width:0;min-height:68px;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:3px;padding:4px 1px;
+  border:1px solid #2fd9a6!important;border-radius:12px;
+  background:linear-gradient(135deg,#075d45,#003e30)!important;
+  box-shadow:inset 0 0 13px #1bce9240,0 0 6px #0be8a52e;
+}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell small{
+  font:850 clamp(.6rem,2.2vw,.83rem)/1.38 var(--ur,serif);
+  color:#eafff5;white-space:normal;overflow-wrap:anywhere;text-align:center
+}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell strong{
+  max-width:100%;font:900 clamp(.95rem,4.2vw,1.55rem)/1.12 system-ui,sans-serif;
+  letter-spacing:-.04em;white-space:nowrap;color:white!important;text-shadow:0 0 8px #46ffc47a
+}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:nth-child(1) strong{color:#ffe18b!important}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:nth-child(3) strong{color:#ffdb42!important}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:nth-child(4) strong{color:#19ef8c!important}
+.wz-hero-reader .wz-daily-toolbar .wz-today-due-cell .wz-due-number.is-pending{animation:none}
+/* Keep date, speed and Save on a single narrow-phone row. */
+.wz-hero-reader .wz-reader-controls-row{
+  direction:ltr;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1.47fr) minmax(0,.88fr);
+  gap:4px;margin:6px 0;align-items:stretch
+}
+.wz-hero-reader .wz-reader-controls-row .wz-hero-speed{
+  direction:ltr;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0
+}
+.wz-hero-reader .wz-reader-controls-row .wz-hero-speed small{
+  font:800 clamp(.51rem,1.85vw,.7rem)/1.25 var(--ur,serif);white-space:normal
+}
+.wz-hero-reader .wz-reader-controls-row .wz-hero-speed strong{
+  font:850 clamp(.77rem,2.95vw,1.15rem)/1.18 system-ui,sans-serif;
+  overflow-wrap:anywhere
+}
+.wz-hero-reader .wz-reader-controls-row .wz-date-select{
+  display:grid;grid-template-columns:29px minmax(0,1fr) 29px;gap:2px;
+  border:1px solid #2dc99a;border-radius:12px;padding:3px;
+  background:linear-gradient(135deg,#014c39,#003f31);box-sizing:border-box
+}
+.wz-hero-reader .wz-reader-controls-row .wz-date-select #wz-save-date{display:none}
+.wz-hero-reader .wz-reader-controls-row .wz-date-select .wz-date-button{
+  border:0;background:transparent;min-height:49px;padding:0 1px;
+  box-shadow:none;color:#fff;font:850 clamp(.67rem,2.25vw,.9rem)/1.5 var(--ur,serif)
+}
+.wz-hero-reader .wz-reader-controls-row .wz-day-step{
+  display:grid;place-items:center;min-width:0;min-height:40px;
+  padding:0;background:#00634b;border:1px solid #4cdaab;border-radius:9px;
+  color:white;font:850 1.3rem/1 system-ui,sans-serif;cursor:pointer;
+}
+.wz-hero-reader .wz-reader-controls-row .wz-reader-save{
+  min-width:0;min-height:57px;padding:4px 2px;
+  background:radial-gradient(ellipse at 50% -20%,#30ffb9,#0ca26c 53%,#003b30 100%)!important;
+  border:2px solid #80ffbd!important;border-radius:12px!important;
+  color:#fff!important;box-shadow:0 0 8px #14ffa4,0 0 15px #05d9849c,inset 0 0 12px #b1ffd873!important;
+  font:900 clamp(.71rem,2.5vw,.95rem)/1.3 var(--ur,serif)!important;
+  text-shadow:0 1px 3px #00331c!important;
+}
+.wz-hero-reader .wz-reader-controls-row .wz-reader-save:disabled{opacity:.84;filter:none}
+.wz-hero-reader .wz-reader-controls-row .wz-reader-save b{
+  font:900 clamp(1rem,4vw,1.35rem)/1 system-ui,sans-serif
+}
+/* The intentionally unlabelled daily progress bar extends almost the full
+   row; only its percentage is visible at the right. */
+.wz-hero-reader .wz-daily-progress{
+  display:flex;direction:ltr;align-items:center;gap:9px;
+  box-sizing:border-box;width:100%;min-height:30px;margin:7px 0 6px;
+  padding:3px 6px;border:1px solid #168d70;border-radius:12px;background:#003e30a3
+}
+.wz-hero-reader .wz-daily-progress progress{
+  flex:1;min-width:0;width:0;height:11px;appearance:none;-webkit-appearance:none;
+  border:1px solid #30dcb0;border-radius:999px;overflow:hidden;background:#003a2d
+}
+.wz-hero-reader .wz-daily-progress progress::-webkit-progress-bar{background:#003a2d}
+.wz-hero-reader .wz-daily-progress progress::-webkit-progress-value{
+  border-radius:999px;background:linear-gradient(90deg,#05c693,#20ffd0);
+  box-shadow:0 0 10px #24ffb5
+}
+.wz-hero-reader .wz-daily-progress progress::-moz-progress-bar{background:#1bffb5}
+.wz-hero-reader .wz-daily-progress>span{
+  min-width:54px;text-align:center;font:850 clamp(.91rem,3.2vw,1.14rem)/1.1 system-ui,sans-serif;color:#fff
+}
+/* Enlarged, responsive tasbih dial: luminous overall-completion arc,
+   updated from Firestore/queued reads without touching stored counts. */
+.wz-hero-reader .wz-hero-dial:not(.is-floating){
+  box-sizing:border-box;width:min(118vw,533px,100%);max-width:100%;
+  padding:clamp(12px,4vw,24px);border:9px solid transparent;margin:12px auto 25px;
+  background:radial-gradient(ellipse at 49% 41%,#086c54,#014b3a 56%,#003c2e 90%) padding-box,
+    conic-gradient(from -90deg,#00ffe0 0 var(--wz-ring),#12c18552 var(--wz-ring) 100%) border-box;
+  box-shadow:0 0 0 2px #05f2ae,0 0 22px #00ffc2b3,inset 0 -20px 39px #001e1659,0 15px 28px #00190dcc
+}
+@media(max-width:380px){
+ .wz-hero-reader .wz-daily-toolbar .wz-reader-feedback{gap:2px}
+ .wz-hero-reader .wz-daily-toolbar .wz-feedback-control{padding:2px 1px}
+ .wz-hero-reader .wz-daily-toolbar .wz-feedback-level{grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}
+ .wz-hero-reader .wz-daily-toolbar .wz-feedback-button{font-size:.56rem}
+ .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell{padding:4px 0;min-height:61px}
+ .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell small{font-size:clamp(.52rem,2vw,.64rem)}
+ .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell strong{font-size:clamp(.81rem,3.9vw,1rem)}
+ .wz-hero-reader .wz-reader-controls-row{gap:2px}
+ .wz-hero-reader .wz-reader-controls-row .wz-date-select{grid-template-columns:22px minmax(0,1fr) 22px;gap:1px;padding:1px}
+ .wz-hero-reader .wz-reader-controls-row .wz-date-select .wz-date-button{font-size:.61rem}
+ .wz-hero-reader .wz-reader-controls-row .wz-day-step{font-size:1.05rem}
+}
