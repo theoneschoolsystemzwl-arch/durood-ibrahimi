@@ -559,6 +559,23 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']) &&
         request.resource.data.seen==request.time);
     }
+    // One immutable, owner-verified historical attribution. No aggregate or
+    // personal counters are changed by this repair.
+    match /genderStats/{gender}/days/{day}/legacyAttribution/{repairId} {
+      allow get: if owner();
+      allow create: if owner() && gender=='male' && day=='2026-11-24' && repairId=='DI-2' &&
+        request.resource.data.keys().hasOnly(['uid','name','amount','day','verifiedBy','createdAt']) &&
+        request.resource.data.uid is string &&
+        exists(memberPath(request.resource.data.uid)) &&
+        genderOf(get(memberPath(request.resource.data.uid)).data)=='male' &&
+        get(memberPath(request.resource.data.uid)).data.get('deleted',false)==false &&
+        get(memberPath(request.resource.data.uid)).data.role!='owner' &&
+        request.resource.data.name==get(memberPath(request.resource.data.uid)).data.name &&
+        request.resource.data.amount==100 && request.resource.data.day==day &&
+        request.resource.data.verifiedBy==request.auth.uid && request.resource.data.createdAt==request.time &&
+        get(/databases/$(database)/documents/genderStats/$(gender)/days/$(day)).data.total>=100;
+      allow update, delete, list: if false;
+    }
     function allowedChatSide(gender) {
       return validGender(gender) &&
         (owner() || (currentMember() && myGender() == gender));
