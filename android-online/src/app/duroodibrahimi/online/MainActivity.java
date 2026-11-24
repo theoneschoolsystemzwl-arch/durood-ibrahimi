@@ -192,18 +192,26 @@ public final class MainActivity extends Activity {
         if(root!=null)root.requestApplyInsets();
     }
     private final class ReaderHaptics {
-        @JavascriptInterface public void vibrate(int level) {
-            if(!trustedPage())return;
-            final int safe=Math.max(0,Math.min(10,level));
-            if(safe==0)return;
-            runOnUiThread(()->{
-                Vibrator motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
-                if(motor==null||!motor.hasVibrator())return;
-                long duration=20L+safe*12L;
-                if(Build.VERSION.SDK_INT>=26)
-                    motor.vibrate(VibrationEffect.createOneShot(duration,VibrationEffect.DEFAULT_AMPLITUDE));
-                else motor.vibrate(duration);
-            });
+        @JavascriptInterface public boolean vibrate(int level) {
+            if(!trustedPage()||level<=0)return false;
+            final int safe=Math.min(10,level);
+            try {
+                Vibrator motor;
+                if(Build.VERSION.SDK_INT>=31){
+                    android.os.VibratorManager manager=(android.os.VibratorManager)getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                    motor=manager==null?null:manager.getDefaultVibrator();
+                }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+                if(motor==null||!motor.hasVibrator())return false;
+                long duration=35L+safe*15L;
+                if(Build.VERSION.SDK_INT>=26){
+                    int amplitude=motor.hasAmplitudeControl()?Math.max(1,safe*25):VibrationEffect.DEFAULT_AMPLITUDE;
+                    motor.vibrate(VibrationEffect.createOneShot(duration,amplitude));
+                }else motor.vibrate(duration);
+                return true;
+            }catch(RuntimeException error){
+                android.util.Log.w("DuroodHaptics","Native vibration failed",error);
+                return false;
+            }
         }
         @JavascriptInterface public void setImmersive(boolean enabled) {
             if(!trustedPage())return;
