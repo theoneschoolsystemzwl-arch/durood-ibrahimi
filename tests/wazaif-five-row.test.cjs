@@ -245,4 +245,17 @@ for(const [count,offset] of [[0,100],[1,99],[25,75],[99,1],[100,0],[101,99],[200
  assert.equal(progressOffset(count),offset,"visual ring offset at "+count+" taps");
 assert(css.includes(".wz-progress-trio")&&css.includes(".wz-dial-ring-svg"),
   "progress trio and visible SVG ring have explicit mobile styles");
+// Regression: the SVG ring must be anchored inside the dial button.
+// Otherwise absolute positioning uses the entire session card as its
+// containing block and draws a giant circle over the top counters.
+assert(css.includes(".wz-hero-reader .wz-hero-dial:not(.is-floating){\n  position:relative;isolation:isolate;"),
+  "the Tasbih ring must be positioned relative to the dial, not the card");
+assert(css.includes(".wz-hero-reader .wz-hero-dial.is-floating{\n  position:fixed;isolation:isolate;"),
+  "floating mode must retain fixed positioning");
+const ringSelector=css.slice(css.lastIndexOf(".wz-hero-reader .wz-hero-dial .wz-dial-ring-svg{"),
+  css.lastIndexOf(".wz-hero-reader .wz-hero-dial .wz-dial-ring-track{"));
+assert(ringSelector.includes("position:absolute;inset:0")&&ringSelector.includes("overflow:hidden"),
+  "SVG must be clipped to the actual dial");
+assert(ringSelector.includes("max-width:100%;max-height:100%"),
+  "the SVG must never exceed the circular button dimensions");
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
