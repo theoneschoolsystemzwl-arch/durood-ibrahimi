@@ -231,6 +231,9 @@ function setWazifaImmersive(enabled){
  }
  try{window.DuroodAndroid?.setImmersive?.(state.immersive);}catch{}
 }
+window.addEventListener("durood-exit-immersive",()=>{
+ if(state.immersive)setWazifaImmersive(false);
+});
 function playWazifaFeedback(){
  vibrateWazifa();
  if(!state.soundEnabled||state.soundLevel===0)return;
@@ -804,7 +807,7 @@ function readerMarkup(group){
  '<circle class="wz-dial-ring-track" cx="50" cy="50" r="46" pathLength="100"/>'+
  '<circle class="wz-dial-ring-fill" cx="50" cy="50" r="46" pathLength="100" stroke-dasharray="100" stroke-dashoffset="'+(100-(state.tapQueue>0?(state.tapQueue%100||100):0))+'"/></svg>'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
- '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">0</bdi></span></span>'+
+ '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">0.0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
  '</button></section>'+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
