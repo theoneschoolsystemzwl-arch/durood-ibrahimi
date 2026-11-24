@@ -151,12 +151,6 @@ function showGeneratedUsername(){
 registrationName.addEventListener("input",showGeneratedUsername);
 $("#access-form").addEventListener("reset",()=>queueMicrotask(showGeneratedUsername));
 const identityInput=$("#login-identity");
-const identityPreview=$("#login-identity-preview");
-identityInput.addEventListener("input",()=>{
-  const fullId=identityInput.value.trim();
-  identityPreview.textContent=fullId;
-  identityPreview.hidden=!fullId;
-});
 const loginPassword=$("#login-password");
 
 const passwordEye=$("#toggle-login-password");

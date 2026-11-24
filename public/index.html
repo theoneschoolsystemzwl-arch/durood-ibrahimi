@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="./styles.css">
   <script defer src="./pull-refresh.js?v=refresh-photos-20261124-v1"></script>
   <script type="module" src="./pwa.js?v=pkt-auto-daily-repair-20261125-v4"></script>
-  <script type="module" src="./app.js?release=pkt-auto-daily-repair-20261125-v4"></script>
+  <script type="module" src="./app.js?release=login-clean-20261125-v1"></script>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
 
@@ -73,9 +73,7 @@
       <form id="access-form" autocomplete="on">
         <fieldset id="login-fields" class="fields">
           <label for="login-identity">ای میل / لاگ اِن آئی ڈی</label>
-          <input id="login-identity" class="latin-input login-id" name="loginUsername" type="text" dir="ltr" inputmode="text" autocomplete="username" placeholder="Owner: full email / Member: email or username" aria-describedby="login-id-help" required maxlength="254" autocapitalize="none" spellcheck="false">
-          <small id="login-id-help" class="field-help">پورا Email لکھ سکتے ہیں؛ آخر کا حصہ بھی نیچے دکھائی دے گا۔</small>
-          <output id="login-identity-preview" class="full-email-preview" dir="ltr" aria-live="polite" hidden></output>
+          <input id="login-identity" class="latin-input login-id" name="loginUsername" type="text" dir="ltr" inputmode="text" autocomplete="username" placeholder="Owner: full email / Member: email or username" required maxlength="254" autocapitalize="none" spellcheck="false">
           <label for="login-password">Password</label>
           <div class="password-field">
             <input id="login-password" name="loginPassword" type="password" dir="ltr" autocomplete="current-password" placeholder="Enter password" required>
