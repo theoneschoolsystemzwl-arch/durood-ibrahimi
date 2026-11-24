@@ -1188,7 +1188,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=tasbih-native-haptics-speed300-20261124-v14">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=20261123-1"></script>
+<script defer src="./pull-refresh.js?v=refresh-photos-20261124-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1606,9 +1606,10 @@ async function prepareProfilePhoto(file){
   }finally{URL.revokeObjectURL(url);}
 }
 
+let liveMemberPhotos=new Map();
 function avatar(person, large = false) {
   const initials = memberName(person).trim().split(/\s+/u).slice(0,2).map(word => Array.from(word)[0]).join('').toUpperCase();
-  return '<span class="avatar' + (large ? ' large' : '') + '" aria-hidden="true">' +
+  return '<span class="avatar' + (large ? ' large' : '') + '"'+(person.uid?' data-avatar-uid="'+esc(person.uid)+'"':'')+' aria-hidden="true">' +
     (person.photo ? '<img src="' + esc(person.photo) + '" alt="">' : esc(initials || '✧')) + '</span>';
 }
 
@@ -4618,6 +4619,7 @@ window.duroodClassicBridge = {
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
       liveGroupMemberCounts=new Map();
+      liveMemberPhotos=new Map();
       periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
@@ -4643,7 +4645,7 @@ window.duroodClassicBridge = {
         inviterUid:x.inviterUid||null,inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:registrationDate(x),registrationDate:registrationDate(x),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":
-          x.gender==="male"?"Male":"",phone:"",address:"",photo:x.photo||"",
+          x.gender==="male"?"Male":"",phone:"",address:"",photo:liveMemberPhotos.get(x.uid)??x.photo??"",
         deleted:x.deleted===true
       });
     }
@@ -4726,10 +4728,23 @@ window.duroodClassicBridge = {
   },
   userForCurrent(){return currentUser()?.uid||null;},
   photoSelection:currentPhotoSelection,
+  memberPhoto(uid,image){
+    liveMemberPhotos.set(uid,image||"");
+    const p=users.find(m=>m.uid===uid);
+    if(!p)return;
+    p.photo=image||"";
+    document.querySelectorAll("[data-avatar-uid]").forEach(node=>{
+      if(node.dataset.avatarUid!==uid)return;
+      if(node.closest("#photo-view")&&currentPhotoSelection())return;
+      const template=document.createElement("template");
+      template.innerHTML=avatar(p,node.classList.contains("large"));
+      node.replaceWith(template.content.firstElementChild);
+    });
+  },
   currentName:()=>currentUser()?.name,
   setName(value,image,selection){
     const p=currentUser();if(!p)return;
-    if(image){p.photo=image;if(pendingPhoto===selection){pendingPhoto=null;photoDraft=null;}}
+    if(image){p.photo=image;liveMemberPhotos.set(p.uid,image);if(pendingPhoto===selection){pendingPhoto=null;photoDraft=null;}}
     p.name=value;render({keepScroll:true});
     setFeedback("profile-feedback",tr("Profile saved.","پروفائل محفوظ ہو گیا۔"),true);
   },
@@ -5052,7 +5067,20 @@ function observeCounters(side){
     if(auth.currentUser?.uid===observedUid && (!snap.metadata.fromCache || snap.exists()))
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
-  const stillCurrent=()=>auth.currentUser?.uid===observedUid;
+  const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
+  const photoStops=new Map();
+  function watchPhotos(uids){
+    const desired=new Set([observedUid,...uids]);
+    for(const [uid,stop] of photoStops)if(!desired.has(uid)){stop();photoStops.delete(uid);}
+    for(const uid of desired)if(uid&&!photoStops.has(uid)){
+      const stop=onSnapshot(doc(db,"memberPhotos",uid),{includeMetadataChanges:true},snap=>{
+        if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))
+          bridge.memberPhoto(uid,snap.exists()?snap.data().image:"");
+      },err=>console.warn("Member photo unavailable",err.code));
+      photoStops.set(uid,stop);
+    }
+  }
+  watchPhotos([]);
   bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
@@ -5075,6 +5103,7 @@ function observeCounters(side){
         return [d.id,{active:!inactive,joined:joined?dateKey(joined):null,inactiveDay:inactive&&changed?dateKey(changed):null}];
       }));
       const active=new Set(directory.keys());
+      watchPhotos([...active]);
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
@@ -5172,7 +5201,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   if(classicLogoutBlocked())return;

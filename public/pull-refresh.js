@@ -68,11 +68,15 @@
   try{
    const topWindow=window.top;
    if(topWindow!==window&&topWindow.location.origin===location.origin){
-    topWindow.location.reload();
+    const latest=new URL(topWindow.location.href);
+    latest.searchParams.set("_refresh",String(Date.now()));
+    topWindow.location.replace(latest.href);
     return;
    }
   }catch(error){console.debug("Parent refresh unavailable",error);}
-  location.reload();
+  const latest=new URL(location.href);
+  latest.searchParams.set("_refresh",String(Date.now()));
+  location.replace(latest.href);
  }
  document.addEventListener("touchstart",event=>{
   touch=null;
