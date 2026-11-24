@@ -1534,10 +1534,15 @@ function groupMemberCount(person) {
   if(!person || person.deleted) return 0;
   // Only the founding owner and founding woman count themselves.
   // Everyone else earns one level per directly invited member.
-  const base=(person.isOwner===true||person.id===1||person.isFoundingSpouse===true)?1:0;
+  const base=(person.isOwner===true||(person.gender==='Female'&&person.isFoundingSpouse===true))?1:0;
   if(liveGroupMemberCounts.has(person.uid))return base+liveGroupMemberCounts.get(person.uid);
   const female=person.gender==='Female';
-  return base+directMembers(person.id).filter(member=>!member.deleted && (member.gender==='Female')===female).length;
+  const unique=new Set();
+  for(const member of users){
+    if(!member.uid||member.uid===person.uid||member.deleted||(member.gender==='Female')!==female)continue;
+    if(member.inviterUid===person.uid && person.uid)unique.add(member.uid);
+  }
+  return base+unique.size;
 }
 function refreshMemberCountLabels(){
   const person=ownerViewingWomen()?visibleMembers().find(m=>m.isFoundingSpouse):currentUser();
@@ -4500,7 +4505,7 @@ window.duroodClassicBridge = {
   liveMemberCounts(uid,rows,owner,side){
     if(currentUser()?.uid!==uid)return;
     const gender=m=>m.gender==="female"?"female":"male";
-    const eligible=rows.filter(m=>m.deleted!==true&&gender(m)===side);
+    const eligible=[...new Map(rows.filter(m=>m.uid&&m.deleted!==true&&gender(m)===side).map(m=>[m.uid,m])).values()];
     const counts=new Map();
     // Store direct invite counts only; groupMemberCount applies the founder bonus.
     if(owner){for(const m of eligible)counts.set(m.uid,0);}
@@ -4635,7 +4640,7 @@ window.duroodClassicBridge = {
         id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
         isFoundingSpouse:x.gender==="female" && sideNumber===1,
         sideNumber,
-        inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
+        inviterUid:x.inviterUid||null,inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
         disabled:x.disabled===true,joined:registrationDate(x),registrationDate:registrationDate(x),
         age:"",birthDate:"",gender:x.gender==="female"?"Female":
           x.gender==="male"?"Male":"",phone:"",address:"",photo:x.photo||"",
@@ -4643,10 +4648,10 @@ window.duroodClassicBridge = {
       });
     }
     if(!getUser(Number(profile.memberNumber))) {
-      users.push({id:Number(profile.memberNumber)||1,uid:profile.uid,isOwner:profile.role==="owner",name:profile.name||"Owner",
-        username:profile.username||"owner",inviter:null,daily:0,
+      users.push({id:Number(profile.memberNumber)||(profile.role==="owner"?1:0),uid:profile.uid,isOwner:profile.role==="owner",name:profile.name||"Member",
+        username:profile.username||"",inviterUid:profile.inviterUid||null,inviter:ids.get(profile.inviterUid)||null,daily:0,
         added:Number(totals.memberCounts?.[profile.uid]||0),disabled:false,joined:registrationDate(profile),registrationDate:registrationDate(profile),
-        age:"",birthDate:"",gender:"Male",phone:"",address:"",photo:"",deleted:false});
+        age:"",birthDate:"",gender:profile.gender==="female"?"Female":"Male",isFoundingSpouse:profile.gender==="female"&&Number(profile.sideNumber)===1,phone:"",address:"",photo:"",deleted:false});
     }
     for(const member of users)if(member.isFoundingSpouse)member.sideNumber=1;
     users.sort((a,b)=>a.id-b.id);
@@ -4657,7 +4662,7 @@ window.duroodClassicBridge = {
     if(!refresh){
       restoreMemberPrivateSettings(profile.uid,Number(profile.memberNumber)||1);
       restoreReaderJournal(profile.uid,Number(profile.memberNumber)||1);
-      signIn(Number(profile.memberNumber)||1);
+      signIn(users.find(m=>m.uid===profile.uid)?.id??Number(profile.memberNumber));
     }
     else if(["overview","tree","profile","directory"].includes(section))render({keepScroll:true});
     else {
