@@ -622,6 +622,8 @@ dialog .form-actions { justify-content: flex-end; }
 .namaz-footer { color: hsl(calc(var(--theme-hue) - 4.38) calc(18.18% * var(--theme-saturation)) 34.51%); font-size: .82rem; margin-top: 5px; }
 .namaz-feedback { min-height: 1.4em; margin: 4px 0; }
 .namaz-feedback:empty { display: block; }
+.namaz-cell .attendance-lock-icon {font-size:.62rem;line-height:1;display:inline-block}
+.namaz-cell .attendance-lock-icon[hidden] {display:none!important}
 @media(max-width:520px) {
   .nav-inner { overflow-x: auto; scrollbar-width: thin; }
   .nav { flex: 1 0 50px; font-size: .65rem; }
@@ -2919,6 +2921,54 @@ let renderedNamazPhase = '';
 // Protect locally edited dates from an older Firebase history read.
 let prayerLocalRevision=0;
 const prayerEditedDays=new Map();
+// Per-member, per-date, per-prayer UI correction lock; older records default to locked.
+const attendanceLockMs=10*60*1000;
+const attendanceTapMs=1800;
+let attendanceLockOwner='',attendanceLockTimes={},attendanceUnlocks=new Map(),attendanceTaps=new Map();
+function attendanceLockKey(day,prayer){return day+'|'+prayer;}
+function attendanceLockContext(personId){
+  const person=getUser(personId);
+  const owner=String(person?.uid||'local:'+personId);
+  if(owner!==attendanceLockOwner){
+    attendanceLockOwner=owner;attendanceLockTimes={};attendanceUnlocks.clear();attendanceTaps.clear();
+    try{const data=JSON.parse(localStorage.getItem('prayer-attendance-lock-v1:'+owner)||'{}');
+      if(data&&typeof data==='object'&&!Array.isArray(data))attendanceLockTimes=data;
+    }catch{}
+  }
+}
+function attendanceIsLocked(personId,day,prayer,now=Date.now()){
+  attendanceLockContext(personId);
+  const status=knownPrayerStatus(personId,day,prayer);
+  if(!['jamat','solo','made'].includes(status))return false;
+  const key=attendanceLockKey(day,prayer);
+  if((attendanceUnlocks.get(key)||0)>now)return false;
+  const entry=attendanceLockTimes[key];
+  return !(entry?.status===status&&Number.isFinite(entry.at)&&now>=entry.at&&now-entry.at<attendanceLockMs);
+}
+function attendanceRememberMark(personId,day,prayer,status,now){
+  attendanceLockContext(personId);
+  const key=attendanceLockKey(day,prayer);
+  attendanceUnlocks.delete(key);attendanceTaps.delete(key);
+  if(['jamat','solo','made'].includes(status))attendanceLockTimes[key]={status,at:now};
+  else delete attendanceLockTimes[key];
+  try{localStorage.setItem('prayer-attendance-lock-v1:'+attendanceLockOwner,JSON.stringify(attendanceLockTimes));}catch{}
+}
+function attendanceLockTap(personId,day,prayer,now){
+  const key=attendanceLockKey(day,prayer),old=attendanceTaps.get(key);
+  // Three consecutive taps on this same cell. Taps on other cells do not count.
+  attendanceTaps.clear();
+  const count=old&&now-old.at<=attendanceTapMs?old.count+1:1;
+  if(count>=3){attendanceUnlocks.set(key,now+attendanceLockMs);return 3;}
+  attendanceTaps.set(key,{count,at:now});return count;
+}
+function refreshAttendanceLockIcons(personId,now=Date.now()){
+  for(const cell of app.querySelectorAll('button[data-action="namaz-mark"]')){
+    const locked=attendanceIsLocked(personId,cell.dataset.day,cell.dataset.value,now);
+    cell.dataset.attendanceLocked=String(locked);
+    const icon=cell.querySelector('.attendance-lock-icon');
+    if(icon)icon.hidden=!locked;
+  }
+}
 
 function prayerMode(personId,day,prayer,today,now=Date.now()) {
   const saved = knownPrayerStatus(personId,day,prayer);
@@ -2944,10 +2994,11 @@ function prayerCell(personId,day,id,label,today,now) {
   const key = prayerMode(personId,day,id,today,now);
   const mode = prayerModes[key];
   const access = label + '، ' + namazDateFormat.format(parseDay(day)) + '، ' + (mode.cell || tr("No entry", 'کوئی اندراج نہیں'));
-  return '<td><button class="namaz-cell namaz-' + key + '" data-action="namaz-mark" data-value="' + id +
+  const locked=attendanceIsLocked(personId,day,id,now);
+  return '<td><button class="namaz-cell namaz-' + key + '" data-attendance-locked="'+locked+'" data-action="namaz-mark" data-value="' + id +
     '" data-day="' + day + '" aria-label="' + esc(access) + '"><strong class="prayer-name">' + label +
     '</strong><span class="namaz-icon" aria-hidden="true">' + mode.symbol +
-    '</span>' + (mode.cell ? '<span>' + mode.cell + '</span>' : '') + '</button></td>';
+    '</span>' + (mode.cell ? '<span>' + mode.cell + '</span>' : '') + '<span class="attendance-lock-icon" aria-label="'+tr('Locked','لاک')+'"'+(locked?'':' hidden')+'>🔒</span></button></td>';
 }
 
 function namazRows(personId,month,today,now) {
@@ -2972,7 +3023,7 @@ function namaz(person) {
     tr("<p class=\"namaz-today-label\">Today <time datetime=\"", '<p class="namaz-today-label">آج <time datetime="') + today + '">' + esc(namazDateFormat.format(parseDay(today))) + '</time></p></header>' +
     (!prayerPrefs(person.id).confirmed ? tr("<p class=\"notice section\">For today's attendance <button class=\"link\" data-action=\"open-prayer-timing\">Save your location</button>۔</p>", '<p class="notice section">نماز کے اوقات دیکھنے کے لیے <button class="link" data-action="open-prayer-timing">اپنا مقام محفوظ کریں</button>؛ حاضری ہر وقت لگ سکتی ہے۔</p>') : '') +
     dailyAttendanceLedger(person,now,today) +
-    tr("<p class=\"namaz-instruction\">Select an attendance status and tap the prayer.</p>", '<p class="namaz-instruction">پہلے حاضری کی حالت منتخب کریں، پھر مطلوبہ نماز کے خانے پر ٹیپ کریں۔</p>') +
+    tr("<p class=\"namaz-instruction\">Select an attendance status and tap the prayer. Saved entries lock after 10 minutes; tap the same locked cell three times to unlock it.</p>", '<p class="namaz-instruction">حاضری کی حالت منتخب کرکے نماز پر ٹیپ کریں۔ دس منٹ بعد اندراج لاک ہوگا؛ اسی خانے پر مسلسل تین ٹیپ کرکے کھولیں۔</p>') +
     tr("<div class=\"namaz-options\" role=\"group\" aria-label=\"Attendance status\">", '<div class="namaz-options" role="group" aria-label="حاضری کی حالت">') +
     modeButtons.map(key => {
       const mode = prayerModes[key];
@@ -3041,10 +3092,24 @@ function handleNamazAction(action,button,value) {
   const {day} = button.dataset;
   const now = Date.now();
   const today = prayerDate(currentUserId,now);
+  if(attendanceIsLocked(currentUserId,day,value,now)){
+    const count=attendanceLockTap(currentUserId,day,value,now);
+    refreshAttendanceLockIcons(currentUserId,now);
+    setFeedback('namaz-feedback',count===3
+      ?tr('Unlocked. Select the new status and tap once.','ان لاک ہو گیا۔ نئی حاضری منتخب کرکے ایک مرتبہ ٹیپ کریں۔')
+      :tr('Locked. Tap the same prayer again: ','لاک ہے۔ اسی نماز پر دوبارہ ٹیپ کریں: ')+count+'/3',count===3);
+    return true;
+  }
+  attendanceTaps.clear();
+  if(knownPrayerStatus(currentUserId,day,value)===selectedNamazStatus){
+    setFeedback('namaz-feedback',tr('This status is already saved.','یہ حاضری پہلے سے محفوظ ہے۔'),true);
+    return true;
+  }
   if (!setPrayerAttendance(currentUserId,day,value,selectedNamazStatus,today,now)) {
     setFeedback('namaz-feedback',tr("Select today or an earlier date.",'آج یا پچھلی تاریخ منتخب کریں؛ آئندہ تاریخ کی حاضری نہیں لگ سکتی۔'));
     return true;
   }
+  attendanceRememberMark(currentUserId,day,value,selectedNamazStatus,now);
   const saved = saveOfflineState();
   const prayer = prayers.find(([id]) => id === value)[1];
   const status = prayerModes[prayerMode(currentUserId,day,value,today,now)].cell || tr("Entry cleared", 'اندراج صاف');
@@ -3063,6 +3128,7 @@ function updateNamazDate() {
   const changed = namazView === 'qaza' ? qazaRenderedClock !== today+'|'+phase :
     renderedNamazDay !== today || renderedNamazPhase !== phase;
   if (changed) render({keepScroll:true});
+  if(namazView==='attendance')refreshAttendanceLockIcons(currentUserId,now);
 }
 
 let extraPrayers = [['tahajjud',tr("Tahajjud", 'تہجد')],['ishraq',tr("Ishraq", 'اشراق')],['chasht',tr("Duha", 'چاشت')],['awwabin',tr("Awwabin", 'اوّابین')]];
@@ -5663,9 +5729,10 @@ ui.addEventListener("click",event=>{
     return;
   }
   if(action==="namaz-mark"||action==="qaza-record"){
-    const day=button.dataset.day,priorQaza=bridge.qazaRevision();
-    // Let the original calendar and Qaza UI update first.
+    const day=button.dataset.day,priorQaza=bridge.qazaRevision(),priorPrayer=bridge.prayerRevision();
+    // A locked tap or unlock gesture is not a prayer write.
     if(day)setTimeout(async()=>{
+      if(action==="namaz-mark"&&bridge.prayerRevision()===priorPrayer)return;
       // If attendance overwrites a Qaza-paid day, sync the amended Qaza plan too.
       if(action==="namaz-mark"&&bridge.qazaRevision()!==priorQaza)scheduleQazaSave();
       try{await prayerSaveSpark(day,bridge.prayerStatuses(day));}
