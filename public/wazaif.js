@@ -736,8 +736,17 @@ function readerMarkup(group){
  heroStat(s.continuing?"مجموعی باقی":"باقی",fmt(s.left),"hourglass","wz-hero-left")+
  heroStat(s.continuing?"کل ہدف":"مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal")+
  '</div>'+
- '<div class="wz-hero-progress"><span id="wz-hero-progress-label" dir="ltr">'+progress.toFixed(2)+'%</span>'+
- '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'"></progress></div>'+
+ '<div class="wz-progress-trio" role="group" aria-label="مجموعی تکمیل، باقی اور روزانہ ہدف">'+
+ '<div class="wz-hero-progress wz-progress-line">'+
+ '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'" aria-label="مجموعی تکمیل"></progress>'+
+ '<span id="wz-hero-progress-label" dir="ltr">'+progress.toFixed(2)+'%</span></div>'+
+ '<div class="wz-remaining-progress wz-progress-line">'+
+ '<progress id="wz-remaining-progress-bar" max="100" value="'+(100-progress)+'" aria-label="مجموعی باقی فیصد"></progress>'+
+ '<span class="wz-progress-copy"><b id="wz-remaining-progress-label" dir="ltr">'+(100-progress).toFixed(2)+'%</b><small>باقی</small></span></div>'+
+ '<div class="wz-daily-progress wz-progress-line">'+
+ '<progress id="wz-daily-progress-bar" max="100" value="0" aria-label="منتخب تاریخ کے روزانہ ہدف کی پیش رفت"></progress>'+
+ '<span class="wz-progress-copy"><b id="wz-daily-progress-label" dir="ltr">0.00%</b>'+
+ '<small id="wz-daily-progress-detail" dir="ltr">0 / '+fmt(s.dailyGoal)+'</small></span></div></div>'+
  '<div class="wz-daily-toolbar">'+
  '<div class="wz-reader-feedback" aria-label="ساؤنڈ وائبریشن اور فل سکرین">'+
  '<div class="wz-feedback-control">'+
@@ -769,10 +778,11 @@ function readerMarkup(group){
  '<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
  'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
- '<div class="wz-daily-progress" role="group" aria-label="منتخب تاریخ کے روزانہ ہدف کی پیش رفت">'+
- '<progress id="wz-daily-progress-bar" max="100" value="0" aria-label="روزانہ ہدف کی پیش رفت"></progress>'+
- '<span id="wz-daily-progress-label" dir="ltr">0.00%</span></div>'+
+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
+ '<svg class="wz-dial-ring-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
+ '<circle class="wz-dial-ring-track" cx="50" cy="50" r="46" pathLength="100"/>'+
+ '<circle class="wz-dial-ring-fill" cx="50" cy="50" r="46" pathLength="100" stroke-dasharray="100" stroke-dashoffset="'+(100-(state.tapQueue>0?(state.tapQueue%100||100):0))+'"/></svg>'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
  '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
@@ -819,10 +829,23 @@ function refreshHeroReader(){
  set("wz-time-all",durationText(t.total));
  updateWzSyncStatus();
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
- const dailyPercent=d.goal>0?Math.min(100,d.read*100/d.goal):0;
+ const remainingPercent=Math.max(0,100-percent);
+ const remainingBar=root.querySelector("#wz-remaining-progress-bar");
+ if(remainingBar)remainingBar.value=remainingPercent;
+ set("wz-remaining-progress-label",remainingPercent.toFixed(2)+"%");
+ // Daily percentage uses the selected day's original daily target, not the
+ // carried-over outstanding balance displayed separately in the five cards.
+ const selectedDay=group?readingDay():state.draftDay||readingDay();
+ const dailyTarget=Math.max(0,Number(group?w.dailyGoal:targetForDay(w,selectedDay))||0);
+ const dailyPercent=dailyTarget>0?Math.min(100,d.read*100/dailyTarget):0;
  set("wz-daily-progress-label",dailyPercent.toFixed(2)+"%");
+ set("wz-daily-progress-detail",fmt(d.read)+" / "+fmt(dailyTarget));
  const dayBar=root.querySelector("#wz-daily-progress-bar");if(dayBar)dayBar.value=dailyPercent;
- root.querySelector("#wz-dial").style.setProperty("--wz-ring",(state.tapQueue>0?(state.tapQueue%100||100):0)+"%");
+ const dial=root.querySelector("#wz-dial");
+ const ringCycle=state.tapQueue>0?(state.tapQueue%100||100):0;
+ dial.style.setProperty("--wz-ring",ringCycle+"%");
+ const ringCircle=dial.querySelector?.(".wz-dial-ring-fill");
+ if(ringCircle)ringCircle.setAttribute("stroke-dashoffset",String(100-ringCycle));
  if(!group){
    const history=root.querySelector("#wz-record-history");
    if(history){
@@ -1197,7 +1220,13 @@ function tap(){
  playWazifaFeedback();
  persistDraft();
  const el=$("#wz-dial-number");if(el)el.textContent=fmt(state.tapQueue);
- const dial=$("#wz-dial");if(dial)dial.style.setProperty("--wz-ring",(state.tapQueue%100||100)+"%");
+ const dial=$("#wz-dial");
+ if(dial){
+  const cycle=state.tapQueue%100||100;
+  dial.style.setProperty("--wz-ring",cycle+"%");
+  const ringCircle=dial.querySelector?.(".wz-dial-ring-fill");
+  if(ringCircle)ringCircle.setAttribute("stroke-dashoffset",String(100-cycle));
+ }
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
  tick();
