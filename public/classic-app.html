@@ -2121,6 +2121,24 @@ function liveFeed() {
 }
 
 let todayReaders=null,previousDayReaders=null,readerListDay=null,readerListError=false;
+let readerAuditToday=null,readerAuditPast=null;
+function readerAuditMarkup(){
+ if(!currentUser()?.isOwner)return "";
+ const rows=readerListDay===null?todayReaders:previousDayReaders;
+ const total=readerListDay===null?readerAuditToday:readerAuditPast;
+ if(!Array.isArray(rows)||!Number.isSafeInteger(total)||total<0)return "";
+ const listed=rows.reduce((sum,row)=>sum+(Number(row.total)||0)+(Number(row.manualTotal)||0),0);
+ const missing=total-listed;
+ return '<div style="padding:7px;margin:6px 0;border:1px solid var(--line);border-radius:8px;font-size:.75rem">'+
+   tr("Saved day total: ","تاریخ کا محفوظ کل شمار: ")+displayNumber(total)+' · '+
+   tr("Listed members: ","فہرست کا شمار: ")+displayNumber(listed)+
+   (missing>0?'<p style="margin:4px 0;color:#c98b24">'+tr("Unallocated historical count: ","ممبر کے نام کے بغیر محفوظ شمار: ")+displayNumber(missing)+
+      '<br>'+tr("Included in the day total; cannot be assigned to a member without evidence.","یہ کل شمار میں شامل ہے؛ اصل ثبوت کے بغیر کسی ممبر سے منسوب نہیں کیا جا سکتا۔")+'</p>':
+    missing<0?'<p style="margin:4px 0;color:#c98b24">'+tr("Totals differ; verify after sync.","شمار میں فرق ہے؛ سنک کے بعد تصدیق کریں۔")+'</p>':"")+'</div>';
+}
+function refreshReaderAudit(){
+ const audit=document.getElementById("reader-audit");if(audit)audit.innerHTML=readerAuditMarkup();
+}
 function readerDayLabel(){return readerListDay||dateKey();}
 function refreshReaderDateControls(){
  const label=document.getElementById("reader-list-date");
@@ -2182,7 +2200,7 @@ function overview() {
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
-   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr" style="display:grid;grid-template-columns:40px minmax(110px,1fr) 40px;gap:6px;align-items:center;max-width:280px;margin:6px auto"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0">−</button><bdi id="reader-list-date" style="text-align:center;font-weight:700">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0"'+(readerDayLabel()>=dateKey()?' disabled':'')+'>+</button></div>':"")+'<div id="today-readers">'+readerList()+'</div></section>'+
+   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr" style="display:grid;grid-template-columns:40px minmax(110px,1fr) 40px;gap:6px;align-items:center;max-width:280px;margin:6px auto"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0">−</button><bdi id="reader-list-date" style="text-align:center;font-weight:700">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0"'+(readerDayLabel()>=dateKey()?' disabled':'')+'>+</button></div>':"")+'<div id="reader-audit">'+readerAuditMarkup()+'</div><div id="today-readers">'+readerList()+'</div></section>'+
    '</div>';
 }
 
@@ -4378,8 +4396,8 @@ app.addEventListener('click', event => {
     const next=dateKey(day),today=dateKey();
     if(next>today||next<"1900-01-01")return;
     readerListDay=next===today?null:next;
-    previousDayReaders=null;readerListError=false;
-    refreshReaderDateControls();
+    previousDayReaders=null;readerListError=false;readerAuditPast=null;
+    refreshReaderDateControls();refreshReaderAudit();
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
     window.duroodWatchReaderDate?.(readerListDay);
     return;
@@ -4628,11 +4646,18 @@ window.duroodClassicBridge = {
     }
     const list=document.getElementById("today-readers");
     if(list)list.innerHTML=readerList();
+    refreshReaderAudit();
+  },
+  readerAudit(day,total,isToday){
+    if(isToday){if(day!==dateKey())return;readerAuditToday=total;}
+    else {if(day!==readerListDay)return;readerAuditPast=total;}
+    refreshReaderAudit();
   },
   previousReaders(day,rows,error=false){
     if(readerListDay!==day||day===null)return;
     previousDayReaders=rows;readerListError=error;
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
+    refreshReaderAudit();
     refreshReaderDateControls();
   },
   periodTotals(values){
@@ -4651,7 +4676,7 @@ window.duroodClassicBridge = {
     if(!refresh){
       liveGroupMemberCounts=new Map();
       liveMemberPhotos=new Map();
-      periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5186,13 +5211,18 @@ function observeCounters(side){
     stopHistory();stopHistory=()=>{};
     const generation=++historyGeneration;
     if(!day||!stillCurrent()||currentProfile?.role!=="owner"||!/^\d{4}-\d{2}-\d{2}$/.test(day)||day>=localReadingDate())return;
-    stopHistory=onSnapshot(collection(sideRef,"days",day,"readers"),{includeMetadataChanges:true},snap=>{
+    const stopAudit=onSnapshot(doc(sideRef,"days",day),{includeMetadataChanges:true},snap=>{
+      if(generation!==historyGeneration||!stillCurrent()||snap.metadata.fromCache)return;
+      bridge.readerAudit(day,snap.exists()?Number(snap.data().total):0,false);
+    },err=>console.warn("Historical total audit",err.code));
+    const stopList=onSnapshot(collection(sideRef,"days",day,"readers"),{includeMetadataChanges:true},snap=>{
       if(generation!==historyGeneration||!stillCurrent()||(snap.metadata.fromCache&&snap.empty))return;
       bridge.previousReaders(day,decodeReaderRows(snap));
     },err=>{
       if(generation===historyGeneration&&stillCurrent())bridge.previousReaders(day,null,true);
       console.warn("Selected date readers unavailable",err.code);
     });
+    stopHistory=()=>{stopAudit();stopList();};
   }
   window.duroodWatchReaderDate=watchReaderDate;
   const pulse=setInterval(()=>{
@@ -5216,6 +5246,7 @@ function observeCounters(side){
     watchGroupYear();refreshDashboardGroupProgress();
     stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);refreshReaderDateControls();
     const now=new Date(),today=localReadingDate(now);
+    bridge.readerAudit(today,null,true);
     const readers=collection(sideRef,"days",today,"readers");
     stopRows=onSnapshot(readers,{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||(snap.metadata.fromCache && snap.empty))return;
@@ -5246,6 +5277,7 @@ function observeCounters(side){
         if(day>=year)totals.year+=total;
       });
       bridge.periodTotals(totals);
+      if(stillCurrent()&&!snap.metadata.fromCache)bridge.readerAudit(today,totals.today,true);
     },err=>{bridge.periodTotals(null);console.warn("Period totals unavailable",err.code);});
     const tomorrow=new Date(now);tomorrow.setHours(24,0,0,0);
     timer=setTimeout(watchDays,tomorrow-now+50);
