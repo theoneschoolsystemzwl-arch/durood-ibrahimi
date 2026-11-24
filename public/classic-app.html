@@ -1324,7 +1324,7 @@ let readingSession = {};
 let dialFloating=false;
 let suppressNextDialClick=false;
 const paceFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
-const tasbihPaceWholeFormat = new Intl.NumberFormat('en',{maximumFractionDigits:0});
+const tasbihPaceWholeFormat = new Intl.NumberFormat('en',{maximumFractionDigits:1});
 let readerHistoryTimer=null;
 let readerHistoryLimit=31;
 // Group Durood records from Firebase, scoped to the authenticated member and gender.
@@ -2017,12 +2017,17 @@ function parseDay(key) {
 }
 
 function readingFor(id) {
-  return reading[id] ||= {goal:100,days:{}};
+  return reading[id] ||= {goal:100,goals:{},days:{}};
 }
 
+function readerGoalFor(ledger,day){
+  const dates=Object.keys(ledger.goals||{}).filter(d=>d<=day).sort();
+  const value=dates.length?Number(ledger.goals[dates.at(-1)]):Number(ledger.days[day]?.goal||100);
+  return Number.isSafeInteger(value)&&value>=1&&value<=1000000?value:100;
+}
 function getReadingDay(id, key) {
   const ledger = readingFor(id);
-  return ledger.days[key] ||= {goal:ledger.goal,taps:0,manual:0,ms:0,intervals:0,estimate:0,unestimated:0};
+  return ledger.days[key] ||= {goal:readerGoalFor(ledger,key),taps:0,manual:0,ms:0,intervals:0,estimate:0,unestimated:0};
 }
 
 function dayCount(person,key) {
@@ -2059,10 +2064,15 @@ function restoreReaderJournal(uid,id){
     if(saved?.schema!==2||!saved.days||typeof saved.days!=='object')return;
     const ledger=readingFor(id);
     if(Number.isSafeInteger(saved.goal)&&saved.goal>=1&&saved.goal<=1000000)ledger.goal=saved.goal;
+    ledger.goals={};
+    for(const [day,goal] of Object.entries(saved.goals||{})){
+      if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isSafeInteger(goal)&&goal>=1&&goal<=1000000)ledger.goals[day]=goal;
+    }
+    if(!Object.keys(ledger.goals).length)ledger.goals[dateKey()]=ledger.goal;
     for(const [day,item] of Object.entries(saved.days)){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!item||typeof item!=='object')continue;
       const record=getReadingDay(id,day);
-      for(const field of ['taps','manual','ms','intervals','estimate','unestimated']){
+      for(const field of ['goal','taps','manual','ms','intervals','estimate','unestimated']){
         const n=Number(item[field]||0);
         if(Number.isSafeInteger(n)&&n>=0&&n<=1000000000)record[field]=n;
       }
@@ -2077,7 +2087,7 @@ function persistReaderJournal(pending={}){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(day))continue;
       days[day]={...item,taps:Math.max(0,(item.taps||0)-(pending[day]||0))};
     }
-    localStorage.setItem(readerJournalKey(person.uid),JSON.stringify({schema:2,goal:ledger.goal,days}));
+    localStorage.setItem(readerJournalKey(person.uid),JSON.stringify({schema:2,goal:ledger.goal,goals:ledger.goals||{},days}));
   }catch(e){console.warn('Reader journal not saved',e);}
 }
 function sessionFor(id,key) {
@@ -2096,8 +2106,7 @@ function durationLabel(ms) {
 function compactTasbihClock(ms) {
   const total=Math.max(0,Math.floor((Number(ms)||0)/1000));
   const hours=Math.floor(total/3600),minutes=Math.floor(total/60)%60,seconds=total%60;
-  return hours ? hours+':'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0') :
-    minutes ? minutes+':'+String(seconds).padStart(2,'0') : String(seconds);
+  return String(hours).padStart(2,'0')+':'+String(minutes).padStart(2,'0')+':'+String(seconds).padStart(2,'0');
 }
 
 function priorPace(id) {
@@ -2117,7 +2126,7 @@ function historyRows(person,today) {
   let cumulativeGoal=0,cumulativeRead=0;
   // Create all daily rows from the user's registration day, including zero days.
   for(let day=first,i=0;day<=today && i<3660;i++){
-    const entry=ledger.days[day]||{},goal=Math.max(1,Number(entry.goal)||ledger.goal||100);
+    const entry=ledger.days[day]||{},goal=readerGoalFor(ledger,day);
     const tasbih=verifiedDuroodTaps(person,day),manual=Math.max(0,Number(entry.manual)||0);
     const count=tasbih+manual,previousDue=Math.max(0,cumulativeGoal-cumulativeRead);
     const previousCredit=Math.max(0,cumulativeRead-cumulativeGoal);
@@ -2251,11 +2260,12 @@ function updateClock() {
 
 function updateReader() {
   const person = currentUser();
-  const set = (id,value) => { document.getElementById(id).textContent = value; };
+  if(!person||!document.getElementById('read-progress'))return;
+  const set = (id,value) => { const node=document.getElementById(id);if(node)node.textContent=value; };
   const key = dateKey();
   const ledger = readingFor(person.id);
   const live = sessionFor(person.id,key);
-  const goal = ledger.goal;
+  const goal = readerGoalFor(ledger,key);
   const count = dayCount(person,key);
   // Count every completed recitation as on the Wazaif reader.
   const rate = live.count>0 && live.ms>0 ? live.ms/live.count : priorPace(person.id);
@@ -2265,9 +2275,9 @@ function updateReader() {
   set('read-global',formatNumber(globalTotal));
   set('session-count',formatNumber(verifiedDuroodTaps(person,key)));
   const taps=verifiedDuroodTaps(person,key);
-  const inCycle=taps>0 && taps%goal===0 ? goal : taps%goal;
+  const inCycle=taps>0 && taps%100===0 ? 100 : taps%100;
   const dial=document.querySelector('.reader .dial');
-  if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/Math.max(1,goal))+'deg');
+  if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/100)+'deg');
   set('pace-sec',rate ? tasbihPaceWholeFormat.format(rate / 1000) : '—');
   set('pace-minute',rate ? tasbihPaceWholeFormat.format(60000 / rate) : '—');
   set('pace-hour',rate ? tasbihPaceWholeFormat.format(3600000 / rate) : '—');
@@ -2401,7 +2411,7 @@ function handleReaderAction(action,button,value) {
   else if (action === 'daily-goal') {
     readingSession.lastTap = null;
     const dialog = document.getElementById('goal-dialog');
-    dialog.querySelector('[name="goal"]').value = readingFor(currentUserId).goal;
+    dialog.querySelector('[name="goal"]').value = readerGoalFor(readingFor(currentUserId),dateKey());
     setFeedback('goal-feedback','');
     dialog.showModal();
   } else if (action === 'manual-day') openManual(value);
@@ -2425,11 +2435,23 @@ function safePositive(value) {
 function submitDailyGoal(form,data) {
   const goal = safePositive(data.get('goal'));
   if (!goal) return setFeedback('goal-feedback',tr("Enter a valid daily target.", 'درست روزانہ ہدف درج کریں۔'));
-  readingFor(currentUserId).goal = goal;
-  persistReaderJournal();
-  getReadingDay(currentUserId,dateKey()).goal = goal;
-  form.closest('dialog').close();
-  savedReading(tr("Daily goal saved automatically.", 'روزانہ ہدف خودکار محفوظ ہو گیا۔'));
+  const person=currentUser(),day=dateKey(),button=form.querySelector('button:not([type])');
+  if(!person||button?.disabled)return;
+  if(button)button.disabled=true;
+  Promise.resolve().then(async()=>{
+    if(person.uid){
+      if(!window.duroodSaveReaderGoal)throw Error("Firebase unavailable");
+      await window.duroodSaveReaderGoal(person.uid,day,goal);
+    }
+    if(currentUser()?.id!==person.id)return;
+    const ledger=readingFor(person.id);
+    (ledger.goals||={})[day]=goal;ledger.goal=goal;
+    getReadingDay(person.id,day).goal=goal;
+    persistReaderJournal(readerPendingTotals);
+    form.closest('dialog')?.close();
+    if(section==='wazifa-reader')savedReading(tr("Daily goal saved.", 'روزانہ ہدف محفوظ ہو گیا۔'));
+  }).catch(()=>setFeedback('goal-feedback',tr("Goal not saved. Check your connection and retry.",'ہدف محفوظ نہیں ہوا۔ انٹرنیٹ چیک کرکے دوبارہ کوشش کریں۔')))
+    .finally(()=>{if(button?.isConnected)button.disabled=false;});
 }
 
 function submitManual(form,data) {
@@ -2692,7 +2714,7 @@ let timingPanelKey = '';
 
 function prayerPrefs(id) {
   return prayerSettings[id] ||= {...cityOptions.jakarta,confirmed:false,asr:1,ishaLimit:'half',
-    enabled:false,sound:false,vibrate:false,readerVibrate:false,selected:prayers.map(([key])=>key),sent:{}};
+    enabled:false,sound:false,vibrate:false,readerVibrate:true,selected:prayers.map(([key])=>key),sent:{}};
 }
 
 function zonedParts(value,zone) {
@@ -2934,7 +2956,12 @@ function updatePrayerCity(input) {
 }
 
 function touchVibration(pattern) {
-  try { return navigator.vibrate?.(pattern) ?? false; } catch { return false; }
+  try {
+    for(const target of [window,window.parent]){
+      try{if(typeof target.DuroodAndroid?.vibrate==='function'&&target.DuroodAndroid.vibrate(10)!==false)return true;}catch{}
+    }
+    return navigator.vibrate?.(pattern) ?? false;
+  } catch { return false; }
 }
 
 function unlockPrayerAudio() {
@@ -4145,6 +4172,18 @@ window.duroodClassicBridge = {
       !window.duroodWazaif?.groupCountsAsDurood?.())return;
     section='wazifa-reader';readingSession.lastTap=null;render();
     window.duroodRefreshGroupHistory?.();
+    window.duroodLoadReaderGoals?.();
+  },
+  readerGoalHistory(uid,rows){
+    const person=currentUser();if(person?.uid!==uid)return;
+    const ledger=readingFor(person.id);
+    const goals={...(ledger.goals||{})};
+    for(const row of rows||[]){
+      if(/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isSafeInteger(row.goal)&&row.goal>=1&&row.goal<=1000000)goals[row.date]=row.goal;
+    }
+    ledger.goals=goals;ledger.goal=readerGoalFor(ledger,dateKey());
+    persistReaderJournal(readerPendingTotals);
+    if(section==='wazifa-reader')updateReader();
   },
   readerHistoryWindow(){
     const person=currentUser();
@@ -4401,14 +4440,14 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=manual-ledger-unlock-20261124-v15";
+import "./wazaif.js?release=group-reader-20261124-v16";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
 import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=prayer-history-20261123-v6";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {updateDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const loadedPrayerMonths=new Map();
@@ -4520,6 +4559,18 @@ let currentProfile=null;
 // Read the member's historic Durood taps from the existing, same-gender
 // Firebase daily-reader documents. Empty documents mean zero for that day.
 // Read only displayed dates; older dates load when "More" is selected.
+window.duroodSaveReaderGoal=async function(uid,day,goal){
+ if(auth.currentUser?.uid!==uid||currentProfile?.uid!==uid||bridge.userForCurrent()!==uid)throw Error("Account changed");
+ await setDoc(doc(db,"memberPrivate",uid,"duroodGoals",day),{date:day,goal,updatedAt:serverTimestamp()});
+};
+window.duroodLoadReaderGoals=async function(){
+ const uid=auth.currentUser?.uid;
+ if(!uid||bridge.userForCurrent()!==uid)return;
+ try{
+   const snap=await getDocs(collection(db,"memberPrivate",uid,"duroodGoals"));
+   if(auth.currentUser?.uid===uid&&bridge.userForCurrent()===uid)bridge.readerGoalHistory(uid,snap.docs.map(x=>x.data()));
+ }catch(error){console.warn("Private Durood targets unavailable",error?.code||error);}
+};
 const groupHistoryFetched=new Set();
 let groupHistoryScope="";
 window.duroodRefreshGroupHistory=async function(){
