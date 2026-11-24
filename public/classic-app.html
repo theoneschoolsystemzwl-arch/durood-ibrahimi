@@ -1840,15 +1840,20 @@ function groupProgressValue(goal,count){
 const groupTargetKeys=["dailyGoal","weeklyGoal","monthlyGoal","yearlyGoal"];
 const groupTargetLabels=["روزانہ ہدف","ہفتہ وار ہدف","ماہانہ ہدف","سالانہ ہدف"];
 let memberGoalRows=null,memberReaderGoalRows=null,memberGroupDays=null,memberGroupSummary=null,ownerGoalRows=null;
-// A member contributes exactly one effective daily target. Legacy personal settings
-// are honored until replaced by an equally recent or newer Tasbih daily target.
-function effectiveGroupDailyGoal(dailyRows,legacyRows,day){
- const valid=n=>Number.isSafeInteger(n)&&n>=1&&n<=1000000000;
- const latest=rows=>(rows||[]).filter(r=>typeof r.date==="string"&&r.date<=day).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
- const daily=latest((dailyRows||[]).filter(r=>valid(r.goal))),legacy=latest(legacyRows);
- if(daily&&(!legacy||daily.date>=legacy.date||legacy.mode!=="personal"))return daily.goal;
- return legacy?.mode==="personal"&&valid(legacy.dailyGoal)?legacy.dailyGoal:0;
+// The Tasbih daily target is the single source of truth; zero is a saved target.
+function latestReaderGoal(rows,day){
+ return (rows||[]).filter(r=>typeof r.date==="string"&&r.date<=day&&Number.isSafeInteger(r.goal)&&r.goal>=0&&r.goal<=1000000).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
 }
+function effectiveGroupDailyGoal(dailyRows,legacyRows,day){
+ return latestReaderGoal(dailyRows,day)?.goal??0;
+}
+function hasMemberDailyGoal(day=dateKey()){
+ return !!latestReaderGoal(memberReaderGoalRows,day);
+}
+window.duroodEnsureMemberDailyGoal=()=>{
+ if(!currentUser()?.uid||hasMemberDailyGoal())return true;
+ openMemberDailyTarget();return false;
+};
 function goalPeriods(daily,day){
  const [year,month]=day.split("-").map(Number);
  const monthDays=new Date(year,month,0).getDate();
@@ -1868,21 +1873,23 @@ function refreshMemberGroupProgress(){
  window.duroodWazaif?.refreshGroupTargets?.();
 }
 function openMemberDailyTarget(){
- if(!currentUser()?.uid||memberReaderGoalRows===null||memberGoalRows===null){window.duroodClassicBridge?.notice("روزانہ ہدف لوڈ نہیں ہوا۔ انٹرنیٹ چیک کریں۔");return;}
+ if(!currentUser()?.uid)return;
+ if(ownerViewingWomen()){window.duroodClassicBridge?.notice("اپنا ہدف مردوں کی سائیڈ سے مقرر کریں۔");return;}
+ window.duroodLoadReaderGoals?.();
  const old=document.getElementById("member-daily-goal-dialog");if(old?.open)return;old?.remove();
- const goal=memberGroupTargets().dailyGoal,dialog=document.createElement("dialog");
- dialog.id="member-daily-goal-dialog";dialog.dir="rtl";
- dialog.innerHTML='<h2>میرا روزانہ ہدف</h2><form class="form"><label class="field">روزانہ درود / وظیفہ کی تعداد<input name="goal" type="number" min="1" max="1000000" step="1" required value="'+(goal||"")+'"></label><p class="muted">یہ ہدف خودکار طور پر اجتماعی روزانہ، ہفتہ وار، ماہانہ اور سالانہ اہداف میں شامل ہوگا۔</p><p data-goal-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-goal>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
+ const goal=latestReaderGoal(memberReaderGoalRows,dateKey())?.goal,dialog=document.createElement("dialog");
+ dialog.id="member-daily-goal-dialog";dialog.dir="rtl";dialog.setAttribute("aria-labelledby","member-daily-goal-title");dialog.style.background="var(--surface, #064638)";dialog.style.color="var(--ink, #fff)";
+ dialog.innerHTML='<h2 id="member-daily-goal-title">میرا روزانہ ہدف</h2><form class="form"><label class="field">روزانہ درود / وظیفہ کی تعداد<input name="goal" type="number" min="0" max="1000000" step="1" required value="'+(goal??"")+'"></label><p class="muted">صفر بھی محفوظ کر سکتے ہیں اور کسی بھی وقت ہدف بدل سکتے ہیں۔ یہ ہدف خودکار طور پر اپنی سائیڈ کے اجتماعی اہداف میں شامل ہوگا۔</p><p data-goal-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-goal>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
  const form=dialog.querySelector("form");
  dialog.querySelector("[data-close-goal]").addEventListener("click",()=>dialog.close());
  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
  form.addEventListener("submit",async event=>{
   event.preventDefault();event.stopImmediatePropagation();
   const uid=currentUser()?.uid,day=dateKey(),goal=Number(form.elements.goal.value),button=form.querySelector('[type="submit"]'),note=form.querySelector("[data-goal-feedback]");
-  if(button.disabled||!Number.isSafeInteger(goal)||goal<1||goal>1000000)return;
+  if(button.disabled||form.elements.goal.value.trim()===""||!Number.isSafeInteger(goal)||goal<0||goal>1000000)return;
   button.disabled=true;
   try{await window.duroodSaveReaderGoal(uid,day,goal);if(currentUser()?.uid===uid){window.duroodClassicBridge.readerGoalHistory(uid,[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}]);dialog.close();}}
-  catch(error){note.textContent="ہدف محفوظ نہیں ہوا۔ دوبارہ کوشش کریں۔";}finally{button.disabled=false;}
+  catch(error){note.textContent="ہدف محفوظ نہیں ہوا: "+(error?.code||error?.message||"دوبارہ کوشش کریں۔");}finally{button.disabled=false;}
  });
  document.body.append(dialog);dialog.showModal();
 }
@@ -2185,10 +2192,10 @@ function restoreReaderJournal(uid,id){
     const saved=JSON.parse(localStorage.getItem(readerJournalKey(uid))||'null');
     if(saved?.schema!==2||!saved.days||typeof saved.days!=='object')return;
     const ledger=readingFor(id);
-    if(Number.isSafeInteger(saved.goal)&&saved.goal>=1&&saved.goal<=1000000)ledger.goal=saved.goal;
+    if(Number.isSafeInteger(saved.goal)&&saved.goal>=0&&saved.goal<=1000000)ledger.goal=saved.goal;
     ledger.goals={};
     for(const [day,goal] of Object.entries(saved.goals||{})){
-      if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isSafeInteger(goal)&&goal>=1&&goal<=1000000)ledger.goals[day]=goal;
+      if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isSafeInteger(goal)&&goal>=0&&goal<=1000000)ledger.goals[day]=goal;
     }
     if(!Object.keys(ledger.goals).length)ledger.goals[dateKey()]=ledger.goal;
     for(const [day,item] of Object.entries(saved.days)){
@@ -2305,7 +2312,7 @@ function historyRows(person,today) {
 function readingDialogs() {
   return tr("<dialog id=\"goal-dialog\" aria-labelledby=\"daily-goal-title\"><h2 id=\"daily-goal-title\">Daily goal</h2>", '<dialog id="goal-dialog" aria-labelledby="daily-goal-title"><h2 id="daily-goal-title">روزانہ ہدف</h2>') +
     ur(tr("Set a daily target. You can keep counting after reaching it.", 'اپنا روزانہ ہدف مقرر کریں۔ ہدف پورا ہونے کے بعد بھی شمار بڑھتا رہے گا۔')) +
-    tr("<form id=\"daily-goal-form\" class=\"form\"><label class=\"field\">Daily Durood target<input name=\"goal\" type=\"number\" min=\"1\" max=\"1000000\" step=\"1\" required></label>", '<form id="daily-goal-form" class="form"><label class="field">روزانہ درود کی تعداد<input name="goal" type="number" min="1" max="1000000" step="1" required></label>') +
+    tr("<form id=\"daily-goal-form\" class=\"form\"><label class=\"field\">Daily Durood target<input name=\"goal\" type=\"number\" min=\"0\" max=\"1000000\" step=\"1\" required></label>", '<form id="daily-goal-form" class="form"><label class="field">روزانہ درود کی تعداد<input name="goal" type="number" min="0" max="1000000" step="1" required></label>') +
     feedback('goal-feedback') + tr("<div class=\"form-actions\"><button type=\"button\" class=\"button secondary\" data-action=\"close-reader-dialog\">Cancel</button>", '<div class="form-actions"><button type="button" class="button secondary" data-action="close-reader-dialog">منسوخ کریں</button>') +
     tr("<button class=\"button\">Set goal</button></div></form></dialog>", '<button class="button">ہدف مقرر کریں</button></div></form></dialog>') +
     tr("<dialog id=\"manual-dialog\" aria-labelledby=\"manual-title\"><h2 id=\"manual-title\">Add offline Durood</h2>", '<dialog id="manual-dialog" aria-labelledby="manual-title"><h2 id="manual-title">آف لائن درود شامل کریں</h2>') +
@@ -2415,7 +2422,7 @@ function updateReader() {
   set('pace-hour',rate ? tasbihPaceWholeFormat.format(3600000 / rate) : '—');
   const percent = goal>0?Math.min(100,Math.round(count * 1000 / goal)/10):0;
   const remaining = Math.max(0,goal - count);
-  set('read-goal-note', !goal ? tr("Set your daily goal","اپنا روزانہ ہدف مقرر کریں") : remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');
+  set('read-goal-note', !goal ? (hasMemberDailyGoal()?tr("Daily goal: 0","روزانہ ہدف: 0"):tr("Set your daily goal","اپنا روزانہ ہدف مقرر کریں")) : remaining ? formatNumber(remaining) + tr(" left today · ", ' آج باقی · ') + percent + '%' : tr("Daily goal reached · ", 'روزانہ ہدف پورا · ') + percent + '%');
   const progress = document.getElementById('read-progress');
   progress.max = goal||1;
   progress.value = Math.min(goal,count);
@@ -2566,8 +2573,8 @@ function safePositive(value) {
 }
 
 function submitDailyGoal(form,data) {
-  const goal = safePositive(data.get('goal'));
-  if (!goal) return setFeedback('goal-feedback',tr("Enter a valid daily target.", 'درست روزانہ ہدف درج کریں۔'));
+  const raw = data.get('goal'),goal=Number(raw);
+  if (raw===null||String(raw).trim()===''||!Number.isSafeInteger(goal)||goal<0||goal>1000000) return setFeedback('goal-feedback',tr("Enter a valid daily target.", 'درست روزانہ ہدف درج کریں۔'));
   const person=currentUser(),day=dateKey(),button=form.querySelector('button:not([type])');
   if(!person||button?.disabled)return;
   if(button)button.disabled=true;
@@ -4325,14 +4332,17 @@ window.duroodClassicBridge = {
     section='wazifa-reader';readingSession.lastTap=null;render();
     window.duroodRefreshGroupHistory?.();
     window.duroodLoadReaderGoals?.();
+    if(memberReaderGoalRows!==null&&!hasMemberDailyGoal()&&!ownerViewingWomen())openMemberDailyTarget();
   },
   readerGoalHistory(uid,rows){
     const person=currentUser();if(person?.uid!==uid)return;
+    const firstLoad=memberReaderGoalRows===null;
     memberReaderGoalRows=rows;
+    if(firstLoad&&section==='wazifa-reader'&&!hasMemberDailyGoal()&&!ownerViewingWomen())openMemberDailyTarget();
     const ledger=readingFor(person.id);
     const remote={};
     for(const row of rows||[]){
-      if(/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isSafeInteger(row.goal)&&row.goal>=1&&row.goal<=1000000)remote[row.date]=row.goal;
+      if(/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isSafeInteger(row.goal)&&row.goal>=0&&row.goal<=1000000)remote[row.date]=row.goal;
     }
     const firstRemote=Object.keys(remote).sort()[0];
     // Preserve local legacy targets before the first cloud target only;
@@ -4723,6 +4733,7 @@ let currentProfile=null;
 // Read only displayed dates; older dates load when "More" is selected.
 window.duroodSaveReaderGoal=async function(uid,day,goal){
  if(auth.currentUser?.uid!==uid||currentProfile?.uid!==uid||bridge.userForCurrent()!==uid)throw Error("Account changed");
+ if(!Number.isSafeInteger(goal)||goal<0||goal>1000000)throw Error("Invalid daily goal");
  await setDoc(doc(db,"memberPrivate",uid,"duroodGoals",day),{date:day,goal,updatedAt:serverTimestamp()});
 };
 let goalWatchUid="",stopGoalWatch=()=>{};
@@ -4730,7 +4741,7 @@ window.duroodLoadReaderGoals=function(){
  const uid=auth.currentUser?.uid;
  if(!uid||bridge.userForCurrent()!==uid||goalWatchUid===uid)return;
  stopGoalWatch();goalWatchUid=uid;
- stopGoalWatch=onSnapshot(collection(db,"memberPrivate",uid,"duroodGoals"),snap=>{
+ stopGoalWatch=onSnapshot(collection(db,"memberPrivate",uid,"duroodGoals"),{includeMetadataChanges:true},snap=>{
    if(auth.currentUser?.uid===uid&&bridge.userForCurrent()===uid&&!snap.metadata.fromCache)
      bridge.readerGoalHistory(uid,snap.docs.map(x=>x.data()));
  },error=>{goalWatchUid="";console.warn("Private Durood targets unavailable",error?.code||error);});
@@ -4783,6 +4794,7 @@ const tasbihSync=createDurableTasbihSync({
 function queueTasbihTap(){
  const uid=auth.currentUser?.uid;
  if(!uid||uid!==currentProfile?.uid)return;
+ if(!window.duroodEnsureMemberDailyGoal?.())return;
  const day=localReadingDate();
  if(!tasbihSync.enqueue({taskId:"_durood_",day,count:1,source:"tasbih",
    durationMs:0,intervals:0})){
@@ -4821,22 +4833,26 @@ function observeCounters(side){
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>auth.currentUser?.uid===observedUid;
+  bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
   const publishGoals=()=>{
     if(!stillCurrent())return;
     const rows=[...goalMembers.values()];
-    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null&&r.legacy!==null)?rows.map(r=>({daily:r.daily,legacy:r.legacy})):null);
+    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily})):null);
   };
   if(currentProfile?.role==="owner"){
     stopGoalDirectory=onSnapshot(collection(db,"members"),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       goalDirectoryReady=true;
-      const active=new Set(snap.docs.filter(d=>d.data().disabled!==true&&d.data().deleted!==true).map(d=>d.id));
+      const active=new Set(snap.docs.filter(d=>{
+        const m=d.data(),gender=m.role==="owner"?(m.gender||"male"):m.gender;
+        return m.disabled!==true&&m.deleted!==true&&gender===side;
+      }).map(d=>d.id));
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(!goalMembers.has(uid)){
-        const r={daily:null,legacy:null,stops:[]};goalMembers.set(uid,r);
-        for(const [key,name] of [["daily","duroodGoals"],["legacy","groupTargets"]]){
+        const r={daily:null,stops:[]};goalMembers.set(uid,r);
+        for(const [key,name] of [["daily","duroodGoals"]]){
           r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();

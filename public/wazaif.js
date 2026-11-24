@@ -504,7 +504,7 @@ function autoGroupGoalMarkup(){
  const goals=window.duroodAggregateGroupTargets?.();
  const labels=[["dailyGoal","روزانہ ہدف"],["weeklyGoal","ہفتہ وار ہدف"],["monthlyGoal","ماہانہ ہدف"],["yearlyGoal","سالانہ ہدف"]];
  return labels.map(([key,label])=>'<label class="wz-goal-field">'+label+'<input type="text" readonly value="'+(goals?fmt(goals[key]):"لوڈ ہو رہا ہے")+'"></label>').join("")+
- '<p class="wz-help">تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سال 365 یا 366 دن۔</p>';
+ '<p class="wz-help">موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سال 365 یا 366 دن۔</p>';
 }
 function formMarkup(){
  const g=state.formScope==="group";
@@ -1395,6 +1395,7 @@ function startClock(){
 function tap(){
  if(state.skipDialClick){state.skipDialClick=false;return;}
  if(state.busy||state.tapBusy||!auth.currentUser||!["group-reader","personal-reader"].includes(state.mode))return;
+ if(state.mode==="group-reader"&&window.duroodEnsureMemberDailyGoal?.()===false)return;
  if(state.mode==="personal-reader"){
   const task=state.personal.find(item=>item.id===state.readerId);
   if(!task||state.draftDay<task.startDate||
@@ -1679,7 +1680,7 @@ document.addEventListener("click",event=>{
      return;
    }
    state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=readingDay();
-   const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});return;
+   const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});window.duroodEnsureMemberDailyGoal?.();return;
  }
  if(action==="read-personal"){
    const selected=state.personal.find(item=>item.id===id);

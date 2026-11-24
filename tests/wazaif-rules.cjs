@@ -24,6 +24,14 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const member=env.authenticatedContext(memberUid,{auth_time:1700000000}).firestore();
   const other=env.authenticatedContext(otherUid,{auth_time:1700000000}).firestore();
   const femaleFriend=env.authenticatedContext(femaleFriendUid,{auth_time:1700000000}).firestore();
+  const goalRef=doc(member,"memberPrivate",memberUid,"duroodGoals",day);
+  await assertSucceeds(setDoc(goalRef,{date:day,goal:100,updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(goalRef,{date:day,goal:0,updatedAt:serverTimestamp()}));
+  await assertSucceeds(getDoc(doc(owner,"memberPrivate",memberUid,"duroodGoals",day)));
+  await assertFails(getDoc(doc(other,"memberPrivate",memberUid,"duroodGoals",day)));
+  await assertFails(setDoc(goalRef,{date:day,goal:-1,updatedAt:serverTimestamp()}));
+  await assertFails(setDoc(doc(owner,"memberPrivate",memberUid,"duroodGoals",day),{date:day,goal:50,updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(goalRef,{date:day,goal:250,updatedAt:serverTimestamp()}));
   const group=doc(owner,"wazaifSettings","group");
   const base={title:"درود ابراہیمی",arabic:"اللهم صل على محمد",instructions:"Read once",purpose:"Durood",kind:"group",dailyGoal:200,yearlyGoal:1000000,startDate:day,active:true,countAsDurood:true};
   await assertFails(getDoc(doc(guest,"wazaifSettings","group")));

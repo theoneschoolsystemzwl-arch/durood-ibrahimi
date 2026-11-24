@@ -400,7 +400,7 @@ service cloud.firestore {
         request.resource.data.keys().hasAll(['date','goal','updatedAt']) &&
         request.resource.data.date == date &&
         request.resource.data.goal is int &&
-        request.resource.data.goal >= 1 && request.resource.data.goal <= 1000000 &&
+        request.resource.data.goal >= 0 && request.resource.data.goal <= 1000000 &&
         request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }

@@ -212,9 +212,9 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
 // Member daily targets sum once, legacy personal goals migrate without double-counting.
 {
  const classic=fs.readFileSync("public/classic-app.html","utf8");
- const start=classic.indexOf("function effectiveGroupDailyGoal("),end=classic.indexOf("window.duroodMemberGroupTargets=",start);
+ const start=classic.indexOf("function latestReaderGoal("),end=classic.indexOf("window.duroodMemberGroupTargets=",start);
  assert(start>=0&&end>start);
- const targetContext=vm.createContext({Date,Number,Math,Object,Array});
+ const targetContext=vm.createContext({Date,Number,Math,Object,Array,window:{}});
  vm.runInContext(classic.slice(start,end),targetContext);
  const aggregate=vm.runInContext("aggregateGroupTargets",targetContext);
  const member=(goal,date="2026-11-24")=>({daily:[{date,goal}],legacy:[]});
@@ -224,7 +224,12 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([member(100,"2028-02-01")],"2028-02-29").yearlyGoal,36600);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:120}],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:100}]}],"2026-11-24").dailyGoal,120);
  assert.equal(aggregate([{daily:[],legacy:[{date:"2026-11-24",mode:"owner",dailyGoal:100}]}],"2026-11-24").dailyGoal,0);
+ assert.equal(aggregate([member(100),member(0)],"2026-11-24").dailyGoal,100);
+ assert.equal(aggregate([{daily:[{date:"2026-11-23",goal:100},{date:"2026-11-24",goal:0}],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:200}]}],"2026-11-24").dailyGoal,0);
+ assert.equal(aggregate([{daily:[],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:500}]}],"2026-11-24").dailyGoal,0);
  assert.equal(aggregate(null,"2026-11-24"),null);
+ assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
+ assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
  const overview=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
  assert(!overview.includes("dashboard-group-progress")&&!overview.includes("data-member-group-progress"));
  assert(!source.includes("data-group-target-settings"));
