@@ -988,3 +988,51 @@ body.wz-immersive-reader .wz-session-card .wz-hero-dial:not(.is-floating){
 body.wz-immersive-reader .wz-reader-fullscreen[aria-pressed="true"]{
  color:#fff!important;
 }
+
+/* Arabic ticker below the existing statistics and above the Tasbih dial. */
+.wz-hero-reader .wz-session-card .wz-arabic-ticker{
+ box-sizing:border-box;width:100%;min-width:0;max-width:100%;
+ margin:7px 0 4px;padding:4px;border:1px solid #25dba6;border-radius:12px;
+ background:#003d30;overflow:hidden;
+}
+.wz-ticker-controls{
+ display:flex;justify-content:space-between;align-items:center;gap:4px;
+ margin:0 0 4px;
+}
+.wz-ticker-setting{
+ display:flex;align-items:center;gap:4px;min-width:0;color:#e4fff2;
+ font:700 .76rem/1.1 var(--ur,serif);
+}
+.wz-ticker-setting button{
+ display:grid;place-items:center;width:29px;height:28px;flex:none;
+ border:1px solid #32bf99;border-radius:7px;background:#075b46;
+ color:#fff;font:700 17px/1 system-ui,sans-serif;cursor:pointer;
+}
+.wz-ticker-setting output{
+ min-width:20px;text-align:center;font:700 12px/1 system-ui,sans-serif;
+ color:#aaffdc;
+}
+.wz-ticker-window{
+ direction:ltr;position:relative;display:flex;align-items:center;
+ width:100%;height:clamp(48px,14vw,60px);overflow:hidden;
+ border:1px solid #1fa581;border-radius:8px;background:#002b23;
+ box-sizing:border-box;
+}
+.wz-ticker-text{
+ position:absolute;left:0;width:max-content;max-width:none;white-space:nowrap;
+ font-family:"Noto Naskh Arabic","Noto Sans Arabic",serif!important;
+ font-weight:600;line-height:1.5;color:#ffedb5;direction:rtl;
+ unicode-bidi:isolate;will-change:transform;
+}
+.wz-ticker-text.wz-ticker-css{animation:wz-ticker-slide linear infinite}
+@keyframes wz-ticker-slide{
+ from{transform:translateX(-100%)}
+ to{transform:translateX(var(--wz-ticker-distance,100vw))}
+}
+.wz-hero-reader .wz-session-card .wz-hero-dial:not(.is-floating){
+ width:min(88%,460px)!important;margin:10px auto 8px!important;
+}
+body.wz-immersive-reader .wz-session-card .wz-hero-dial:not(.is-floating){
+ width:min(88%, 420px, max(150px, calc(100dvh - 410px)))!important;
+ margin:auto auto 8px!important;
+}
