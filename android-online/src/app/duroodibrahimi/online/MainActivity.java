@@ -2,6 +2,11 @@ package app.duroodibrahimi.online.testing;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.content.Context;
+import android.webkit.JavascriptInterface;
 import android.content.Intent;
 import android.content.ActivityNotFoundException;
 import android.graphics.Color;
@@ -29,6 +34,7 @@ public final class MainActivity extends Activity {
     private FrameLayout root;
     private TextView retryView;
     private boolean pageFailed=false;
+    private boolean nativeImmersive=false;
 
     private void showRetry() {
         pageFailed=true;
@@ -48,7 +54,8 @@ public final class MainActivity extends Activity {
                         android.view.WindowInsets.Type.systemBars()
                         | android.view.WindowInsets.Type.displayCutout());
                 int keyboard = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom;
-                root.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard));
+                if(nativeImmersive)root.setPadding(0,0,0,keyboard);
+                else root.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard));
                 return android.view.WindowInsets.CONSUMED;
             });
         }
@@ -56,6 +63,7 @@ public final class MainActivity extends Activity {
         root.post(root::requestApplyInsets);
         try {
             web = new WebView(this);
+            web.addJavascriptInterface(new ReaderHaptics(),"DuroodAndroid");
             WebSettings settings = web.getSettings();
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
@@ -156,7 +164,44 @@ public final class MainActivity extends Activity {
         }
         finishImage(null);
     }
+    private boolean trustedPage() {
+        if(web==null)return false;
+        Uri url=Uri.parse(web.getUrl()==null?"":web.getUrl());
+        return "https".equals(url.getScheme())&&WEB_HOST.equals(url.getHost());
+    }
+    private void updateImmersive(boolean enabled) {
+        nativeImmersive=enabled;
+        final int flags=enabled?
+            View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_STABLE:0;
+        getWindow().getDecorView().setSystemUiVisibility(flags);
+        if(root!=null)root.requestApplyInsets();
+    }
+    private final class ReaderHaptics {
+        @JavascriptInterface public void vibrate(int level) {
+            if(!trustedPage())return;
+            final int safe=Math.max(0,Math.min(10,level));
+            if(safe==0)return;
+            runOnUiThread(()->{
+                Vibrator motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+                if(motor==null||!motor.hasVibrator())return;
+                long duration=20L+safe*12L;
+                if(Build.VERSION.SDK_INT>=26)
+                    motor.vibrate(VibrationEffect.createOneShot(duration,VibrationEffect.DEFAULT_AMPLITUDE));
+                else motor.vibrate(duration);
+            });
+        }
+        @JavascriptInterface public void setImmersive(boolean enabled) {
+            if(!trustedPage())return;
+            runOnUiThread(()->updateImmersive(enabled));
+        }
+    }
     @Override public void onBackPressed() {
+        if(nativeImmersive){
+            updateImmersive(false);
+            web.evaluateJavascript("document.body.classList.remove('wz-immersive-reader')",null);
+            return;
+        }
         if(web!=null && web.canGoBack())web.goBack();
         else super.onBackPressed();
     }
