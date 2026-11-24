@@ -167,7 +167,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:3,vibrateLevel:3,lastTapAt:0
+ seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -208,13 +208,13 @@ const owner=()=>state.profile?.role==="owner";
 try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
  state.vibrateEnabled=localStorage.getItem("durood-wz-vibration")==="1";
-  state.soundLevel=Math.min(5,Math.max(1,Number(localStorage.getItem("durood-wz-sound-level"))||3));
-  state.vibrateLevel=Math.min(5,Math.max(1,Number(localStorage.getItem("durood-wz-vibration-level"))||3));
+  state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
+  state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)));
 }catch{}
 let wzTapAudio=null;
 function playWazifaFeedback(){
- if(state.vibrateEnabled){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
- if(!state.soundEnabled)return;
+ if(state.vibrateEnabled&&state.vibrateLevel>0){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
+ if(!state.soundEnabled||state.soundLevel===0)return;
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;
   if(!Audio)return;
@@ -1318,11 +1318,11 @@ document.addEventListener("click",event=>{
  }
  if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
   const sound=action.startsWith("sound-"),key=sound?"soundLevel":"vibrateLevel";
-  state[key]=Math.min(5,Math.max(1,state[key]+(action.endsWith("-up")?1:-1)));
+  state[key]=Math.min(10,Math.max(0,state[key]+(action.endsWith("-up")?1:-1)));
   try{localStorage.setItem(sound?"durood-wz-sound-level":"durood-wz-vibration-level",String(state[key]));}catch{}
   const output=$(sound?"#wz-sound-level":"#wz-vibration-level");
   if(output)output.textContent=String(state[key]);
-  if(!sound&&state.vibrateEnabled){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
+  if(!sound&&state.vibrateEnabled&&state.vibrateLevel>0){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
   if(sound&&state.soundEnabled)playWazifaFeedback();
   return;
  }
@@ -1331,7 +1331,22 @@ document.addEventListener("click",event=>{
   state[key]=!state[key];
   try{localStorage.setItem(sound?"durood-wz-sound":"durood-wz-vibration",state[key]?"1":"0");}catch{}
   button.setAttribute("aria-pressed",String(state[key]));
-  button.textContent=(sound?"ساؤنڈ ":"وائبریشن ")+(state[key]?"آن":"آف");
+  button.textContent=sound?"ساؤنڈ":"وائبریشن";
+  return;
+ }
+ if(action==="toggle-fullscreen"){
+  try{
+   if(document.fullscreenElement){void document.exitFullscreen?.().catch(setError);}
+   else if(document.documentElement.requestFullscreen){void document.documentElement.requestFullscreen().catch(setError);}
+   else setError("اس براؤزر میں فل سکرین دستیاب نہیں۔");
+  }catch(e){setError(e);}
+  return;
+ }
+ if(action==="day-prev"||action==="day-next"){
+  if(state.mode!=="personal-reader")return;
+  const selected=state.draftDay||readingDay();
+  const target=addDays(selected,action==="day-next"?1:-1);
+  if(dayOk(target))changeWazifaDay(target);
   return;
  }
  if(action==="new")return openForm("personal");
