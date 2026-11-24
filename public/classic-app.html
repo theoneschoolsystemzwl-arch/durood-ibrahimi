@@ -4821,7 +4821,7 @@ function observeCounters(side){
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>auth.currentUser?.uid===observedUid;
-  window.duroodLoadReaderGoals();
+  stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
   const publishGoals=()=>{
     if(!stillCurrent())return;

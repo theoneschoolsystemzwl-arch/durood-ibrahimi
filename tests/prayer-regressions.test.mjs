@@ -62,6 +62,8 @@ assert(rules.includes("self(uid) && currentMember()"));
 const prayerKeys=["fajr","dhuhr","asr","maghrib","isha"];
 const dayToday="2026-11-23",dayPast="2026-11-22";
 const ledgerCtx={
+  Date,
+  registrationDate:person=>person?.joined instanceof Date?person.joined:null,
   prayers:prayerKeys.map(id=>[id,id]),modeButtons:["jamat","solo","made","clear"],
   attendance:{1:{
     "2026-11-21":{fajr:"jamat",dhuhr:"solo",maghrib:"missed"},
@@ -72,7 +74,7 @@ const ledgerCtx={
     asr:{"2026-11-21":true,"2026-11-22":true},
     isha:{"2026-11-22":true}
   }}},
-  prayerDate:()=>dayToday,
+  prayerDate:(_id,ms)=>ms===undefined?dayToday:new Date(ms).toISOString().slice(0,10),
   dateNumber:day=>Date.parse(day+"T00:00:00Z")/86400000,
   qazaDate:n=>new Date(n*86400000).toISOString().slice(0,10),
   attendancePhase:(_member,day)=>day===dayToday?"upcoming":"missed",

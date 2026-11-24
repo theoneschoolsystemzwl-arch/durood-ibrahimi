@@ -171,7 +171,7 @@ assert(source.includes('state.personal=state.personal.map(item=>item.id===task.i
 // Arabic text editor must accept a full Surah, never silently truncate a
 // paste at the old 3,000-character browser limit. Confirm backend alignment.
 const editorSource=source.slice(source.indexOf("function formMarkup("),source.indexOf("function heroIcon("));
-assert(editorSource.includes('name="arabic" id="wz-arabic-input" rows="12" required'));
+assert(/<textarea\b[^>]*name="arabic"[^>]*id="wz-arabic-input"[^>]*rows="12"[^>]*\brequired\b/.test(editorSource));
 assert(!editorSource.includes('name="arabic" rows="4" required maxlength="3000"'));
 assert(!/textarea name="arabic"[^>]*maxlength=/.test(editorSource),
  "Pasting a long Surah must not be silently cut by HTML maxlength");

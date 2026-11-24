@@ -232,7 +232,7 @@ assert.equal((reader.match(/id="wz-daily-progress-bar"/g)||[]).length,1,
 assert(reader.indexOf('class="wz-progress-trio"')<reader.indexOf('class="wz-daily-toolbar"'),
   "all three bars stay next to one another above the controls");
 assert(reader.includes('(100-progress).toFixed(2)'),"remaining fraction complements completion");
-assert(src.includes("const dailyTarget=Math.max(0,Number(group?w.dailyGoal:targetForDay(w,selectedDay))||0)"),
+assert(src.includes("const dailyTarget=Math.max(0,Number(group?memberGroupDailyGoal(w,selectedDay):targetForDay(w,selectedDay))||0)"),
   "daily bar uses the date-specific target, not carried backlog");
 assert(src.includes('d.read*100/dailyTarget'),"daily percent uses actual day readings");
 assert(src.includes('set("wz-daily-progress-detail",fmt(d.read)+" / "+fmt(dailyTarget))'),
