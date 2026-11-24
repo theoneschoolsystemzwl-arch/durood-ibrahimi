@@ -1836,7 +1836,7 @@ function profileDetails(person) {
     tr("</small></div></div><button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Back to users</button></div>", '</small></div></div><button class="button secondary" data-action="nav" data-value="directory">صارفین پر واپس</button></div>') +
     '<dl class="detail-grid">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
     '</dl>'+(currentUser()?.isOwner&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">Firebase سے تصویر لوڈ کریں</button></div>'+feedback("member-photo-check")+
-      (legacyRepairTarget(false)?.uid===person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="repair-di2-profile">24 نومبر کے 100 محفوظ درود منسلک کریں</button></div>'+feedback("legacy-profile-check"):""):"")+'</section>' + (person.isOwner ? '' :
+      "":"")+'</section>' + (person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -2130,14 +2130,8 @@ let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
 function legacyRepairTarget(requireDate=true){
  if((requireDate&&readerDayLabel()!==legacyRepairDay)||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
- const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="DI-2");
+ const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="DI-2"&&/wah+a?b|و[ھہه]اب/iu.test(String(m.name||"").normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640\s-]/gu,"")));
  return matches.length===1?matches[0]:null;
-}
-function legacyRepairButton(missing,rows){
- const target=legacyRepairTarget();
- if(!target||(!rows.some(row=>row.uid===target.uid&&row.legacyOnly)&&missing<100)||rows.some(row=>row.uid===target.uid&&Number(row.manualTotal)>0&&!row.legacyOnly))return "";
- return '<button type="button" class="button secondary" data-action="repair-di2-legacy" style="margin-top:6px">'+
-  tr("Link 100 existing offline Durood to ","پہلے سے محفوظ 100 آف لائن درود منسلک کریں: ")+esc(memberName(target))+' (DI-2)</button>';
 }
 function readerAuditMarkup(){
  if(!currentUser()?.isOwner)return "";
@@ -2149,9 +2143,7 @@ function readerAuditMarkup(){
  return '<div style="padding:7px;margin:6px 0;border:1px solid var(--line);border-radius:8px;font-size:.75rem">'+
    tr("Saved day total: ","تاریخ کا محفوظ کل شمار: ")+displayNumber(total)+' · '+
    tr("Listed members: ","فہرست کا شمار: ")+displayNumber(listed)+
-   (missing>0?'<p style="margin:4px 0;color:#c98b24">'+tr("Difference awaiting verification: ","تصدیق طلب فرق: ")+displayNumber(missing)+
-      '<br>'+tr("Not a reader entry. Owner must verify attribution.","یہ کسی ممبر کا اندراج نہیں؛ اونر نام کی تصدیق کرے۔")+'</p>'+legacyRepairButton(missing,rows):
-    missing<0?'<p style="margin:4px 0;color:#c98b24">'+tr("Totals differ; verify after sync.","شمار میں فرق ہے؛ سنک کے بعد تصدیق کریں۔")+'</p>':"")+'</div>';
+   (missing>0?"":missing<0?'<p style="margin:4px 0;color:#c98b24">'+tr("Totals differ; verify after sync.","شمار میں فرق ہے؛ سنک کے بعد تصدیق کریں۔")+'</p>':"")+'</div>';
 }
 function refreshReaderAudit(){
  const audit=document.getElementById("reader-audit");if(audit)audit.innerHTML=readerAuditMarkup();
@@ -4420,13 +4412,6 @@ app.addEventListener('click', event => {
     if(currentUser()?.isOwner&&person?.uid)window.duroodCheckMemberPhoto?.(person.uid);
     return;
   }
-  if(action==='repair-di2-legacy'||action==='repair-di2-profile'){
-    const target=legacyRepairTarget(action!=='repair-di2-profile');
-    if(!target)return;
-    if(!window.confirm(memberName(target)+" (DI-2) — 24-11-2026: "+tr("Confirm that the 100 offline Durood were already included in the saved total? No new recitations will be added.","کیا آپ تصدیق کرتے ہیں کہ 100 آف لائن درود پہلے ہی کل شمار میں شامل ہیں؟ نیا شمار نہیں بڑھے گا۔")))return;
-    window.duroodRepairLegacyReader?.(target.uid);
-    return;
-  }
   if (action === 'reader-list-day') {
     if(!currentUser()?.isOwner||!['-1','1'].includes(value))return;
     const day=parseDay(readerDayLabel());
@@ -4438,6 +4423,7 @@ app.addEventListener('click', event => {
     refreshReaderDateControls();refreshReaderAudit();
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
     window.duroodWatchReaderDate?.(readerListDay);
+    if(readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();
     return;
   }
   if (action === 'record') record = value;
@@ -5301,14 +5287,19 @@ function observeCounters(side){
     stopHistory=()=>{stopAudit();stopList();stopRepair();};
   }
   window.duroodWatchReaderDate=watchReaderDate;
-  let repairingLegacy=false;
+  let repairingLegacy=false,legacyRepairDone=false,lastRepairTry=0;
+  window.duroodAutoRepairLegacyReader=()=>{
+    const target=legacyRepairTarget(false);
+    if(!target||legacyRepairDone||repairingLegacy||Date.now()-lastRepairTry<15000)return;
+    lastRepairTry=Date.now();
+    void window.duroodRepairLegacyReader?.(target.uid);
+  };
   window.duroodRepairLegacyReader=async uid=>{
     if(repairingLegacy||!stillCurrent()||currentProfile?.role!=="owner"||side!=="male"||legacyRepairTarget(false)?.uid!==uid)return;
     const report=(message,ok=false)=>{
       if(!stillCurrent())return;
-      bridge.status("legacy-profile-check",message,ok);
-      bridge.status("legacy-reader-check",message,ok);
-      if(!document.getElementById("legacy-profile-check")&&!document.getElementById("legacy-reader-check"))bridge.notice(message);
+      if(readerDayLabel()===legacyRepairDay)bridge.status("legacy-reader-check",message,ok);
+      console.info("Historical daily-reader reconciliation:",message);
     };
     report("Firebase سے 24 نومبر کا اصل شمار جانچا جا رہا ہے…");
     repairingLegacy=true;
@@ -5322,7 +5313,7 @@ function observeCounters(side){
       const records=decodeReaderRows(readerSnap);
       const total=Number(daySnap.data()?.total),listed=records.reduce((n,r)=>n+r.total+r.manualTotal,0);
       const existingManual=records.find(r=>r.uid===uid)?.manualTotal||0;
-      if(existingManual>=100){report("100 آف لائن درود پہلے ہی ممبر کے Firebase ریکارڈ میں موجود ہیں۔",true);return;}
+      if(existingManual>=100){legacyRepairDone=true;report("100 آف لائن درود پہلے ہی ممبر کے Firebase ریکارڈ میں موجود ہیں۔",true);return;}
       if(!Number.isSafeInteger(total)||total-listed<100||existingManual>0)throw Error("24 نومبر: کل "+(Number.isFinite(total)?total:"دستیاب نہیں")+"، فہرست "+listed+"، ممبر کا دستی شمار "+existingManual+"۔ 100 کا قابلِ تصدیق فرق نہیں ملا؛ مجموعہ تبدیل نہیں کیا۔");
       if(priorSnap.exists()&&priorSnap.data().uid!==uid)throw Error("پرانے اندراج کی ممبر شناخت مختلف ہے۔");
       await runTransaction(db,async tx=>{
@@ -5338,6 +5329,7 @@ function observeCounters(side){
         tx.set(fixRef,{uid,name:member.data().name,amount:100,day:legacyRepairDay,verifiedBy:observedUid,createdAt:serverTimestamp()});
         tx.set(readerRef,{name:member.data().name,total:taps,manualTotal:100},{merge:true});
       });
+      legacyRepairDone=true;
       report("DI-2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔",true);
     }catch(err){report(err?.code==="permission-denied"?"Firebase اجازت نہیں دے رہا؛ تازہ Firestore سیکیورٹی قواعد شائع کریں۔":errorText(err));}
     finally{repairingLegacy=false;}
@@ -5348,7 +5340,7 @@ function observeCounters(side){
     if(globalDay()!==observedDay){observedDay=globalDay();clearTimeout(timer);watchDays();refreshDashboardTargetCards();if(section==='wazifa-reader')updateReader();}
     if(Date.now()-lastClockSync>300000){lastClockSync=Date.now();void syncGlobalClock();}
     if(rows)bridge.readers(rows);
-    if(currentProfile?.role==="owner")publishGoals();
+    if(currentProfile?.role==="owner"){publishGoals();if(side==="male"&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();}
     if(myRow && Date.now()-lastPing>=45000){
       lastPing=Date.now();
       updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
@@ -5501,6 +5493,7 @@ async function hydrate(){
   if(classicLogoutBlocked()||auth.currentUser?.uid!==profile.uid)return;
   if(window.duroodCurrentSide!==side)return;
   bridge.enter(profile,rows,{memberCounts},true);
+  if(owner&&side==="male")window.duroodAutoRepairLegacyReader?.();
   if(owner && side==='female')return;
   try{
     const month=localReadingDate().slice(0,7);

@@ -1,4 +1,4 @@
-const RELEASE="pkt-reader-photo-check-20261125-v3";
+const RELEASE="pkt-auto-daily-repair-20261125-v4";
 let checking=false,prompted=false;
 async function checkRelease(){
  if(checking||prompted||navigator.onLine===false)return;
