@@ -530,8 +530,8 @@ function formMarkup(){
  '<label class="wz-goal-field" data-wz-goal="month">ماہانہ ہدف<input name="monthlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.monthlyGoal||"")+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-form-goals" data-wz-auto-goals hidden>'+autoGroupGoalMarkup()+'</div>'+
- '<div class="wz-dates" data-wz-annual-dates hidden><label>سالانہ ہدف کی آغاز تاریخ<input name="annualStartDate" type="date" value="'+esc(annual?.start||readingDay())+'"></label>'+
- '<label>سالانہ ہدف کی اختتامی تاریخ<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">اختتام کے بعد اگلی سالانہ مدت خودکار شروع ہوگی۔ مجموعی ہدف برقرار رہے گا۔</p></div>'+
+ '<div class="wz-dates" data-wz-annual-dates hidden><label>سیشن کی آغاز تاریخ (Start Date)<input name="annualStartDate" type="date" value="'+esc(annual?.start||readingDay())+'"></label>'+
+ '<label>سیشن کی اختتامی تاریخ (End Date)<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">مدت چھ ماہ، ایک سال یا اس سے زیادہ ہو سکتی ہے۔ اختتامی تاریخ کے بعد سیشن مکمل ہوگا، نئی مدت صرف اونر مقرر کرے گا۔ مجموعی ہدف برقرار رہے گا۔</p></div>'+
  '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||readingDay())+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
@@ -1164,10 +1164,7 @@ function syncForm(){
  const annualFields=form.querySelector("[data-wz-annual-dates]");
  annualFields.hidden=kind!=="group";
  for(const input of annualFields.querySelectorAll("input")){input.required=kind==="group";input.disabled=kind!=="group";}
- if(kind==="group"&&!form.elements.annualEndDate.value&&dayOk(form.elements.annualStartDate.value)){
-   const p=window.duroodAnnualTargetPeriod?.({annualStartDate:form.elements.annualStartDate.value,startDate:form.elements.annualStartDate.value});
-   if(p)form.elements.annualEndDate.value=p.end;
- }
+ if(kind==="group")form.elements.annualEndDate.min=form.elements.annualStartDate.value;
  const end=form.querySelector("[data-wz-end]");
  const daysField=form.querySelector("[data-wz-days]");
  end.hidden=kind!=="fixed";daysField.hidden=kind!=="fixed";
@@ -1246,7 +1243,7 @@ async function saveForm(form){
      const prior=currentGroup(),legacy=n=>valid(n)?n:1;
      let annualStartDate=String(data.get("annualStartDate")||""),annualEndDate=String(data.get("annualEndDate")||"");
      const realDate=d=>dayOk(d)&&new Date(d+"T12:00:00Z").toISOString().slice(0,10)===d;
-     if(!realDate(annualStartDate)||!realDate(annualEndDate)||annualEndDate<annualStartDate||spanDays(annualStartDate,annualEndDate)>366)throw Error("سالانہ ہدف کے لیے 1 تا 366 دن کی درست مدت مقرر کریں۔");
+     if(!realDate(annualStartDate)||!realDate(annualEndDate)||annualEndDate<annualStartDate)throw Error("سیشن کی درست آغاز اور اختتامی تاریخ مقرر کریں۔");
      const current=window.duroodAnnualTargetPeriod?.(prior);
      if(current?.start===annualStartDate&&current?.end===annualEndDate&&prior.annualStartDate&&prior.annualEndDate){annualStartDate=prior.annualStartDate;annualEndDate=prior.annualEndDate;}
      const value={...common,annualStartDate,annualEndDate,kind:"group",dailyGoal:legacy(prior.dailyGoal),weeklyGoal:legacy(prior.weeklyGoal),monthlyGoal:legacy(prior.monthlyGoal),yearlyGoal:legacy(prior.yearlyGoal),
