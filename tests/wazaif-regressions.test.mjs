@@ -146,6 +146,7 @@ const ledgerEnv={
  $:()=>root,readingDay:()=>"2026-11-24",wzSync:{pending:()=>0},
  heroReadingState:()=>({todayCount:0,total:100,dailyGoal:100,totalGoal:100}),
  dailyFigures:()=>({goal:100,tasbih:0,manual:0,read:0,pending:100}),
+ selectedDayFigures:()=>({goal:100,tasbih:0,manual:100,read:100,pending:0}),
  readingTimes:()=>({tasbih:0,manual:0,total:0,hasSpeed:false}),
  durationText:()=>"",fmt:n=>String(n),Math,Number,
  updateWzSyncStatus:()=>{},
