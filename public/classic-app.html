@@ -1835,7 +1835,8 @@ function profileDetails(person) {
     avatar(person,true) + '<div><strong dir="auto">' + esc(memberName(person)) + '</strong><small class="muted">' + displayId(person.id) +
     tr("</small></div></div><button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Back to users</button></div>", '</small></div></div><button class="button secondary" data-action="nav" data-value="directory">صارفین پر واپس</button></div>') +
     '<dl class="detail-grid">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
-    '</dl></section>' + (person.isOwner ? '' :
+    '</dl>'+(currentUser()?.isOwner&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">Firebase سے تصویر لوڈ کریں</button></div>'+feedback("member-photo-check")+
+      (legacyRepairTarget(false)?.uid===person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="repair-di2-profile">24 نومبر کے 100 محفوظ درود منسلک کریں</button></div>'+feedback("legacy-profile-check"):""):"")+'</section>' + (person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -2127,8 +2128,8 @@ function liveFeed() {
 let todayReaders=null,previousDayReaders=null,readerListDay=null,readerListError=false;
 let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
-function legacyRepairTarget(){
- if(readerDayLabel()!==legacyRepairDay||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
+function legacyRepairTarget(requireDate=true){
+ if((requireDate&&readerDayLabel()!==legacyRepairDay)||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
  const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="DI-2");
  return matches.length===1?matches[0]:null;
 }
@@ -2217,7 +2218,7 @@ function overview() {
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
-   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr" style="display:grid;grid-template-columns:40px minmax(110px,1fr) 40px;gap:6px;align-items:center;max-width:280px;margin:6px auto"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0">−</button><bdi id="reader-list-date" style="text-align:center;font-weight:700">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'<div id="reader-audit">'+readerAuditMarkup()+'</div><div id="today-readers">'+readerList()+'</div></section>'+
+   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr" style="display:grid;grid-template-columns:40px minmax(110px,1fr) 40px;gap:6px;align-items:center;max-width:280px;margin:6px auto"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0">−</button><bdi id="reader-list-date" style="text-align:center;font-weight:700">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'" style="font-size:1.25rem;min-height:32px;padding:0"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'<div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
    '</div>';
 }
 
@@ -4414,8 +4415,13 @@ app.addEventListener('click', event => {
     groupFilter = null;
     if(!currentPhotoSelection())photoDraft=null;
   }
-  if(action==='repair-di2-legacy'){
-    const target=legacyRepairTarget();
+  if(action==='check-member-photo'){
+    const person=getUser(Number(value));
+    if(currentUser()?.isOwner&&person?.uid)window.duroodCheckMemberPhoto?.(person.uid);
+    return;
+  }
+  if(action==='repair-di2-legacy'||action==='repair-di2-profile'){
+    const target=legacyRepairTarget(action!=='repair-di2-profile');
     if(!target)return;
     if(!window.confirm(memberName(target)+" (DI-2) — 24-11-2026: "+tr("Confirm that the 100 offline Durood were already included in the saved total? No new recitations will be added.","کیا آپ تصدیق کرتے ہیں کہ 100 آف لائن درود پہلے ہی کل شمار میں شامل ہیں؟ نیا شمار نہیں بڑھے گا۔")))return;
     window.duroodRepairLegacyReader?.(target.uid);
@@ -5176,6 +5182,20 @@ function observeCounters(side){
     }
   }
   watchPhotos([]);
+  window.duroodCheckMemberPhoto=async uid=>{
+    if(!stillCurrent()||currentProfile?.role!=="owner")return;
+    const report=(message,ok=false)=>{if(stillCurrent())bridge.status("member-photo-check",message,ok);};
+    report("Firebase سے اصل تصویر لوڈ کی جا رہی ہے…");
+    try{
+      const snap=await getDocFromServer(doc(db,"memberPhotos",uid));
+      if(!stillCurrent())return;
+      if(!snap.exists()||!snap.data()?.image){report("اس ممبر کی تصویر Firebase میں محفوظ نہیں ہے۔ ممبر اپنی پروفائل سے تصویر محفوظ کرے۔");return;}
+      const image=snap.data().image;
+      if(typeof image!=="string"||!image.startsWith("data:image/")){report("محفوظ تصویر کا فارمیٹ درست نہیں۔");return;}
+      bridge.memberPhoto(uid,image);
+      report("تصویر Firebase سے لوڈ ہو گئی۔",true);
+    }catch(err){report(err?.code==="permission-denied"?"تصویر تک Firebase کی اجازت نہیں ہے۔ تازہ Firestore سیکیورٹی قواعد شائع کریں۔":errorText(err));}
+  };
   const retryPhotos=()=>{if(stillCurrent())watchPhotos(photoDirectory);};
   window.addEventListener("focus",retryPhotos);
   bridge.aggregateGoalRows(observedUid,null);
@@ -5283,7 +5303,14 @@ function observeCounters(side){
   window.duroodWatchReaderDate=watchReaderDate;
   let repairingLegacy=false;
   window.duroodRepairLegacyReader=async uid=>{
-    if(repairingLegacy||!stillCurrent()||currentProfile?.role!=="owner"||side!=="male"||legacyRepairTarget()?.uid!==uid)return;
+    if(repairingLegacy||!stillCurrent()||currentProfile?.role!=="owner"||side!=="male"||legacyRepairTarget(false)?.uid!==uid)return;
+    const report=(message,ok=false)=>{
+      if(!stillCurrent())return;
+      bridge.status("legacy-profile-check",message,ok);
+      bridge.status("legacy-reader-check",message,ok);
+      if(!document.getElementById("legacy-profile-check")&&!document.getElementById("legacy-reader-check"))bridge.notice(message);
+    };
+    report("Firebase سے 24 نومبر کا اصل شمار جانچا جا رہا ہے…");
     repairingLegacy=true;
     try{
       const dayRef=doc(sideRef,"days",legacyRepairDay);
@@ -5291,10 +5318,12 @@ function observeCounters(side){
       const priorRef=doc(dayRef,"legacyAttribution","DI-2");
       const readerRef=doc(dayRef,"readers",uid),memberRef=doc(db,"members",uid);
       const [daySnap,readerSnap,priorSnap]=await Promise.all([getDocFromServer(dayRef),getDocsFromServer(collection(dayRef,"readers")),getDocFromServer(priorRef)]);
-      if(!stillCurrent()||legacyRepairTarget()?.uid!==uid)return;
+      if(!stillCurrent()||legacyRepairTarget(false)?.uid!==uid)return;
       const records=decodeReaderRows(readerSnap);
       const total=Number(daySnap.data()?.total),listed=records.reduce((n,r)=>n+r.total+r.manualTotal,0);
-      if(!Number.isSafeInteger(total)||total-listed<100||records.some(r=>r.uid===uid&&r.manualTotal>0))throw Error("پہلے سے محفوظ 100 درود کا فرق ثابت نہیں ہوا؛ کوئی تبدیلی نہیں کی گئی۔");
+      const existingManual=records.find(r=>r.uid===uid)?.manualTotal||0;
+      if(existingManual>=100){report("100 آف لائن درود پہلے ہی ممبر کے Firebase ریکارڈ میں موجود ہیں۔",true);return;}
+      if(!Number.isSafeInteger(total)||total-listed<100||existingManual>0)throw Error("24 نومبر: کل "+(Number.isFinite(total)?total:"دستیاب نہیں")+"، فہرست "+listed+"، ممبر کا دستی شمار "+existingManual+"۔ 100 کا قابلِ تصدیق فرق نہیں ملا؛ مجموعہ تبدیل نہیں کیا۔");
       if(priorSnap.exists()&&priorSnap.data().uid!==uid)throw Error("پرانے اندراج کی ممبر شناخت مختلف ہے۔");
       await runTransaction(db,async tx=>{
         const [day,member,reader,fix,prior]=await Promise.all([tx.get(dayRef),tx.get(memberRef),tx.get(readerRef),tx.get(fixRef),tx.get(priorRef)]);
@@ -5309,8 +5338,8 @@ function observeCounters(side){
         tx.set(fixRef,{uid,name:member.data().name,amount:100,day:legacyRepairDay,verifiedBy:observedUid,createdAt:serverTimestamp()});
         tx.set(readerRef,{name:member.data().name,total:taps,manualTotal:100},{merge:true});
       });
-      if(stillCurrent())bridge.notice("DI-2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔");
-    }catch(err){if(stillCurrent())bridge.notice(errorText(err));}
+      report("DI-2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔",true);
+    }catch(err){report(err?.code==="permission-denied"?"Firebase اجازت نہیں دے رہا؛ تازہ Firestore سیکیورٹی قواعد شائع کریں۔":errorText(err));}
     finally{repairingLegacy=false;}
   };
   let lastClockSync=Date.now(),observedDay=globalDay();
@@ -5702,6 +5731,8 @@ ui.addEventListener("submit",event=>{
         }
         batch.set(doc(db,"memberPhotos",uid),{image});
         await batch.commit();
+        const confirmed=await getDocFromServer(doc(db,"memberPhotos",uid));
+        if(!confirmed.exists()||confirmed.data().image!==image)throw Error("تصویر Firebase میں تصدیق نہیں ہوئی؛ دوبارہ کوشش کریں۔");
       }else await profileNameSpark(name);
       if(auth.currentUser?.uid===uid)bridge.setName(name,image,selection);
     }).catch(e=>bridge.status("profile-feedback",errorText(e),false))
