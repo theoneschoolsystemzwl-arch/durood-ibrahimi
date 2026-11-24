@@ -147,6 +147,7 @@ const ledgerEnv={
  heroReadingState:()=>({todayCount:0,total:100,dailyGoal:100,totalGoal:100}),
  dailyFigures:()=>({goal:100,tasbih:0,manual:0,read:0,pending:100}),
  selectedDayFigures:()=>({goal:100,tasbih:0,manual:100,read:100,pending:0}),
+ targetForDay:()=>100,
  readingTimes:()=>({tasbih:0,manual:0,total:0,hasSpeed:false}),
  durationText:()=>"",fmt:n=>String(n),Math,Number,
  updateWzSyncStatus:()=>{},
