@@ -240,6 +240,7 @@ function setWazifaImmersive(enabled,fromBack=false){
   if(shouldPop)try{history.back();}catch{}
  }
  document.body.classList.toggle("wz-immersive-reader",state.immersive);
+ requestAnimationFrame(syncArabicTicker);
  const button=$("#wazaif-root [data-wazifa-action='toggle-fullscreen']");
  if(button){
   button.setAttribute("aria-pressed",String(state.immersive));
@@ -773,6 +774,46 @@ function heroReadingState(group,w,record){
  const dayLeft=Math.max(0,dailyGoal-todayCount);
  return {todayCount,total,plan,dailyGoal,totalGoal,left,percent,dayLeft,continuing};
 }
+// Reader-only Arabic ticker preferences; no impact on the saved recitation count.
+let wzArabicSpeed=35,wzArabicFont=24;
+try{
+ const speed=Number(localStorage.getItem("durood-wz-marquee-speed")||35);
+ const font=Number(localStorage.getItem("durood-wz-marquee-font")||24);
+ if(Number.isFinite(speed))wzArabicSpeed=Math.max(10,Math.min(100,speed));
+ if(Number.isFinite(font))wzArabicFont=Math.max(16,Math.min(40,font));
+}catch{}
+function arabicTickerMarkup(arabic){
+ return '<section class="wz-arabic-ticker" aria-label="چلتی ہوئی عربی عبارت">'+
+ '<div class="wz-ticker-controls" dir="ltr">'+
+ '<div class="wz-ticker-setting"><span>رفتار</span><button type="button" data-wazifa-action="ticker-speed-down" aria-label="رفتار کم کریں">−</button><output id="wz-ticker-speed">'+wzArabicSpeed+'</output><button type="button" data-wazifa-action="ticker-speed-up" aria-label="رفتار بڑھائیں">+</button></div>'+
+ '<div class="wz-ticker-setting"><span>فونٹ</span><button type="button" data-wazifa-action="ticker-font-down" aria-label="فونٹ چھوٹا کریں">−</button><output id="wz-ticker-font">'+wzArabicFont+'</output><button type="button" data-wazifa-action="ticker-font-up" aria-label="فونٹ بڑا کریں">+</button></div></div>'+
+ '<div class="wz-ticker-window"><span class="wz-ticker-text" lang="ar" dir="rtl">'+esc(String(arabic||"").replace(/\s+/g," ").trim())+'</span></div></section>';
+}
+let wzTickerAnimation=null;
+function syncArabicTicker(){
+ const viewport=$("#wazaif-root .wz-ticker-window"),line=viewport?.querySelector(".wz-ticker-text");
+ if(!line)return;
+ line.style.fontSize=wzArabicFont+"px";
+ const speed=$("#wz-ticker-speed"),font=$("#wz-ticker-font");
+ if(speed)speed.textContent=String(wzArabicSpeed);
+ if(font)font.textContent=String(wzArabicFont);
+ const width=line.scrollWidth,view=viewport.clientWidth;
+ if(!width||!view)return;
+ const duration=(width+view)/wzArabicSpeed*1000;
+ const prev=wzTickerAnimation;
+ const position=prev?.effect?.target===line?Number(prev.currentTime||0)/Number(prev.effect.getTiming().duration||1):0;
+ prev?.cancel();
+ if(typeof line.animate==="function"){
+  wzTickerAnimation=line.animate([{transform:"translateX("+(-width)+"px)"},{transform:"translateX("+view+"px)"}],
+   {duration,iterations:Infinity,easing:"linear"});
+  wzTickerAnimation.currentTime=(position%1)*duration;
+ }else{
+  line.style.setProperty("--wz-ticker-distance",view+"px");
+  line.style.animationDuration=duration+"ms";
+  line.classList.add("wz-ticker-css");
+ }
+}
+window.addEventListener("resize",()=>requestAnimationFrame(syncArabicTicker));
 function readerMarkup(group){
  const w=group?currentGroup():state.personal.find(x=>x.id===state.readerId);
  if(!w)return '<button class="wz-button" data-wazifa-action="back">وظائف واپس</button>';
@@ -852,6 +893,7 @@ function readerMarkup(group){
  'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
 
+ arabicTickerMarkup(w.arabic)+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
  '<svg class="wz-dial-ring-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
  '<circle class="wz-dial-ring-track" cx="50" cy="50" r="46" pathLength="100"/>'+
@@ -1008,6 +1050,8 @@ function render(){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
    root.innerHTML=readerMarkup(state.mode==="group-reader");
    if(state.immersive)setWazifaImmersive(true);
+   requestAnimationFrame(syncArabicTicker);
+   document.fonts?.ready?.then(syncArabicTicker);
    refreshHeroReader();return;
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
@@ -1423,6 +1467,13 @@ document.addEventListener("click",event=>{
    "عربی عبارت: اوپر نیچے سوائپ کرکے مکمل پڑھیں":
    "عربی اسکرول کھولنے کے لیے اوپر والا بٹن دبائیں");
   return;
+ }
+ if(["ticker-speed-up","ticker-speed-down","ticker-font-up","ticker-font-down"].includes(action)){
+  const delta=action.endsWith("-up")?1:-1;
+  if(action.startsWith("ticker-speed"))wzArabicSpeed=Math.max(10,Math.min(100,wzArabicSpeed+5*delta));
+  else wzArabicFont=Math.max(16,Math.min(40,wzArabicFont+2*delta));
+  try{localStorage.setItem("durood-wz-marquee-speed",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
+  syncArabicTicker();return;
  }
  if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
   const sound=action.startsWith("sound-"),key=sound?"soundLevel":"vibrateLevel";
