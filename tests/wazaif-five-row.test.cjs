@@ -203,9 +203,11 @@ assert(reader.indexOf('</button></section>')<reader.indexOf('class="wz-record-ti
   "daily history sits below the unified card");
 assert(reader.includes("(state.tapQueue>0?(state.tapQueue%100||100):0)"),
   "circular dial uses the session's 100-tap cycle");
-assert(src.includes('setProperty("--wz-ring",(state.tapQueue>0?(state.tapQueue%100||100):0)+"%")'),
+assert(src.includes('const ringCycle=state.tapQueue>0?(state.tapQueue%100||100):0')&&
+  src.includes('dial.style.setProperty("--wz-ring",ringCycle+"%")'),
   "refresh uses the same 100-tap cycle as initial render");
-assert(src.includes('setProperty("--wz-ring",(state.tapQueue%100||100)+"%")'),
+assert(src.includes('const cycle=state.tapQueue%100||100')&&
+  src.includes('dial.style.setProperty("--wz-ring",cycle+"%")'),
   "successful taps update the circular progress immediately");
 const ringProgress=count=>count>0?(count%100||100):0;
 for(const [count,expected] of [[0,0],[1,1],[25,25],[99,99],[100,100],[101,1],[200,100],[201,1]]){
