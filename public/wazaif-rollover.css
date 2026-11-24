@@ -1036,3 +1036,17 @@ body.wz-immersive-reader .wz-session-card .wz-hero-dial:not(.is-floating){
  width:min(88%, 420px, max(150px, calc(100dvh - 410px)))!important;
  margin:auto auto 8px!important;
 }
+
+/* Keep the existing viewport-sized card: Arabic first, controls underneath. */
+.wz-hero-reader .wz-session-card .wz-arabic-ticker{
+ margin:4px 0 3px;padding:3px;
+}
+.wz-hero-reader .wz-ticker-window{height:50px}
+.wz-hero-reader .wz-ticker-controls{margin:3px 0 0}
+.wz-hero-reader .wz-ticker-setting button{height:25px}
+body.wz-immersive-reader #wazaif-root .wz-session-card .wz-hero-dial:not(.is-floating){
+ width:min(88%,420px,var(--wz-fit-dial,max(120px,calc(100dvh - 410px))))!important;
+ height:auto!important;min-height:0!important;aspect-ratio:1;
+ flex:none!important;margin:auto auto 8px!important;
+ padding:clamp(4px,2vw,12px)!important;
+}
