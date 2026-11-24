@@ -173,4 +173,25 @@ assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4201),false,"timeout r
 assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4400),false);
 assert.equal(tapContext.advanceHistoryEditTap(tracker,day,4600),true);
 assert(css.includes('.wz-daily-toolbar .wz-reader-feedback')&&css.includes('width:100%'),"feedback fits same row as reduced due panel");
+// Approved dashboard controls: one wide, unlabelled daily bar and five live
+// date-dependent counters. Date stays only in the lower speed/Save row.
+const selectedMetrics=src.slice(src.indexOf("function selectedDayFigures("),src.indexOf("function displayRecordDate(key)"));
+assert(selectedMetrics.includes("selectedDayFigures(group,w,record,day)"));
+assert.equal((selectedMetrics.match(/class="wz-today-due-cell"/g)||[]).length,5,"exactly five live metric boxes");
+assert(selectedMetrics.includes('id="wz-five-goal"')&&selectedMetrics.includes('id="wz-five-pending"'));
+assert(!selectedMetrics.includes("wz-selected-date"),"do not duplicate the date in the five metrics");
+assert(reader.includes('data-wazifa-action="day-prev"')&&reader.includes('data-wazifa-action="day-next"'));
+assert(reader.includes('data-wazifa-action="toggle-fullscreen"'));
+assert(reader.includes('id="wz-daily-progress-bar"')&&reader.includes('id="wz-daily-progress-label"'));
+assert(!reader.includes(">روزانہ کی پیش رفت<"),"the daily progress bar must not have a visible Urdu heading");
+assert(reader.includes('progress.toFixed(2)')&&reader.includes('id="wz-hero-progress-label"'),"total percentage has two decimals");
+assert(src.includes("Math.min(10,Math.max(0,state[key]"),"sound and vibration scale to 10");
+assert(css.includes("wz-daily-progress progress")&&css.includes("flex:1"),"unlabelled daily bar stretches to fill available space");
+const dayFiguresContext={...sandbox,datedProgress:()=>[{day,goal:4000,count:3000,previousDue:2000,previousCredit:0}]};
+vm.createContext(dayFiguresContext);
+vm.runInContext(selectedMetrics,dayFiguresContext);
+const selectedFigures=dayFiguresContext.selectedDayFigures(false,{kind:"daily",goal:4000},record,day);
+assert.equal(selectedFigures.goal,6000,"selected date target includes carried debt");
+assert.equal(selectedFigures.read,3000);
+assert.equal(selectedFigures.pending,3000);
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
