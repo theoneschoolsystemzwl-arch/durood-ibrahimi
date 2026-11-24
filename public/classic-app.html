@@ -1395,6 +1395,28 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .tree-node .member-wird{margin-top:1px}
 :root[data-theme] .member-content .member-wird{align-items:flex-start}
 </style>
+<style id="compact-group-tree-rows">
+:root[data-theme] .tree{padding:6px!important}
+:root[data-theme] .tree-scroll{overflow-x:visible;padding:0;width:100%;min-width:0}
+:root[data-theme] .tree-diagram{min-width:0;width:100%;padding:0}
+:root[data-theme] .tree .root-node{display:block}
+:root[data-theme] .tree .child-list{display:grid;grid-template-columns:minmax(0,1fr);width:100%;gap:5px;margin:6px 0 0;padding:0;list-style:none}
+:root[data-theme] .tree .child-list li{width:100%;padding:0;margin:0}
+:root[data-theme] .tree .child-list:before,:root[data-theme] .tree .child-list li:before,:root[data-theme] .tree .child-list li:after{display:none}
+:root[data-theme] .tree .compact-tree-node{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr) auto;grid-template-areas:"group identity portrait";direction:ltr;align-items:center;gap:5px;padding:5px 6px;width:100%;min-width:0;background:#064c3c;border:1px solid #239c7a;border-radius:10px}
+:root[data-theme] .tree .branch-node{grid-template-columns:auto minmax(0,1.45fr) minmax(0,1fr);grid-template-areas:"portrait identity group";background:#043d32}
+:root[data-theme] .tree .tree-portrait{grid-area:portrait;display:flex;justify-content:center;min-width:0}
+:root[data-theme] .tree .compact-tree-node .node-ring .avatar{width:48px;height:48px;min-width:48px;min-height:48px;font-size:1rem}
+:root[data-theme] .tree .founder-node .node-ring .avatar{width:58px;height:58px;min-width:58px;min-height:58px}
+:root[data-theme] .tree .tree-identity{grid-area:identity;display:flex;flex-direction:column;align-items:center;min-width:0;gap:1px}
+:root[data-theme] .tree .tree-name-line{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px 4px;direction:ltr;line-height:1.45;font-size:clamp(.75rem,3.3vw,1.05rem);max-width:100%;color:#f3fff7}
+:root[data-theme] .tree .tree-name-line bdi{font:800 .83em/1.2 system-ui,sans-serif;color:#f5dc93;white-space:nowrap}
+:root[data-theme] .tree .tree-name-line span{min-width:0;overflow-wrap:anywhere}
+:root[data-theme] .tree .member-wird{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;margin:0;max-width:100%;flex-wrap:wrap}
+:root[data-theme] .tree-group-wird{grid-area:group;min-width:0;display:grid;justify-items:center;gap:1px;padding:3px 2px;border:1px solid #b5a367;border-radius:7px;background:#00392c;color:#fff;text-align:center;line-height:1.25}
+:root[data-theme] .tree-group-wird small{font:600 .72rem/1.5 var(--ur,serif);color:#f3dc9c}
+:root[data-theme] .tree-group-wird>bdi{font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;color:#dbffec;max-width:100%;overflow-wrap:anywhere}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -1574,6 +1596,20 @@ function memberWirdText(person){
   if(savedMemberWirdsComplete&&!(ownerViewingWomen()&&person.isOwner))return formatNumber(0);
   return '—';
 }
+function groupWirdPeople(p){
+ const ids=descendants(p.id);ids.delete(p.id);
+ const list=[...ids].map(getUser).filter(Boolean);
+ return p.isOwner||p.isFoundingSpouse?[p,...list]:list;
+}
+function groupWirdText(p){
+ if(p.uid&&(!currentUser()?.isOwner||!savedMemberWirdsComplete))return '—';
+ const list=groupWirdPeople(p);
+ const vals=list.map(m=>m.uid?(savedMemberWirds.get(m.uid)??(savedMemberWirdsComplete?0:null)):score(m,'all','current'));
+ return vals.some(v=>v===null)?'—':formatNumber(vals.reduce((a,b)=>a+b,0));
+}
+function groupWirdMarkup(p){
+ return '<span class="tree-group-wird"><small>'+tr('Group count','گروپ شمار')+'</small><bdi data-group-wird="'+p.id+'">'+groupWirdText(p)+'</bdi><small>'+formatNumber(groupWirdPeople(p).length)+' '+tr('members','ارکان')+'</small></span>';
+}
 function memberWirdMarkup(person){
   return '<span class="member-wird"><small>'+tr('Wird','ورد')+'</small><bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi></span>';
 }
@@ -1585,6 +1621,9 @@ function refreshMemberWirds(){
   document.querySelectorAll('[data-member-wird]').forEach(node=>{
     const p=byUid.get(node.dataset.memberWird);
     if(p)node.textContent=memberWirdText(p);
+  });
+  document.querySelectorAll('[data-group-wird]').forEach(node=>{
+    const p=getUser(Number(node.dataset.groupWird));if(p)node.textContent=groupWirdText(p);
   });
 }
 function groupMemberCount(person) {
@@ -1783,16 +1822,13 @@ function ranking() {
 }
 
 function treeNode(person, isRoot = false) {
-  const level=memberLevel(person);
-  // Only the Owner may open another member's branch, including an empty one.
-  const clickable = !isRoot && currentUser()?.isOwner===true && !person.deleted;
-  const tag = clickable ? 'button' : 'div';
-  return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
-    tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
-    '<span class="node-dot level-' + level + '" data-tree-member-level="'+person.id+'" aria-label="' + tr("Level ","لیول ") + level + '">' + displayNumber(level) + '</span></span><strong dir="auto">' +
-    esc(memberName(person)) + '</strong>' + treeMemberLabel(person) + memberWirdMarkup(person) +
-    (person.disabled && currentUserId === 1 ? tr("<span class=\"account-status disabled\">Suspended</span>", '<span class="account-status disabled">معطل</span>') : '') +
-    '</' + tag + '>';
+ const level=memberLevel(person),clickable=!isRoot&&currentUser()?.isOwner===true&&!person.deleted,tag=clickable?'button':'div';
+ return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
+ (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
+ '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
+ '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
+ (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
+ '</span>'+groupWirdMarkup(person)+'</'+tag+'>';
 }
 
 function stat(label, value) {
@@ -1819,8 +1855,7 @@ function tree(person) {
     tr("<section class=\"panel section tree\" aria-label=\"Referral tree، ", '<section class="panel section tree" aria-label="دعوتی شجرہ، ') + esc(memberName(root)) + '"><div class="tree-scroll"><div class="tree-diagram">' +
     '<div class="root-node">' + treeNode(root,true) + '</div>' +
     (children.length ? '<ul class="child-list">' + children.map(child => '<li>' + treeNode(child) + '</li>').join('') + '</ul>' : '') +
-    '</div></div>' + (children.length > 4 ? ur(tr("Swipe across the tree to see more members.", 'مزید ممبرز دیکھنے کے لیے درخت کو دائیں یا بائیں سرکائیں۔'),'p','tree-hint') :
-      (!children.length ? ur(tr("This branch has no new members yet.", 'اس شاخ میں ابھی کوئی نیا ممبر شامل نہیں ہوا۔'),'p','tree-hint') : '')) + '</section>';
+    '</div></div>' + (!children.length ? ur(tr("This branch has no new members yet.", 'اس شاخ میں ابھی کوئی نیا ممبر شامل نہیں ہوا۔'),'p','tree-hint') : '') + '</section>';
 }
 
 function groups() {
@@ -1832,7 +1867,7 @@ function groups() {
       '<article class="panel group-card"><div class="identity">' + photoWithWird(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
       '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Group members · ", '</bdi></small><span>گروپ کے ارکان · ') + displayNumber(groupMemberCount(person)) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
-      displayNumber(descendants(person.id).size) + '</span></div><button class="button secondary" data-action="group" data-value="' + person.id +
+      displayNumber(descendants(person.id).size) + '</span>'+groupWirdMarkup(person)+'</div><button class="button secondary" data-action="group" data-value="' + person.id +
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
 }
 
