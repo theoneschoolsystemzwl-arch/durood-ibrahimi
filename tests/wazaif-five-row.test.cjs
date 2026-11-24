@@ -194,4 +194,27 @@ const selectedFigures=dayFiguresContext.selectedDayFigures(false,{kind:"daily",g
 assert.equal(selectedFigures.goal,6000,"selected date target includes carried debt");
 assert.equal(selectedFigures.read,3000);
 assert.equal(selectedFigures.pending,3000);
+// Unified neon counting card and 100-tap ring cycle (UI only).
+assert(reader.includes('class="wz-session-card"')&&reader.includes('</button></section>'),
+  "all counter summary lines and round dial share one bordered card");
+assert(reader.indexOf('class="wz-session-card"')<reader.indexOf('class="wz-hero-six"'),
+  "unified card begins before the six target/date tiles");
+assert(reader.indexOf('</button></section>')<reader.indexOf('class="wz-record-title"'),
+  "daily history sits below the unified card");
+assert(reader.includes("(state.tapQueue>0?(state.tapQueue%100||100):0)"),
+  "circular dial uses the session's 100-tap cycle");
+assert(src.includes('setProperty("--wz-ring",(state.tapQueue>0?(state.tapQueue%100||100):0)+"%")'),
+  "refresh uses the same 100-tap cycle as initial render");
+assert(src.includes('setProperty("--wz-ring",(state.tapQueue%100||100)+"%")'),
+  "successful taps update the circular progress immediately");
+const ringProgress=count=>count>0?(count%100||100):0;
+for(const [count,expected] of [[0,0],[1,1],[25,25],[99,99],[100,100],[101,1],[200,100],[201,1]]){
+  assert.equal(ringProgress(count),expected,"100-tap progress at "+count);
+}
+assert(css.includes(".wz-hero-reader .wz-session-card{"),"unified bordered card is styled");
+assert(css.includes("1.155rem,4.425vw,1.725rem"),"speed digits are 50% larger");
+assert(css.includes(".wz-session-card #wz-five-pending")&&css.includes("#ff636e"),
+  "the remaining daily count is red");
+assert(css.includes(".wz-today-due-cell:nth-child(2) strong")&&css.includes("2.325rem"),
+  "the selected day's total count has been enlarged");
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
