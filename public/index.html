@@ -18,36 +18,46 @@
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
 
 <style id="gold-blue-brand-card">
-/* Only the public welcome header; leave login form and member themes unchanged. */
-:root[data-theme] body > .brand-head {
-  position:relative; isolation:isolate; box-sizing:border-box;
-  width:calc(100% - 12px); max-width:960px; margin:6px auto 0;
-  padding:20px clamp(13px,4vw,34px) 23px;
-  border:3px solid #b98b31; border-radius:23px;
-  background:radial-gradient(ellipse at 50% 12%,#f6fcff 0%,transparent 65%),linear-gradient(145deg,#e2f2ff,#d3e8f9 55%,#edf8ff);
-  color:#163b6c; box-shadow:inset 0 0 0 3px #ffedba,inset 0 0 0 5px #d2ad61,0 5px 18px #001c2e40;
+/* Welcome screen only. Strongly scoped overrides keep the member portal unchanged. */
+:root[data-theme] body > header.brand-head {
+ position:relative;box-sizing:border-box;width:calc(100% - 10px);max-width:960px;margin:5px auto 0;
+ padding:8px 10px 9px; text-align:center;color:#123577!important;
+ border:3px solid #d2a032!important;border-radius:18px!important;
+ background:radial-gradient(ellipse at 50% 25%,#f4ffff 0%,#c3f5fb 49%,#76dce8 100%)!important;
+ box-shadow:inset 0 0 0 2px #fff1ac,0 3px 12px #002e4b55!important;
 }
-:root[data-theme] body > .brand-head::before,
-:root[data-theme] body > .brand-head::after {
-  content:""; position:absolute; width:26px; height:26px; pointer-events:none; z-index:-1;
-  border:1.5px solid #bd9345;
+:root[data-theme] body > header.brand-head::before,:root[data-theme] body > header.brand-head::after{
+ content:"❦";position:absolute;top:0;color:#a77514;font-size:1.4rem;line-height:1;pointer-events:none;
 }
-:root[data-theme] body > .brand-head::before {top:10px;right:10px;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
-:root[data-theme] body > .brand-head::after {bottom:10px;left:10px;border-right:0;border-top:0;border-radius:0 0 0 10px}
-:root[data-theme] .brand-head .header-scripture {
-  padding:0 0 12px; border-bottom:1px solid #c6a15a; margin-bottom:12px!important;
-}
-:root[data-theme] .brand-head .header-scripture .salawat {
-  color:#123e77; font-size:clamp(1.16rem,3.7vw,1.55rem); font-weight:600; line-height:2;
-}
-:root[data-theme] .brand-head p[lang="ur"] {color:#234c7c;font-size:clamp(.98rem,3vw,1.12rem)!important;line-height:2.3!important;overflow-wrap:break-word}
-:root[data-theme] .brand-head .header-scripture small {color:#81580e;font-weight:700}
-:root[data-theme] .brand-head .brand-shell {gap:9px;margin:0 auto 12px;padding:0 0 12px;border-bottom:1px solid #c6a15a;align-items:center}
-:root[data-theme] .brand-head .brand-glyph {color:#9b6b15;font-size:30px;line-height:1}
-:root[data-theme] .brand-head .basmala {color:#84590d;font-weight:600;font-size:1.14rem;line-height:2}
-:root[data-theme] .brand-head h1 {color:#123d77;font-size:clamp(1.8rem,6vw,2.55rem);line-height:1.65;text-shadow:0 1px 0 #fff}
-:root[data-theme] .brand-head .subtitle {color:#80570e;font-weight:700;letter-spacing:.04em}
-:root[data-theme] .brand-head > .salawat {color:#85590d;font-weight:600;font-size:clamp(1.16rem,3.8vw,1.6rem);line-height:2.1}
+:root[data-theme] body > header.brand-head::before{right:6px}
+:root[data-theme] body > header.brand-head::after{left:6px;transform:scaleX(-1)}
+:root[data-theme] body > .brand-head .header-scripture{margin:0!important;padding:0 7px 3px;border:0}
+:root[data-theme] body > .brand-head .salawat{font-family:"Noto Naskh Arabic","Noto Sans Arabic",serif;font-size:clamp(.95rem,3.9vw,1.4rem);line-height:1.65!important;font-weight:600;margin:0!important;padding:0;color:#10377d!important}
+:root[data-theme] body > .brand-head p[lang="ur"]{font-size:clamp(.81rem,3.2vw,1.06rem)!important;line-height:1.85!important;color:#123577!important;margin:0!important;font-weight:400}
+:root[data-theme] body > .brand-head .header-scripture small{display:inline-block;font:700 .72rem system-ui,sans-serif;color:#855500!important;background:#fff1b0;border:1px solid #d5a23a;border-radius:20px;padding:1px 8px;margin-top:2px}
+:root[data-theme] body > .brand-head .brand-shell{display:grid;grid-template-columns:minmax(42px,19%) minmax(0,1fr) minmax(42px,19%);gap:5px;align-items:center;direction:ltr;margin:3px auto;padding:3px 0;border-block:1px solid #c69b3c}
+:root[data-theme] body > .brand-head .brand-lines{min-width:0;direction:rtl}
+:root[data-theme] body > .brand-head .basmala{color:#805100!important;font-size:clamp(.82rem,3.5vw,1.15rem);font-weight:700;line-height:1.6!important;margin:0}
+:root[data-theme] body > .brand-head h1{color:#ffe38b!important;background:linear-gradient(120deg,#123e99,#072366);border:1.5px solid #c99428;border-radius:14px;font-size:clamp(1.1rem,4.8vw,2rem);line-height:1.75!important;white-space:normal;margin:2px 0;padding:1px 3px;text-shadow:0 1px #644006}
+:root[data-theme] body > .brand-head .subtitle{font:700 clamp(.67rem,2.6vw,1.05rem)/1.3 system-ui,sans-serif;color:#103477!important;background:linear-gradient(90deg,#e1ab38,#fff1a4,#e1ab38);border-radius:0 0 7px 7px;padding:2px;margin:0 7px;letter-spacing:0;direction:ltr}
+:root[data-theme] body > .brand-head > .salawat{color:#855500!important;margin-top:2px!important}
+:root[data-theme] body > .brand-head .holy-place{min-width:0;margin:0;line-height:1.2;text-align:center}
+:root[data-theme] body > .brand-head .holy-place svg{display:block;width:100%;max-width:104px;height:auto;margin:0 auto}
+:root[data-theme] body > .brand-head .holy-place figcaption{font-size:clamp(.64rem,2.8vw,.91rem);line-height:1.7;background:#0b3985;color:#fff7d8;border:1px solid #c99a38;border-radius:9px;white-space:nowrap;padding:0 2px;margin-top:-2px}
+:root[data-theme] #access{color-scheme:light;background:linear-gradient(145deg,#f1fdff,#c5eff8)!important;color:#14396b!important;border:2px solid #cc9b36!important;border-radius:18px;box-shadow:inset 0 0 0 2px #fff0b7,0 4px 14px #00334e40;accent-color:#164a91;padding:15px}
+:root[data-theme] #access :is(h2,h3,legend,label,strong){color:#123577!important}
+:root[data-theme] #access h2{font-weight:700;border-bottom:1px solid #d3aa50;margin-bottom:5px;line-height:1.9}
+:root[data-theme] #access :is(.muted,.footnote,.field-help){color:#3b536e!important}
+:root[data-theme] #access .access-tabs{background:#d4eaf8!important;border:1px solid #d2a03b;border-radius:11px;padding:4px;gap:4px}
+:root[data-theme] #access .access-tabs button{background:#eafaff!important;border:1px solid #b8cbe1;color:#123577!important;border-radius:8px}
+:root[data-theme] #access .access-tabs button[aria-selected="true"],:root[data-theme] #access #access-submit{background:linear-gradient(135deg,#174ca1,#092966)!important;color:#ffe59a!important;border:1px solid #c99a38!important;box-shadow:0 2px 5px #12457b26}
+:root[data-theme] #access :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,output){color:#103577!important;background:#fff!important;border:1px solid #b8a163!important;max-width:100%;border-radius:9px}
+:root[data-theme] #access input::placeholder{color:#58708a!important}
+:root[data-theme] #access :is(.password-eye,.reset-password-link){background:#deeffb!important;color:#123577!important;border-color:#c9a254!important}
+:root[data-theme] #access :is(.pledge,.gender-choice){background:#eafaff!important;color:#123577!important;border:1px solid #c9a254!important}
+:root[data-theme] #access .gender-choice:has(input:checked){background:#fff1bb!important;color:#123577!important}
+:root[data-theme] #access .message.ok{color:#17613e!important}
+:root[data-theme] #access :focus-visible{outline:2px solid #1253a6;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -57,16 +67,9 @@
       <p lang="ur" dir="rtl" style="font-size:.9rem;line-height:1.8;margin:4px 0">بے شک اللہ اور اس کے فرشتے نبی ﷺ پر درود بھیجتے ہیں۔ اے ایمان والو! تم بھی آپ ﷺ پر درود اور خوب سلام بھیجو۔</p>
       <small style="font-size:.75rem">سورۃ الاحزاب: 56</small>
     </div>
-    <div class="brand-shell">
-      <span class="brand-glyph" aria-hidden="true">✦</span>
-      <div class="brand-lines">
-        <p lang="ar" class="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
-        <h1>درود شریف گلوبل</h1>
-        <p class="subtitle">Durood Sharif Global</p>
-      </div>
-    </div>
+    <div class="brand-shell"><figure class="holy-place"><svg viewBox="0 0 110 110" role="img" aria-label="مسجد نبوی کی آرائشی تصویر" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="mdSky" x2="0" y2="1"><stop stop-color="#1495eb"/><stop offset="1" stop-color="#d9fbff"/></linearGradient><linearGradient id="mdDome"><stop stop-color="#064425"/><stop offset=".5" stop-color="#1a9d48"/><stop offset="1" stop-color="#064425"/></linearGradient><clipPath id="mdArch"><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z"/></clipPath></defs><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z" fill="url(#mdSky)"/><g clip-path="url(#mdArch)"><path d="M0 93H110V110H0" fill="#f5e7ce"/><g fill="#f4e3b6" stroke="#a97c34" stroke-width=".6"><path d="M16 92V28H21V92ZM13 28H24L18.5 17Z"/><path d="M90 92V37H95V92ZM87 37H98L92.5 26Z"/><path d="M12 42H25V46H12ZM86 52H99V56H86Z"/><rect x="28" y="80" width="55" height="22" rx="2"/></g><path d="M30 81Q30 58 55 48Q80 58 80 81Z" fill="url(#mdDome)" stroke="#075e2e"/><path d="M55 48V41" stroke="#a9771a" stroke-width="2"/><circle cx="55" cy="40" r="2" fill="#f5d26a"/><path d="M38 80Q37 59 55 48Q73 59 72 80M47 80Q45 59 55 48Q65 59 63 80" fill="none" stroke="#45bd61" stroke-width=".8"/><path d="M35 101V89Q40 82 45 89V101M50 101V89Q55 82 60 89V101M65 101V89Q70 82 75 89V101" fill="#204d55"/></g><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z" fill="none" stroke="#d4a133" stroke-width="3"/></svg><figcaption>مقامِ مدینہ</figcaption></figure><div class="brand-lines"><p lang="ar" class="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p><h1>درود شریف گلوبل</h1><p class="subtitle">Durood Sharif Global</p></div><figure class="holy-place"><svg viewBox="0 0 110 110" role="img" aria-label="خانہ کعبہ کی آرائشی تصویر" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kbSky" x2="0" y2="1"><stop stop-color="#1595ea"/><stop offset="1" stop-color="#defaff"/></linearGradient><clipPath id="kbArch"><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z"/></clipPath></defs><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z" fill="url(#kbSky)"/><g clip-path="url(#kbArch)"><path d="M0 73H110V110H0" fill="#f7e5c4"/><g fill="#fff0cb" stroke="#ad843f" stroke-width=".6"><path d="M15 75V28H21V75ZM12 28H24L18 18Z"/><path d="M89 75V33H95V75ZM86 33H98L92 23Z"/><path d="M0 79H110V85H0"/></g><path d="M22 56L53 44L86 55L56 68Z" fill="#33383c"/><path d="M22 56L56 68V104L22 92Z" fill="#16191e"/><path d="M56 68L86 55V92L56 104Z" fill="#070b11"/><path d="M22 64L56 76L86 63V69L56 82L22 70Z" fill="#c89a34"/><path d="M30 75L42 79V96L30 92Z" fill="#b88923" stroke="#ffe096"/><path d="M26 66L52 75M60 76L82 66" stroke="#fff0aa" stroke-width="1" stroke-dasharray="2 2"/></g><path d="M4 106V47Q4 34 18 28Q22 15 39 16L55 3L71 16Q88 15 92 28Q106 34 106 47V106Z" fill="none" stroke="#d4a133" stroke-width="3"/></svg><figcaption>خانہ کعبہ</figcaption></figure></div>
     <p class="salawat" lang="ar" dir="rtl" style="margin-top:10px">صَلَّى اللّٰهُ عَلَىٰ حَبِيبِهِ مُحَمَّدٍ وَآلِهِ وَبَارَكَ وَسَلَّمَ</p>
-    <p lang="ur" dir="rtl" style="font-size:.9rem;line-height:1.8;margin:4px auto 0;max-width:950px">اللہ تعالیٰ اپنے محبوب حضرت محمد ﷺ اور آپ کی آل پر رحمت، برکت اور سلامتی نازل فرمائے۔</p>
+    <p lang="ur" dir="rtl" style="font-size:.9rem;line-height:1.8;margin:4px auto 0;max-width:950px">اللہ تعالیٰ اپنے محبوب حضرت محمد ﷺ اور آپ ﷺ کی آل پر رحمت، برکت اور سلامتی نازل فرمائے۔</p>
   </header>
   <main class="container">
     <section id="loading" class="panel" role="status" aria-live="polite">
