@@ -1835,6 +1835,10 @@ function readerList(){
 }
 
 let periodCounts=null;
+let dashboardGroupTitle='';
+function groupTitleLabel(){
+  return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
+}
 function periodLabels(){
   return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
     ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this year','اس سال کا کل درود')]];
@@ -1847,8 +1851,8 @@ function overview() {
    (periodCounts?displayNumber(periodCounts[key]):'—')+'</strong></div></section>'
  ).join('');
  return '<div class="dashboard-home">'+
-   boxedHeading(ownerViewingWomen()?tr("Women’s dashboard","خواتین کا مرکز"):tr("Dashboard","مرکز"),
-     tr("The shared Durood goal and the all-time total.","درودِ ابراہیمی کا مشترکہ ہدف اور اب تک کا مجموعی شمار۔"))+
+   boxedHeading(ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"),
+     tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
    '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
    '<div class="recitation-periods">'+metricCards+'</div>'+
@@ -2201,18 +2205,18 @@ function wazaifLanding(){
 }
 function tasbih() {
   const group=window.duroodWazaif?.groupData?.();
-  const headingTitle=group?.title||tr("Tasbih", 'تسبیح');
-  const description=group?.instructions||tr("Recite Durood-e-Ibrahimi in full, then tap once.", 'مکمل درودِ ابراہیمی پڑھیں اور ہر مرتبہ ایک بار ٹیپ کریں۔');
-  const purpose=group?.purpose||tr('Daily Durood-e-Ibrahimi recitation','درودِ ابراہیمی کی روزانہ تلاوت');
-  const arabic=group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : duroodIbrahimi;
+  const headingTitle=group?.title||groupTitleLabel();
+  const description=group?.instructions||tr("Complete the recitation, then tap once.", 'وظیفہ مکمل پڑھ کر ایک مرتبہ ٹیپ کریں۔');
+  const purpose=group?.purpose||tr('Daily group recitation','روزانہ گروپ وظیفہ');
+  const arabic=group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : '';
   return '<button type="button" class="button secondary" data-action="nav" data-value="tasbih">← '+tr('Wazaif list','وظائف واپس')+'</button>' +
-    boxedHeading(esc(headingTitle),esc(description)) +
+    boxedHeading('<span data-reader-group-title>'+esc(headingTitle)+'</span>',esc(description)) +
     '<section class="wz-reading-text wz-reading-text-visible group-reader-intro" aria-label="وظیفے کی عبارت، طریقہ اور مقصد">'+
     '<h3>'+tr('Arabic text','عربی عبارت')+'</h3><div class="durood-copy" lang="ar" dir="rtl">'+arabic+'</div>'+
     '<p><b>'+tr('How to recite:','پڑھنے کا طریقہ:')+'</b> '+esc(description)+'</p>'+
     '<p><b>'+tr('Purpose:','مقصد:')+'</b> '+esc(purpose)+'</p></section>' +
     tr("<section class=\"reader\" aria-label=\"Tasbih counter\"><div class=\"reader-inner\">", '<section class="reader" aria-label="تسبیح کا شمار"><div class="reader-inner">') +
-    tr("<div class=\"panel-head\"><h2>Durood-e-Ibrahimi</h2><div class=\"reader-actions\">", '<div class="panel-head"><h2>درودِ ابراہیمی</h2><div class="reader-actions">') +
+    '<div class="panel-head"><h2 data-reader-group-title>'+esc(headingTitle)+'</h2><div class="reader-actions">' +
     '<button class="button" data-action="reader-sound" aria-pressed="' + soundEnabled + tr("\">Sound ", '">آواز ') + (soundEnabled ? tr("On", 'چالو') : tr("Off", 'بند')) +
     '</button><button class="button" data-action="reader-vibrate" aria-pressed="' + Boolean(prayerPrefs(currentUserId).readerVibrate) +
     tr("\">Vibrate ", '">وائبریشن ') + (prayerPrefs(currentUserId).readerVibrate ? tr("On", 'چالو') : tr("Off", 'بند')) +
@@ -4176,6 +4180,12 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  groupTitle(value){
+    dashboardGroupTitle=typeof value==='string'?value.trim():'';
+    document.querySelectorAll('[data-dashboard-group-title],[data-reader-group-title]').forEach(node=>{
+      node.textContent=groupTitleLabel();
+    });
+  },
   openGroupReader(){
     if(!currentUser()||!window.duroodWazaif?.activeGroup?.()||
       !window.duroodWazaif?.groupCountsAsDurood?.())return;
@@ -4259,7 +4269,7 @@ window.duroodClassicBridge = {
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      periodCounts=null;todayReaders=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;dashboardGroupTitle='';prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -4662,6 +4672,11 @@ let stopCounters=()=>{};
 function observeCounters(side){
   stopCounters();
   const sideRef=doc(db,"genderStats",side);
+  const observedUid=auth.currentUser?.uid;
+  const stopGroupTitle=onSnapshot(doc(db,"wazaifSettings","group"),snap=>{
+    if(auth.currentUser?.uid===observedUid && (!snap.metadata.fromCache || snap.exists()))
+      bridge.groupTitle(snap.data()?.title);
+  },err=>console.warn("Group title unavailable",err.code));
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},timer,rows=null,myRow=null,lastPing=0;
   const pulse=setInterval(()=>{
@@ -4705,7 +4720,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{stopGroupTitle();stopTotal();stopDays();stopRows();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   const user=auth.currentUser;
