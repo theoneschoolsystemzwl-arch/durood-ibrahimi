@@ -784,13 +784,28 @@ try{
 }catch{}
 function arabicTickerMarkup(arabic){
  return '<section class="wz-arabic-ticker" aria-label="چلتی ہوئی عربی عبارت">'+
+ '<div class="wz-ticker-window"><span class="wz-ticker-text" lang="ar" dir="rtl">'+esc(String(arabic||"").replace(/\s+/g," ").trim())+'</span></div>'+
  '<div class="wz-ticker-controls" dir="ltr">'+
  '<div class="wz-ticker-setting"><span>رفتار</span><button type="button" data-wazifa-action="ticker-speed-down" aria-label="رفتار کم کریں">−</button><output id="wz-ticker-speed">'+wzArabicSpeed+'</output><button type="button" data-wazifa-action="ticker-speed-up" aria-label="رفتار بڑھائیں">+</button></div>'+
- '<div class="wz-ticker-setting"><span>فونٹ</span><button type="button" data-wazifa-action="ticker-font-down" aria-label="فونٹ چھوٹا کریں">−</button><output id="wz-ticker-font">'+wzArabicFont+'</output><button type="button" data-wazifa-action="ticker-font-up" aria-label="فونٹ بڑا کریں">+</button></div></div>'+
- '<div class="wz-ticker-window"><span class="wz-ticker-text" lang="ar" dir="rtl">'+esc(String(arabic||"").replace(/\s+/g," ").trim())+'</span></div></section>';
+ '<div class="wz-ticker-setting"><span>فونٹ</span><button type="button" data-wazifa-action="ticker-font-down" aria-label="فونٹ چھوٹا کریں">−</button><output id="wz-ticker-font">'+wzArabicFont+'</output><button type="button" data-wazifa-action="ticker-font-up" aria-label="فونٹ بڑا کریں">+</button></div></div></section>';
 }
 let wzTickerAnimation=null;
+function fitWzFullscreenDial(){
+ const card=$("#wazaif-root .wz-session-card"),dial=card?.querySelector("#wz-dial");
+ if(!card||!dial)return;
+ if(!state.immersive){card.style.removeProperty("--wz-fit-dial");return;}
+ const cs=getComputedStyle(card);
+ const num=v=>parseFloat(v)||0;
+ const children=Array.from(card.children).filter(el=>el!==dial&&getComputedStyle(el).display!=="none");
+ const used=children.reduce((sum,el)=>{
+  const s=getComputedStyle(el);return sum+el.getBoundingClientRect().height+num(s.marginTop)+num(s.marginBottom);
+ },0);
+ const available=card.clientHeight-num(cs.paddingTop)-num(cs.paddingBottom)-used-num(cs.rowGap)*children.length-12;
+ const width=card.clientWidth-num(cs.paddingLeft)-num(cs.paddingRight);
+ card.style.setProperty("--wz-fit-dial",Math.max(0,Math.floor(Math.min(420,width*.88,available)))+"px");
+}
 function syncArabicTicker(){
+ fitWzFullscreenDial();
  const viewport=$("#wazaif-root .wz-ticker-window"),line=viewport?.querySelector(".wz-ticker-text");
  if(!line)return;
  line.style.fontSize=wzArabicFont+"px";
