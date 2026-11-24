@@ -2120,12 +2120,18 @@ function liveFeed() {
     formatNumber(item.amount) + '</strong></li>').join('');
 }
 
-let todayReaders=null;
+let todayReaders=null,yesterdayReaders=null,readerListDay="today";
+function readerDayLabel(){
+ const date=new Date();
+ if(readerListDay==="yesterday")date.setDate(date.getDate()-1);
+ return dateKey(date);
+}
 function readerList(){
- if(!todayReaders)return tr("Loading today’s list…","آج کی فہرست لوڈ ہو رہی ہے…");
- if(!todayReaders.length)return tr("No Durood recorded today.","آج ابھی کسی نے درود شریف درج نہیں کیا۔");
+ const selected=readerListDay==="yesterday"&&currentUser()?.isOwner?yesterdayReaders:todayReaders;
+ if(!selected)return tr("Loading selected date…","منتخب تاریخ کا ریکارڈ لوڈ ہو رہا ہے…");
+ if(!selected.length)return tr("No saved Durood found for this date.","اس تاریخ کے لیے درود شریف کا محفوظ ریکارڈ نہیں ملا۔");
  const now=Date.now();
- return '<ol class="reader-list">'+todayReaders.map((row,index)=>{
+ return '<ol class="reader-list">'+selected.map((row,index)=>{
    const online=now-row.seen<90000,active=online && row.lastTap>0 && now-row.lastTap<90000;
    const lastReading=Math.max(row.lastTap||0,row.lastManual||0);
    const seconds=Math.max(0,Math.floor((now-lastReading)/1000));
@@ -2172,7 +2178,7 @@ function overview() {
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
    '<section class="panel section readers-section"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
-   '</h2><div id="today-readers">'+readerList()+'</div></section>'+
+   '</h2>'+(currentUser()?.isOwner?'<div class="row" style="display:flex;gap:5px;justify-content:center;align-items:center;margin:5px 0"><button type="button" class="button secondary" data-action="reader-list-day" data-value="today" aria-pressed="'+(readerListDay==="today")+'">'+tr("Today","آج")+'</button><button type="button" class="button secondary" data-action="reader-list-day" data-value="yesterday" aria-pressed="'+(readerListDay==="yesterday")+'">'+tr("Yesterday","گزشتہ روز")+'</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi></div>':"")+'<div id="today-readers">'+readerList()+'</div></section>'+
    '</div>';
 }
 
@@ -4360,6 +4366,14 @@ app.addEventListener('click', event => {
     groupFilter = null;
     if(!currentPhotoSelection())photoDraft=null;
   }
+  if (action === 'reader-list-day') {
+    if(!currentUser()?.isOwner||!['today','yesterday'].includes(value))return;
+    readerListDay=value;
+    app.querySelectorAll('[data-action="reader-list-day"]').forEach(node=>node.setAttribute("aria-pressed",String(node.dataset.value===value)));
+    const label=document.getElementById("reader-list-date");if(label)label.textContent=readerDayLabel();
+    const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
+    return;
+  }
   if (action === 'record') record = value;
   if (action === 'period') selectedPeriod = value;
   if (action === 'profile' && currentUser()?.isOwner && visibleMembers().some(member => member.id === Number(value))) {
@@ -4605,6 +4619,13 @@ window.duroodClassicBridge = {
     const list=document.getElementById("today-readers");
     if(list)list.innerHTML=readerList();
   },
+  previousReaders(rows){
+    yesterdayReaders=rows;
+    if(readerListDay==="yesterday"){
+      const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
+      const label=document.getElementById("reader-list-date");if(label)label.textContent=readerDayLabel();
+    }
+  },
   periodTotals(values){
     periodCounts=values;
     document.querySelectorAll('[data-period]').forEach(el=>{el.textContent=values ? formatNumber(values[el.dataset.period]) : '—';});
@@ -4621,7 +4642,7 @@ window.duroodClassicBridge = {
     if(!refresh){
       liveGroupMemberCounts=new Map();
       liveMemberPhotos=new Map();
-      periodCounts=null;todayReaders=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;yesterdayReaders=null;readerListDay="today";dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5150,7 +5171,7 @@ function observeCounters(side){
   };
   watchGroupYear();
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
-  let stopDays=()=>{},stopRows=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
+  let stopDays=()=>{},stopRows=()=>{},stopYesterday=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
   const pulse=setInterval(()=>{
     if(document.hidden)return;
     if(rows)bridge.readers(rows);
@@ -5160,22 +5181,33 @@ function observeCounters(side){
       updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
     }
   },15000);
+  function decodeReaderRows(snap){
+    return snap.docs.map(item=>{
+      const data=item.data({serverTimestamps:"estimate"});
+      return {uid:item.id,name:data.name,total:Math.max(0,Number(data.total)||0),
+        manualTotal:Math.max(0,Number(data.manualTotal)||0),lastManual:data.lastManual?.toMillis()||0,
+        lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
+    }).filter(row=>row.total+row.manualTotal>0).sort((a,b)=>(b.total+b.manualTotal)-(a.total+a.manualTotal));
+  }
   function watchDays(){
     watchGroupYear();refreshDashboardGroupProgress();
-    stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);
+    stopDays();stopRows();stopYesterday();rows=null;myRow=null;bridge.readers(null);bridge.previousReaders(null);
     const now=new Date(),today=localReadingDate(now);
     const readers=collection(sideRef,"days",today,"readers");
     stopRows=onSnapshot(query(readers,orderBy("total","desc")),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||(snap.metadata.fromCache && snap.empty))return;
-      rows=snap.docs.map(item=>{
-        const data=item.data({serverTimestamps:"estimate"});
-        return {uid:item.id,name:data.name,total:Math.max(0,Number(data.total)||0),
-          manualTotal:Math.max(0,Number(data.manualTotal)||0),lastManual:data.lastManual?.toMillis()||0,
-          lastTap:data.lastTap?.toMillis()||0,seen:data.seen?.toMillis()||0};
-      }).filter(row=>row.total+row.manualTotal>0).sort((a,b)=>(b.total+b.manualTotal)-(a.total+a.manualTotal));
+      rows=decodeReaderRows(snap);
       myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
       bridge.readers(rows);
     },e=>{if(stillCurrent())bridge.readers(null);console.warn("Readers",e.code);});
+    if(currentProfile?.role==="owner"){
+      const previous=new Date(now);previous.setDate(previous.getDate()-1);
+      const previousDay=localReadingDate(previous);
+      stopYesterday=onSnapshot(collection(sideRef,"days",previousDay,"readers"),{includeMetadataChanges:true},snap=>{
+        if(!stillCurrent()||(snap.metadata.fromCache&&snap.empty))return;
+        bridge.previousReaders(decodeReaderRows(snap));
+      },err=>{if(stillCurrent())bridge.previousReaders(null);console.warn("Previous reader list unavailable",err.code);});
+    }
     const monday=new Date(now);
     monday.setDate(now.getDate()-(now.getDay()+6)%7);
     const week=localReadingDate(monday),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
@@ -5204,7 +5236,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,tomorrow-now+50);
   }
   watchDays();
-  stopCounters=()=>{for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopTotal();stopDays();stopRows();stopYesterday();stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 async function hydrate(){
   if(classicLogoutBlocked())return;
