@@ -2,7 +2,7 @@
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
-import {readingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=group-periods-20261124-v2";
+import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=pkt-global-20261125-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
@@ -159,7 +159,7 @@ const defaultGroup=()=>({
  title:"درودِ ابراہیمی",arabic:"اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.\nاللَّهُمَّ بَارِكْ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ كَمَا بَارَكْتَ عَلَىٰ إِبْرَاهِيمَ وَعَلَىٰ آلِ إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ.",
  instructions:"ہر مرتبہ مکمل درودِ ابراہیمی پڑھنے کے بعد تسبیح کو ایک بار دبائیں۔",
  purpose:"درودِ ابراہیمی کی مشترکہ روزانہ تلاوت",kind:"group",active:true,
- countAsDurood:true,dailyGoal:200,yearlyGoal:1000000,startDate:readingDay()
+ countAsDurood:true,dailyGoal:200,yearlyGoal:1000000,startDate:groupReadingDay()
 });
 const state={
  profile:null,group:null,groupExists:false,groupStats:null,groupMember:null,groupDays:{},groupDaysReady:false,yearStats:null,personal:[],
@@ -167,7 +167,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,immersive:false,lastTapAt:0
+ seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -436,7 +436,7 @@ function tasbihTabLabel(title){
 }
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
- const stats=state.groupStats||{},annual=state.yearStats||{},today=readingDay();
+ const stats=state.groupStats||{},annual=state.yearStats||{},today=groupReadingDay();
  const todayCount=stats.day===today?Number(stats.today||0):0;
  const all=Number(stats.total||0);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
@@ -530,9 +530,9 @@ function formMarkup(){
  '<label class="wz-goal-field" data-wz-goal="month">ماہانہ ہدف<input name="monthlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.monthlyGoal||"")+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-form-goals" data-wz-auto-goals hidden>'+autoGroupGoalMarkup()+'</div>'+
- '<div class="wz-dates" data-wz-annual-dates hidden><label>سیشن کی آغاز تاریخ (Start Date)<input name="annualStartDate" type="date" value="'+esc(annual?.start||readingDay())+'"></label>'+
+ '<div class="wz-dates" data-wz-annual-dates hidden><label>سیشن کی آغاز تاریخ (Start Date)<input name="annualStartDate" type="date" value="'+esc(annual?.start||groupReadingDay())+'"></label>'+
  '<label>سیشن کی اختتامی تاریخ (End Date)<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">مدت چھ ماہ، ایک سال یا اس سے زیادہ ہو سکتی ہے۔ اختتامی تاریخ کے بعد سیشن مکمل ہوگا، نئی مدت صرف اونر مقرر کرے گا۔ مجموعی ہدف برقرار رہے گا۔</p></div>'+
- '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||readingDay())+'"></label>'+
+ '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||(g?groupReadingDay():readingDay()))+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
  dailyConversionHint(original)+
@@ -617,7 +617,7 @@ function readingTimes(record,live=false){
  return {tasbih,manual,total:tasbih+manual,hasSpeed:speed>0,manualCount};
 }
 function dailyFigures(group,w,record,queued=0){
- const today=readingDay(),rows=group?[]:datedProgress(record);
+ const today=group?groupReadingDay():readingDay(),rows=group?[]:datedProgress(record);
  const r=rows.length?rows[rows.length-1]:null,entry=record?.dailyLedger?.[today]||{};
  const goal=group?Number(w.dailyGoal||0):targetForDay(w,today);
  const saved=group?(record?.day===today?Number(record.today||0):0):
@@ -629,11 +629,11 @@ function dailyFigures(group,w,record,queued=0){
   manual:group?0:sources.manual,read,pending:Math.max(0,goal+previous-credit-read)};
 }
 function selectedDayFigures(group,w,record,day=readingDay()){
- const selected=group?readingDay():day;
+ const selected=group?groupReadingDay():day;
  const entry=record?.dailyLedger?.[selected]||{};
  const dated=group?null:datedProgress(record).find(item=>item.day===selected);
  const pending=wzSync.pending(group?"_group_":state.readerId,selected);
- const isToday=selected===readingDay();
+ const isToday=selected===(group?groupReadingDay():readingDay());
  const base=group?ownGroupDay(selected):
   Math.max(0,Number(dated?.count??entry.count??(record?.day===selected?record.today:0))||0);
  const source=readingSources(entry,base);
@@ -647,7 +647,7 @@ function selectedDayFigures(group,w,record,day=readingDay()){
  return {goal,tasbih,manual,read,pending:Math.max(0,goal-read)};
 }
 function fiveFigureMarkup(group,w,record){
- const day=group?readingDay():state.draftDay||readingDay();
+ const day=group?groupReadingDay():state.draftDay||readingDay();
  const d=selectedDayFigures(group,w,record,day);
  return '<section class="wz-today-due" aria-label="منتخب تاریخ کی پڑھی گئی اور باقی گنتی">'+
   '<div class="wz-today-due-cell"><small>آج کا باقی ہدف</small><strong id="wz-five-pending" class="wz-due-number '+(d.pending?'is-pending':'is-done')+'">'+fmt(d.pending)+'</strong></div>'+
@@ -796,7 +796,7 @@ function wazifaHistoryMarkup(record){
  (rows||'<div class="wz-history-empty">ابھی ریکارڈ نہیں۔</div>')+more+
  '<p class="wz-history-note">پچھلا بقایا اگلے دن جمع ہوگا؛ بعد میں پورا ہونے پر کارڈ سبز ہو جائے گا۔ دستی وقت تسبیح کی اوسط رفتار سے تخمینہ ہے۔</p>';
 }
-function memberGroupDailyGoal(w,day=readingDay()){
+function memberGroupDailyGoal(w,day=groupReadingDay()){
  const goals=window.duroodMemberGroupTargets?.(day);
  return Math.max(0,Number(goals?.dailyGoal)||0);
 }
@@ -806,12 +806,12 @@ function ownGroupDay(day){
  return state.groupMember?.day===day?Math.max(0,Number(state.groupMember.today)||0):0;
 }
 function groupHistoryMarkup(w){
- const today=readingDay();
+ const today=groupReadingDay();
  // Only the authenticated member's registration timestamp sets the first row.
  // Group launch dates and old counters must never backdate another member.
  const raw=state.profile?.createdAt??state.profile?.joined;
  const joined=raw?.toDate?.()??(Number.isFinite(raw?.seconds)?new Date(raw.seconds*1000):raw instanceof Date?raw:null);
- const membership=joined instanceof Date&&Number.isFinite(joined.getTime())?readingDay(joined):null;
+ const membership=joined instanceof Date&&Number.isFinite(joined.getTime())?groupReadingDay(joined):null;
  if(!membership||membership>today)return '<p class="wz-history-note">رکنیت کی اصل تاریخ دستیاب ہونے تک روزانہ ریکارڈ نہیں دکھایا جا سکتا۔</p>';
  const start=membership;
  const rows=[];
@@ -826,7 +826,7 @@ function groupHistoryMarkup(w){
  (spanDays(start,today)>state.historyLimit?'<button type="button" class="wz-button" data-wazifa-action="history-more">مزید پرانا ریکارڈ</button>':"");
 }
 function heroReadingState(group,w,record){
- const today=readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
+ const today=group?groupReadingDay():readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
  const total=Math.max(0,Number(record.total)||0);
  const plan=!group?fixedPlan(w):null;
  const continuing=!group&&continuationActive(w,today);
@@ -904,7 +904,7 @@ function readerMarkup(group){
  const visible=!group?visibleWazifaPeriod(w):null;
  const days=visible?.days||0,elapsed=visible?.elapsed||0,remaining=visible?.remaining||0;
  const showDates=!!s.plan;
- const today=readingDay();
+ const today=group?groupReadingDay():readingDay();
  const history=group?groupHistoryMarkup(w):wazifaHistoryMarkup(record);
  const progress=s.percent;
  return '<div class="wz-hero-reader" dir="rtl">'+
@@ -1001,7 +1001,7 @@ function refreshHeroReader(){
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
  const taskId=group?"_group_":state.readerId;
- const todayCount=s.todayCount+wzSync.pending(taskId,readingDay()),total=s.total+wzSync.pending(taskId);
+ const todayCount=s.todayCount+wzSync.pending(taskId,group?groupReadingDay():readingDay()),total=s.total+wzSync.pending(taskId);
  const dayLeft=Math.max(0,s.dailyGoal-todayCount);
   const left=Math.max(0,s.totalGoal-total);
   const percent=s.totalGoal?Math.min(100,total*100/s.totalGoal):0;
@@ -1013,9 +1013,9 @@ function refreshHeroReader(){
  set("wz-hero-progress-label",percent.toFixed(2)+"%");
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
   if(s.continuing)set("wz-hero-days-left",fmt(left));
- const ownToday=group?ownGroupDay(readingDay())+wzSync.pending("_group_",readingDay()):todayCount;
+ const ownToday=group?ownGroupDay(groupReadingDay())+wzSync.pending("_group_",groupReadingDay()):todayCount;
  set("wz-mini-goal",fmt(s.dailyGoal));set("wz-mini-today",fmt(ownToday));set("wz-mini-left",fmt(group?Math.max(0,s.dailyGoal-ownToday):dayLeft));
- const d=selectedDayFigures(group,w,record,group?readingDay():state.draftDay||readingDay());
+ const d=selectedDayFigures(group,w,record,group?groupReadingDay():state.draftDay||readingDay());
  set("wz-today-read",fmt(d.read));
  for(const [id,value] of [["wz-five-goal",d.goal],["wz-five-tasbih",d.tasbih],
   ["wz-five-manual",d.manual],["wz-five-read",d.read],["wz-five-pending",d.pending]])set(id,fmt(value));
@@ -1034,7 +1034,7 @@ function refreshHeroReader(){
  set("wz-remaining-progress-label",remainingPercent.toFixed(2)+"%");
  // Daily percentage uses the selected day's original daily target, not the
  // carried-over outstanding balance displayed separately in the five cards.
- const selectedDay=group?readingDay():state.draftDay||readingDay();
+ const selectedDay=group?groupReadingDay():state.draftDay||readingDay();
  const dailyTarget=Math.max(0,Number(group?memberGroupDailyGoal(w,selectedDay):targetForDay(w,selectedDay))||0);
  const dailyPercent=dailyTarget>0?Math.min(100,d.read*100/dailyTarget):0;
  set("wz-daily-progress-label",dailyPercent.toFixed(2)+"%");
@@ -1423,7 +1423,8 @@ function tap(){
    const gap=pressedAt-state.clockLastTap;
    if(gap>0){state.tapGapMs=gap;state.tapGapTotalMs+=gap;state.clockIntervals++;}
  }
- const day=state.draftDay||readingDay(),isToday=day===readingDay();
+ const today=state.mode==="group-reader"?groupReadingDay():readingDay();
+ const day=state.mode==="group-reader"?today:state.draftDay||today,isToday=day===today;
  const durationMs=isToday&&state.clockLastTap!==null?
   Math.min(86400000,Math.max(0,Math.round(pressedAt-state.clockLastTap))):0;
  if(!wzSync.enqueue({taskId:state.mode==="group-reader"?"_group_":state.readerId,
@@ -1469,9 +1470,12 @@ function tick(){
   const node=$(id);if(node)node.textContent=text;
  }
  checkWzIdle();
+ if(state.seenGroupDay!==groupReadingDay()){
+  state.seenGroupDay=groupReadingDay();
+  if(state.mode==="group-reader"){resetWzSession(true);state.draftDay=groupReadingDay();refreshHeroReader();}
+ }
  if(state.seenDay!==readingDay()){
   state.seenDay=readingDay();
-  if(state.mode==="group-reader"){resetWzSession(true);state.draftDay=readingDay();refreshHeroReader();}
   if(!state.tapQueue&&state.mode==="personal-reader"){
    state.draftDay=readingDay();const picker=$("#wz-save-date");if(picker)picker.value=state.draftDay;
    const selected=$("#wz-selected-date");if(selected)selected.textContent=displayRecordDate(state.draftDay);
@@ -1691,7 +1695,7 @@ document.addEventListener("click",event=>{
      window.duroodClassicBridge?.openGroupReader?.();
      return;
    }
-   state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=readingDay();
+   state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=groupReadingDay();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});window.duroodEnsureMemberDailyGoal?.();return;
  }
  if(action==="read-personal"){

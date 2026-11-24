@@ -3,11 +3,13 @@
 import {auth,db} from "./firebase-client.js";
 import {doc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
+import {globalDay} from "./global-clock.js";
+export {globalDay as groupReadingDay} from "./global-clock.js";
 export function readingDay(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
 export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null}={}){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(day) || day>readingDay() || readingDay(new Date(day+"T12:00:00"))!==day ||
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day) || day>globalDay() || !Number.isFinite(Date.parse(day+"T00:00:00Z")) || new Date(day+"T00:00:00Z").toISOString().slice(0,10)!==day ||
      !Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("غلط شمار یا تاریخ۔");
   const configRef=doc(db,"wazaifSettings","group");
   const statsRef=doc(db,"wazaifGroupStats","main");
@@ -63,7 +65,7 @@ export async function addGroupCountsToTransaction(tx,uid,amount,day,{durood=null
     updatedAt:serverTimestamp()
   });
 }
-export async function recordGroupWazifaOnly(amount=1,day=readingDay(),syncId=null){
+export async function recordGroupWazifaOnly(amount=1,day=globalDay(),syncId=null){
   const user=auth.currentUser;
   if(!user)throw Error("لاگ اِن ضروری ہے۔");
   if(syncId && (!/^[a-f0-9]{32}$/.test(syncId)||amount>1000))throw Error("غلط سنک شناخت۔");

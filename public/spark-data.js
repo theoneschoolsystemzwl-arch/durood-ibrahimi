@@ -1,7 +1,7 @@
 // Spark-plan data layer: Firebase Auth + Firestore, no Cloud Functions or billing.
 // Production access decisions are enforced by firestore.rules, NOT this client.
 import {auth,db} from "./firebase-client.js";
-import {addGroupCountsToTransaction} from "./wazaif-counter.js?v=group-periods-20261124-v2";
+import {addGroupCountsToTransaction} from "./wazaif-counter.js?v=pkt-global-20261125-v1";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,deleteDoc,increment
@@ -177,13 +177,16 @@ export async function profileNameSpark(name){
   if(clean.length<2||clean.length>60)throw Error("نام 2 تا 60 حروف میں لکھیں۔");
   await updateDoc(memberRef(uid),{name:clean,updatedAt:serverTimestamp()});
 }
+import {globalDay,globalNow,syncGlobalClock,globalClockVerified} from "./global-clock.js";
 export function localReadingDate(date=new Date()){
   return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");
 }
-export async function readingsSpark(amount,day=localReadingDate(),tasbih=false,groupWazifa=false,syncId=null){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>localReadingDate()||
-    localReadingDate(new Date(day+"T12:00:00"))!==day)throw Error("درست تاریخ منتخب کریں۔");
-  if(!tasbih && day!==localReadingDate())throw Error("آف لائن درود صرف آج کی تاریخ میں شامل ہو سکتا ہے۔");
+export async function readingsSpark(amount,day=null,tasbih=false,groupWazifa=false,syncId=null){
+  if(!globalClockVerified()&&navigator.onLine!==false)await syncGlobalClock();
+  day=day??globalDay();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||day<"1900-01-01"||day>globalDay()||
+    !Number.isFinite(Date.parse(day+"T00:00:00Z"))||new Date(day+"T00:00:00Z").toISOString().slice(0,10)!==day)throw Error("درست عالمی تاریخ منتخب کریں۔");
+  if(!tasbih && day!==globalDay())throw Error("آف لائن درود صرف پاکستان کے مطابق آج کی تاریخ میں شامل ہو سکتا ہے۔");
   const uid=requireUser();
   if(!Number.isSafeInteger(amount)||amount<1||amount>10000)throw Error("1 سے 10000 تک مکمل عدد درج کریں۔");
   if(syncId!==null&&(!/^[a-f0-9]{32}$/.test(syncId)||!tasbih||amount>1000))
