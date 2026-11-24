@@ -64,6 +64,13 @@ curl --fail --silent --show-error --header "Authorization: Bearer $token" \
 # GitHub checkout is shallow by default. Fetch history strictly for the
 # read-only source comparison; never attempt a rule update without it.
 git fetch --quiet --no-tags --depth=90 origin main
+# The last confirmed production Spark run (45324513710) explicitly verified
+# its exact rules source was already live. Fetch that immutable commit even
+# if it is outside the shallow main history or was produced on another ref.
+verified_live_commit=3f4e00eef12192b0370189f3eebdb0c6b4c7125c
+if ! git cat-file -e "$verified_live_commit:firestore.rules" 2>/dev/null; then
+  git fetch --quiet --no-tags --depth=1 origin "$verified_live_commit"
+fi
 node <<'NODE'
 const fs=require('fs'),cp=require('child_process');
 const response=JSON.parse(fs.readFileSync('/tmp/durood-firebase-active-rules.json','utf8'));
@@ -152,8 +159,13 @@ const beforeDateRevision=historicalRules('eade9e564d308e6f25a76fe80493e0713b2841
 const afterDateRevision=historicalRules('d6b06c5824a4e3f3210b5cc3c16a2bec6af52730');
 // Exact pre-aggregation rules; retain the full-source comparison guard.
 const beforeAggregateGoals=historicalRules('10c6525c38eb48137068fa7bcb236a05387bccc0');
+const lastVerifiedLive=historicalRules('3f4e00eef12192b0370189f3eebdb0c6b4c7125c');
+if(!lastVerifiedLive){
+  console.error('Could not read the last confirmed production rules source. Refusing overwrite.');
+  process.exit(1);
+}
 const baselines=[
-  expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
   beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals
@@ -163,7 +175,7 @@ if(!baselines.some(source=>same(existing.content,source))){
   console.error('Stopping to protect manual Firebase Console changes and existing records.');
   // Read-only diagnosis: show a bounded diff from the last verified published
   // source. Never change or deploy rules when an unknown edit is present.
-  const baseline=beforeDateRevision || beforeRepeatedGoalEdit || beforeContinuationFix;
+  const baseline=lastVerifiedLive || beforeDateRevision || beforeRepeatedGoalEdit || beforeContinuationFix;
   if(baseline){
     const crypto=require('crypto');
     const sha=text=>crypto.createHash('sha256').update(normalize(text)).digest('hex').slice(0,16);

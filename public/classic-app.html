@@ -1888,8 +1888,28 @@ function openMemberDailyTarget(){
   const uid=currentUser()?.uid,day=dateKey(),goal=Number(form.elements.goal.value),button=form.querySelector('[type="submit"]'),note=form.querySelector("[data-goal-feedback]");
   if(button.disabled||form.elements.goal.value.trim()===""||!Number.isSafeInteger(goal)||goal<0||goal>1000000)return;
   button.disabled=true;
-  try{await window.duroodSaveReaderGoal(uid,day,goal);if(currentUser()?.uid===uid){window.duroodClassicBridge.readerGoalHistory(uid,[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}]);dialog.close();}}
-  catch(error){note.textContent="ہدف محفوظ نہیں ہوا: "+(error?.code||error?.message||"دوبارہ کوشش کریں۔");}finally{button.disabled=false;}
+  button.textContent="محفوظ ہو رہا ہے…";
+  note.textContent="Firebase کی تصدیق کا انتظار ہے۔";
+  const pendingNotice=setTimeout(()=>{
+    if(dialog.open)note.textContent="سرور نے ابھی تصدیق نہیں کی۔ انٹرنیٹ چیک کریں۔ ہدف ابھی محفوظ ظاہر نہیں کیا گیا۔";
+  },10000);
+  try{
+    await window.duroodSaveReaderGoal(uid,day,goal);
+    if(currentUser()?.uid!==uid)return;
+    // Close only after the server has acknowledged the write; rendering a
+    // history row must not prevent the already successful dialog from closing.
+    if(dialog.open)dialog.close();
+    memberReaderGoalRows=[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}];
+    window.duroodClassicBridge.readerGoalHistory(uid,memberReaderGoalRows);
+    window.duroodClassicBridge.notice("روزانہ ہدف محفوظ ہو گیا۔");
+  }catch(error){
+    const code=error?.code||"";
+    if(dialog.open)note.textContent=code.includes("permission-denied")?"Firebase نے ہدف محفوظ کرنے کی اجازت نہیں دی۔ سکیورٹی اپڈیٹ درکار ہے۔":"ہدف محفوظ نہیں ہوا: "+(code||error?.message||"دوبارہ کوشش کریں۔");
+    else console.warn("Daily goal refresh",error);
+  }finally{
+    clearTimeout(pendingNotice);
+    button.disabled=false;button.textContent="محفوظ کریں";
+  }
  });
  document.body.append(dialog);dialog.showModal();
 }
