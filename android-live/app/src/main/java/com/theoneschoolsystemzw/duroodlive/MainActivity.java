@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
   private WebView web;
   private ValueCallback<Uri[]> filePicker;
   private boolean nativeImmersive=false;
+  private volatile boolean mainPageTrusted=false;
 
   @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
@@ -52,6 +53,10 @@ public class MainActivity extends Activity {
     CookieManager.getInstance().setAcceptCookie(true);
     CookieManager.getInstance().setAcceptThirdPartyCookies(web,true);
     web.setWebViewClient(new WebViewClient(){
+      @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){
+        Uri uri=Uri.parse(url==null?"":url);
+        mainPageTrusted="https".equals(uri.getScheme())&&HOST.equals(uri.getHost());
+      }
       @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){
         Uri url=req.getUrl();
         if("https".equals(url.getScheme())&&HOST.equals(url.getHost()))return false;
@@ -93,9 +98,9 @@ public class MainActivity extends Activity {
     return super.onOptionsItemSelected(item);
   }
   private boolean trustedPage(){
-    if(web==null)return false;
-    Uri url=Uri.parse(web.getUrl()==null?"":web.getUrl());
-    return "https".equals(url.getScheme())&&HOST.equals(url.getHost());
+    // JavaScriptInterface callbacks are on a background thread; never call
+    // WebView.getUrl() here (it must be read on the WebView UI thread).
+    return mainPageTrusted;
   }
   private void updateImmersive(boolean enabled){
     nativeImmersive=enabled;
@@ -123,7 +128,7 @@ public class MainActivity extends Activity {
     }
   }
   @Override public void onBackPressed(){
-    if(nativeImmersive){updateImmersive(false);web.evaluateJavascript("document.body.classList.remove('wz-immersive-reader')",null);return;}
+    if(nativeImmersive){updateImmersive(false);web.evaluateJavascript("window.dispatchEvent(new Event('durood-exit-immersive'))",null);return;}
     if(web!=null&&web.canGoBack())web.goBack();
     else super.onBackPressed();
   }
