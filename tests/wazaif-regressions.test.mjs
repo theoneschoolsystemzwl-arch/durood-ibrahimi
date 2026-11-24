@@ -232,9 +232,12 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(rolling.overallGoal,300);
  assert.equal(rolling.yearlyGoal,72900);
  const next=aggregate([member(100)],"2027-11-24",period);
- assert.equal(next.annualStartDate,"2027-11-24");
- assert.equal(next.annualEndDate,"2028-11-23");
- assert.equal(next.overallGoal,36600);assert.equal(next.yearlyGoal,36600);
+ // Owner-defined session dates do not roll over automatically.
+ assert.equal(next.annualStartDate,"2026-11-24");
+ assert.equal(next.annualEndDate,"2027-11-23");
+ assert.equal(next.overallGoal,36600);assert.equal(next.yearlyGoal,36500);
+ const shortSession=aggregate([member(100)],"2026-12-31",{annualStartDate:"2026-11-24",annualEndDate:"2026-12-31"});
+ assert.equal(shortSession.yearlyGoal,3800);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:50}]}],"2026-11-25",period).overallGoal,150);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100}],active:false,inactiveDay:"2026-11-25"}],"2026-11-26",period).overallGoal,200);
  assert.equal(aggregate(null,"2026-11-24"),null);
