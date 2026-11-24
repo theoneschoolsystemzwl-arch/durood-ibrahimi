@@ -1265,6 +1265,37 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
 <link rel="stylesheet" href="./dashboard-reference.css?v=profile-centered-20261123-v5">
+<!-- Naskh for recitation only; preserve Urdu navigation typography. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
+<style>
+.wz-card .wz-arabic[lang="ar"],
+.wz-hero-reader .wz-reading-text-visible .wz-arabic[lang="ar"],
+.wz-reading-text-visible .durood-copy[lang="ar"],
+.wz-reading-text-visible .durood-copy[lang="ar"] p,
+.about-scripture .about-arabic[lang="ar"],
+.about-scripture .about-arabic[lang="ar"] p,
+.wz-form textarea[name="arabic"],
+.wz-hero-reader .wz-ticker-text[lang="ar"] {
+ font-family:"Noto Naskh Arabic","Amiri","Noto Sans Arabic",serif!important;
+ font-weight:400!important;font-style:normal!important;
+ letter-spacing:normal!important;word-spacing:normal!important;
+ font-synthesis:none;direction:rtl;
+}
+.wz-card .wz-arabic[lang="ar"],
+.wz-hero-reader .wz-reading-text-visible .wz-arabic[lang="ar"],
+.wz-reading-text-visible .durood-copy[lang="ar"] p,
+.wz-form textarea[name="arabic"] {
+ font-size:clamp(1.42rem,5.5vw,1.85rem)!important;
+ line-height:2.05!important;
+ overflow-wrap:break-word;word-break:normal;
+}
+.wz-hero-reader .wz-ticker-text[lang="ar"] {
+ line-height:1.7!important;
+}
+.wz-hero-reader .wz-ticker-window{
+ height:max(50px,calc(var(--wz-arabic-size,24px) * 1.85 + 4px));
+}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -4482,7 +4513,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=membership-date-fix-20261124-v19";
+import "./wazaif.js?release=clear-arabic-naskh-20261124-v20";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
