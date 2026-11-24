@@ -720,6 +720,7 @@ function readerMarkup(group){
  '<h3>عربی عبارت</h3>'+arabicScrollControl(w.arabic)+'<div'+arabicDisplayAttrs(w.arabic)+' lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
  '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
+ '<section class="wz-session-card" aria-label="تسبیح کاؤنٹر اور روزانہ کا حساب">'+
  (showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
  heroTile("کل دن",visible.mode==="daily"?"روزانہ":fmt(days),"date")+
@@ -771,11 +772,11 @@ function readerMarkup(group){
  '<div class="wz-daily-progress" role="group" aria-label="منتخب تاریخ کے روزانہ ہدف کی پیش رفت">'+
  '<progress id="wz-daily-progress-bar" max="100" value="0" aria-label="روزانہ ہدف کی پیش رفت"></progress>'+
  '<span id="wz-daily-progress-label" dir="ltr">0.00%</span></div>'+
- '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+progress.toFixed(2)+'%" data-wazifa-action="tap">'+
+ '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
  '<strong id="wz-dial-number">'+fmt(state.tapQueue)+'</strong>'+
  '<span class="wz-dial-clock"><span>سیشن کا وقت <bdi id="wz-clock" dir="ltr">0</bdi></span></span>'+
  '<span class="wz-dial-plus" aria-hidden="true">+</span><span class="wz-dial-invite">پڑھیں یا تسبیح کریں</span>'+
- '</button>'+
+ '</button></section>'+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">ہر دباؤ فوراً فون میں محفوظ اور Firebase پر منتقل ہوتا ہے۔ Save صرف کاؤنٹر صفر کرتا ہے؛ پانچ منٹ خاموشی پر خودکار Save ہوگا۔</p>'+
@@ -821,7 +822,7 @@ function refreshHeroReader(){
  const dailyPercent=d.goal>0?Math.min(100,d.read*100/d.goal):0;
  set("wz-daily-progress-label",dailyPercent.toFixed(2)+"%");
  const dayBar=root.querySelector("#wz-daily-progress-bar");if(dayBar)dayBar.value=dailyPercent;
- root.querySelector("#wz-dial").style.setProperty("--wz-ring",percent.toFixed(2)+"%");
+ root.querySelector("#wz-dial").style.setProperty("--wz-ring",(state.tapQueue>0?(state.tapQueue%100||100):0)+"%");
  if(!group){
    const history=root.querySelector("#wz-record-history");
    if(history){
@@ -1196,6 +1197,7 @@ function tap(){
  playWazifaFeedback();
  persistDraft();
  const el=$("#wz-dial-number");if(el)el.textContent=fmt(state.tapQueue);
+ const dial=$("#wz-dial");if(dial)dial.style.setProperty("--wz-ring",(state.tapQueue%100||100)+"%");
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
  tick();
