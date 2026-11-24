@@ -167,7 +167,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,lastTapAt:0
+ seenDay:readingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -212,8 +212,27 @@ try{
   state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)));
 }catch{}
 let wzTapAudio=null;
+function vibrateWazifa(){
+ if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
+ try{
+  if(typeof window.DuroodAndroid?.vibrate==="function"){
+   window.DuroodAndroid.vibrate(state.vibrateLevel);return true;
+  }
+ }catch{}
+ try{return navigator.vibrate?.(20+state.vibrateLevel*12)===true;}catch{return false;}
+}
+function setWazifaImmersive(enabled){
+ state.immersive=!!enabled;
+ document.body.classList.toggle("wz-immersive-reader",state.immersive);
+ const button=$("#wazaif-root [data-wazifa-action='toggle-fullscreen']");
+ if(button){
+  button.setAttribute("aria-pressed",String(state.immersive));
+  button.textContent=state.immersive?"فل سکرین بند کریں":"فل سکرین";
+ }
+ try{window.DuroodAndroid?.setImmersive?.(state.immersive);}catch{}
+}
 function playWazifaFeedback(){
- if(state.vibrateEnabled&&state.vibrateLevel>0){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
+ vibrateWazifa();
  if(!state.soundEnabled||state.soundLevel===0)return;
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;
@@ -468,10 +487,11 @@ function durationText(ms){
 // Source totals on older dates may lack separate source fields.
 // Render an unattributed remainder in the dated/manual column without rewriting Firestore.
 function compactTasbihClock(ms){
- const total=Math.max(0,Math.floor((Number(ms)||0)/1000));
- const hours=Math.floor(total/3600),minutes=Math.floor(total/60)%60,seconds=total%60;
- return hours?hours+":"+String(minutes).padStart(2,"0")+":"+String(seconds).padStart(2,"0"):
-  minutes?minutes+":"+String(seconds).padStart(2,"0"):String(seconds);
+ const tenths=Math.max(0,Math.floor((Number(ms)||0)/100));
+ const seconds=Math.floor(tenths/10),fraction=tenths%10;
+ const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds/60)%60,second=seconds%60;
+ return (hours?hours+":"+String(minutes).padStart(2,"0")+":"+String(second).padStart(2,"0"):
+  minutes?minutes+":"+String(second).padStart(2,"0"):String(second))+"."+fraction;
 }
 
 function readingSources(entry={},fallbackCount=0){
@@ -739,9 +759,9 @@ function readerMarkup(group){
  '<div class="wz-progress-trio" role="group" aria-label="مجموعی تکمیل، باقی اور روزانہ ہدف">'+
  '<div class="wz-hero-progress wz-progress-line">'+
  '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'" aria-label="مجموعی تکمیل"></progress>'+
- '<span id="wz-hero-progress-label" dir="ltr">'+progress.toFixed(2)+'%</span></div>'+
+ '<span class="wz-progress-copy"><b id="wz-hero-progress-label" dir="ltr">'+progress.toFixed(2)+'%</b><small>مجموعی ہدف</small></span></div>'+
  '<div class="wz-remaining-progress wz-progress-line">'+
- '<progress id="wz-remaining-progress-bar" max="100" value="'+(100-progress)+'" aria-label="مجموعی باقی فیصد"></progress>'+
+ '<progress id="wz-remaining-progress-bar" max="100" value="'+progress+'" aria-label="مکمل شدہ مجموعی حصہ، ساتھ باقی فیصد"></progress>'+
  '<span class="wz-progress-copy"><b id="wz-remaining-progress-label" dir="ltr">'+(100-progress).toFixed(2)+'%</b><small>باقی</small></span></div>'+
  '<div class="wz-daily-progress wz-progress-line">'+
  '<progress id="wz-daily-progress-bar" max="100" value="0" aria-label="منتخب تاریخ کے روزانہ ہدف کی پیش رفت"></progress>'+
@@ -831,7 +851,7 @@ function refreshHeroReader(){
  const bar=root.querySelector("#wz-hero-progress-bar");if(bar)bar.value=percent;
  const remainingPercent=Math.max(0,100-percent);
  const remainingBar=root.querySelector("#wz-remaining-progress-bar");
- if(remainingBar)remainingBar.value=remainingPercent;
+ if(remainingBar)remainingBar.value=percent;
  set("wz-remaining-progress-label",remainingPercent.toFixed(2)+"%");
  // Daily percentage uses the selected day's original daily target, not the
  // carried-over outstanding balance displayed separately in the five cards.
@@ -921,6 +941,7 @@ function syncContinuationForm(changed=""){
 function render(){
  const root=$("#wazaif-root");
  if(!root||!state.profile)return;
+ if(!["personal-reader","group-reader"].includes(state.mode)&&state.immersive)setWazifaImmersive(false);
  if(!state.started)subscribe();
  if(state.mode==="form"){
    if(root.querySelector("#wazifa-form"))return;
@@ -932,7 +953,9 @@ function render(){
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
-   root.innerHTML=readerMarkup(state.mode==="group-reader");refreshHeroReader();return;
+   root.innerHTML=readerMarkup(state.mode==="group-reader");
+   if(state.immersive)setWazifaImmersive(true);
+   refreshHeroReader();return;
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
 }
@@ -995,6 +1018,7 @@ function openForm(scope,id=null){
  render();
 }
 function back(){
+ if(state.immersive)setWazifaImmersive(false);
  persistDraft();wzSync.schedule(0);
  if(state.tapBusy){state.pendingBack=true;return;}
  state.pendingBack=false;state.mode="list";state.panel=null;state.readerId=null;state.historyDay=null;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.clockLastTap=null;state.dialFloating=false;state.skipDialClick=false;state.draftDay=null;
@@ -1244,7 +1268,7 @@ function tick(){
  // Calculate live pace as elapsed session time divided by completed taps.
  // The first tap starts the session, so both time and projection update continuously.
  const seconds=state.tapQueue>0?value/(1000*state.tapQueue):0;
- const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{maximumFractionDigits:0}):"—";
+ const pace=n=>Number.isFinite(n)&&n>0?n.toLocaleString("en",{minimumFractionDigits:1,maximumFractionDigits:1}):"—";
  const perZikr=seconds>0?pace(seconds):"—";
  const perMinute=seconds>0?pace(60/seconds):"—";
  const perHour=seconds>0?pace(3600/seconds):"—";
@@ -1353,7 +1377,7 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem(sound?"durood-wz-sound-level":"durood-wz-vibration-level",String(state[key]));}catch{}
   const output=$(sound?"#wz-sound-level":"#wz-vibration-level");
   if(output)output.textContent=String(state[key]);
-  if(!sound&&state.vibrateEnabled&&state.vibrateLevel>0){try{navigator.vibrate?.(8+state.vibrateLevel*16);}catch{}}
+  if(!sound)vibrateWazifa();
   if(sound&&state.soundEnabled)playWazifaFeedback();
   return;
  }
@@ -1363,14 +1387,19 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem(sound?"durood-wz-sound":"durood-wz-vibration",state[key]?"1":"0");}catch{}
   button.setAttribute("aria-pressed",String(state[key]));
   button.textContent=sound?"ساؤنڈ":"وائبریشن";
+  if(!sound&&state.vibrateEnabled){
+   if(!vibrateWazifa()){
+    const note=$("#wz-session-note");
+    if(note)note.textContent="اس WebView میں وائبریشن دستیاب نہیں۔ نئی Android APK میں ہپٹک سپورٹ شامل کی گئی ہے۔";
+   }else{
+    const note=$("#wz-session-note");if(note)note.textContent="وائبریشن آن";
+   }
+  }
   return;
  }
  if(action==="toggle-fullscreen"){
-  try{
-   if(document.fullscreenElement){void document.exitFullscreen?.().catch(setError);}
-   else if(document.documentElement.requestFullscreen){void document.documentElement.requestFullscreen().catch(setError);}
-   else setError("اس براؤزر میں فل سکرین دستیاب نہیں۔");
-  }catch(e){setError(e);}
+  // Works in the existing Android WebView even when native fullscreen is unsupported.
+  setWazifaImmersive(!state.immersive);
   return;
  }
  if(action==="day-prev"||action==="day-next"){
