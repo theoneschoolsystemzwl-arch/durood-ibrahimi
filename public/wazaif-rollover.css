@@ -911,3 +911,36 @@ body.wz-immersive-reader #wazaif-root .wz-hero-content{
  border-color:#95f9bb!important;
  box-shadow:0 0 10px #25eeb755!important;
 }
+
+/* Session-card-only fullscreen; keep the two useful progress indicators. */
+.wz-hero-reader .wz-session-card .wz-remaining-progress{
+ display:none!important;
+}
+body.wz-immersive-reader #wazaif-root{
+ overflow:hidden!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-reader{
+ height:100%!important;min-height:0!important;max-width:none!important;
+ padding:0!important;overflow:visible!important;
+ background:transparent!important;border:0!important;box-shadow:none!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-ornament,
+body.wz-immersive-reader #wazaif-root .wz-hero-content > :not(.wz-session-card){
+ display:none!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-reader::before,
+body.wz-immersive-reader #wazaif-root .wz-hero-reader::after{
+ display:none!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-content{
+ box-sizing:border-box!important;height:100%!important;min-height:0!important;
+ padding:0!important;margin:0!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-session-card{
+ box-sizing:border-box!important;width:100%!important;max-width:none!important;
+ height:100%!important;min-height:0!important;
+ margin:0!important;border-radius:0!important;
+ padding:max(8px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+ overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
