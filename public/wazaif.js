@@ -513,7 +513,7 @@ function formMarkup(){
  const title=g?"گروپ وظیفے کی سیٹنگ":state.editId?"ذاتی وظیفے میں ترمیم":"نیا وظیفہ";
  return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">بند کریں</button><h2>'+title+'</h2></div>'+
  '<form id="wazifa-form" class="wz-form"><label>وظیفے کا نام<input name="title" required maxlength="80" placeholder="مثلاً آیت الکرسی" value="'+esc(original.title||'')+'"></label>'+
- '<label>عربی عبارت / درود<textarea name="arabic" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
+ '<label>عربی عبارت / درود<textarea name="arabic" lang="ar" dir="rtl" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
  '<p id="wz-arabic-length" class="wz-arabic-length" role="status" aria-live="polite">حروف: 0 / 20,000</p>'+
  '<label>طریقہ / ہدایات<textarea name="instructions" rows="3" maxlength="1200" placeholder="پڑھنے کا طریقہ">'+esc(original.instructions||'')+'</textarea></label>'+
  '<label>وظیفے کا مقصد<textarea name="purpose" rows="3" maxlength="1200" placeholder="اس وظیفے کا مقصد">'+esc(original.purpose||'')+'</textarea></label>'+
@@ -859,6 +859,9 @@ function syncArabicTicker(){
  const viewport=$("#wazaif-root .wz-ticker-window"),line=viewport?.querySelector(".wz-ticker-text");
  if(!line)return;
  line.style.fontSize=wzArabicFont+"px";
+ viewport.style.setProperty("--wz-arabic-size",wzArabicFont+"px");
+ viewport.style.height=Math.max(50,Math.ceil(wzArabicFont*1.85+4))+"px";
+ fitWzFullscreenDial();
  const speed=$("#wz-ticker-speed"),font=$("#wz-ticker-font");
  if(speed)speed.textContent=String(wzArabicSpeed);
  if(font)font.textContent=String(wzArabicFont);
