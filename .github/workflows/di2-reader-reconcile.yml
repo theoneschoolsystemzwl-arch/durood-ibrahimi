@@ -1,0 +1,35 @@
+name: Verify and reconcile DI-2 historical reader
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reconcile-di2-reader.mjs'
+      - '.github/workflows/di2-reader-reconcile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: di2-reader-reconcile
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate via existing project OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify stored photo and reconcile only the existing 100 offline recitations
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node scripts/reconcile-di2-reader.mjs
