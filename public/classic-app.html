@@ -1310,6 +1310,64 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .wz-hero-reader .wz-ticker-window{
  height:max(50px,calc(var(--wz-arabic-size,24px) * 1.85 + 4px));
 }
+
+/* Compact blue LED group goal cards: scoped above the general dashboard theme. */
+:root[data-theme] .dashboard-home #group-target-cards {
+ grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.55fr);
+ gap:3px;padding:2px;border:1px solid #3f9cec80;border-radius:10px;
+ background:#031a32;
+}
+:root[data-theme] .dashboard-home #group-target-cards .recitation-banner {
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ min-width:0;min-height:0;margin:0;padding:5px 3px;gap:2px;
+ border:1px solid #309cff;border-radius:8px;color:#f3faff;
+ background:linear-gradient(150deg,#164b81,#092a50 62%,#06192f);
+ box-shadow:inset 0 0 11px #1688ff30,0 0 5px #229aff35;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-annual-target {
+ background:linear-gradient(150deg,#153f83,#102449 72%,#081a35);
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-end-date {
+ background:linear-gradient(150deg,#134a79,#072c50 65%,#051c37);
+}
+:root[data-theme] .dashboard-home #group-target-cards .recitation-banner h2 {
+ font:800 clamp(.644rem,2.59vw,.945rem)/1.5 var(--ur,Georgia,serif);
+ width:auto;max-width:100%;min-width:0;margin:0;padding:0 4px;
+ border:1px solid #449dff9c;border-radius:7px;
+ color:#eff8ff;background:#0b315b;text-shadow:0 0 5px #68baff55;
+}
+:root[data-theme] .dashboard-home #group-target-cards .recitation-banner strong {
+ font:800 clamp(1.05rem,5.6vw,2.485rem)/1.15 Georgia,serif;
+ max-width:100%;color:#f2faff;text-shadow:0 0 8px #54b8ff66;
+ font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-end-date strong {
+ font:800 clamp(.64rem,3.15vw,1.35rem)/1.25 system-ui,sans-serif;
+ white-space:nowrap;overflow-wrap:normal;letter-spacing:-.025em;
+}
+:root[data-theme] .dashboard-home #group-target-cards small {
+ font-size:clamp(.56rem,1.8vw,.72rem);line-height:1.35;color:#c6e5ff;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-countdown {
+ direction:ltr;display:grid;grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr));
+ gap:2px;width:100%;margin-top:2px;opacity:1;color:#a7ffbf;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-countdown span {
+ gap:1px;border-inline-end:1px solid #69b4f650;padding-inline-end:1px;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-countdown span:last-child {border-inline-end:0;padding-inline-end:0}
+:root[data-theme] .dashboard-home #group-target-cards .group-countdown b {
+ font:750 clamp(.64rem,2.25vw,.95rem)/1.2 system-ui,sans-serif;
+ color:#a7ffbf;text-shadow:0 0 6px #49f98a70;font-variant-numeric:tabular-nums;
+}
+:root[data-theme] .dashboard-home #group-target-cards .group-countdown em {
+ font-size:clamp(.52rem,1.65vw,.7rem);line-height:1.5;color:#d9f0ff;
+}
+@media(max-width:340px){
+ :root[data-theme] .dashboard-home #group-target-cards .recitation-banner{padding:4px 1px}
+ :root[data-theme] .dashboard-home #group-target-cards .group-end-date strong{font-size:clamp(.55rem,3.05vw,.75rem)}
+ :root[data-theme] .dashboard-home #group-target-cards .group-countdown em{font-size:.46rem}
+}
 </style>
 </head>
 <body>
