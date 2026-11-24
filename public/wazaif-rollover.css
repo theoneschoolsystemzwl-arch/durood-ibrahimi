@@ -729,3 +729,54 @@
  .wz-hero-reader .wz-reader-controls-row .wz-date-select .wz-date-button{font-size:.61rem}
  .wz-hero-reader .wz-reader-controls-row .wz-day-step{font-size:1.05rem}
 }
+/* Unified account + Tasbih card (24 Nov).
+   An elegant outer emerald/gold frame, with the old daily ledger outside. */
+.wz-hero-reader .wz-session-card{
+  position:relative;isolation:isolate;box-sizing:border-box;
+  width:100%;max-width:100%;min-width:0;
+  padding:7px 4px 11px;margin:10px auto 16px;
+  border:2px solid #31e9ac;border-radius:23px;
+  background:linear-gradient(155deg,#085b4585 0%,#003c2d85 50%,#00513e8c 100%);
+  box-shadow:0 0 0 1px #eddb9454,0 0 19px #00e9a845,
+    inset 0 0 0 1px #43e6aa2b,inset 0 1px 19px #b7f7c310;
+}
+.wz-hero-reader .wz-session-card::before{
+  content:"";pointer-events:none;position:absolute;
+  inset:5px;border:1px solid #9edbb128;border-radius:17px;
+}
+.wz-hero-reader .wz-session-card .wz-hero-six{
+  margin-inline:0;
+}
+.wz-hero-reader .wz-session-card .wz-hero-dial:not(.is-floating){
+  max-width:100%;margin-bottom:8px;
+}
+/* Counter speed digits: 50% larger than prior 0.77rem / 2.95vw /
+   1.15rem caps, with condensed spacing for 3 columns on small phones. */
+.wz-hero-reader .wz-session-card .wz-reader-controls-row .wz-hero-speed strong{
+  font-size:clamp(1.155rem,4.425vw,1.725rem);
+  font-weight:900;line-height:1.1;letter-spacing:-.06em;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+/* 50% larger selected-date "کل" count, without enlarging the label. */
+.wz-hero-reader .wz-session-card .wz-daily-toolbar .wz-today-due-cell:nth-child(2) strong{
+  font-size:clamp(1.425rem,6.3vw,2.325rem);
+  font-weight:900;line-height:1.08;letter-spacing:-.07em;
+  font-variant-numeric:tabular-nums;color:#fff!important;
+  text-shadow:0 0 11px #5bffca9e;
+}
+/* Remaining daily target is red even if other cards use the green theme. */
+.wz-hero-reader .wz-session-card #wz-five-pending{
+  color:#ff636e!important;
+  text-shadow:0 0 9px #ff3c65b0!important;
+}
+@media(max-width:380px){
+ .wz-hero-reader .wz-session-card{padding:6px 2px 10px;border-radius:18px}
+ .wz-hero-reader .wz-session-card .wz-reader-controls-row .wz-hero-speed strong{
+  font-size:clamp(1.035rem,4.425vw,1.4rem);
+  letter-spacing:-.065em;
+ }
+ .wz-hero-reader .wz-session-card .wz-daily-toolbar .wz-today-due-cell:nth-child(2) strong{
+  font-size:clamp(1.18rem,6.05vw,1.48rem);
+ }
+}
