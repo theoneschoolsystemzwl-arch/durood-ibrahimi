@@ -1718,9 +1718,9 @@ function ranking() {
 }
 
 function treeNode(person, isRoot = false) {
-  const count = directMembers(person.id).length;
   const level=memberLevel(person);
-  const clickable = !isRoot && count > 0;
+  // Only the Owner may open another member's branch, including an empty one.
+  const clickable = !isRoot && currentUser()?.isOwner===true && !person.deleted;
   const tag = clickable ? 'button' : 'div';
   return '<' + tag + ' class="tree-node"' + (clickable ? ' data-action="branch" data-value="' + person.id +
     tr("\" aria-label=\"Open branch، ", '" aria-label="شاخ کھولیں، ') + esc(memberName(person)) + '"' : '') + '><span class="node-ring">' + avatar(person) +
@@ -1736,7 +1736,9 @@ function stat(label, value) {
 
 function tree(person) {
   const women = ownerViewingWomen();
-  const root = women ? visibleMembers().find(member => member.id === groupFilter) : getUser(groupFilter) || person;
+  const root = women
+    ? visibleMembers().find(member => member.id === groupFilter && !member.deleted) || visibleMembers().find(member => member.isFoundingSpouse && !member.deleted)
+    : (person.isOwner ? getUser(groupFilter) : null) || person;
   if(!root) return groups();
   const children = directMembers(root.id);
   const back = women
@@ -1745,7 +1747,7 @@ function tree(person) {
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
-    tr("Photo badges show member levels. Tap a member to open their branch.", 'تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔ اگلی شاخ کھولنے کے لیے اس کے ممبر پر ٹیپ کریں۔')) + back +
+    (person.isOwner ? tr("Photo badges show member levels. Tap any member to open their branch, even when empty.", 'تصویر پر ممبر کا لیول ہے۔ کسی بھی ممبر پر ٹیپ کریں، اس کا شجرہ کھل جائے گا۔') : tr("Photo badges show member levels.", "تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔"))) + back +
     '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + ownedGroupName(root.id) + '</bdi>') +
     stat(tr("Group members", 'گروپ کے ارکان'), displayNumber(groupMemberCount(root))) +
     stat(tr("Total in branch", 'شاخ کے کل ارکان'), displayNumber(descendants(root.id).size)) + '</div>' +
@@ -4358,9 +4360,10 @@ app.addEventListener('click', event => {
     section = 'profile';
   }
   if (action === 'branch') {
-    const targetId = Number(value);
-    if (ownerViewingWomen() ? !visibleMembers().some(member => member.id === targetId)
-      : targetId !== currentUserId && !descendants(currentUserId).has(targetId)) return;
+    if(currentUser()?.isOwner!==true)return;
+    const targetId=Number(value),target=getUser(targetId);
+    if(!target||target.deleted)return;
+    if(ownerViewingWomen() ? target.gender!=='Female' || target.isOwner : target.gender==='Female')return;
     groupFilter = targetId === currentUserId ? null : targetId;
     section = 'tree';
   }
@@ -5328,6 +5331,11 @@ ui.addEventListener("click",event=>{
       bridge.notice(errorText(e));
     }).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
     return;
+  }
+  if(currentProfile.role==="owner" && (action==="branch" || action==="group" || (action==="nav"&&button.dataset.value==="tree"))){
+    // Refresh the selected side from Firebase after the local navigation,
+    // so newly registered descendants are visible without a manual reload.
+    setTimeout(()=>{if(!classicLogoutBlocked())hydrate().catch(e=>console.warn("Tree refresh unavailable",e?.code||e));},0);
   }
   if(action==="chat-reply"){
     event.stopImmediatePropagation();event.preventDefault();
