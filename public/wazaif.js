@@ -794,10 +794,13 @@ function ownGroupDay(day){
 }
 function groupHistoryMarkup(w){
  const today=readingDay(),goal=Math.max(0,Number(w.dailyGoal)||0);
- const joined=state.profile?.createdAt?.toDate?.()||state.profile?.joined;
+ // Only the authenticated member's registration timestamp sets the first row.
+ // Group launch dates and old counters must never backdate another member.
+ const raw=state.profile?.createdAt??state.profile?.joined;
+ const joined=raw?.toDate?.()??(Number.isFinite(raw?.seconds)?new Date(raw.seconds*1000):raw instanceof Date?raw:null);
  const membership=joined instanceof Date&&Number.isFinite(joined.getTime())?readingDay(joined):null;
- const earliest=[membership,...Object.keys(state.groupDays),state.groupMember?.day,w.startDate,today].filter(dayOk).sort()[0]||today;
- let start=earliest;
+ if(!membership||membership>today)return '<p class="wz-history-note">رکنیت کی اصل تاریخ دستیاب ہونے تک روزانہ ریکارڈ نہیں دکھایا جا سکتا۔</p>';
+ const start=membership;
  const rows=[];
  for(let day=today,i=0;day>=start&&i<Math.min(3660,state.historyLimit);i++,day=addDays(day,-1)){
   const saved=ownGroupDay(day),pending=wzSync.pending("_group_",day);
@@ -805,7 +808,7 @@ function groupHistoryMarkup(w){
   const cell=(label,n,klass="")=>'<div class="wz-ledger-slot"><span class="wz-ledger-label">'+label+'</span><span class="wz-ledger-item '+klass+'"><strong>'+fmt(n)+'</strong></span></div>';
   rows.push('<section class="wz-history-entry '+(left?"wz-day-due":"wz-day-ok")+'"><div class="wz-clear-heading"><time datetime="'+esc(day)+'">'+esc(displayRecordDate(day))+'</time><span class="wz-clear-state">'+(left?"بقایا "+fmt(left):"✓ ہدف مکمل")+'</span></div><div class="wz-ledger-lines"><div class="wz-ledger-line wz-ledger-five">'+cell("ہدف",goal,"wz-ledger-goal")+cell("تسبیح",count,"wz-ledger-green")+cell("محفوظ",saved)+cell("سنک باقی",pending,"wz-ledger-yellow")+cell("باقی",left,"wz-ledger-total")+'</div></div></section>');
  }
- return '<p class="wz-help">میری مجموعی تسبیح: '+fmt(Number(state.groupMember?.total||0)+wzSync.pending("_group_"))+(state.groupDaysReady?"":" • ریکارڈ لوڈ ہو رہا ہے")+'</p>'+rows.join("")+
+ return '<p class="wz-help">تاریخِ رکنیت: '+esc(displayRecordDate(start))+' • میری مجموعی تسبیح: '+fmt(Number(state.groupMember?.total||0)+wzSync.pending("_group_"))+(state.groupDaysReady?"":" • ریکارڈ لوڈ ہو رہا ہے")+'</p>'+rows.join("")+
  (spanDays(start,today)>state.historyLimit?'<button type="button" class="wz-button" data-wazifa-action="history-more">مزید پرانا ریکارڈ</button>':"");
 }
 function heroReadingState(group,w,record){
