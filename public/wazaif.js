@@ -1482,6 +1482,40 @@ function newManualToken(){
 function manualReceipt(token,step){
  return token.slice(0,24)+step.toString(16).padStart(8,"0");
 }
+// Reconcile completed receipts against the authoritative record, never
+// permanently lock a date because its local count is stale.
+async function refreshManualEditForm(task,day,form){
+ const uid=auth.currentUser?.uid,modal=$("#wz-edit-dialog");
+ if(!uid||!modal||!form||form.dataset.loading==="1")return;
+ const submit=form.querySelector('[type="submit"]'),feedback=form.querySelector("#wz-edit-error");
+ if(submit)submit.disabled=true;
+ form.dataset.ready="0";form.dataset.loading="1";
+ if(feedback){feedback.hidden=false;feedback.textContent="تازہ ریکارڈ حاصل کیا جا رہا ہے…";}
+ try{
+  const fresh=await getDocFromServer(doc(db,"memberWazaif",uid,"items",task.id));
+  if(auth.currentUser?.uid!==uid||state.readerId!==task.id||
+     state.historyDay!==day||!modal.open||modal.querySelector("form")!==form)return;
+  if(!fresh.exists())throw Error("وظیفہ موجود نہیں ہے۔");
+  const latest={id:fresh.id,...fresh.data()};
+  state.personal=state.personal.map(item=>item.id===task.id?latest:item);
+  const key=manualOperationKey(task.id,day),prior=readManualOperation(key);
+  if(prior?.status==="complete")removeManualOperation(key);
+  modal.innerHTML=historyEditMarkup(latest,day);
+  const next=modal.querySelector("form");
+  next.dataset.ready="1";
+  if(prior?.status==="pending"){
+   const input=next.querySelector('[name="amount"]');
+   if(input)input.value=String(prior.amount);
+   const note=next.querySelector("#wz-edit-error");
+   if(note){note.hidden=false;note.textContent="پچھلی نامکمل تبدیلی محفوظ کرنے کے لیے دوبارہ محفوظ کریں دبائیں۔";}
+  }
+  refreshHeroReader();
+ }catch(error){
+  if(!form.isConnected)return;
+  if(feedback){feedback.hidden=false;feedback.textContent="تازہ ریکارڈ نہیں ملا۔ انٹرنیٹ چیک کرکے دوبارہ کوشش کریں۔";}
+  if(submit){submit.disabled=false;submit.textContent="ریکارڈ تازہ کریں";submit.formNoValidate=true;}
+ }finally{form.dataset.loading="0";}
+}
 const historyEditTap={day:"",count:0,last:0};
 document.addEventListener("click",event=>{
  const button=event.target.closest("[data-wazifa-action]");
@@ -1648,6 +1682,7 @@ document.addEventListener("click",event=>{
    }
    state.historyDay=day;
    modal.innerHTML=historyEditMarkup(record,day);
+    void Promise.resolve().then(()=>refreshManualEditForm(record,day,modal.querySelector("form")));
    if(typeof modal.showModal==="function")modal.showModal();
    else modal.setAttribute("open","");
    return;
@@ -1675,13 +1710,14 @@ document.addEventListener("submit",event=>{
   const form=event.target,task=state.personal.find(w=>w.id===state.readerId);
   if(!task||state.busy||state.tapBusy)return;
   const data=new FormData(form),day=form.dataset.day,raw=String(data.get("amount")||"").trim();
+  if(form.dataset.ready!=="1"){void refreshManualEditForm(task,day,form);return;}
   const operation=raw.startsWith("-")?"remove":"add";
   const amount=Number(raw.replace(/^[+-]/,""));
   const allowed=canEnterDay(task,day);
   const savedCount=Number(task.dailyLedger?.[day]?.count||0);
   const priorKey=auth.currentUser?.uid?manualOperationKey(task.id,day):null;
   const priorOp=priorKey?readManualOperation(priorKey):null;
-  const removalCapacity=savedCount+(priorOp?.status==="pending"&&priorOp.amount<0?priorOp.saved:0);
+  const removalCapacity=priorOp?.status==="pending"&&priorOp.amount===-amount?Math.max(savedCount,Number(priorOp.baseCount)||0,amount):savedCount;
   if(!allowed||!/^[-+]?\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>10000||
     !["add","remove"].includes(operation)||(operation==="remove"&&amount>removalCapacity)){
    const error=form.querySelector("#wz-edit-error");if(error){error.hidden=false;error.textContent="درست تعداد درج کریں۔ کمی صرف اسی دن کی محفوظ تعداد تک ہو سکتی ہے۔";}return;
@@ -1693,16 +1729,8 @@ document.addEventListener("submit",event=>{
     key=manualOperationKey(task.id,day);
     op=readManualOperation(key);
     if(op?.status==="complete"){
-      const liveCount=Number(task.dailyLedger?.[day]?.count||0);
-      const expected=op.baseCount+op.amount;
-      const reflected=op.amount>0?liveCount>=expected:liveCount<=expected;
-      if(!reflected)
-        throw Error("یہ گنتی محفوظ ہوئی ہے؛ سرور کا نیا ریکارڈ آنے تک دوبارہ نہ دبائیں۔");
-      // A quick repeat after a refresh is the same user action, not a new
-      // recitation. A later, intentional edit can start a fresh operation.
-      if(Date.now()-op.createdAt<120000&&op.amount===signedAmount)
-        throw Error("یہی تعداد ابھی محفوظ کی گئی ہے، دوبارہ جمع نہیں ہوگی۔ دو منٹ بعد نئی تبدیلی کریں۔");
-      removeManualOperation(key);op=null;
+      // Do not replay a completed operation from an already-open stale form.
+      void refreshManualEditForm(task,day,form);return;
     }
     if(op&&op.amount!==signedAmount)
       throw Error("پچھلی درخواست نامکمل ہے: "+(op.amount>0?"+":"")+op.amount+
@@ -1751,7 +1779,7 @@ document.addEventListener("submit",event=>{
     const dialog=$("#wz-edit-dialog");
     if(dialog?.open&&typeof dialog.close==="function")dialog.close();
     else dialog?.removeAttribute("open");
-    state.shareNotice="دستی گنتی "+fmt(amount)+" محفوظ ہوگئی؛ دوبارہ دبانے سے اضافہ نہیں ہوگا۔";
+    state.shareNotice="دستی گنتی "+fmt(amount)+" محفوظ ہوگئی۔";
     refreshHeroReader();
    })
    .catch(error=>{
