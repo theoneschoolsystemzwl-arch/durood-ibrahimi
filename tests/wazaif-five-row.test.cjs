@@ -217,4 +217,30 @@ assert(css.includes(".wz-session-card #wz-five-pending")&&css.includes("#ff636e"
   "the remaining daily count is red");
 assert(css.includes(".wz-today-due-cell:nth-child(2) strong")&&css.includes("2.325rem"),
   "the selected day's total count has been enlarged");
+// Three linked progress rows: overall recited, overall pending, and only
+// the selected calendar day's own daily goal (never the carried balance).
+assert(reader.includes('class="wz-progress-trio"'),"3 progress bars are grouped together");
+for(const name of ["hero","remaining","daily"])
+ assert(reader.includes('id="wz-'+name+'-progress-bar"'),"missing "+name+" progress bar");
+assert.equal((reader.match(/id="wz-daily-progress-bar"/g)||[]).length,1,
+  "daily progress bar is only shown once");
+assert(reader.indexOf('class="wz-progress-trio"')<reader.indexOf('class="wz-daily-toolbar"'),
+  "all three bars stay next to one another above the controls");
+assert(reader.includes('(100-progress).toFixed(2)'),"remaining fraction complements completion");
+assert(src.includes("const dailyTarget=Math.max(0,Number(group?w.dailyGoal:targetForDay(w,selectedDay))||0)"),
+  "daily bar uses the date-specific target, not carried backlog");
+assert(src.includes('d.read*100/dailyTarget'),"daily percent uses actual day readings");
+assert(src.includes('set("wz-daily-progress-detail",fmt(d.read)+" / "+fmt(dailyTarget))'),
+  "daily bar shows both the day's recitations and target");
+assert(reader.includes('class="wz-dial-ring-svg"')&&reader.includes('class="wz-dial-ring-fill"'),
+  "show a browser-independent SVG progress ring on the dial");
+assert(reader.includes('pathLength="100"')&&reader.includes('stroke-dasharray="100"'),
+  "SVG path uses one percent per successful click");
+assert(src.includes('ringCircle.setAttribute("stroke-dashoffset",String(100-cycle))'),
+  "each tap moves the visible SVG circumference immediately");
+const progressOffset=count=>100-(count>0?(count%100||100):0);
+for(const [count,offset] of [[0,100],[1,99],[25,75],[99,1],[100,0],[101,99],[200,0]])
+ assert.equal(progressOffset(count),offset,"visual ring offset at "+count+" taps");
+assert(css.includes(".wz-progress-trio")&&css.includes(".wz-dial-ring-svg"),
+  "progress trio and visible SVG ring have explicit mobile styles");
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");
