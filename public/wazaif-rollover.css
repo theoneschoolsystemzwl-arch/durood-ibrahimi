@@ -944,3 +944,47 @@ body.wz-immersive-reader #wazaif-root .wz-session-card{
  overflow-y:auto!important;overflow-x:hidden!important;
  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
+
+/* True edge-to-edge focus mode, independent of dashboard/grid offsets. */
+body.wz-immersive-reader,
+body.wz-immersive-reader #app,
+body.wz-immersive-reader #app .shell,
+body.wz-immersive-reader #app .main{
+ display:block!important;position:static!important;
+ box-sizing:border-box!important;width:100%!important;max-width:none!important;
+ height:100%!important;min-height:0!important;margin:0!important;padding:0!important;
+ overflow:hidden!important;transform:none!important;filter:none!important;
+ contain:none!important;perspective:none!important;
+}
+body.wz-immersive-reader #app .shell > :not(.main),
+body.wz-immersive-reader #app .main > :not(#wazaif-root){
+ display:none!important;
+}
+body.wz-immersive-reader #wazaif-root{
+ position:fixed!important;top:0!important;right:0!important;bottom:0!important;left:0!important;
+ width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
+ margin:0!important;padding:0!important;transform:none!important;
+ background:#002e25!important;overflow:hidden!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-hero-reader,
+body.wz-immersive-reader #wazaif-root .wz-hero-content{
+ position:static!important;box-sizing:border-box!important;
+ width:100%!important;height:100%!important;max-width:none!important;
+ min-height:0!important;margin:0!important;padding:0!important;
+ transform:none!important;overflow:visible!important;
+}
+body.wz-immersive-reader #wazaif-root .wz-session-card{
+ display:flex!important;flex-direction:column!important;
+ width:100%!important;height:100%!important;max-width:none!important;
+ min-height:0!important;flex:none!important;align-items:stretch;
+ background:#003b30!important;
+}
+body.wz-immersive-reader .wz-session-card > *{flex-shrink:0}
+body.wz-immersive-reader .wz-session-card .wz-hero-dial:not(.is-floating){
+ width:min(100%, 440px, max(180px, calc(100dvh - 320px)))!important;
+ max-width:100%!important;aspect-ratio:1;
+ align-self:center;margin:auto auto 8px!important;
+}
+body.wz-immersive-reader .wz-reader-fullscreen[aria-pressed="true"]{
+ color:#fff!important;
+}
