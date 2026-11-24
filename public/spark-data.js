@@ -1,7 +1,7 @@
 // Spark-plan data layer: Firebase Auth + Firestore, no Cloud Functions or billing.
 // Production access decisions are enforced by firestore.rules, NOT this client.
 import {auth,db} from "./firebase-client.js";
-import {addGroupCountsToTransaction} from "./wazaif-counter.js?v=group-daily-20261124-v1";
+import {addGroupCountsToTransaction} from "./wazaif-counter.js?v=group-periods-20261124-v2";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   doc,collection,query,where,orderBy,limit,getDoc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp,addDoc,deleteDoc,increment
