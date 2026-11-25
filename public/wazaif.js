@@ -1435,8 +1435,8 @@ function tap(){
   }
  }
  const pressedAt=performance.now();
- // Only suppress events closer than 0.9 ms; no minimum touch/hold duration.
- if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<0.9)return false;
+ // Only suppress events closer than 50 ms; no minimum touch/hold duration.
+ if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<50)return false;
  if(state.clockStart===null)state.clockStart=pressedAt;
  if(state.clockLastTap!==null){
    const gap=pressedAt-state.clockLastTap;
@@ -1453,7 +1453,7 @@ function tap(){
  }
  state.clockLastTap=pressedAt;
  state.tapQueue++;state.lastTapAt=Date.now();
- // Trigger the motor on the accepted pointer-down, before rendering or sound.
+ // Trigger the motor on the confirmed tap, before rendering or sound.
  // Even a very brief touch is sufficient; there is no minimum press duration.
  lastTapMotorOutcome="off";
  try{lastTapMotorOutcome=requestTapMotor();}catch{}
@@ -1509,9 +1509,14 @@ function tick(){
 setInterval(tick,125);
 let longHoldTimer=null;
 let activeFeedbackPress=null,handledFeedbackClick=null;
+const dialMoveTolerance=10;
 function feedbackPressAction(target){
- const button=target?.closest?.('[data-wazifa-action="tap"]');
+ const button=target?.closest?.('#wz-dial[data-wazifa-action="tap"]');
  return button&&!button.disabled?button:null;
+}
+function cancelDialGesture(){
+ clearTimeout(longHoldTimer);
+ if(activeFeedbackPress)activeFeedbackPress.cancelled=true;
 }
 document.addEventListener("pointerdown",event=>{
  const button=feedbackPressAction(event.target);
@@ -1519,27 +1524,38 @@ document.addEventListener("pointerdown",event=>{
  clearTimeout(longHoldTimer);
  state.skipDialClick=false;
  handledFeedbackClick="tap";
- const press={id:event.pointerId,retryWeb:false};activeFeedbackPress=press;
- const counted=tap();
- press.retryWeb=counted===true&&lastTapMotorOutcome==="web-pending";
+ const press={id:event.pointerId,button,x:event.clientX,y:event.clientY,cancelled:false};
+ activeFeedbackPress=press;
+ // Do not count until a genuine tap is completed; scrolling starts with pointerdown too.
  longHoldTimer=setTimeout(()=>{
-  if(!button.isConnected)return;
+  if(activeFeedbackPress!==press||press.cancelled||!button.isConnected)return;
+  press.cancelled=true;
   state.dialFloating=!state.dialFloating;
   button.classList.toggle("is-floating",state.dialFloating);
  },5000);
+},true);
+document.addEventListener("pointermove",event=>{
+ const press=activeFeedbackPress;
+ if(!press||press.id!==event.pointerId)return;
+ if(Math.hypot(event.clientX-press.x,event.clientY-press.y)>dialMoveTolerance)cancelDialGesture();
 },true);
 document.addEventListener("pointerup",event=>{
  const press=activeFeedbackPress;
  if(!press||press.id!==event.pointerId)return;
  clearTimeout(longHoldTimer);activeFeedbackPress=null;
- // On browsers that require activation at touch release, retry only the motor.
- if(press.retryWeb&&state.motorEnabled)requestTapMotor();
+ if(press.cancelled||!press.button.isConnected||
+    Math.hypot(event.clientX-press.x,event.clientY-press.y)>dialMoveTolerance)return;
+ const hit=document.elementFromPoint(event.clientX,event.clientY);
+ if(!hit||!press.button.contains(hit))return;
+ // A confirmed stationary touch counts exactly once and vibrates immediately on release.
+ tap();
 },true);
 document.addEventListener("pointercancel",event=>{
- if(activeFeedbackPress?.id===event.pointerId){clearTimeout(longHoldTimer);activeFeedbackPress=null;}
+ if(activeFeedbackPress?.id===event.pointerId){cancelDialGesture();activeFeedbackPress=null;}
 },true);
+document.addEventListener("scroll",cancelDialGesture,{capture:true,passive:true});
 document.addEventListener("contextmenu",event=>{
- if(feedbackPressAction(event.target))event.preventDefault();
+ if(feedbackPressAction(event.target)){cancelDialGesture();event.preventDefault();}
 },true);
 function consumeFeedbackClick(event,action){
  if(handledFeedbackClick===action&&(event.detail!==0||["touch","pen","mouse"].includes(event.pointerType))){
