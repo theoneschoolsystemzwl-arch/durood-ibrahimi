@@ -1,6 +1,6 @@
 // Display the original PDF page as an image; no OCR or text conversion.
 import {auth,db} from "./firebase-client.js";
-import {doc,getDoc,setDoc,Bytes,writeBatch} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {doc,getDoc,Bytes,writeBatch} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const root="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/";
 const CHUNK=400000,MAX=25*1024*1024;
 export function pdfMarker(value){
@@ -56,6 +56,9 @@ export async function savePdfAttachment(prepared,uid,scope,progress=()=>{}){
   }
   assertAccount(uid);return {localOnly:false};
  }catch(error){
+  if(written.length&&auth.currentUser?.uid===uid){
+   try{for(let i=0;i<written.length;i+=8){const cleanup=writeBatch(db);written.slice(i,i+8).forEach(ref=>cleanup.delete(ref));await cleanup.commit();}}catch(e){console.debug("PDF partial upload cleanup",e);}
+  }
   // Never publish a group attachment which members cannot read.
   if(local&&scope!=="group"&&error?.code==="permission-denied"&&auth.currentUser?.uid===uid&&window.confirm("Firebase پر PDF محفوظ نہیں ہو سکی۔ کیا صرف اسی موبائل میں PDF محفوظ کریں؟ دوسرے موبائل پر تصویر نہیں آئے گی۔"))return {localOnly:true};
   throw error;

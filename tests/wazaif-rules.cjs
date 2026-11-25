@@ -2,7 +2,7 @@
 // group accounting atomic and closed when group is inactive.
 const fs=require("node:fs");
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require("@firebase/rules-unit-testing");
-const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDoc,runTransaction,serverTimestamp,increment}=require("firebase/firestore");
+const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDoc,runTransaction,serverTimestamp,increment,Bytes}=require("firebase/firestore");
 (async()=>{
  const env=await initializeTestEnvironment({projectId:"demo-durood",
    firestore:{rules:fs.readFileSync("firestore.rules","utf8")}});
@@ -24,6 +24,25 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const member=env.authenticatedContext(memberUid,{auth_time:1700000000}).firestore();
   const other=env.authenticatedContext(otherUid,{auth_time:1700000000}).firestore();
   const femaleFriend=env.authenticatedContext(femaleFriendUid,{auth_time:1700000000}).firestore();
+  const pdfId="0123456789abcdef0123456789abcdef";
+  const chunkData={data:Bytes.fromUint8Array(new Uint8Array([37,80,68,70,45]))};
+  const personalChunk=db=>doc(db,"wazifaPdfPrivate",memberUid,"files",pdfId,"chunks","0");
+  const groupChunk=db=>doc(db,"wazifaPdfGroup",pdfId,"chunks","0");
+  await assertSucceeds(setDoc(personalChunk(member),chunkData));
+  await assertSucceeds(getDoc(personalChunk(member)));
+  await assertFails(getDoc(personalChunk(other)));
+  await assertFails(getDoc(personalChunk(owner)));
+  await assertFails(getDoc(personalChunk(guest)));
+  await assertFails(setDoc(personalChunk(other),chunkData));
+  await assertFails(setDoc(personalChunk(member),{data:"not binary"}));
+  await assertFails(setDoc(personalChunk(member),{data:Bytes.fromUint8Array(new Uint8Array(400001))}));
+  await assertFails(setDoc(doc(member,"wazifaPdfPrivate",memberUid,"files",pdfId,"chunks","66"),chunkData));
+  await assertSucceeds(setDoc(groupChunk(owner),chunkData));
+  await assertSucceeds(getDoc(groupChunk(member)));
+  await assertFails(getDoc(groupChunk(guest)));
+  await assertFails(setDoc(groupChunk(member),chunkData));
+  await assertSucceeds(deleteDoc(personalChunk(member)));
+  await assertSucceeds(deleteDoc(groupChunk(owner)));
   const goalRef=doc(member,"memberPrivate",memberUid,"duroodGoals",day);
   await assertSucceeds(setDoc(goalRef,{date:day,goal:100,updatedAt:serverTimestamp()}));
   await assertSucceeds(setDoc(goalRef,{date:day,goal:0,updatedAt:serverTimestamp()}));
