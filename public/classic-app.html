@@ -2335,11 +2335,11 @@ function targetAuditProgressMarkup(progress){
  return '<bdi dir="ltr" class="target-audit-progress"><span class="'+progress.status+'">'+value(progress.read)+'</span> / '+value(progress.target)+'</bdi>';
 }
 function targetAuditMarkup(){
- if(!currentUser()?.isOwner)return "";
+ if(!currentUser())return "";
  const day=globalDateKey(),rows=memberTargetAudit(ownerGoalRows,day,dashboardGroupSettings);
  const side=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
- if(!rows)return '<p class="muted">'+tr("Waiting for confirmed Firebase targets","Firebase کے تصدیق شدہ اہداف کا انتظار ہے")+'</p>';
+ if(!rows)return '<p class="muted">'+tr("Confirmed targets not yet available. Check connection and permissions; totals are not guessed.","تصدیق شدہ اہداف ابھی دستیاب نہیں۔ انٹرنیٹ اور اجازت چیک کریں؛ اندازے سے ہدف نہیں دکھایا جائے گا۔")+'</p>';
  const g=aggregateGroupTargets(ownerGoalRows,day,dashboardGroupSettings);
  const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
  return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
@@ -2360,7 +2360,7 @@ function targetAuditMarkup(){
  '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. After the first session, new full-year sessions begin automatically. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ پہلے سیشن کے بعد اگلا پورا سال خود شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
 }
 function openTargetAudit(){
- if(!currentUser()?.isOwner||document.getElementById("member-target-audit-dialog"))return;
+ if(!currentUser()||document.getElementById("member-target-audit-dialog"))return;
  const dialog=document.createElement("dialog");
  dialog.id="member-target-audit-dialog";dialog.className="target-audit-dialog";
  dialog.setAttribute("aria-labelledby","target-audit-dialog-title");
@@ -2555,9 +2555,9 @@ function overview() {
    (periodCounts?displayNumber(periodCounts[key]):'—')+'</strong></div></section>'
  ).join('');
  return '<div class="dashboard-home">'+
-   '<div class="dashboard-quick-strip'+(currentUser()?.isOwner?'':' two-cells')+'" dir="ltr">'+prayerTickerMarkup(currentUser())+
+   '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
-   (currentUser()?.isOwner?'<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>':"")+'</div>'+
+   '<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>'+'</div>'+
    boxedHeading(ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"),
      tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
    (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
@@ -5672,33 +5672,39 @@ function observeCounters(side){
     bridge.readerDirectoryGoals(observedUid,[...goalMembers].map(([uid,r])=>[uid,r.daily]));
     bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily,legacy:r.legacy,...r.meta})):null);
   };
-  if(currentProfile?.role==="owner"){
-    stopGoalDirectory=onSnapshot(collection(db,"members"),{includeMetadataChanges:true},snap=>{
+  {
+    const isGoalOwner=currentProfile?.role==="owner";
+    const goalQuery=isGoalOwner?collection(db,"members"):query(collection(db,"members"),where("gender","==",side),limit(200));
+    stopGoalDirectory=onSnapshot(goalQuery,{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
-      refreshOnDirectoryChange(directoryRows);
-      bridge.liveMemberCounts(observedUid,directoryRows,true,side);
-      goalDirectoryReady=true;
+      if(isGoalOwner){
+        refreshOnDirectoryChange(directoryRows);
+        bridge.liveMemberCounts(observedUid,directoryRows,true,side);
+      }
+      goalDirectoryReady=isGoalOwner||snap.size<200;
       const directory=new Map(snap.docs.filter(d=>{
         // Match the member directory's legacy-gender handling and never
         // include the male master owner in the women's target aggregation.
         const m=d.data(),gender=m.role==="owner"?"male":(m.gender==="female"?"female":"male");
-        return gender===side;
+        return gender===side&&(isGoalOwner||m.deleted!==true);
       }).map(d=>{
         const m=d.data(),joined=registrationDate(m),inactive=m.disabled===true||m.deleted===true;
         const changed=m.updatedAt?.toDate?.();
         return [d.id,{uid:d.id,name:m.name||"",memberNumber:Number(m.memberNumber)||0,active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
       }));
       const active=new Set(directory.keys());
-      watchPhotos([...active]);
+      if(isGoalOwner)watchPhotos([...active]);
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
         const r={daily:null,legacy:null,groupDays:null,groupSummary:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
+        if(isGoalOwner){
         const memberRef=doc(db,"wazaifGroupStats","main","members",uid);
         r.stops.push(onSnapshot(memberRef,{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupSummary=snap.exists()?snap.data():{};publishSideGroup();},err=>{r.groupSummary=null;publishSideGroup();console.warn("Side group member summary",err.code);}));
         r.stops.push(onSnapshot(collection(memberRef,"days"),{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupDays=Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count]));publishSideGroup();},err=>{r.groupDays=null;publishSideGroup();console.warn("Side group member dates",err.code);}));
-        for(const [key,name] of [["daily","duroodGoals"],["legacy","groupTargets"]]){
+        }
+        for(const [key,name] of (isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]])){
           r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();
@@ -5707,7 +5713,8 @@ function observeCounters(side){
       }
       publishGoals();publishSideGroup();
     },err=>{goalDirectoryReady=false;publishGoals();publishSideGroup();console.warn("Group goal directory unavailable",err.code);});
-  }else{
+  }
+  if(currentProfile?.role!=="owner"){
     stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side),limit(200)),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
@@ -5755,7 +5762,7 @@ function observeCounters(side){
   };
   const stopWirdTotals=onSnapshot(wirdQuery,{includeMetadataChanges:true},snap=>{
     if(!stillCurrent()||snap.metadata.fromCache)return;
-    bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
+    bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner"||snap.size<200,side);
   },err=>{if(stillCurrent())bridge.savedWirdTotals(observedUid,[],false,side);console.warn("Saved member Wird totals unavailable",err.code);});
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
@@ -5846,7 +5853,7 @@ function observeCounters(side){
     if(globalDay()!==observedDay){observedDay=globalDay();clearTimeout(timer);watchDays();refreshDashboardTargetCards();if(section==='wazifa-reader')updateReader();}
     if(Date.now()-lastClockSync>300000){lastClockSync=Date.now();void syncGlobalClock();}
     if(rows)bridge.readers(rows);
-    if(currentProfile?.role==="owner"){publishGoals();if(side==="male"&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();}
+    publishGoals();if(currentProfile?.role==="owner"&&side==="male"&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();
   },15000);
   function decodeReaderRows(snap){
     return snap.docs.map(item=>{

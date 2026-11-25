@@ -328,6 +328,12 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(home.indexOf('id="global-pkt-clock"')<home.indexOf('data-action="open-target-audit"'));
  assert(classic.includes('section==="overview"?"":prayerTickerMarkup(person)'));
  assert(classic.includes('class="pkt-date"')&&classic.includes('class="pkt-time"'));
+ assert(home.includes('class="dashboard-quick-strip" dir="ltr"'));
+ assert(!home.includes("currentUser()?.isOwner?'<button type=\"button\" class=\"button secondary target-audit-launch"));
+ assert(classic.includes('function openTargetAudit(){\n if(!currentUser()||'));
+ assert(classic.includes('query(collection(db,"members"),where("gender","==",side),limit(200))'));
+ assert(classic.includes('exists')&&classic.includes('isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]]'));
+ assert(rules.includes('exists(memberPath(uid)) && matchingGender(get(memberPath(uid)).data));'));
  assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
  assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
  const overview=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));

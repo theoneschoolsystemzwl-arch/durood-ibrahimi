@@ -427,8 +427,10 @@ service cloud.firestore {
     }
     // Each member owns their effective-dated daily target.
     match /memberPrivate/{uid}/duroodGoals/{date} {
-      // Owner may calculate shared targets; only the member may write their own goal.
-      allow get, list: if (self(uid) && currentMember()) || owner();
+      // Shared Durood targets only: active signed-in members may read the
+      // target history of their own gender. No other private records are shared.
+      allow get, list: if owner() || (currentMember() &&
+        exists(memberPath(uid)) && matchingGender(get(memberPath(uid)).data));
       allow create, update: if self(uid) && currentMember() &&
         date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') &&
         request.resource.data.keys().hasOnly(['date','goal','updatedAt']) &&
