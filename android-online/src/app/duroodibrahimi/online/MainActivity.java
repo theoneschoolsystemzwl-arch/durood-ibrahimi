@@ -193,6 +193,19 @@ public final class MainActivity extends Activity {
     }
     private final class ReaderHaptics {
         // Short, distinct touch pulses use Android's touch-feedback category.
+        @JavascriptInterface public String hapticStatus() {
+            if(!trustedPage())return "untrusted";
+            try {
+                Vibrator motor;
+                if(Build.VERSION.SDK_INT>=31){
+                    android.os.VibratorManager manager=(android.os.VibratorManager)getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                    motor=manager==null?null:manager.getDefaultVibrator();
+                }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+                if(motor==null||!motor.hasVibrator())return "no-motor";
+                if(android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.HAPTIC_FEEDBACK_ENABLED,1)==0)return "system-off";
+                return "ready";
+            }catch(RuntimeException error){return "unknown";}
+        }
         @JavascriptInterface public boolean vibrateTap(int level) {
             if(!trustedPage()||level<=0)return false;
             final int safe=Math.min(10,level);
@@ -206,7 +219,9 @@ public final class MainActivity extends Activity {
                 long duration=20L+safe*6L;
                 if(Build.VERSION.SDK_INT>=26){
                     int amplitude=motor.hasAmplitudeControl()?Math.min(255,safe*25+5):VibrationEffect.DEFAULT_AMPLITUDE;
-                    VibrationEffect effect=VibrationEffect.createOneShot(duration,amplitude);
+                    VibrationEffect effect=Build.VERSION.SDK_INT>=29
+                        ?VibrationEffect.createPredefined(safe<=3?VibrationEffect.EFFECT_TICK:safe<=7?VibrationEffect.EFFECT_CLICK:VibrationEffect.EFFECT_HEAVY_CLICK)
+                        :VibrationEffect.createOneShot(duration,amplitude);
                     if(Build.VERSION.SDK_INT>=33){
                         motor.vibrate(effect,new android.os.VibrationAttributes.Builder().setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
                     }else{
