@@ -247,3 +247,24 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(!overview.includes("dashboard-group-progress")&&!overview.includes("data-member-group-progress"));
  assert(!source.includes("data-group-target-settings"));
 }
+
+  
+// Dashboard reader totals retain the saved count and effective-dated personal target.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const start=classic.indexOf("function latestReaderGoal("),end=classic.indexOf("function effectiveGroupDailyGoal(",start);
+ const a=classic.indexOf("function readerCountAndTarget("),b=classic.indexOf("function readerList(",a);
+ assert(start>=0&&end>start&&a>=0&&b>a);
+ const ctx=vm.createContext({displayNumber:String});
+ vm.runInContext(classic.slice(start,end)+classic.slice(a,b),ctx);
+ const format=vm.runInContext("readerCountAndTarget",ctx);
+ const history=[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:200},{date:"2026-11-26",goal:0}];
+ const row={total:50,manualTotal:25};
+ assert.equal(format(row,"2026-11-24",history,true),"75 / 100");
+ assert.equal(format(row,"2026-11-25",history,true),"75 / 200");
+ assert.equal(format(row,"2026-11-26",history,true),"75 / 0");
+ assert.equal(format(row,"2026-11-23",history,true),"75 / —");
+ assert.equal(format(row,"2026-11-25",null,true),"75 / —");
+ assert.equal(format(row,"2026-11-25",history,false),"75");
+ assert(classic.includes("bridge.readerDirectoryGoals(observedUid,[...goalMembers]"));
+}

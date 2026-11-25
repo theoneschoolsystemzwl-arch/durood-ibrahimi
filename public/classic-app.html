@@ -2234,6 +2234,7 @@ function liveFeed() {
 }
 
 let todayReaders=null,previousDayReaders=null,readerListDay=null,readerListError=false;
+let readerGoalsByUid=new Map();
 let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
 function legacyRepairTarget(requireDate=true){
@@ -2263,6 +2264,12 @@ function refreshReaderDateControls(){
  const next=document.querySelector('[data-action="reader-list-day"][data-value="1"]');
  if(next)next.disabled=readerDayLabel()>=globalDateKey();
 }
+function readerCountAndTarget(row,day,goalRows,canViewTarget){
+ const count=displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0));
+ if(!canViewTarget)return count;
+ const goal=latestReaderGoal(goalRows,day)?.goal;
+ return count+' / '+(goal===undefined?'—':displayNumber(goal));
+}
 function readerList(){
  const historical=readerListDay!==null&&currentUser()?.isOwner;
  const selected=historical?previousDayReaders:todayReaders;
@@ -2280,13 +2287,17 @@ function readerList(){
    const picture=avatar(person||{name:row.name||'',photo:''});
    const memberId=person?displayId(person.id):'—';
    const level=person?String(memberLevel(person)):'—';
+   const own=row.uid===currentUser()?.uid;
+   const canViewTarget=own||currentUser()?.isOwner===true;
+   const goalRows=readerGoalsByUid.get(row.uid)??(own?memberReaderGoalRows:null);
+   const countAndTarget=readerCountAndTarget(row,readerDayLabel(),goalRows,canViewTarget);
    return '<li><span class="dashboard-reader-rank">'+(index+1)+'</span>'+
      '<span class="dashboard-reader-avatar">'+picture+'</span>'+
      '<span class="reader-person"><b>'+esc(person?.name||row.name)+'</b>'+
        '<span class="reader-meta"><bdi dir="ltr">'+memberId+'</bdi><span> · '+tr('Level','لیول')+' '+esc(level)+'</span></span>'+
        '<small>'+status+' · '+
        tr("Last reading","آخری شمار")+' '+(lastReading?(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(lastReading))):"—")+
-       '</small><small>'+tr("Tasbih: ","تسبیح: ")+displayNumber(Number(row.total)||0)+' · '+tr("Offline: ","آف لائن: ")+displayNumber(Number(row.manualTotal)||0)+'</small></span><strong class="dashboard-reader-count">'+displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0))+'</strong></li>';
+       '</small><small>'+tr("Tasbih: ","تسبیح: ")+displayNumber(Number(row.total)||0)+' · '+tr("Offline: ","آف لائن: ")+displayNumber(Number(row.manualTotal)||0)+'</small></span><strong class="dashboard-reader-count" title="'+tr('Saved count / daily target','محفوظ شمار / روزانہ ہدف')+'"><bdi dir="ltr" style="white-space:nowrap;font-size:clamp(.72rem,3.2vw,1.05rem)">'+esc(countAndTarget)+'</bdi></strong></li>';
  }).join('')+'</ol>';
 }
 
@@ -4749,6 +4760,11 @@ window.duroodClassicBridge = {
     if(section==="wazifa-reader")updateReader();
   },
   aggregateGoalRows(uid,rows){if(currentUser()?.uid!==uid)return;ownerGoalRows=rows;refreshDashboardTargetCards();window.duroodWazaif?.refreshGroupTargets?.();},
+  readerDirectoryGoals(uid,entries){
+    if(currentUser()?.uid!==uid||!currentUser()?.isOwner)return;
+    readerGoalsByUid=new Map(entries);
+    const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
+  },
   savedWirdTotals(uid,rows,complete,side){
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
     savedMemberWirds=new Map(rows.filter(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0).map(r=>[r.uid,r.total]));
@@ -4796,6 +4812,7 @@ window.duroodClassicBridge = {
     const person=currentUser();if(person?.uid!==uid)return;
     const firstLoad=memberReaderGoalRows===null;
     memberReaderGoalRows=rows;
+    const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
     if(firstLoad&&section==='wazifa-reader'&&!hasMemberDailyGoal()&&!ownerViewingWomen())openMemberDailyTarget();
     const ledger=readingFor(person.id);
     const remote={};
@@ -4884,7 +4901,7 @@ window.duroodClassicBridge = {
   },
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
-      liveGroupMemberCounts=new Map();
+      liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
       savedMemberWirds=new Map();savedMemberWirdsComplete=false;
       liveMemberPhotos=new Map();
       periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
@@ -5379,6 +5396,7 @@ function observeCounters(side){
   const publishGoals=()=>{
     if(!stillCurrent())return;
     const rows=[...goalMembers.values()];
+    bridge.readerDirectoryGoals(observedUid,[...goalMembers].map(([uid,r])=>[uid,r.daily]));
     bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily,...r.meta})):null);
   };
   if(currentProfile?.role==="owner"){
