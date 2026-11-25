@@ -1177,10 +1177,15 @@ body { background:linear-gradient(145deg,hsl(var(--theme-hue) 42% 91%),hsl(var(-
 .target-audit-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:8px 0}
 .target-audit-title>b{font-size:1.25rem;color:var(--deep)}
 .target-audit-table{display:grid;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.target-audit-row{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));align-items:center;gap:3px;padding:5px;border-bottom:1px solid var(--line)}
+.target-audit-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.65fr) minmax(0,1.3fr) minmax(0,1fr);align-items:center;gap:3px;padding:5px;border-bottom:1px solid var(--line)}
 .target-audit-row>*{min-width:0;overflow-wrap:anywhere;text-align:center}
 .target-audit-row small{display:block;color:var(--muted);font-size:.65rem}
 .target-audit-header{background:var(--mint);font-weight:700}
+.target-audit-progress{font-weight:700;font-variant-numeric:tabular-nums}
+.target-audit-progress .short{color:#dc2626}
+.target-audit-progress .complete{color:#16803c}
+.target-audit-progress .unknown{color:var(--muted)}
+.target-audit-close{font-size:1.4rem;line-height:1;min-width:36px;min-height:36px}
 .group-target-cards{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.55fr);gap:2px;padding:1.5px;border:1px solid hsl(var(--theme-hue) 25% 65%);border-radius:11px;direction:rtl}
 .group-target-cards .recitation-banner{min-width:0;padding:2.5px 1.5px;gap:1px;border-radius:6px;border:1px solid #ffffff35;justify-items:center;align-content:center;text-align:center;color:#fff}
 .group-target-cards .group-overall-target{background:linear-gradient(145deg,#146448,#093f32)}
@@ -2256,6 +2261,12 @@ function memberSessionPlan(row,day,period){
  const days=from>period.end?0:sessionTargetDays({start:from,end:period.end});
  return {from,days,annual:goal*days};
 }
+function memberToDateProgress(row,day,actual){
+ const target=targetDateValid(row.joined)&&latestReaderGoal(row.daily,day)?
+   accruedMemberTarget(row,row.joined,day):null;
+ const read=Number.isSafeInteger(actual)&&actual>=0?actual:null;
+ return {target,read,status:target===null||read===null?"unknown":read<target?"short":"complete"};
+}
 function memberTargetAudit(rows,day,cfg){
  if(!Array.isArray(rows))return null;
  const period=targetProjectionPeriod(cfg,day);
@@ -2304,6 +2315,10 @@ function dashboardTargetCards(){
  '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(noTargets?null:g?.yearlyGoal)+'</strong>'+(g?.missingJoinDates?'<small>'+tr("Membership date missing","رکنیت کی تاریخ دستیاب نہیں")+'</small>':(!p?'<small>'+tr("Calendar year","کیلنڈر سال")+'</small>':""))+'</section>'+
  '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
 }
+function targetAuditProgressMarkup(progress){
+ const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
+ return '<bdi dir="ltr" class="target-audit-progress"><span class="'+progress.status+'">'+value(progress.read)+'</span> / '+value(progress.target)+'</bdi>';
+}
 function targetAuditMarkup(){
  if(!currentUser()?.isOwner)return "";
  const day=globalDateKey(),rows=memberTargetAudit(ownerGoalRows,day,dashboardGroupSettings);
@@ -2314,16 +2329,19 @@ function targetAuditMarkup(){
  const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
  return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
  '<p class="muted">'+value(g.activeMembers)+tr(" active members; "," فعال ممبرز؛ ")+value(g.missingTargets)+tr(" targets not set."," کے ہدف مقرر نہیں۔")+' '+esc(day)+'</p><p class="muted" dir="ltr">'+esc(g.annualStartDate)+' — '+esc(g.annualEndDate)+'</p>'+
- '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Eligible days","مقررہ دن")+'</span><span>'+tr("Annual","سالانہ")+'</span></div>'+
+ '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Read / target to date","پڑھا / آج تک ہدف")+'</span><span>'+tr("Annual","سالانہ")+'</span></div>'+
  rows.map(row=>{
   const member=users.find(p=>p.uid===row.uid);
   const name=member?.name||row.name||tr("Member","ممبر"),label=member?serial(member.id):"";
   const goal=row.goal===null?tr("Not set","مقرر نہیں"):value(row.goal);
+  const actual=savedMemberWirdsComplete?(savedMemberWirds.has(row.uid)?savedMemberWirds.get(row.uid):0):null;
+  const progress=memberToDateProgress(row,day,actual);
   return '<div class="target-audit-row"><span><b>'+esc(name)+'</b><small>'+esc(label)+(row.active===false?' · '+tr("Inactive","غیر فعال"):"")+'</small><small>'+tr("Joined: ","رکنیت: ")+esc(row.joined||"—")+'</small><small>'+tr("From: ","آغاز: ")+esc(row.from||"—")+'</small>'+
     (row.goal===null&&row.legacyGoal!==null?'<small>'+tr("Old group target (not counted): ","پرانا گروپ ہدف (شامل نہیں): ")+value(row.legacyGoal)+'</small>':"")+'</span>'+
-    '<span>'+goal+'</span><span>'+value(row.days)+'</span><span>'+value(row.annual)+'</span></div>';
+    '<span>'+goal+'</span><span>'+targetAuditProgressMarkup(progress)+'<small>'+value(row.days)+tr(" session days"," سیشن دن")+'</small></span><span>'+value(row.annual)+'</span></div>';
  }).join("")+
  '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+"—"+'</b><b>'+value(noTargets?null:g.yearlyGoal)+'</b></div></div>'+
+ '<p class="muted">'+tr("Read / target to date uses the saved all-time Durood total and effective-dated daily goals from membership through today. Red: below target; green: target met or exceeded.","پڑھا / آج تک ہدف میں Firebase کا محفوظ مجموعی درود اور رکنیت سے آج تک تاریخ وار مقررہ روزانہ اہداف شامل ہیں۔ سرخ: کم؛ سبز: برابر یا زیادہ۔")+'</p>'+
  '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. After the first session, new full-year sessions begin automatically. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ پہلے سیشن کے بعد اگلا پورا سال خود شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
 }
 function openTargetAudit(){
@@ -2331,9 +2349,11 @@ function openTargetAudit(){
  const dialog=document.createElement("dialog");
  dialog.id="member-target-audit-dialog";dialog.className="target-audit-dialog";
  dialog.setAttribute("aria-labelledby","target-audit-dialog-title");
- dialog.innerHTML='<div class="panel-head"><h2 id="target-audit-dialog-title">'+tr("Member target breakdown","ممبران کے اہداف کی تفصیل")+'</h2><button type="button" class="button secondary" data-close-target-audit>'+tr("Close","بند کریں")+'</button></div><div id="member-target-audit">'+targetAuditMarkup()+'</div>';
+ dialog.innerHTML='<div class="panel-head"><h2 id="target-audit-dialog-title">'+tr("Member target breakdown","ممبران کے اہداف کی تفصیل")+'</h2><button type="button" class="button secondary target-audit-close" data-close-target-audit aria-label="'+tr("Close","بند کریں")+'">×</button></div><div id="member-target-audit">'+targetAuditMarkup()+'</div>';
  app.append(dialog);
- dialog.querySelector("[data-close-target-audit]").addEventListener("click",()=>dialog.close());
+ // A tap anywhere (including backdrop, content and the close cross) dismisses it.
+ // Native scrolling remains available because dismissal is a click, not pointerdown.
+ dialog.addEventListener("click",()=>{if(dialog.open)dialog.close();});
  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
  dialog.showModal();
 }
@@ -4979,8 +4999,10 @@ window.duroodClassicBridge = {
   savedWirdTotals(uid,rows,complete,side){
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
     savedMemberWirds=new Map(rows.filter(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0).map(r=>[r.uid,r.total]));
-    savedMemberWirdsComplete=complete===true;
+    savedMemberWirdsComplete=complete===true&&rows.every(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0);
     refreshMemberWirds();
+    const audit=document.getElementById("member-target-audit");
+    if(audit)audit.innerHTML=targetAuditMarkup();
   },
   liveMemberCounts(uid,rows,owner,side){
     if(currentUser()?.uid!==uid)return;
@@ -5713,7 +5735,7 @@ function observeCounters(side){
   const stopWirdTotals=onSnapshot(wirdQuery,{includeMetadataChanges:true},snap=>{
     if(!stillCurrent()||snap.metadata.fromCache)return;
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
-  },err=>console.warn("Saved member Wird totals unavailable",err.code));
+  },err=>{if(stillCurrent())bridge.savedWirdTotals(observedUid,[],false,side);console.warn("Saved member Wird totals unavailable",err.code);});
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
   let historyGeneration=0;

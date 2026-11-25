@@ -281,6 +281,16 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:50}]}],"2026-11-25",period).overallGoal,50);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100}],active:false,inactiveDay:"2026-11-25"}],"2026-11-26",period).overallGoal,0);
  assert.equal(aggregate(null,"2026-11-24"),null);
+ const progress=vm.runInContext("memberToDateProgress",targetContext);
+ const sixDays=member(100,"2026-11-21");
+ assert.equal(progress(sixDays,"2026-11-26",500).target,600);
+ assert.equal(progress(sixDays,"2026-11-26",500).status,"short");
+ assert.equal(progress(sixDays,"2026-11-26",800).status,"complete");
+ assert.equal(progress(sixDays,"2026-11-26",600).status,"complete");
+ assert.equal(progress(sixDays,"2026-11-26",null).status,"unknown");
+ assert.equal(progress({...sixDays,joined:null},"2026-11-26",500).target,null);
+ assert.equal(progress({...sixDays,daily:[{date:"2026-11-21",goal:100},{date:"2026-11-24",goal:200}]},"2026-11-26",900).target,900);
+ assert(classic.includes('dialog.addEventListener("click",()=>{if(dialog.open)dialog.close();})'));
  const audit=vm.runInContext("memberTargetAudit",targetContext);
  const four=[member(100,"2026-11-25"),member(100,"2026-11-25"),member(100,"2026-11-26"),member(100,"2026-11-26")];
  const fourResult=aggregate(four,"2026-11-26");
