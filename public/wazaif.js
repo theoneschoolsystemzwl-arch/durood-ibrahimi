@@ -476,6 +476,25 @@ function compactCount(label,number){
 // Long Arabic passages get a deliberate scroll switch. In the default
 // state the *page* keeps scrolling when the reader swipes on Arabic text.
 // The switch unlocks a bounded Arabic pane for lengthy verses/Surahs.
+const pdfMark=value=>/^\[\[WZPDF:[a-f0-9]{32}:[1-9]\d{0,2}:[1-9]\d?\]\]$/.test(String(value??""));
+const pendingPdf=new WeakMap();
+function pdfViewerMarkup(value,scope,auto=false){
+ if(!pdfMark(value))return "";
+ return '<div class="wz-pdf-viewer" data-wz-pdf-marker="'+esc(value)+'" data-wz-pdf-scope="'+scope+'"><button type="button" class="wz-button" data-wazifa-action="pdf-view">اصل PDF تصویر کھولیں</button><div data-wz-pdf-host'+(auto?' data-wz-pdf-auto':'')+'></div></div>';
+}
+async function showSavedPdf(container){
+ const host=container?.querySelector("[data-wz-pdf-host]");if(!host||host.dataset.started)return;
+ const uid=auth.currentUser?.uid;if(!uid)return;host.dataset.started="1";
+ const button=container.querySelector("[data-wazifa-action='pdf-view']");if(button)button.hidden=true;
+ try{const p=await import("./wazifa-pdf.js?v=4");if(!host.isConnected||auth.currentUser?.uid!==uid)return;
+  const value=container.dataset.wzPdfMarker,scope=container.dataset.wzPdfScope;
+  await p.mountPdfViewer(host,()=>p.loadPdfAttachment(value,uid,scope),p.pdfMarker(value)?.pages);
+ }catch(e){host.textContent=String(e?.message||e);delete host.dataset.started;if(button)button.hidden=false;}
+}
+function autoPdfView(root){root.querySelectorAll("[data-wz-pdf-auto]").forEach(host=>void showSavedPdf(host.closest("[data-wz-pdf-marker]")));}
+function arabicOrPdf(value,scope,tag="p",auto=false){
+ return pdfMark(value)?pdfViewerMarkup(value,scope,auto):arabicScrollControl(value)+'<'+tag+arabicDisplayAttrs(value)+' lang="ar" dir="rtl">'+esc(value)+'</'+tag+'>';
+}
 function arabicScrollControl(value){
  return String(value??"").trim().length>250?
   '<button type="button" class="wz-arabic-scroll-toggle" data-wazifa-action="toggle-arabic-scroll" aria-pressed="false">↕ عربی اسکرول کھولیں</button>' : "";
@@ -502,7 +521,7 @@ function groupCard(){
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
  compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا مجموعی شمار",all)+'</div>'+
- arabicScrollControl(g.arabic)+'<p'+arabicDisplayAttrs(g.arabic)+' lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
+ arabicOrPdf(g.arabic,"group")+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  '<div class="wz-actions">'+
  (owner()?'<button type="button" class="wz-button" data-wazifa-action="edit-group">مالک کی گروپ سیٹنگ</button>':'')+'</div>'+
@@ -523,14 +542,14 @@ function personalCard(task){
  return '<article class="wz-card wz-personal">'+
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
- arabicScrollControl(task.arabic)+'<p'+arabicDisplayAttrs(task.arabic)+' lang="ar" dir="rtl">'+esc(task.arabic)+'</p><p class="wz-help">'+esc(task.instructions)+'</p>'+
+ arabicOrPdf(task.arabic,"personal")+'<p class="wz-help">'+esc(task.instructions)+'</p>'+
  (task.kind==="fixed"?fixedPlanMarkup(task):
   '<div class="wz-inline-counts" aria-label="روزانہ وظیفے کا شمار">'+
   compactCount("آج پڑھا",task.day===readingDay()?task.today:0)+
   compactCount("آج ہدف",targetForDay(task,readingDay()))+
   compactCount("مجموعی شمار",task.total||0)+'</div><p class="wz-help">آغاز '+esc(task.startDate)+'</p>')+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
- '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
+ '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)||pdfMark(task.arabic)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)</label>'+
  '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"F-2":"M-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
@@ -545,7 +564,7 @@ function inboxMarkup(){
  state.inbox.map(item=>'<article class="wz-card wz-received">'+
  '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
  '<h3>'+esc(item.title)+'</h3></div></header>'+
- arabicScrollControl(item.arabic)+'<p'+arabicDisplayAttrs(item.arabic)+' lang="ar" dir="rtl">'+esc(item.arabic)+'</p>'+
+ arabicOrPdf(item.arabic,"personal")+
  '<p class="wz-help">'+esc(item.instructions)+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
@@ -574,9 +593,9 @@ function formMarkup(){
  const annual=window.duroodAnnualTargetPeriod?.(original);
  return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">بند کریں</button><h2>'+title+'</h2></div>'+
  '<form id="wazifa-form" class="wz-form"><label>وظیفے کا نام<input name="title" required maxlength="80" placeholder="مثلاً آیت الکرسی" value="'+esc(original.title||'')+'"></label>'+
- '<label>عربی عبارت / درود<textarea name="arabic" lang="ar" dir="rtl" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
+ '<label id="wz-arabic-label" '+(pdfMark(original.arabic)?'hidden':'')+'>عربی عبارت / درود<textarea name="arabic" lang="ar" dir="rtl" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
  '<p id="wz-arabic-length" class="wz-arabic-length" role="status" aria-live="polite">الفاظ: 0 / 25,000</p>'+
- '<div class="wz-pdf-tools"><button type="button" class="wz-button" data-wazifa-action="pdf-upload">↑ PDF اپلوڈ</button><input id="wz-pdf-file" type="file" accept="application/pdf,.pdf" hidden aria-label="PDF منتخب کریں"></div><p id="wz-pdf-status" class="wz-pdf-status" role="status" aria-live="polite"></p>'+
+ '<div class="wz-pdf-tools"><button type="button" class="wz-button" data-wazifa-action="pdf-upload">↑ PDF اپلوڈ</button><input id="wz-pdf-file" type="file" accept="application/pdf,.pdf" hidden aria-label="PDF منتخب کریں"><button type="button" class="wz-button" data-wazifa-action="pdf-remove" '+(pdfMark(original.arabic)?'':'hidden')+'>PDF ہٹائیں / عبارت لکھیں</button></div><div id="wz-pdf-editor-preview">'+(pdfMark(original.arabic)?pdfViewerMarkup(original.arabic,g?"group":"personal",true):"")+'</div><p id="wz-pdf-status" class="wz-pdf-status" role="status" aria-live="polite"></p>'+
  '<label>طریقہ / ہدایات<textarea name="instructions" rows="3" maxlength="1200" placeholder="پڑھنے کا طریقہ">'+esc(original.instructions||'')+'</textarea></label>'+
  '<label>وظیفے کا مقصد<textarea name="purpose" rows="3" maxlength="1200" placeholder="اس وظیفے کا مقصد">'+esc(original.purpose||'')+'</textarea></label>'+
  '<p class="wz-label">وظیفے کی قسم منتخب کریں</p><div class="wz-kind">'+kinds.map(([id,name,description])=>
@@ -971,7 +990,7 @@ function readerMarkup(group){
  '<button class="wz-hero-back" type="button" data-wazifa-action="back">‹ '+esc("وظائف واپس")+'</button>'+
  '<h2 class="wz-hero-title"><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+ 
  '<section class="wz-reading-text wz-reading-text-visible" aria-label="وظیفے کی مکمل تفصیل">'+
- '<h3>عربی عبارت</h3>'+arabicScrollControl(w.arabic)+'<div'+arabicDisplayAttrs(w.arabic)+' lang="ar" dir="rtl">'+esc(w.arabic)+'</div>'+
+ '<h3>عربی عبارت</h3>'+arabicOrPdf(w.arabic,group?"group":"personal","div",true)+
  '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  '<section class="wz-session-card" aria-label="تسبیح کاؤنٹر اور روزانہ کا حساب">'+
@@ -1034,7 +1053,7 @@ function readerMarkup(group){
  '</div>'+
 
  '<p id="wz-motor-status" role="status" aria-live="polite" style="margin:2px 0;padding:4px 6px;text-align:center;line-height:1.4;font-size:12px;color:inherit;border:1px solid #35b995;border-radius:6px"></p>'+ 
- arabicTickerMarkup(w.arabic)+
+ (pdfMark(w.arabic)?"":arabicTickerMarkup(w.arabic))+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
  '<svg class="wz-dial-ring-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
  '<circle class="wz-dial-ring-track" cx="50" cy="50" r="46" pathLength="100"/>'+
@@ -1184,7 +1203,7 @@ function render(){
  if(!state.started)subscribe();
  if(state.mode==="form"){
    if(root.querySelector("#wazifa-form"))return;
-   root.innerHTML=formMarkup();syncForm();return;
+   root.innerHTML=formMarkup();syncForm();autoPdfView(root);return;
  }
  if(state.mode==="continuation-form"){
    if(root.querySelector("#wz-continue-form"))return;
@@ -1192,7 +1211,7 @@ function render(){
  }
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
-   root.innerHTML=readerMarkup(state.mode==="group-reader");
+   root.innerHTML=readerMarkup(state.mode==="group-reader");autoPdfView(root);
    inspectTapMotorBridge();
    if(state.immersive)setWazifaImmersive(true);
    requestAnimationFrame(syncArabicTicker);
@@ -1205,42 +1224,51 @@ function pdfStatus(form,message,error=false){
  const el=form.querySelector("#wz-pdf-status");if(el){el.textContent=message;el.classList.toggle("is-error",error);}
 }
 async function importWazifaPdf(form,file){
- const field=form.elements.arabic,prior=field.value;
- if(prior.trim()&&!window.confirm("PDF کی عبارت موجودہ عبارت کی جگہ لکھیں؟"))return;
+ const field=form.elements.arabic,prior=String(field.value??""),uid=auth.currentUser?.uid;
+ if(prior.trim()&&!window.confirm("موجودہ عبارت کی جگہ PDF کی اصل تصویر دکھائیں؟"))return;
  const button=form.querySelector("[data-wazifa-action='pdf-upload']");button.disabled=true;
- pdfStatus(form,"PDF پڑھ رہے ہیں…");
+ pdfStatus(form,"PDF کھول رہے ہیں…");
  try{
-  const p=await import("./wazifa-pdf.js?v=3"),progress=(n,total,phase,percent)=>pdfStatus(form,"PDF صفحہ: "+n+" / "+total+(phase==="ocr"?" — عربی OCR "+percent+"%":phase==="loading"?" — عربی OCR تیار ہو رہا ہے "+percent+"%":""));
-  const result=await p.readArabicPdf(file,progress);if(!form.isConnected)return;
-  const text=result.text;
-  if(field.value!==prior)throw Error("عبارت تبدیل ہو چکی ہے۔ دوبارہ PDF منتخب کریں۔");
-  const error=arabicLengthError(text);if(error)throw Error(error);
-  if(result.unreadPages.length&&!window.confirm("ان صفحات سے عربی عبارت نہیں ملی: "+result.unreadPages.join("، ")+"۔ کیا باقی عبارت شامل کریں؟"))return;
-  field.value=text;syncArabicCounter(form);pdfStatus(form,result.ocrPages?"OCR سے عبارت آگئی ہے۔ قرآن و درود کے الفاظ، اعراب اور ترتیب اصل PDF سے ضرور ملائیں۔"+(result.unreadPages.length?" نامکمل صفحات: "+result.unreadPages.join("، "):""):"PDF کی عبارت آگئی ہے۔ اعراب اور ترتیب چیک کر کے محفوظ کریں۔",result.unreadPages.length>0);
- }catch(error){pdfStatus(form,error?.message||"PDF نہیں پڑھی جا سکی۔",true);}
+  const p=await import("./wazifa-pdf.js?v=4"),prepared=await p.preparePdf(file);
+  if(!form.isConnected||auth.currentUser?.uid!==uid)return;
+  if(field.value!==prior)throw Error("عبارت بدل چکی ہے۔ دوبارہ PDF منتخب کریں۔");
+  const previous=pendingPdf.get(form)?.previous??prior;
+  pendingPdf.set(form,{...prepared,previous,uid});
+  field.value=prepared.marker;form.querySelector("#wz-arabic-label").hidden=true;field.required=false;
+  form.querySelector("[data-wazifa-action='pdf-remove']").hidden=false;
+  const host=form.querySelector("#wz-pdf-editor-preview");
+  host.innerHTML='<div class="wz-pdf-viewer"><div data-wz-pdf-host></div></div>';
+  syncArabicCounter(form);pdfStatus(form,"اصل PDF: "+p.pdfMarker(prepared.marker).pages+" صفحات۔ OCR کی ضرورت نہیں۔");
+  await p.mountPdfViewer(host.querySelector("[data-wz-pdf-host]"),prepared.bytes,p.pdfMarker(prepared.marker).pages);
+ }catch(error){pdfStatus(form,error?.message||"PDF نہیں کھل سکی۔",true);}
  finally{button.disabled=false;}
 }
 function syncArabicCounter(form){
  if(!form)return;
  const textarea=form.elements.arabic,notice=form.querySelector("#wz-arabic-length");
  if(!textarea||!notice)return;
- const count=arabicWordCount(textarea.value),maximum=25000,error=arabicLengthError(textarea.value);
+ const value=String(textarea.value??"");
+ if(/^\[\[WZPDF:[a-f0-9]{32}:\d{1,3}:\d{1,2}\]\]$/.test(value)){
+  notice.textContent="PDF — اصل صفحات، الفاظ کی حد لاگو نہیں";notice.classList.toggle("is-over-limit",false);textarea.setCustomValidity("");return;
+ }
+ const count=arabicWordCount(value),maximum=25000,error=arabicLengthError(value);
  notice.textContent="عربی الفاظ: "+count.toLocaleString("en")+" / "+maximum.toLocaleString("en")+(error?" — "+error:"");
  notice.classList.toggle("is-over-limit",Boolean(error));
  textarea.setCustomValidity(error);
 }
 function arabicWordCount(value){
- const text=value.trim();
+ const text=String(value??"").trim();
  return text?text.split(/\s+/u).length:0;
 }
 function arabicLengthError(value){
  if(arabicWordCount(value)>25000)return "عربی عبارت 25,000 الفاظ سے زیادہ نہیں ہو سکتی۔";
- if(new TextEncoder().encode(value.trim()).length>600000)return "عربی عبارت کا ڈیٹا 600,000 بائٹس سے زیادہ ہے۔";
+ if(new TextEncoder().encode(String(value??"").trim()).length>600000)return "عربی عبارت کا ڈیٹا 600,000 بائٹس سے زیادہ ہے۔";
  return "";
 }
 function syncForm(){
  const form=$("#wazifa-form");if(!form)return;
  syncArabicCounter(form);
+ form.elements.arabic.required=!pdfMark(form.elements.arabic.value);
  const kind=form.elements.kind.value;
  form.querySelectorAll('[data-wz-goal]').forEach(el=>{
    const type=el.dataset.wzGoal;
@@ -1324,7 +1352,16 @@ async function saveForm(form){
  const common={title,arabic,instructions:String(data.get("instructions")||"").trim(),
   purpose:String(data.get("purpose")||"").trim(),startDate};
  state.busy=true;const button=form.querySelector('[type="submit"]');button.disabled=true;
+ let localPdfOnly=false;
  try{
+   const attachment=pendingPdf.get(form);
+   if(attachment&&attachment.marker===arabic){
+    const scope=kind==="group"?"group":"personal",uid=auth.currentUser?.uid;
+    if(uid!==attachment.uid)throw Error("اکاؤنٹ تبدیل ہو چکا ہے۔");
+    const p=await import("./wazifa-pdf.js?v=4");
+    const result=await p.savePdfAttachment(attachment,uid,scope,(n,total)=>pdfStatus(form,"PDF محفوظ ہو رہی ہے: "+n+" / "+total));
+    localPdfOnly=result.localOnly;
+   }else if(pdfMark(arabic)&&((state.formScope==="group")!==(kind==="group")))throw Error("PDF کو نئے وظیفے میں دوبارہ اپلوڈ کریں۔");
    if(kind==="group"){
      const prior=currentGroup(),legacy=n=>valid(n)?n:1;
      let annualStartDate=String(data.get("annualStartDate")||""),annualEndDate=String(data.get("annualEndDate")||"");
@@ -1368,6 +1405,7 @@ async function saveForm(form){
        state.shareNotice="وظیفہ "+wazifaSerial(result)+" محفوظ ہو گیا۔";
      }
    }
+   if(localPdfOnly)state.shareNotice="PDF صرف اسی موبائل میں محفوظ ہوئی ہے۔";
    state.error="";state.mode="list";state.editId=null;
    const root=$("#wazaif-root");if(root)root.innerHTML="";
    render();
@@ -1728,6 +1766,11 @@ document.addEventListener("click",event=>{
  if(!button)return;
  const action=button.dataset.wazifaAction,id=button.dataset.wazifaId;
  event.preventDefault();event.stopImmediatePropagation();
+ if(action==="pdf-view"){void showSavedPdf(button.closest("[data-wz-pdf-marker]"));return;}
+ if(action==="pdf-remove"){
+  const form=button.closest("#wazifa-form");if(!form||!window.confirm("PDF ہٹا کر عربی عبارت لکھیں؟"))return;
+  const previous=pendingPdf.get(form)?.previous;pendingPdf.delete(form);form.elements.arabic.value=previous&&!pdfMark(previous)?previous:"";form.querySelector("#wz-arabic-label").hidden=false;form.elements.arabic.required=true;form.querySelector("#wz-pdf-editor-preview").innerHTML="";button.hidden=true;syncArabicCounter(form);pdfStatus(form,"");return;
+ }
  if(action==="pdf-upload"){
   const form=button.closest("#wazifa-form");if(!form)return;
   form.querySelector("#wz-pdf-file").click();return;
@@ -1790,6 +1833,7 @@ document.addEventListener("click",event=>{
  }
  if(action==="new")return openForm("personal");
  if(action==="share-personal"&&id){
+   if(pdfMark(state.personal.find(x=>x.id===id)?.arabic)){setError("PDF وظیفہ فی الحال شیئر نہیں کیا جا سکتا۔");return;}
    state.shareFor=state.shareFor===id?null:id;state.shareNotice="";render();return;
  }
  if(action==="send-personal"&&id){
@@ -2043,6 +2087,7 @@ document.addEventListener("durood:before-refresh",event=>{
 window.duroodWazaif={
  setMember,render,back,
  groupData:currentGroup,
+ groupArabicMarkup:()=>pdfMark(currentGroup().arabic)?pdfViewerMarkup(currentGroup().arabic,"group"):null,
  refreshGroupTargets:()=>{if(state.mode==="group-reader")refreshHeroReader();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
  activeGroup:()=>state.groupExists&&currentGroup().active===true,
  groupCountsAsDurood:()=>currentGroup().countAsDurood!==false

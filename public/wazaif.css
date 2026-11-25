@@ -381,3 +381,5 @@
 }
 
 .wz-pdf-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.wz-pdf-tools input[hidden]{display:none!important}.wz-pdf-tools button{min-width:0;font-size:.92rem;padding:8px 5px}.wz-pdf-status{margin:0;color:#c6f4d8;font-size:.84rem;overflow-wrap:anywhere}.wz-pdf-status:empty{display:none}.wz-pdf-status.is-error{color:#ffb2ac}
+
+.wz-form #wz-arabic-label[hidden],.wz-pdf-tools button[hidden],.wz-pdf-viewer button[hidden]{display:none!important}.wz-pdf-viewer{display:grid;gap:6px;min-width:0}.wz-pdf-nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:5px}.wz-pdf-nav button{font:inherit;color:white;background:#075440;border:1px solid #4aa987;border-radius:8px;padding:6px}.wz-pdf-scroll{background:white;border-radius:8px;overflow:auto;max-height:72dvh;overscroll-behavior:contain;touch-action:pan-x pan-y;direction:ltr}.wz-pdf-scroll canvas{display:block;width:100%;height:auto}.wz-pdf-viewer.is-zoomed .wz-pdf-scroll canvas,[data-wz-pdf-host].is-zoomed .wz-pdf-scroll canvas{width:160%;max-width:none}.wz-pdf-message{font-size:.85rem;text-align:center}.wz-pdf-nav strong{white-space:nowrap;direction:ltr}

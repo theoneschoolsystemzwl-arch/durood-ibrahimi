@@ -129,6 +129,7 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
   sameUid(uid);
   if(!source.exists())throw Error("یہ وظیفہ آپ کے اکاؤنٹ میں موجود نہیں۔");
   const data=source.data();
+  if(/^\[\[WZPDF:/.test(String(data.arabic??"")))throw Error("PDF وظیفہ فی الحال شیئر نہیں کیا جا سکتا۔");
   const outgoing=Object.fromEntries(DATA_KEYS.map(key=>[key,data[key]]));
   const target=doc(inboxCollection(recipient.uid));
   await setDoc(target,{...outgoing,senderUid:uid,recipientUid:recipient.uid,

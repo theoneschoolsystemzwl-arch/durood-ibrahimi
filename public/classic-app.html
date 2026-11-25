@@ -1192,7 +1192,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=tasbih-native-haptics-speed300-20261124-v14">
+<link rel="stylesheet" href="./wazaif.css?v=arabic-pdf-image-20261126-v4">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
 <script defer src="./pull-refresh.js?v=refresh-photos-20261124-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
@@ -2789,7 +2789,7 @@ function tasbih() {
   const headingTitle=group?.title||groupTitleLabel();
   const description=group?.instructions||tr("Complete the recitation, then tap once.", 'وظیفہ مکمل پڑھ کر ایک مرتبہ ٹیپ کریں۔');
   const purpose=group?.purpose||tr('Daily group recitation','روزانہ گروپ وظیفہ');
-  const arabic=group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : '';
+  const arabic=window.duroodWazaif?.groupArabicMarkup?.() || (group?.arabic ? '<p>'+esc(group.arabic).replace(/\n/g,'</p><p>')+'</p>' : '');
   return '<button type="button" class="button secondary" data-action="nav" data-value="tasbih">← '+tr('Wazaif list','وظائف واپس')+'</button>' +
     boxedHeading('<span data-reader-group-title>'+esc(headingTitle)+'</span>',esc(description)) +
     '<section class="wz-reading-text wz-reading-text-visible group-reader-intro" aria-label="وظیفے کی عبارت، طریقہ اور مقصد">'+
@@ -5246,7 +5246,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=arabic-ocr-refresh-20261126-v3";
+import "./wazaif.js?release=arabic-pdf-image-20261126-v4";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";

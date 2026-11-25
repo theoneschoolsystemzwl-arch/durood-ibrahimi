@@ -1278,6 +1278,39 @@ service cloud.firestore {
       allow delete: if self(uid) && currentMember();
     }
 
+    // Original PDF pages are stored as bounded binary chunks, not OCR text.
+    function wzPdfChunk(fileId,chunkId) {
+      return fileId.matches('^[a-f0-9]{32}
+      allow read, write: if false;
+    }
+  }
+}
+) && chunkId.matches('^([0-9]|[1-5][0-9]|6[0-5])
+      allow read, write: if false;
+    }
+  }
+}
+);
+    }
+    function validWzPdfChunk() {
+      return request.resource.data.keys().hasOnly(['data']) &&
+        request.resource.data.keys().hasAll(['data']) &&
+        request.resource.data.data is bytes &&
+        request.resource.data.data.size() > 0 &&
+        request.resource.data.data.size() <= 400000;
+    }
+    match /wazifaPdfPrivate/{uid}/files/{fileId}/chunks/{chunkId} {
+      allow get: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId);
+      allow create, update: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId) && validWzPdfChunk();
+      allow list: if false;
+      allow delete: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId);
+    }
+    match /wazifaPdfGroup/{fileId}/chunks/{chunkId} {
+      allow get: if currentMember() && wzPdfChunk(fileId,chunkId);
+      allow create, update: if owner() && wzPdfChunk(fileId,chunkId) && validWzPdfChunk();
+      allow list: if false;
+      allow delete: if owner() && wzPdfChunk(fileId,chunkId);
+    }
     match /{document=**} {
       allow read, write: if false;
     }
