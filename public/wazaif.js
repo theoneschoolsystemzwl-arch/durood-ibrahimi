@@ -7,7 +7,7 @@ import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,d
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
   sharePersonalWazifa,acceptSharedWazifa,discardSharedWazifa,inboxCollection}
-  from "./wazifa-sharing.js";
+  from "./wazifa-sharing.js?v=5";
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -480,13 +480,13 @@ const pdfMark=value=>/^\[\[WZPDF:[a-f0-9]{32}:[1-9]\d{0,2}:[1-9]\d?\]\]$/.test(S
 const pendingPdf=new WeakMap();
 function pdfViewerMarkup(value,scope,auto=false){
  if(!pdfMark(value))return "";
- return '<div class="wz-pdf-viewer" data-wz-pdf-marker="'+esc(value)+'" data-wz-pdf-scope="'+scope+'"><button type="button" class="wz-button" data-wazifa-action="pdf-view">اصل PDF تصویر کھولیں</button><div data-wz-pdf-host'+(auto?' data-wz-pdf-auto':'')+'></div></div>';
+ return '<div class="wz-pdf-viewer" data-wz-pdf-marker="'+esc(value)+'" data-wz-pdf-scope="'+esc(scope)+'"><button type="button" class="wz-button" data-wazifa-action="pdf-view">اصل PDF تصویر کھولیں</button><div data-wz-pdf-host'+(auto?' data-wz-pdf-auto':'')+'></div></div>';
 }
 async function showSavedPdf(container){
  const host=container?.querySelector("[data-wz-pdf-host]");if(!host||host.dataset.started)return;
  const uid=auth.currentUser?.uid;if(!uid)return;host.dataset.started="1";
  const button=container.querySelector("[data-wazifa-action='pdf-view']");if(button)button.hidden=true;
- try{const p=await import("./wazifa-pdf.js?v=4");if(!host.isConnected||auth.currentUser?.uid!==uid)return;
+ try{const p=await import("./wazifa-pdf.js?v=5");if(!host.isConnected||auth.currentUser?.uid!==uid)return;
   const value=container.dataset.wzPdfMarker,scope=container.dataset.wzPdfScope;
   await p.mountPdfViewer(host,()=>p.loadPdfAttachment(value,uid,scope),p.pdfMarker(value)?.pages);
  }catch(e){host.textContent=String(e?.message||e);delete host.dataset.started;if(button)button.hidden=false;}
@@ -549,7 +549,7 @@ function personalCard(task){
   compactCount("آج ہدف",targetForDay(task,readingDay()))+
   compactCount("مجموعی شمار",task.total||0)+'</div><p class="wz-help">آغاز '+esc(task.startDate)+'</p>')+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
- '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)||pdfMark(task.arabic)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
+ '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)</label>'+
  '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"F-2":"M-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
@@ -564,7 +564,7 @@ function inboxMarkup(){
  state.inbox.map(item=>'<article class="wz-card wz-received">'+
  '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
  '<h3>'+esc(item.title)+'</h3></div></header>'+
- arabicOrPdf(item.arabic,"personal")+
+ arabicOrPdf(item.arabic,"shared:"+item.senderUid)+
  '<p class="wz-help">'+esc(item.instructions)+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
@@ -1229,7 +1229,7 @@ async function importWazifaPdf(form,file){
  const button=form.querySelector("[data-wazifa-action='pdf-upload']");button.disabled=true;
  pdfStatus(form,"PDF کھول رہے ہیں…");
  try{
-  const p=await import("./wazifa-pdf.js?v=4"),prepared=await p.preparePdf(file);
+  const p=await import("./wazifa-pdf.js?v=5"),prepared=await p.preparePdf(file);
   if(!form.isConnected||auth.currentUser?.uid!==uid)return;
   if(field.value!==prior)throw Error("عبارت بدل چکی ہے۔ دوبارہ PDF منتخب کریں۔");
   const previous=pendingPdf.get(form)?.previous??prior;
@@ -1358,10 +1358,14 @@ async function saveForm(form){
    if(attachment&&attachment.marker===arabic){
     const scope=kind==="group"?"group":"personal",uid=auth.currentUser?.uid;
     if(uid!==attachment.uid)throw Error("اکاؤنٹ تبدیل ہو چکا ہے۔");
-    const p=await import("./wazifa-pdf.js?v=4");
+    const p=await import("./wazifa-pdf.js?v=5");
     const result=await p.savePdfAttachment(attachment,uid,scope,(n,total)=>pdfStatus(form,"PDF محفوظ ہو رہی ہے: "+n+" / "+total));
     localPdfOnly=result.localOnly;
-   }else if(pdfMark(arabic)&&((state.formScope==="group")!==(kind==="group")))throw Error("PDF کو نئے وظیفے میں دوبارہ اپلوڈ کریں۔");
+   }else if(pdfMark(arabic)){
+    if((state.formScope==="group")!==(kind==="group"))throw Error("PDF کو نئے وظیفے میں دوبارہ اپلوڈ کریں۔");
+    const p=await import("./wazifa-pdf.js?v=5");
+    await p.ensurePdfCloud(arabic,auth.currentUser.uid,kind==="group"?"group":"personal");
+   }
    if(kind==="group"){
      const prior=currentGroup(),legacy=n=>valid(n)?n:1;
      let annualStartDate=String(data.get("annualStartDate")||""),annualEndDate=String(data.get("annualEndDate")||"");
@@ -1833,7 +1837,6 @@ document.addEventListener("click",event=>{
  }
  if(action==="new")return openForm("personal");
  if(action==="share-personal"&&id){
-   if(pdfMark(state.personal.find(x=>x.id===id)?.arabic)){setError("PDF وظیفہ فی الحال شیئر نہیں کیا جا سکتا۔");return;}
    state.shareFor=state.shareFor===id?null:id;state.shareNotice="";render();return;
  }
  if(action==="send-personal"&&id){
