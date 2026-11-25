@@ -1521,8 +1521,8 @@ const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({
 }[char]));
 const serial = id => {
   const person = getUser(id);
-  if (person?.gender === 'Female') return person.sideNumber ? 'D' + person.sideNumber : '—';
-  return 'DI-' + (person?.sideNumber ?? id);
+  if (person?.gender === 'Female') return person.sideNumber ? 'F-' + person.sideNumber : '—';
+  return person?.sideNumber ? 'M-' + person.sideNumber : (person?.isOwner ? 'M-1' : '—');
 };
 const groupId = id => hasGroup(id) ? (getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id) : '—';
 const getUser = id => users.find(person => person.id === id);
@@ -2206,7 +2206,8 @@ function groupDashboardProgress(){
   const sumSince=start=>dates===null?null:Object.entries(dates).filter(([day])=>day>=start&&day<=today).reduce((sum,[,count])=>sum+count,0);
   const daily=dates?.[today]??(dashboardGroupStats===null?null:dashboardGroupStats.day===today?Number(dashboardGroupStats.today||0):0);
   const weekly=sumSince(weekStart),monthly=sumSince(monthStart);
-  const annual=dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null;
+  const session=annualTargetPeriod(cfg,today);
+  const annual=currentUser()?.isOwner ? (dates===null||!session?null:Object.entries(dates).filter(([day])=>day>=session.start&&day<=session.end&&day<=today).reduce((sum,[,count])=>sum+count,0)) : (dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null);
   const make=(label,goal,count)=>{
     const valid=Number.isSafeInteger(goal)&&goal>0,percent=groupProgressValue(goal,count);
     return '<div class="goal-progress"><p class="dashboard-progress-note">'+label+'</p>'+
@@ -2221,7 +2222,7 @@ function groupDashboardProgress(){
     make(tr("Daily goal","روزانہ ہدف"),Number(cfg.dailyGoal),daily)+
     make(tr("Weekly goal","ہفتہ وار ہدف"),Number(cfg.weeklyGoal),weekly)+
     make(tr("Monthly goal","ماہانہ ہدف"),Number(cfg.monthlyGoal),monthly)+
-    make(tr("Annual goal","سالانہ ہدف"),Number(cfg.yearlyGoal),annual)+
+    make(tr("Annual goal","سالانہ ہدف"),currentUser()?.isOwner?(window.duroodAggregateGroupTargets()?.yearlyGoal??0):Number(cfg.yearlyGoal),annual)+
     '<small class="muted">'+tr("Weekly and monthly totals use saved dated group entries; earlier dates without records are not estimated.","ہفتہ وار اور ماہانہ شمار محفوظ تاریخ وار گروپ ریکارڈ سے ہے؛ پرانی غیر محفوظ تاریخوں کا اندازہ نہیں لگایا گیا۔")+'</small>';
 }
 function refreshDashboardGroupProgress(){
@@ -2241,7 +2242,7 @@ let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
 function legacyRepairTarget(requireDate=true){
  if((requireDate&&readerDayLabel()!==legacyRepairDay)||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
- const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="DI-2"&&/wah+a?b|و[ھہه]اب/iu.test(String(m.name||"").normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640\s-]/gu,"")));
+ const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="M-2"&&/wah+a?b|و[ھہه]اب/iu.test(String(m.name||"").normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640\s-]/gu,"")));
  return matches.length===1?matches[0]:null;
 }
 function readerAuditMarkup(){
@@ -4931,7 +4932,7 @@ window.duroodClassicBridge = {
       const legacyNumber = memberId === 2 || memberId === 3 ? memberId - 1 : null;
       const sideNumber = x.gender === 'female'
         ? x.sideNumber ?? legacyNumber ?? (profile.role === 'owner' ? numbers.get(x.uid) : null)
-        : profile.role === 'owner' ? numbers.get(x.uid) : undefined;
+        : x.sideNumber ?? (profile.role === 'owner' ? numbers.get(x.uid) : null);
       users.push({
         id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
         isFoundingSpouse:x.gender==="female" && sideNumber===1,
@@ -5144,7 +5145,7 @@ import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?rel
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
 const LOGOUT_KEY="durood-explicit-logout-v1";
@@ -5400,6 +5401,18 @@ function observeCounters(side){
   bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
+  const publishSideGroup=()=>{
+    if(!stillCurrent()||currentProfile?.role!=="owner")return;
+    const records=[...goalMembers.values()];
+    if(!goalDirectoryReady||records.some(r=>r.groupDays===null||r.groupSummary===null)){bridge.groupProgressStats(null);bridge.groupProgressDays(null);return;}
+    const days={};let total=0;
+    for(const r of records){const own={...r.groupDays},summary=r.groupSummary;
+      if(summary.day&&!(summary.day in own)&&Number.isSafeInteger(summary.today)&&summary.today>=0)own[summary.day]=summary.today;
+      for(const [day,count] of Object.entries(own))days[day]=(days[day]||0)+count;
+      total+=Number(summary.total||0);
+    }
+    const today=globalDay();bridge.groupProgressStats({total,day:today,today:days[today]||0});bridge.groupProgressDays(days);
+  };
   const publishGoals=()=>{
     if(!stillCurrent())return;
     const rows=[...goalMembers.values()];
@@ -5426,7 +5439,10 @@ function observeCounters(side){
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
-        const r={daily:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
+        const r={daily:null,groupDays:null,groupSummary:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
+        const memberRef=doc(db,"wazaifGroupStats","main","members",uid);
+        r.stops.push(onSnapshot(memberRef,{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupSummary=snap.exists()?snap.data():{};publishSideGroup();},err=>{r.groupSummary=null;publishSideGroup();console.warn("Side group member summary",err.code);}));
+        r.stops.push(onSnapshot(collection(memberRef,"days"),{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupDays=Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count]));publishSideGroup();},err=>{r.groupDays=null;publishSideGroup();console.warn("Side group member dates",err.code);}));
         for(const [key,name] of [["daily","duroodGoals"]]){
           r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
@@ -5434,8 +5450,8 @@ function observeCounters(side){
           },err=>{r[key]=null;publishGoals();console.warn("Group goal unavailable",err.code);}));
         }
       }
-      publishGoals();
-    },err=>{goalDirectoryReady=false;publishGoals();console.warn("Group goal directory unavailable",err.code);});
+      publishGoals();publishSideGroup();
+    },err=>{goalDirectoryReady=false;publishGoals();publishSideGroup();console.warn("Group goal directory unavailable",err.code);});
   }else{
     stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side)),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
@@ -5453,7 +5469,7 @@ function observeCounters(side){
   const stopMemberDays=onSnapshot(collection(memberGroupRef,"days"),{includeMetadataChanges:true},snap=>{
     if(stillCurrent()&&!snap.metadata.fromCache)bridge.memberGroupCounts(observedUid,Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count])));
   },err=>console.warn("Member group dates",err.code));
-  const stopGroupStats=onSnapshot(doc(db,"wazaifGroupStats","main"),snap=>{
+  const stopGroupStats=currentProfile?.role==="owner"?()=>{}:onSnapshot(doc(db,"wazaifGroupStats","main"),snap=>{
     if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))bridge.groupProgressStats(snap.exists()?snap.data():{});
   },err=>{if(stillCurrent())bridge.groupProgressStats(null);console.warn("Group stats unavailable",err.code);});
   let stopGroupYear=()=>{},watchedYear="";
@@ -5461,6 +5477,7 @@ function observeCounters(side){
     const year=globalDay().slice(0,4);
     if(watchedYear===year)return;
     watchedYear=year;stopGroupYear();bridge.groupProgressYear(null);
+    if(currentProfile?.role==="owner")return;
     stopGroupYear=onSnapshot(doc(db,"wazaifGroupStats","main","years",year),snap=>{
       if(stillCurrent()&&watchedYear===year&&(!snap.metadata.fromCache||snap.exists()))
         bridge.groupProgressYear(snap.exists()?snap.data():{year,total:0});
@@ -5591,7 +5608,9 @@ function observeCounters(side){
       bridge.readers(rows);
     },e=>{if(stillCurrent())bridge.readers(null);console.warn("Readers",e.code);});
     const week=globalWeekStart(today),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
-    stopSharedDays();bridge.groupProgressDays(null);
+    stopSharedDays();
+    if(currentProfile?.role==="owner")publishSideGroup();else {
+    bridge.groupProgressDays(null);
     const groupDaysQuery=query(collection(db,"wazaifGroupStats","main","days"),where("date",">=",week<month?week:month),where("date","<=",today));
     stopSharedDays=onSnapshot(groupDaysQuery,{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||(snap.metadata.fromCache&&snap.empty))return;
@@ -5599,6 +5618,7 @@ function observeCounters(side){
       snap.forEach(item=>{const d=item.data();if(Number.isSafeInteger(d.count)&&d.count>=0)values[item.id]=d.count;});
       bridge.groupProgressDays(values);
     },err=>{if(stillCurrent())bridge.groupProgressDays(null);console.warn("Group dated totals unavailable",err.code);});
+    }
     const days=query(collection(sideRef,"days"),where("day",">=",week<year?week:year),where("day","<=",today));
     stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
       if(snap.metadata.fromCache && snap.empty){bridge.periodTotals(null);return;}
@@ -5717,10 +5737,23 @@ async function hydrate(){
       console.warn("Personal count unavailable",error.code);
       return null;
     });
+  // Full same-side directory gives a stable rank even when direct invites are incomplete.
+  let sideRanks=new Map();
+  try {
+    let last=null;const directory=[];
+    for(;;){const constraints=[where("gender","==",side),limit(200)];if(last)constraints.push(startAfter(last));
+      const page=await getDocsFromServer(query(collection(db,"members"),...constraints));
+      directory.push(...page.docs.map(x=>({uid:x.id,...x.data()})));
+      if(page.size<200)break;last=page.docs.at(-1);
+    }
+    if(side==="male"&&profile.role==="owner"&&!directory.some(x=>x.uid===profile.uid))directory.push(profile);
+    directory.sort((a,b)=>Number(a.memberNumber)-Number(b.memberNumber));
+    sideRanks=new Map(directory.map((x,i)=>[x.uid,i+1]));
+  }catch(error){console.warn("Side serial directory unavailable",error.code||error);}
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
       uid:d.uid,name:d.name,username:d.username,gender:d.gender,
-      memberNumber:d.memberNumber,sideNumber:d.sideNumber,deleted:d.deleted===true,
+      memberNumber:d.memberNumber,sideNumber:d.sideNumber??sideRanks.get(d.uid),deleted:d.deleted===true,
       disabled:d.disabled===true,inviterUid:d.inviterUid||null,
       joined:registrationDate(d),registrationDate:registrationDate(d)
     }));

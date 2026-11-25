@@ -7,7 +7,7 @@ import {
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {sendPasswordResetEmail,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {doc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {doc,getDoc,getDocs,collection,query,where,limit,startAfter,getDocsFromServer} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
 import {initializeCommunityPages,activateMemberHome} from "./community-pages.js";
 
@@ -285,6 +285,7 @@ function showSignedIn(profile){
   $("#member-serial").textContent=memberSerial(profile);
   $("#member-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-serial").textContent=memberSerial(profile);
+  void resolveMemberSerial(profile);
   $("#profile-username").textContent=profile.username||"";
   $("#profile-role").textContent=profile.role==="owner"?"Owner / Admin":"Member";
   $("#profile-name").value=profile.name||"";
@@ -381,7 +382,7 @@ async function refreshMembers(){
     const name=document.createElement("strong");
     name.textContent=member.name||"Member";
     const small=document.createElement("small");
-    small.textContent=[memberSerial(member),member.username,member.disabled?"Suspended":"Active"].filter(Boolean).join(" • ");
+    small.textContent=[memberSerial(member,entries),member.username,member.disabled?"Suspended":"Active"].filter(Boolean).join(" • ");
     info.append(name,small);
     outer.append(info);
     if(member.role!=="owner"){
@@ -555,10 +556,24 @@ $("#refresh-members").addEventListener("click",async()=>{
   catch(err){message("#admin-message",errorText(err));}
 });
 
-function memberSerial(member){
-  if(member.gender!=="female")return member.serial||"";
-  const legacy={2:1,3:2};
-  const number=member.sideNumber ?? legacy[member.memberNumber];
-  return number ? "D"+number : "";
+function memberSerial(member,directory=null){
+  const gender=m=>m.role==="owner"?"male":m.gender==="female"?"female":"male";
+  const side=gender(member);
+  const same=directory?.filter(m=>gender(m)===side).sort((a,b)=>Number(a.memberNumber)-Number(b.memberNumber));
+  const rank=same?.findIndex(m=>m.uid===member.uid||m.memberNumber===member.memberNumber);
+  const number=member.role==="owner"?1:member.sideNumber??(rank>=0?rank+1:null)??(side==="female"?({2:1,3:2})[member.memberNumber]:null);
+  return number?(side==="female"?"F-":"M-")+number:"—";
+}
+async function resolveMemberSerial(profile){
+  if(memberSerial(profile)!=="—")return;
+  const side=profile.gender==="female"?"female":"male",rows=[];let last=null;
+  try{
+    for(;;){const constraints=[where("gender","==",side),limit(200)];if(last)constraints.push(startAfter(last));
+      const page=await getDocsFromServer(query(collection(db,"members"),...constraints));rows.push(...page.docs.map(d=>d.data()));
+      if(page.size<200)break;last=page.docs.at(-1);
+    }
+    if(auth.currentUser?.uid!==profile.uid)return;
+    $("#member-serial").textContent=$("#profile-serial").textContent=memberSerial(profile,rows);
+  }catch(e){console.warn("Member side serial unavailable",e.code||e);}
 }
 
