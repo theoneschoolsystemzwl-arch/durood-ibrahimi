@@ -33,6 +33,7 @@ jobs:
         run: |
           node --check public/firebase-client.js
           node --check public/member-auth.js
+          node --check public/member-profile-sharing.js
           node --check public/spark-data.js
           node --check public/app.js
           node --check functions/index.js

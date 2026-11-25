@@ -47,7 +47,7 @@ function nav(app,section){
  const app=build();
  try {
    enter(app);
-   for(const tab of ["overview","tasbih","namaz","tree","settings","members","messages","directory","groups"]){
+   for(const tab of ["overview","tasbih","namaz","tree","my-profile","members","messages","directory","groups"]){
      nav(app,tab);
    }
    nav(app,"namaz");
@@ -79,7 +79,9 @@ function nav(app,section){
    assert.equal(ownerData.qaza.target,15);
    if(paidDay)assert.equal(ownerData.qaza.done?.[paidPrayer]?.[paidDay],true,
      "Paid Qaza did not persist on device");
-   nav(app,"settings");
+   nav(app,"my-profile");
+   assert(app.document.querySelector(".member-profile-hero"),"Owner own profile missing");
+   click(app,'button[data-action="nav"][data-value="settings"]');
    const themeInput=app.document.querySelector('input[name="ui-theme"][value="navy-silver"]');
    assert(themeInput,"Profile theme radio button missing");
    themeInput.checked=true;
@@ -90,6 +92,11 @@ function nav(app,section){
 
    // Same browser, different member: no Owner date should leak.
    enter(app,"test-member",2,"member");
+   nav(app,"my-profile");
+   assert(app.document.querySelector(".member-profile-hero"),"Member own profile missing");
+   assert(!app.document.querySelector('button[data-action="toggle-user"]'),"Account management leaked to member");
+   click(app,'button[data-action="nav"][data-value="settings"]');
+   assert(app.document.querySelector("#profile-form"),"Member own settings missing");
    nav(app,"namaz");
    click(app,'button[data-action="prayer-view"][data-value="qaza"]');
    assert.notEqual(app.document.querySelector("#qaza-start").value,"2010-05-15");
