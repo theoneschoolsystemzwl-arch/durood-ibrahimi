@@ -61,7 +61,7 @@ public final class MainActivity extends Activity {
         root.post(root::requestApplyInsets);
         try {
             web = new WebView(this);
-            web.addJavascriptInterface(new ReaderHaptics(),"DuroodAndroid");
+            web.addJavascriptInterface(new ReaderControls(),"DuroodAndroid");
             WebSettings settings = web.getSettings();
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
@@ -188,23 +188,7 @@ public final class MainActivity extends Activity {
         }
         if(root!=null)root.requestApplyInsets();
     }
-    private final class ReaderHaptics {
-        // Short, distinct touch pulses use Android's touch-feedback category.
-        @JavascriptInterface public boolean hapticClick() {
-            if(!trustedPage()||web==null)return false;
-            // Native Android chooses the normal touch effect and honors system settings.
-            return web.post(()->{
-                if(trustedPage()&&web.isAttachedToWindow()){
-                    web.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
-                }
-            });
-        }
-        @JavascriptInterface public boolean vibrateTap(int level) {
-            return level>0&&hapticClick();
-        }
-        @JavascriptInterface public boolean vibrate(int level) {
-            return level>0&&hapticClick();
-        }
+    private final class ReaderControls {
         @JavascriptInterface public void setImmersive(boolean enabled) {
             if(!trustedPage())return;
             runOnUiThread(()->updateImmersive(enabled));
