@@ -310,4 +310,4 @@
 :root[data-theme] .dashboard-home .recitation-period.period-short :is(.dashboard-period-goal,strong[data-period]){color:#ffb0b5;text-shadow:none}
 :root[data-theme] .dashboard-home .recitation-period.period-complete :is(.dashboard-period-goal,strong[data-period]){color:#a6ffd0;text-shadow:none}
 :root[data-theme] .dashboard-home .recitation-period.period-unknown strong[data-period]{color:#f2fff8}
-:root[data-theme] .dashboard-home .recitation-period strong[data-period]{max-width:100%;overflow-wrap:anywhere;font-size:clamp(1.15rem,4.6vw,2rem)}
+:root[data-theme] .dashboard-home .recitation-period strong[data-period]{max-width:100%;overflow-wrap:anywhere;font-size:clamp(1.45rem,5vw,2.15rem)}
