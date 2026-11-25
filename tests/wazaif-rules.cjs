@@ -33,6 +33,17 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   await assertFails(getDoc(personalChunk(other)));
   await assertFails(getDoc(personalChunk(owner)));
   await assertFails(getDoc(personalChunk(guest)));
+  const grant=doc(owner,"wazifaInbox",ownerUid,"items",pdfId);
+  await env.withSecurityRulesDisabled(async ctx=>{
+   await setDoc(doc(ctx.firestore(),"wazifaInbox",ownerUid,"items",pdfId),{
+    senderUid:memberUid,recipientUid:ownerUid,arabic:"[[WZPDF:"+pdfId+":19:1]]"
+   });
+  });
+  await assertSucceeds(getDoc(personalChunk(owner)));
+  await assertFails(getDoc(personalChunk(other)));
+  await assertFails(setDoc(personalChunk(owner),chunkData));
+  await assertSucceeds(deleteDoc(grant));
+  await assertFails(getDoc(personalChunk(owner)));
   await assertFails(setDoc(personalChunk(other),chunkData));
   await assertFails(setDoc(personalChunk(member),{data:"not binary"}));
   await assertFails(setDoc(personalChunk(member),{data:Bytes.fromUint8Array(new Uint8Array(400001))}));
