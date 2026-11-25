@@ -2293,13 +2293,16 @@ function readerList(){
    const canViewTarget=own||currentUser()?.isOwner===true;
    const goalRows=readerGoalsByUid.get(row.uid)??(own?memberReaderGoalRows:null);
    const countAndTarget=readerCountAndTarget(row,readerDayLabel(),goalRows,canViewTarget);
+   const [countText,targetText]=countAndTarget.split(' / ');
+   const countMarkup='<span class="dashboard-reader-read" style="font-size:1.5em">'+esc(countText)+'</span>'+
+     (targetText===undefined?'':'<span class="dashboard-reader-target" style="font-size:1em"> / '+esc(targetText)+'</span>');
    return '<li><span class="dashboard-reader-rank">'+(index+1)+'</span>'+
      '<span class="dashboard-reader-avatar">'+picture+'</span>'+
      '<span class="reader-person"><b>'+esc(person?.name||row.name)+'</b>'+
        '<span class="reader-meta"><bdi dir="ltr">'+memberId+'</bdi><span> · '+tr('Level','لیول')+' '+esc(level)+'</span></span>'+
        '<small>'+status+' · '+
        tr("Last reading","آخری شمار")+' '+(lastReading?(seconds<60?formatNumber(seconds)+tr("s ago"," سیکنڈ پہلے"):timeFormat.format(new Date(lastReading))):"—")+
-       '</small><small>'+tr("Tasbih: ","تسبیح: ")+displayNumber(Number(row.total)||0)+' · '+tr("Offline: ","آف لائن: ")+displayNumber(Number(row.manualTotal)||0)+'</small></span><strong class="dashboard-reader-count" title="'+tr('Saved count / daily target','محفوظ شمار / روزانہ ہدف')+'"><bdi dir="ltr" style="white-space:nowrap;font-size:clamp(.72rem,3.2vw,1.05rem)">'+esc(countAndTarget)+'</bdi></strong></li>';
+       '</small><small>'+tr("Tasbih: ","تسبیح: ")+displayNumber(Number(row.total)||0)+' · '+tr("Offline: ","آف لائن: ")+displayNumber(Number(row.manualTotal)||0)+'</small></span><strong class="dashboard-reader-count" title="'+tr('Saved count / daily target','محفوظ شمار / روزانہ ہدف')+'"><bdi dir="ltr" style="white-space:nowrap;font-size:clamp(.72rem,3.2vw,1.05rem)">'+countMarkup+'</bdi></strong></li>';
  }).join('')+'</ol>';
 }
 

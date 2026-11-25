@@ -264,6 +264,8 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(format(row,"2026-11-25",history,true),"75 / 200");
  assert.equal(format({total:1,manualTotal:101},"2026-11-25",[{date:"2026-11-25",goal:101}],true),"102 / 101");
  assert(!/[<>]/.test(format(row,"2026-11-25",history,true)));
+ assert(classic.includes('class="dashboard-reader-read" style="font-size:1.5em"'));
+ assert(classic.includes('class="dashboard-reader-target" style="font-size:1em"'));
  assert.equal(format(row,"2026-11-26",history,true),"75 / 0");
  assert.equal(format(row,"2026-11-23",history,true),"75 / —");
  assert.equal(format(row,"2026-11-25",null,true),"75 / —");
