@@ -2265,10 +2265,12 @@ function refreshReaderDateControls(){
  if(next)next.disabled=readerDayLabel()>=globalDateKey();
 }
 function readerCountAndTarget(row,day,goalRows,canViewTarget){
- const count=displayNumber((Number(row.total)||0)+(Number(row.manualTotal)||0));
+ // Plain text only: displayNumber returns HTML markup, which would be
+ // escaped and shown literally when inserted into the outer bdi element.
+ const count=formatNumber((Number(row.total)||0)+(Number(row.manualTotal)||0));
  if(!canViewTarget)return count;
  const goal=latestReaderGoal(goalRows,day)?.goal;
- return count+' / '+(goal===undefined?'—':displayNumber(goal));
+ return count+' / '+(goal===undefined?'—':formatNumber(goal));
 }
 function readerList(){
  const historical=readerListDay!==null&&currentUser()?.isOwner;
