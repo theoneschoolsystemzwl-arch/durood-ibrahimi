@@ -56,6 +56,7 @@ jobs:
       - name: Check application contracts
         run: |
           node tests/member-side-serial.test.mjs
+          node tests/founder-group-code.test.cjs
           node tests/group-side-rollup.test.mjs
           node --check scripts/audit-member-counts.mjs
           node tests/contracts.test.cjs
