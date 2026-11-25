@@ -1435,8 +1435,8 @@ function tap(){
   }
  }
  const pressedAt=performance.now();
- // Filter accidental duplicate touches; do not require a minimum hold.
- if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<50)return false;
+ // Only suppress events closer than 0.1 ms; no minimum touch/hold duration.
+ if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<0.1)return false;
  if(state.clockStart===null)state.clockStart=pressedAt;
  if(state.clockLastTap!==null){
    const gap=pressedAt-state.clockLastTap;
