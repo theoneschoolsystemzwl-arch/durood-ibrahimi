@@ -55,6 +55,9 @@ jobs:
           node -e "const f=require('./functions'); const names=['registerMember','createInvitation','setMemberActive','updateMyProfile','recordRecitations','savePrayerDay','getPrayerMonth','getLeaderboard','getMyReferrals','getCommunitySummary']; for(const name of names){if(typeof f[name]!=='function') throw new Error('Missing callable: '+name);} console.log('All Firebase callable exports load successfully.')"
       - name: Check application contracts
         run: |
+          node tests/member-side-serial.test.mjs
+          node tests/group-side-rollup.test.mjs
+          node --check scripts/audit-member-counts.mjs
           node tests/contracts.test.cjs
           node tests/prayer-regressions.test.mjs
           node tests/wazaif-five-row.test.cjs

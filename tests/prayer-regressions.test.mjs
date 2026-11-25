@@ -171,10 +171,11 @@ assert.equal(ledgerCtx.prayerEditedDays.has(dayToday),true,"Local edits are prot
 ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","clear",dayToday,0);
 ledgerCtx.qazaPlan=id=>ledgerCtx.qazaPlans[id];
 ledgerCtx.qazaEligible=()=>false; // Upcoming today: ordinary Qaza eligibility is not yet met.
+const qazaTestNow=Date.parse(dayToday+"T00:00:00Z");
 addPureSource("function setQazaRecord(id,day,prayer,status,now=Date.now()) {","function ledgerRow(label,values,tone='',withTotals=false)");
-assert.equal(ledgerCtx.setQazaRecord(1,dayToday,"maghrib","made",0),true,"Qaza calendar can mark paid today before a prayer window");
+assert.equal(ledgerCtx.setQazaRecord(1,dayToday,"maghrib","made",qazaTestNow),true,"Qaza calendar can mark paid today before a prayer window");
 assert.equal(ledgerCtx.qazaPlans[1].done.maghrib[dayToday],true,"Early Qaza is recorded by date");
-assert.equal(ledgerCtx.setQazaRecord(1,"2026-11-24","maghrib","made",0),false,"Qaza calendar does not accept future dates");
+assert.equal(ledgerCtx.setQazaRecord(1,"2026-11-24","maghrib","made",qazaTestNow),false,"Qaza calendar does not accept future dates");
 
 assert(ui.includes("function loadPrayerHistory(uid)"),"Fetch historical attendance for the full ledger");
 assert(ui.includes("loadPrayerHistoryDays(result.days||[],startRevision)"),"Hydrate full attendance in the private UI");

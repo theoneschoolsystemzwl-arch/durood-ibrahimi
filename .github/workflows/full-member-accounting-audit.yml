@@ -1,0 +1,26 @@
+name: Full read-only member accounting audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare member and gender ledgers without writing
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node scripts/audit-member-counts.mjs

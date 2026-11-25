@@ -1,6 +1,8 @@
 // Account-scoped W-1, W-2, ... personal Wazifa serials and same-gender
 // invitation inbox. All numbering + acceptance is atomic in Firestore.
 import {auth,db} from "./firebase-client.js";
+import {parseSideSerial,sideOf} from "./member-side-serial.js";
+import {readSideDirectory} from "./member-side-directory.js";
 import {collection,doc,query,where,limit,startAfter,getDoc,getDocs,
   runTransaction,setDoc,deleteDoc,serverTimestamp,getDocFromServer,getDocsFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -63,13 +65,7 @@ async function allocateSerial(uid,writeItem){
 }
 function sameUid(expected){if(auth.currentUser?.uid!==expected)throw Error("اکاؤنٹ تبدیل ہو گیا، دوبارہ کوشش کریں۔");}
 export function wazifaSerial(task){return Number.isSafeInteger(task?.wNumber)&&task.wNumber>0?"W-"+task.wNumber:"نمبر لگ رہا ہے…";}
-export function validMemberSerial(value){
-  const text=String(value||"").trim().toUpperCase().replace(/\s+/g,"");
-  const global=/^DI-([1-9]\d{0,8})$/.exec(text);
-  if(global)return {type:"global",number:Number(global[1])};
-  const female=/^D-?([1-9]\d{0,8})$/.exec(text);
-  return female?{type:"female",number:Number(female[1])}:null;
-}
+export function validMemberSerial(value){return parseSideSerial(value);}
 // Women use D1, D2 ... within the women's branch. Existing founding
 // women may have a legacy memberNumber but no persisted sideNumber.
 function femaleNumber(profile){
@@ -110,32 +106,14 @@ function todayLocal(){
 export async function findSameGenderRecipient(memberSerial,profile){
   const senderUid=currentUid();
   const parsed=validMemberSerial(memberSerial);
-  if(!parsed)throw Error("ممبر آئی ڈی DI-1 یا D1 جیسی درست شکل میں لکھیں۔");
+  if(!parsed)throw Error("درست ممبر آئی ڈی لکھیں، مثلاً M-2 یا F-2۔");
   const {number,type}=parsed;
-  const gender=profile?.gender==="female"?"female":"male";
-  if(type==="female" && gender!=="female")
-    throw Error("مرد خواتین کے D ممبر نمبرز کو وظیفہ نہیں بھیج سکتے۔");
-  let recipient=null;
-  if(type==="global"&&number===1){
-    if(gender!=="male")throw Error("خواتین اور مرد ایک دوسرے کو وظیفہ نہیں بھیج سکتے۔");
-    const snapshot=await getDoc(doc(db,"members",OWNER_UID));
-    if(snapshot.exists())recipient={uid:snapshot.id,...snapshot.data()};
-  }else{
-    // The member directory exposes only same-gender profiles, in pages
-    // of at most 200. No user can search across the gender boundary.
-    let last=null;
-    for(let page=0;page<20;page++){
-      const constraint=[where("gender","==",gender),limit(200)];
-      if(last)constraint.push(startAfter(last));
-      const docs=await getDocs(query(collection(db,"members"),...constraint));
-      const hit=docs.docs.find(d=>type==="female"
-        ? femaleNumber(d.data())===number
-        : Number(d.data().memberNumber)===number);
-      if(hit){recipient={uid:hit.id,...hit.data()};break;}
-      if(docs.size<200)break;
-      last=docs.docs[docs.size-1];
-    }
-  }
+  const gender=sideOf(profile);
+  if((type==="female"&&gender!=="female")||(type==="male"&&gender!=="male"))
+    throw Error("صرف اپنی سائیڈ کے ممبر کو شیئر کر سکتے ہیں۔");
+  const directory=await readSideDirectory(gender);
+  const hit=[...directory.values()].find(r=>type==="global"?Number(r.member.memberNumber)===number:r.number===number);
+  let recipient=hit?{...hit.member,displaySideSerial:hit.label}:null;
   sameUid(senderUid);
   if(!recipient||recipient.deleted===true||recipient.disabled===true)
     throw Error("یہ ممبر نمبر آپ کی سائیڈ پر فعال نہیں یا موجود نہیں۔");
@@ -157,7 +135,7 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
     senderSerial:displayMemberSerial(profile),sourceId:itemId,
     createdAt:serverTimestamp()});
   sameUid(uid);
-  return {recipient:displayMemberSerial(recipient)};
+  return {recipient:recipient.displaySideSerial};
 }
 export async function acceptSharedWazifa(inboxId){
   const uid=currentUid();

@@ -493,7 +493,7 @@ function tasbihTabLabel(title){
 }
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
- const stats=state.groupStats||{},annual=state.yearStats||{},today=groupReadingDay();
+ const stats=state.groupMember||{},today=groupReadingDay();
  const todayCount=stats.day===today?Number(stats.today||0):0;
  const all=Number(stats.total||0);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
@@ -501,7 +501,7 @@ function groupCard(){
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
- compactCount("آج پڑھا",todayCount)+compactCount("مجموعی شمار",all)+'</div>'+
+ compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا مجموعی شمار",all)+'</div>'+
  arabicScrollControl(g.arabic)+'<p'+arabicDisplayAttrs(g.arabic)+' lang="ar" dir="rtl">'+esc(g.arabic)+'</p>'+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  '<div class="wz-actions">'+
@@ -532,10 +532,10 @@ function personalCard(task){
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
- (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً DI-2)</label>'+
- '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"D2":"DI-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
+ (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)</label>'+
+ '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"F-2":"M-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
- '<p class="wz-help">مردوں کی شناخت DI-1، DI-2 اور خواتین کی D1، D2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔</p></div>':'')+
+ '<p class="wz-help">مردوں کی شناخت M-1، M-2 اور خواتین کی F-1، F-2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔</p></div>':'')+
  '</article>';
 }
 function inboxMarkup(){
@@ -956,7 +956,7 @@ window.addEventListener("resize",()=>requestAnimationFrame(syncArabicTicker));
 function readerMarkup(group){
  const w=group?currentGroup():state.personal.find(x=>x.id===state.readerId);
  if(!w)return '<button class="wz-button" data-wazifa-action="back">وظائف واپس</button>';
- const record=group?state.groupStats||{}:w;
+ const record=group?state.groupMember||{}:w;
  const s=heroReadingState(group,w,record);
  const visible=!group?visibleWazifaPeriod(w):null;
  const days=visible?.days||0,elapsed=visible?.elapsed||0,remaining=visible?.remaining||0;
@@ -985,7 +985,7 @@ function readerMarkup(group){
  heroTile(group?"میرا روزانہ ہدف":"روزانہ ہدف",fmt(s.dailyGoal),"target","wz-mini-goal")+heroTile(group?"میرا آج پڑھا":"آج پڑھا",fmt(group?ownGroupDay(today):s.todayCount),"book","wz-mini-today")+
  heroTile("آج باقی",fmt(group?Math.max(0,s.dailyGoal-ownGroupDay(today)):s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
  '<div class="wz-hero-topstats">'+
- heroStat(group?"اجتماعی کل":"کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
+ heroStat(group?"میرا مجموعی شمار":"کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
  (group?"":heroStat(s.continuing?"مجموعی باقی":"باقی",fmt(s.left),"hourglass","wz-hero-left")+
  heroStat(s.continuing?"کل ہدف":"مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal"))+
  '</div>'+
@@ -1055,7 +1055,7 @@ function readerMarkup(group){
 function refreshHeroReader(){
  const root=$("#wazaif-root");if(!root||!root.querySelector("#wz-dial"))return;
  const group=state.mode==="group-reader",w=group?currentGroup():state.personal.find(x=>x.id===state.readerId);
- const record=group?state.groupStats:w;
+ const record=group?(state.groupMember||{}):w;
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
  const taskId=group?"_group_":state.readerId;
@@ -1763,7 +1763,7 @@ document.addEventListener("click",event=>{
  }
  if(action==="send-personal"&&id){
    const input=$("#wz-share-target"),target=input?.value?.trim();
-   if(!validMemberSerial(target)){setError("درست ممبر نمبر لکھیں، مثلاً DI-2");return;}
+   if(!validMemberSerial(target)){setError("درست ممبر نمبر لکھیں، مثلاً M-2 یا F-2");return;}
    if(state.busy)return;
    state.busy=true;button.disabled=true;
    sharePersonalWazifa(id,target,state.profile).then(result=>{

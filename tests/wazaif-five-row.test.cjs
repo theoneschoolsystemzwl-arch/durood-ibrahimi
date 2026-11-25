@@ -50,7 +50,7 @@ assert(css.includes("grid-template-columns:repeat(5,minmax(0,1fr))"));
 assert(src.includes("if(clock)clock.textContent=compactTasbihClock(value);"),"dial has no millisecond suffix or leading hours");
 assert(src.includes('minimumFractionDigits:1,maximumFractionDigits:1'),"Tasbih pace uses one decimal place");
 assert(src.includes("const perMinute=seconds>0?pace(60/seconds)"));
-assert(src.includes("const perHour=seconds>0?pace(3600/seconds)"));
+assert(src.includes('const perHour=seconds>0?(3600/seconds).toLocaleString("en",{maximumFractionDigits:0})'),"Hourly projection uses whole numbers; seconds and minutes retain one decimal");
 assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durable storage before local increment");
 
 const todayEntry={count:587,tasbihCount:15,manualCount:572,durationMs:150000,intervals:14};
@@ -323,7 +323,7 @@ assert(src.includes("if(remainingBar)remainingBar.value=percent;"),
   "live updates fill the remaining-row bar as work is completed");
 assert(reader.includes("<small>مجموعی ہدف</small>"),
   "top bar shows a compact total-goal label");
-assert(src.includes('function setWazifaImmersive(enabled)')&&
+assert(/function setWazifaImmersive\(enabled(?:,fromBack=false)?\)/.test(src)&&
   src.includes('classList.toggle("wz-immersive-reader"'),
   "fullscreen has a working WebView CSS fallback");
 assert(src.includes('window.DuroodAndroid.setImmersive(state.immersive)'),
@@ -334,4 +334,24 @@ assert(src.includes('document.documentElement.requestFullscreen()')&&
 assert(css.includes("body.wz-immersive-reader #wazaif-root")&&
   css.includes("position:fixed!important"),
   "reader focus view displays over existing bottom navigation");
+
+// Exercise the actual fullscreen function with a browser/WebView fallback stub.
+const fsStart=src.indexOf("let wzFullscreenHistory=false;");
+const fsEnd=src.indexOf('document.addEventListener("fullscreenchange"',fsStart);
+assert(fsStart>=0&&fsEnd>fsStart);
+{
+ const calls=[],classes=new Set();
+ const ctx={state:{immersive:false},window:{scrollX:0,scrollY:100,scrollTo:(x,y)=>calls.push(["scroll",x,y])},
+ history:{state:null,pushState(s){this.state=s;},back(){calls.push(["back"]);this.state=null;}},
+ document:{body:{classList:{toggle(name,enabled){if(enabled)classes.add(name);else classes.delete(name);}}},documentElement:{}},
+ requestAnimationFrame:fn=>fn(),syncArabicTicker:()=>{},$:()=>null};
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(fsStart,fsEnd),ctx);
+ ctx.setWazifaImmersive(true);
+ assert.equal(ctx.state.immersive,true);assert(classes.has("wz-immersive-reader"));
+ ctx.setWazifaImmersive(false);
+ assert.equal(ctx.state.immersive,false);assert(!classes.has("wz-immersive-reader"));
+ assert.deepEqual(calls,[["scroll",0,100],["back"]]);
+}
+
 console.log("Wazifa history cards, carried goal and triple-tap editing regression checks passed");

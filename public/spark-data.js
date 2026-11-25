@@ -1,6 +1,7 @@
 // Spark-plan data layer: Firebase Auth + Firestore, no Cloud Functions or billing.
 // Production access decisions are enforced by firestore.rules, NOT this client.
 import {auth,db} from "./firebase-client.js";
+import {readSideDirectory} from "./member-side-directory.js";
 import {addGroupCountsToTransaction} from "./wazaif-counter.js?v=pkt-global-20261125-v1";
 import {createUserWithEmailAndPassword,deleteUser} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
@@ -268,11 +269,11 @@ export async function rankingSpark(){
   // Never list other gender's count documents. No composite index required.
   const ranked=await getDocs(query(collection(db,"memberCounts"),where("gender","==",gender),limit(200)));
   const top=[...ranked.docs].sort((a,b)=>Number(b.data().total||0)-Number(a.data().total||0)).slice(0,10);
-  const profiles=await Promise.all(top.map(d=>getDoc(memberRef(d.id))));
+  const [profiles,directory]=await Promise.all([Promise.all(top.map(d=>getDoc(memberRef(d.id)))),readSideDirectory(gender)]);
   return {leaders:top.flatMap((item,i)=>{
     const profile=profiles[i];
     if(!profile.exists()||profile.data().disabled===true||memberGender(profile.data())!==gender)return [];
-    return [{name:profile.data().name||"Member",serial:profile.data().serial,total:item.data().total||0}];
+    return [{name:profile.data().name||"Member",serial:directory.get(profile.id)?.label||"—",total:item.data().total||0}];
   })};
 }
 export async function referralsSpark(){
@@ -282,8 +283,9 @@ export async function referralsSpark(){
   const gender=memberGender(profile.data());
   const rows=await getDocs(query(collection(db,"members"),
     where("inviterUid","==",uid),where("gender","==",gender),limit(200)));
+  const directory=await readSideDirectory(gender);
   return {referrals:rows.docs.map(d=>({
-    name:d.data().name,serial:d.data().serial,disabled:d.data().disabled===true
+    name:d.data().name,serial:directory.get(d.id)?.label||"—",disabled:d.data().disabled===true
   }))};
 }
 export async function communitySpark(genderChoice){
