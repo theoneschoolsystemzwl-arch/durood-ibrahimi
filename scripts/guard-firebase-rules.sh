@@ -184,8 +184,12 @@ const afterReaderRepair=historicalRules('1fd3eab0718e34a1acf5421f523d9a5b2fc09be
 // Exact intact pre-presence source recovered during the 26 Nov audit.
 // Accept only a full normalized source match with the actual published rules.
 const beforePresence=historicalRules('e8cafa41c1199c02fa7d3d377c9672622a29b62b');
+// Production audit run 45718580862 reported normalized SHA-256 prefix
+// 98bab3ec6fa075c9, matching the intact PDF-sharing rules commit exactly.
+// The complete normalized source must still match; no hash-only bypass.
+const beforePauseResume=historicalRules('58a6f8981cccef13e3ea03c014ab787bc3270ed2');
 const baselines=[
-  beforePresence,  afterReaderRepair,afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  beforePauseResume,beforePresence,  afterReaderRepair,afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
   beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals
