@@ -1579,7 +1579,8 @@ function buildGroupIdentity(rows){
     for(const p of side)result.set(p.id,{membership:'',owned:owned.get(p.id)||''});
     for(const [id,children] of kids){
       const g=owned.get(id);if(!g)continue;
-      children.forEach((p,i)=>{result.get(p.id).membership=g+(i+1);});
+      // Position 1 belongs to the leader, even when the leader's recitations belong to their parent group.
+      children.forEach((p,i)=>{result.get(p.id).membership=g+(i+2);});
     }
   }
   return result;
@@ -1592,7 +1593,7 @@ function groupName(id){return groupIdentity(getUser(id))?.owned||'—';}
 function hasGroup(id){const p=getUser(id);return !!p&&!p.deleted&&directMembers(id).some(m=>!m.deleted);}
 function ownedGroupName(id){return hasGroup(id)?groupName(id):'—';}
 function groupCode(person){
-  const g=groupIdentity(person);return g?[g.membership,hasGroup(person.id)?g.owned:''].filter(Boolean).join(' '):'';
+  const g=groupIdentity(person);return g?[g.membership,hasGroup(person.id)&&g.owned?g.owned+'1':''].filter(Boolean).join(' '):'';
 }
 function groupCodeMarkup(person){
   return '<bdi class="founder-group-code" data-founder-group-code="'+person.id+'" dir="ltr">'+esc(groupCode(person))+'</bdi>';
