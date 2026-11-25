@@ -114,6 +114,30 @@ assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
 assert(src.includes('bridge.vibrateTap(state.vibrateLevel)')&&src.includes('bridge.vibrate(state.vibrateLevel)'),"native touch vibration uses chosen level and supports older APKs");
 assert(src.includes('navigator.vibrate?.(100)'),"browser vibration uses the requested 100 ms pulse");
+ // Exercise immediate pointer feedback and ensure release/click cannot double count.
+ const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
+ assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
+ {
+  const handlers={};let counts=0,pulses=0;
+  const ctx={
+   document:{addEventListener:(name,fn)=>{handlers[name]=fn;}},
+   state:{vibrateEnabled:true,vibrateLevel:10},lastWazifaHapticResult:true,
+   tap:()=>{counts++;pulses++;return true;},
+   vibrateWazifa:()=>{pulses++;return true;},
+   showWazifaVibrationStatus:()=>{},
+   setTimeout:()=>1,clearTimeout:()=>{}
+  };
+  vm.createContext(ctx);vm.runInContext(src.slice(feedbackStart,feedbackEnd),ctx);
+  const eventFor=(action)=>({target:{closest:()=>({dataset:{wazifaAction:action}})},pointerId:1,button:0,isPrimary:true,pointerType:"touch",detail:1});
+  const dial=eventFor("tap"),test=eventFor("test-vibration");
+  handlers.pointerdown(dial);assert.equal(counts,1);assert.equal(pulses,1,"vibrate on touch, not after a hold");
+  handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,1);assert.equal(pulses,1);
+  handlers.pointerdown(test);assert.equal(pulses,2,"test vibrates immediately");assert.equal(counts,1);
+  handlers.pointerup(test);assert.equal(ctx.consumeFeedbackClick(test,"test-vibration"),true);assert.equal(pulses,2);
+  handlers.pointerdown(dial);handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,2);assert.equal(pulses,3);
+  assert.equal(ctx.consumeFeedbackClick({detail:0},"tap"),false,"keyboard activation remains available");
+ }
+
 assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
 const histStart=src.indexOf("function wazifaHistoryMarkup(record){"),histEnd=src.indexOf("function heroReadingState(group,w,record)");
 const historySource=src.slice(histStart,histEnd);
