@@ -100,7 +100,7 @@ export async function mountPdfViewer(host,bytesOrLoader,expectedPages){
   const opened=await openDocument(bytes);task=opened.task;const pdf=opened.pdf;
   if(closed){await task.destroy();return;}
   if(expectedPages&&pdf.numPages!==expectedPages)throw Error("PDF کے صفحات کی تعداد درست نہیں۔");
-  host.innerHTML='<div class="wz-pdf-nav" dir="rtl"><button type="button" data-pdf-scroll-toggle aria-pressed="true">اسکرول ON</button><strong>کل '+pdf.numPages+' صفحات</strong><button type="button" data-pdf-zoom>بڑی تصویر</button></div><div class="wz-pdf-scroll" data-no-pull tabindex="0" aria-label="PDF کے تمام صفحات"></div><p class="wz-pdf-message" role="status"></p>';
+  host.innerHTML='<div class="wz-pdf-nav" dir="rtl"><button type="button" data-pdf-scroll-toggle aria-pressed="false">اسکرول OFF</button><strong>کل '+pdf.numPages+' صفحات</strong><button type="button" data-pdf-zoom>بڑی تصویر</button></div><div class="wz-pdf-scroll is-scroll-off" tabindex="-1" aria-label="PDF کے تمام صفحات"></div><p class="wz-pdf-message" role="status"></p>';
   const scroll=host.querySelector(".wz-pdf-scroll"),toggle=host.querySelector("[data-pdf-scroll-toggle]"),zoom=host.querySelector("[data-pdf-zoom]"),msg=host.querySelector(".wz-pdf-message");
   const first=await pdf.getPage(1),initial=first.getViewport({scale:1});first.cleanup();
   if(closed)return;
@@ -108,7 +108,7 @@ export async function mountPdfViewer(host,bytesOrLoader,expectedPages){
   for(let n=1;n<=pdf.numPages;n++){
    const el=document.createElement("div");el.className="wz-pdf-page";el.dataset.page=String(n);el.style.aspectRatio=initial.width+" / "+initial.height;el.setAttribute("aria-label","صفحہ "+n);scroll.appendChild(el);pages.push(el);
   }
-  toggle.onclick=()=>{const on=toggle.getAttribute("aria-pressed")!=="true";toggle.setAttribute("aria-pressed",String(on));toggle.textContent=on?"اسکرول ON":"اسکرول OFF";scroll.classList.toggle("is-scroll-off",!on);};
+  toggle.onclick=()=>{const on=toggle.getAttribute("aria-pressed")!=="true";toggle.setAttribute("aria-pressed",String(on));toggle.textContent=on?"اسکرول ON":"اسکرول OFF";scroll.classList.toggle("is-scroll-off",!on);scroll.toggleAttribute("data-no-pull",on);scroll.tabIndex=on?0:-1;};
   zoom.onclick=()=>{const large=host.classList.toggle("is-zoomed");zoom.textContent=large?"عام تصویر":"بڑی تصویر";};
   async function pump(){
    if(running||closed)return;running=true;
