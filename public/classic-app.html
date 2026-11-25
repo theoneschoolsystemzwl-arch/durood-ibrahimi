@@ -2235,6 +2235,9 @@ function accruedMemberTarget(row,start,end){
  }
  return sum;
 }
+function sessionTargetDays(period){
+ return period?1+Math.round((Date.parse(period.end+"T00:00:00Z")-Date.parse(period.start+"T00:00:00Z"))/targetDayMs):null;
+}
 function memberTargetAudit(rows,day,cfg){
  if(!Array.isArray(rows))return null;
  const period=annualTargetPeriod(cfg,day);
@@ -2242,7 +2245,8 @@ function memberTargetAudit(rows,day,cfg){
   const current=latestReaderGoal(row.daily,day);
   const legacy=(row.legacy||[]).filter(r=>targetDateValid(r.date)&&r.date<=day&&r.mode==="personal"&&Number.isSafeInteger(r.dailyGoal)&&r.dailyGoal>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
   return {...row,goal:current?.goal??null,effectiveDate:current?.date??null,legacyGoal:legacy?.dailyGoal??null,
-    accrued:accruedMemberTarget(row,null,day),annual:period?accruedMemberTarget(row,period.start,period.end):null};
+    overall:goalPeriods(row.active===false?0:current?.goal??0,day).yearlyGoal,
+    annual:period?(row.active===false?0:current?.goal??0)*sessionTargetDays(period):goalPeriods(row.active===false?0:current?.goal??0,day).yearlyGoal};
  }).sort((a,b)=>(a.memberNumber??0)-(b.memberNumber??0));
 }
 function aggregateGroupTargets(rows,day,cfg){
@@ -2250,11 +2254,11 @@ function aggregateGroupTargets(rows,day,cfg){
  const result=goalPeriods(rows.reduce((sum,r)=>sum+(r.active===false?0:effectiveGroupDailyGoal(r.daily,r.legacy,day)),0),day);
  result.activeMembers=rows.filter(r=>r.active!==false).length;
  result.missingTargets=rows.filter(r=>r.active!==false&&!latestReaderGoal(r.daily,day)).length;
- result.overallGoal=rows.reduce((sum,r)=>sum+accruedMemberTarget(r,null,day),0);
+ result.overallGoal=result.yearlyGoal;
  const period=annualTargetPeriod(cfg,day);
  if(period){
   result.annualStartDate=period.start;result.annualEndDate=period.end;
-  result.yearlyGoal=rows.reduce((sum,r)=>sum+accruedMemberTarget(r,period.start,period.end),0);
+  result.yearlyGoal=result.dailyGoal*sessionTargetDays(period);
  }
  return result;
 }
@@ -2278,8 +2282,8 @@ function dashboardTargetCards(){
  const noTargets=g&&g.activeMembers>0&&g.missingTargets===g.activeMembers;
  const targetBreakdown=tr("Daily target: ","روزانہ ہدف: ")+(noTargets?tr("Not set","مقرر نہیں"):value(g?.dailyGoal));
  const incomplete=g?.missingTargets?'<small>'+esc(String(g.missingTargets))+tr(" target(s) not set"," ممبرز کے اہداف مقرر نہیں")+'</small>':"";
- return '<section class="recitation-banner group-overall-target"><h2>آج تک کا مجموعی ہدف</h2><strong dir="ltr">'+(noTargets&&!g.overallGoal?"—":value(g?.overallGoal))+'</strong><small>'+sideLabel+' · '+tr("Through today","آج تک")+'</small><small>'+targetBreakdown+'</small>'+incomplete+'</section>'+
- '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(p&&!(noTargets&&!g.yearlyGoal)?g?.yearlyGoal:null)+'</strong><small>مقررہ سیشن</small></section>'+
+ return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+(noTargets&&!g.overallGoal?"—":value(g?.overallGoal))+'</strong><small>'+sideLabel+' · '+tr("Full year","پورا سال")+'</small><small>'+targetBreakdown+'</small>'+incomplete+'</section>'+
+ '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(!(noTargets&&!g.yearlyGoal)?g?.yearlyGoal:null)+'</strong><small>'+(p?'مقررہ سیشن · '+sessionTargetDays(p)+' دن':'پورا سال')+'</small></section>'+
  '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
 }
 function targetAuditMarkup(){
@@ -2292,17 +2296,17 @@ function targetAuditMarkup(){
  const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
  return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
  '<p class="muted">'+value(g.activeMembers)+tr(" active members; "," فعال ممبرز؛ ")+value(g.missingTargets)+tr(" targets not set."," کے ہدف مقرر نہیں۔")+' '+esc(day)+'</p>'+
- '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Through today","آج تک")+'</span><span>'+tr("Session","سالانہ")+'</span></div>'+
+ '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Full year","پورا سال")+'</span><span>'+tr("Session","سیشن")+'</span></div>'+
  rows.map(row=>{
   const member=users.find(p=>p.uid===row.uid);
   const name=member?.name||row.name||tr("Member","ممبر"),label=member?serial(member.id):"";
   const goal=row.goal===null?tr("Not set","مقرر نہیں"):value(row.goal);
   return '<div class="target-audit-row"><span><b>'+esc(name)+'</b><small>'+esc(label)+(row.active===false?' · '+tr("Inactive","غیر فعال"):"")+'</small><small>'+esc(row.effectiveDate||"")+'</small>'+
     (row.goal===null&&row.legacyGoal!==null?'<small>'+tr("Old group target (not counted): ","پرانا گروپ ہدف (شامل نہیں): ")+value(row.legacyGoal)+'</small>':"")+'</span>'+
-    '<span>'+goal+'</span><span>'+value(row.goal===null&&!row.accrued?null:row.accrued)+'</span><span>'+value(row.goal===null&&!row.annual?null:row.annual)+'</span></div>';
+    '<span>'+goal+'</span><span>'+value(row.goal===null?null:row.overall)+'</span><span>'+value(row.goal===null&&!row.annual?null:row.annual)+'</span></div>';
  }).join("")+
- '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+(noTargets&&!g.overallGoal?"—":value(g.overallGoal))+'</b><b>'+value(annualTargetPeriod(dashboardGroupSettings,day)&&!(noTargets&&!g.yearlyGoal)?g.yearlyGoal:null)+'</b></div></div>'+
- '<p class="muted">'+tr("Daily is the sum of current active goals. Through today includes prior dated goals; annual follows the selected session. Unset goals are not assumed to be 100 or 0.","روزانہ ہدف فعال ممبرز کا موجودہ مجموعہ ہے۔ آج تک میں پچھلی تاریخوں کے اہداف بھی شامل ہیں۔ سالانہ ہدف مقررہ سیشن کے مطابق ہے۔ غیر مقررہ ہدف کو 100 یا صفر فرض نہیں کیا جاتا۔")+'</p>';
+ '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+(noTargets&&!g.overallGoal?"—":value(g.overallGoal))+'</b><b>'+value(!(noTargets&&!g.yearlyGoal)?g.yearlyGoal:null)+'</b></div></div>'+
+ '<p class="muted">'+tr("Daily is the sum of current active goals. Overall is daily × calendar-year days; session target is daily × selected session days. Targets do not accumulate each day. Unset goals are not assumed to be 100 or 0.","روزانہ ہدف فعال ممبرز کا موجودہ مجموعہ ہے۔ مجموعی ہدف روزانہ ہدف ضرب سال کے دن ہے۔ سیشن ہدف روزانہ ہدف ضرب مقررہ سیشن کے دن ہے۔ ہدف ہر روز نہیں بڑھتا۔ غیر مقررہ ہدف کو 100 یا صفر فرض نہیں کیا جاتا۔")+'</p>';
 }
 function refreshDashboardTargetCards(){
  const node=document.getElementById("group-target-cards");
