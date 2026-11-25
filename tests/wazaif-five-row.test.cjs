@@ -103,17 +103,17 @@ assert(reader.indexOf('data-wazifa-action="save-taps"')<reader.indexOf('id="wz-d
 assert(reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
 assert(reader.includes('class="wz-reader-controls-row"')&&reader.includes('class="wz-hero-speed"'),"speed, date and Save share one line");
 assert(reader.includes('class="wz-daily-toolbar"')&&reader.includes('class="wz-reader-feedback"'),"today/due and sound/vibration share a row");
-assert(reader.includes('data-wazifa-action="vibration-up"')&&reader.includes('data-wazifa-action="vibration-down"'));
+assert(!reader.includes('data-wazifa-action="vibration-up"')&&!reader.includes('data-wazifa-action="vibration-down"')&&!reader.includes('data-wazifa-action="test-vibration"'),"vibration is ON/OFF only");
 assert(reader.includes('data-wazifa-action="sound-up"')&&reader.includes('data-wazifa-action="sound-down"'));
 assert(!reader.includes('id="wz-hero-today-read"')&&!reader.includes('class="wz-percent-today"'),"remove redundant percentage and today tiles");
 assert(!reader.includes("💾")&&!reader.includes("📳")&&!reader.includes("🔊"),"no Save / feedback icons");
 assert(src.includes('wz-today-due'),"green today summary is visible under lifetime totals");
 assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!important'),"all five dated cells use green background, not black/red/yellow");
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
-assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
+assert(src.includes('durood-wz-sound-level')&&!src.includes('durood-wz-vibration-level'),"sound level persists; vibration level removed");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
-assert(src.includes('bridge.vibrateTap(state.vibrateLevel)')&&src.includes('bridge.vibrate(state.vibrateLevel)'),"native touch vibration uses chosen level and supports older APKs");
-assert(src.includes('navigator.vibrate?.(100)'),"browser vibration uses the requested 100 ms pulse");
+assert(src.includes('bridge.hapticClick()')&&src.includes('bridge.vibrate(10)'),"native system haptics with older APK compatibility");
+assert(src.includes('navigator.vibrate?.(10)')&&!src.includes('navigator.vibrate?.(100)'),"browser-only fallback without custom timing control");
  // Exercise immediate pointer feedback and ensure release/click cannot double count.
  const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
  assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
@@ -121,7 +121,7 @@ assert(src.includes('navigator.vibrate?.(100)'),"browser vibration uses the requ
   const handlers={};let counts=0,pulses=0;
   const ctx={
    document:{addEventListener:(name,fn)=>{handlers[name]=fn;}},
-   state:{vibrateEnabled:true,vibrateLevel:10},lastWazifaHapticResult:true,
+   state:{vibrateEnabled:true},lastWazifaHapticResult:true,
    tap:()=>{counts++;pulses++;return true;},
    vibrateWazifa:()=>{pulses++;return true;},
    showWazifaVibrationStatus:()=>{},
@@ -129,12 +129,11 @@ assert(src.includes('navigator.vibrate?.(100)'),"browser vibration uses the requ
   };
   vm.createContext(ctx);vm.runInContext(src.slice(feedbackStart,feedbackEnd),ctx);
   const eventFor=(action)=>({target:{closest:()=>({dataset:{wazifaAction:action}})},pointerId:1,button:0,isPrimary:true,pointerType:"touch",detail:1});
-  const dial=eventFor("tap"),test=eventFor("test-vibration");
+  const dial=eventFor("tap");
   handlers.pointerdown(dial);assert.equal(counts,1);assert.equal(pulses,1,"vibrate on touch, not after a hold");
   handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,1);assert.equal(pulses,1);
-  handlers.pointerdown(test);assert.equal(pulses,2,"test vibrates immediately");assert.equal(counts,1);
-  handlers.pointerup(test);assert.equal(ctx.consumeFeedbackClick(test,"test-vibration"),true);assert.equal(pulses,2);
-  handlers.pointerdown(dial);handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,2);assert.equal(pulses,3);
+
+  handlers.pointerdown(dial);handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,2);assert.equal(pulses,2);
   assert.equal(ctx.consumeFeedbackClick({detail:0},"tap"),false,"keyboard activation remains available");
  }
 
@@ -212,7 +211,7 @@ assert(reader.includes('data-wazifa-action="toggle-fullscreen"'));
 assert(reader.includes('id="wz-daily-progress-bar"')&&reader.includes('id="wz-daily-progress-label"'));
 assert(!reader.includes(">روزانہ کی پیش رفت<"),"the daily progress bar must not have a visible Urdu heading");
 assert(reader.includes('progress.toFixed(2)')&&reader.includes('id="wz-hero-progress-label"'),"total percentage has two decimals");
-assert(src.includes("Math.min(10,Math.max(0,state[key]"),"sound and vibration scale to 10");
+assert(src.includes("Math.min(10,Math.max(0,state[key]"),"sound scales to 10");
 assert(css.includes("wz-daily-progress progress")&&css.includes("flex:1"),"unlabelled daily bar stretches to fill available space");
 const dayFiguresContext={...sandbox,datedProgress:()=>[{day,goal:4000,count:3000,previousDue:2000,previousCredit:0}]};
 vm.createContext(dayFiguresContext);
