@@ -309,6 +309,10 @@ button.tree-node:hover { background: hsl(calc(var(--theme-hue) - 18.18) calc(52.
   width: 100%; text-align: left; display: grid; align-items: center; gap: 9px;
   grid-template-columns: auto auto minmax(0,1fr) auto; padding: 10px; border-radius: 14px;
 }
+.member-login-status { grid-column: 1 / -1; display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:.72rem; border-bottom:1px solid var(--line); padding-bottom:5px; color:var(--muted); }
+.member-login-light { display:inline-block; width:9px; height:9px; border-radius:50%; flex:none; background:#888; }
+.member-login-light.online { background:#16a34a; }
+.member-login-light.offline { background:#dc2626; }
 .member-card:hover { border-color: hsl(calc(var(--theme-hue) - 1.36) calc(30.26% * var(--theme-saturation)) 61.76%); background: #fcfffc; }
 .member-content { min-width: 0; }
 .member-content strong { font-size: .95rem; line-height: 1.25; }
@@ -1896,6 +1900,19 @@ function groupMessagesPage() {
     '</button></form><p id="group-chat-feedback" class="feedback" role="status"></p></section>';
 }
 
+function memberLoginMarkup(uid,disabled=false) {
+  const data=window.duroodMemberLoginStatus;
+  const own=uid===currentUser()?.uid;
+  const lease=data?.leases?.get(uid);
+  const known=own||disabled||data?.leasesReady===true;
+  const online=!disabled&&(own||!!lease);
+  const status=known?(online?'online':'offline'):'unknown';
+  const time=Math.max(Number(lease?.authTime)||0,Number(data?.history?.get(uid)?.authTime)||0);
+  const date=time>0?new Intl.DateTimeFormat(language==='ur'?'ur-PK':'en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}).format(new Date(time*1000)):'—';
+  return '<span class="member-login-light '+status+'" aria-hidden="true"></span><span>'+
+    (known?(online?tr('Logged in','لاگ اِن'):tr('Logged out','لاگ آؤٹ')):tr('Status unknown','اسٹیٹس نامعلوم'))+
+    '</span><span>'+tr('Last login: ','آخری لاگ اِن: ')+'<bdi>'+esc(date)+'</bdi></span>';
+}
 function directory() {
   const members = visibleMembers();
   return heading(tr("Registered Users", 'تمام رجسٹرڈ صارفین'),tr("Members are listed in permanent ID order.", 'ممبرز مستقل آئی ڈی کے لحاظ سے سیریل وار ترتیب میں ہیں۔')) +
@@ -1903,7 +1920,9 @@ function directory() {
     (members.length ? '' : ur(tr('No members yet.','ابھی کوئی رکن موجود نہیں۔'),'p','panel empty')) +
     '<div class="directory">' + members
       .map(person =>
-      '<button class="panel member-card" data-action="profile" data-value="' + person.id + '"><span class="serial">' + displayId(person.id) +
+      '<button class="panel member-card" data-action="profile" data-value="' + person.id + '">' +
+      (currentUser()?.isOwner&&person.uid?'<span class="member-login-status" data-login-uid="'+esc(person.uid)+'" data-login-disabled="'+(person.disabled?'1':'0')+'">'+memberLoginMarkup(person.uid,person.disabled)+'</span>':'') +
+      '<span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
       tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + ownedGroupName(person.id) + '</bdi>' +
       '</small>' + memberWirdMarkup(person) +
@@ -4708,6 +4727,13 @@ app.addEventListener('submit', async event => {
 
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
+  memberLoginStatus(uid,state){
+    if(currentUser()?.uid!==uid||!currentUser()?.isOwner)return;
+    window.duroodMemberLoginStatus=state;
+    document.querySelectorAll("[data-login-uid]").forEach(node=>{
+      node.innerHTML=memberLoginMarkup(node.dataset.loginUid,node.dataset.loginDisabled==="1");
+    });
+  },
   groupSettings(value){
     dashboardGroupSettings=value||null;
     this.groupTitle(value?.title);
@@ -5090,7 +5116,7 @@ import "./wazaif.js?release=motor-bridge-20261125-visible-v7";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
-import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=fast-login-reader-v4";
+import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=member-login-status-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -5565,6 +5591,24 @@ function observeCounters(side){
   watchDays();
   stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
+let loginWatchUid=null,loginWatchStops=[];
+function stopMemberLoginWatch(){
+  loginWatchStops.forEach(stop=>stop());loginWatchStops=[];loginWatchUid=null;
+  window.duroodMemberLoginStatus=null;
+}
+function watchMemberLogins(uid){
+  if(loginWatchUid===uid)return;
+  stopMemberLoginWatch();loginWatchUid=uid;
+  const state={leases:new Map(),history:new Map(),leasesReady:false};
+  const publish=()=>{if(loginWatchUid===uid&&auth.currentUser?.uid===uid)bridge.memberLoginStatus(uid,state);};
+  loginWatchStops.push(onSnapshot(collection(db,"activeLogins"),{includeMetadataChanges:true},snap=>{
+    state.leases=new Map(snap.docs.map(d=>[d.id,d.data()]));
+    state.leasesReady=!snap.metadata.fromCache;publish();
+  },error=>{state.leasesReady=false;publish();console.warn("Member login status unavailable",error?.code||error);}));
+  loginWatchStops.push(onSnapshot(collection(db,"memberLastLogins"),snap=>{
+    state.history=new Map(snap.docs.map(d=>[d.id,d.data()]));publish();
+  },error=>console.warn("Last login history unavailable",error?.code||error)));
+}
 async function hydrate(){
   if(classicLogoutBlocked())return;
   const user=auth.currentUser;
@@ -5663,6 +5707,7 @@ async function hydrate(){
   if(classicLogoutBlocked()||auth.currentUser?.uid!==profile.uid)return;
   if(window.duroodCurrentSide!==side)return;
   bridge.enter(profile,rows,{memberCounts},true);
+  if(owner)watchMemberLogins(profile.uid);else stopMemberLoginWatch();
   if(owner&&side==="male")window.duroodAutoRepairLegacyReader?.();
   if(owner && side==='female')return;
   try{
@@ -5672,7 +5717,7 @@ async function hydrate(){
 }
 onAuthStateChanged(auth,async user=>{
   if(classicLogoutBlocked()){
-    stopGoalWatch();goalWatchUid="";stopCounters();
+    stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";stopCounters();
     // The parent owns the active logout; never copy its cached user back.
     if(window.parent===window&&!classicSigningOut){
       if(user)try{await firebaseSignOut(auth);}catch(error){console.warn("Logout restoration blocked",error?.code||error);}
@@ -5681,7 +5726,7 @@ onAuthStateChanged(auth,async user=>{
     return;
   }
   if(!user){
-    stopGoalWatch();goalWatchUid="";
+    stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";
     stopCounters();
     if(window.parent!==window){
       // The parent may have just signed in while this fresh iframe still

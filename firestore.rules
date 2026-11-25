@@ -338,7 +338,7 @@ service cloud.firestore {
     }
     match /activeLogins/{uid} {
       allow get: if self(uid) || owner();
-      allow list: if false;
+      allow list: if owner();
       // Never let a second sign-in replace an active lease.
       // Only the explicit logout of the original session may delete it.
       allow create: if validActiveLogin(uid);
@@ -349,6 +349,22 @@ service cloud.firestore {
       allow delete: if (self(uid) &&
         resource.data.authTime == request.auth.token.auth_time) ||
         (owner() && uid != request.auth.uid);
+    }
+    // Private login history, using only the signed authentication timestamp.
+    match /memberLastLogins/{uid} {
+      allow get: if self(uid) || owner();
+      allow list: if owner();
+      function validLoginHistory() {
+        return self(uid) && currentMember() &&
+          request.resource.data.keys().hasOnly(['authTime']) &&
+          request.resource.data.keys().hasAll(['authTime']) &&
+          request.resource.data.authTime is int &&
+          request.resource.data.authTime == request.auth.token.auth_time;
+      }
+      allow create: if validLoginHistory();
+      allow update: if validLoginHistory() &&
+        request.resource.data.authTime >= resource.data.authTime;
+      allow delete: if false;
     }
     function validPrayerStatuses(values) {
       return values is map &&

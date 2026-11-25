@@ -37,10 +37,22 @@ async function authTime(user){
 }
 function isOwner(profile){return profile?.role==="owner";}
 
+// Preserve the signed Firebase authentication time independently of the active lease.
+async function rememberLastLogin(user,timestamp){
+  try{
+    const ref=doc(db,"memberLastLogins",user.uid);
+    await runTransaction(db,async tx=>{
+      const old=await tx.get(ref);
+      if(!old.exists() || Number(old.data().authTime)<timestamp)
+        tx.set(ref,{authTime:timestamp});
+    });
+  }catch(error){console.warn("Last login record unavailable",error?.code||error);}
+}
 // Called only after Firebase Auth accepts the password and member profile.
 export async function claimDeviceSession(user,profile){
-  if(isOwner(profile))return;
-  const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
+  const timestamp=await authTime(user);
+  if(isOwner(profile)){void rememberLastLogin(user,timestamp);return;}
+  const id=sessionId();
   const ref=doc(db,"activeLogins",user.uid);
   await runTransaction(db,async tx=>{
     const old=await tx.get(ref);
@@ -55,6 +67,7 @@ export async function claimDeviceSession(user,profile){
     }
     tx.set(ref,{authTime:timestamp,sessionId:id,claimedAt:serverTimestamp()});
   });
+  void rememberLastLogin(user,timestamp);
 }
 export async function signOut(currentAuth=auth){
   const user=currentAuth.currentUser;
@@ -62,6 +75,7 @@ export async function signOut(currentAuth=auth){
     try{
       const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
       const ref=doc(db,"activeLogins",user.uid);
+      await rememberLastLogin(user,timestamp);
       await runTransaction(db,async tx=>{
         const old=await tx.get(ref);
         if(old.exists() && old.data().authTime===timestamp && old.data().sessionId===id)tx.delete(ref);

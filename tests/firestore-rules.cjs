@@ -127,6 +127,15 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertFails(setDoc(doc(newPhone,"activeLogins",newId),{
     authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
   }));
+  // Login history is owner-only for directory reads, signed-time-only for writes.
+  await assertSucceeds(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000000}));
+  await assertSucceeds(getDocs(collection(ownerDb,"activeLogins")));
+  await assertSucceeds(getDocs(collection(ownerDb,"memberLastLogins")));
+  await assertFails(getDocs(collection(newDb,"activeLogins")));
+  await assertFails(getDocs(collection(newDb,"memberLastLogins")));
+  await assertFails(getDoc(doc(wifeDb,"memberLastLogins",newId)));
+  await assertFails(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000001}));
+  await assertFails(setDoc(doc(newPhone,"memberLastLogins",newId),{authTime:1700000001}));
   // Original device retains full access after the rejected attempt.
   await assertSucceeds(getDoc(doc(newDb,"members",newId)));
   await assertSucceeds(getDoc(doc(newDb,"activeLogins",newId)));
@@ -140,6 +149,7 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
     authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
   }));
   await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds(setDoc(doc(newPhone,"memberLastLogins",newId),{authTime:1700000001}));
   // Restore original lease for the rest of the historic tests.
   await assertSucceeds((async()=>{
     const {deleteDoc}=require("firebase/firestore");
@@ -148,6 +158,9 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
+  await assertFails(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000000}));
+  const lastLogin=await assertSucceeds(getDoc(doc(ownerDb,"memberLastLogins",newId)));
+  if(lastLogin.data().authTime!==1700000001)throw Error("Last login timestamp was lost or rolled back");
   await assertFails(updateDoc(doc(newDb,"system","membership"),{lastNumber:999}));
   await assertFails(updateDoc(doc(newDb,"invitations","abc123"),{used:false}));
   await assertSucceeds(setDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22"),{
