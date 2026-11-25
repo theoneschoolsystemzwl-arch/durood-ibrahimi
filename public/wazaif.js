@@ -224,25 +224,22 @@ function vibrateWazifa(test=false){
    const bridge=target.DuroodAndroid;
    if(!bridge||tried.has(bridge))continue;
    tried.add(bridge);
+   // Use the same native motor path for counted taps and the test.
+   if(typeof bridge.vibrate==="function"){
+    const accepted=test?bridge.vibrate(10):bridge.vibrate(state.vibrateLevel);
+    if(accepted===true)return true;
+    if(accepted===undefined)return null;
+   }
+   if(typeof bridge.vibrateTap==="function"){
+    const accepted=bridge.vibrateTap(state.vibrateLevel);
+    if(accepted===true)return true;
+    if(accepted===undefined)return null;
+   }
    if(typeof bridge.hapticStatus==="function"){
     const status=bridge.hapticStatus();
     if(status==="system-off"||status==="no-motor"){
      wazifaHapticDetail=status;return false;
     }
-   }
-   if(test&&typeof bridge.vibrate==="function"){
-    const accepted=bridge.vibrate(10);
-    if(accepted===true)return true;
-    if(accepted===undefined)return null;
-   }else if(typeof bridge.vibrateTap==="function"){
-    const accepted=bridge.vibrateTap(state.vibrateLevel);
-    if(accepted===true)return true;
-    if(accepted===undefined)return null;
-   }
-   if(typeof bridge.vibrate==="function"&&!test){
-    const accepted=bridge.vibrate(state.vibrateLevel);
-    if(accepted===true)return true;
-    if(accepted===undefined)return null;
    }
   }catch{}
  }
@@ -1467,7 +1464,6 @@ function tap(){
  state.clockLastTap=pressedAt;
  state.tapQueue++;state.lastTapAt=Date.now();
  try{const k=draftStorageKey();if(k)localStorage.setItem(k+"-v3-imported","1");}catch{}
- playWazifaFeedback();
  persistDraft();
  const el=$("#wz-dial-number");if(el)el.textContent=fmt(state.tapQueue);
  const dial=$("#wz-dial");
@@ -1480,6 +1476,8 @@ function tap(){
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
  tick();
+ // Update the saved count before feedback; vibration must not block counting.
+ try{playWazifaFeedback();}catch{}
 }
 async function drain(){
  // Every tap was queued already. Save resets only the visible session.
@@ -1516,10 +1514,15 @@ function tick(){
 }
 setInterval(tick,125);
 let longHoldTimer=null;
+let dialTouch=null,suppressDialClick=false;
 document.addEventListener("pointerdown",event=>{
- const dial=event.target.closest("#wz-dial");
- if(!dial||event.button>0)return;
+ const dial=event.target.closest?.("#wz-dial");
+ if(!dial||event.button>0||event.isPrimary===false)return;
  clearTimeout(longHoldTimer);
+ state.skipDialClick=false;suppressDialClick=false;dialTouch=null;
+ if(event.pointerType==="touch"||event.pointerType==="pen"){
+  dialTouch={id:event.pointerId,dial,x:event.clientX,y:event.clientY};
+ }
  longHoldTimer=setTimeout(()=>{
    if(!dial.isConnected)return;
    state.dialFloating=!state.dialFloating;
@@ -1527,9 +1530,24 @@ document.addEventListener("pointerdown",event=>{
    dial.classList.toggle("is-floating",state.dialFloating);
  },5000);
 },true);
-for(const kind of ["pointerup","pointercancel","pointerleave"]){
- document.addEventListener(kind,()=>clearTimeout(longHoldTimer),true);
-}
+document.addEventListener("pointerup",event=>{
+ clearTimeout(longHoldTimer);
+ const gesture=dialTouch;
+ if(!gesture||event.pointerId!==gesture.id)return;
+ dialTouch=null;suppressDialClick=true;
+ if(state.skipDialClick){state.skipDialClick=false;return;}
+ if(!gesture.dial.isConnected||Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y)>24)return;
+ event.preventDefault();
+ tap();
+},true);
+document.addEventListener("pointercancel",event=>{
+ clearTimeout(longHoldTimer);
+ if(dialTouch?.id===event.pointerId){dialTouch=null;suppressDialClick=true;}
+ state.skipDialClick=false;
+},true);
+document.addEventListener("pointerleave",event=>{
+ if(event.target===document)clearTimeout(longHoldTimer);
+},true);
 
 document.addEventListener("visibilitychange",()=>{
  if(!document.hidden){checkWzIdle();wzSync.schedule(0);}
@@ -1648,7 +1666,7 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem(sound?"durood-wz-sound-level":"durood-wz-vibration-level",String(state[key]));}catch{}
   const output=$(sound?"#wz-sound-level":"#wz-vibration-level");
   if(output)output.textContent=String(state[key]);
-  if(!sound)showWazifaVibrationStatus(vibrateWazifa());
+  if(!sound){lastWazifaHapticResult=undefined;const note=$("#wz-session-note");if(note)note.textContent=state.vibrateEnabled&&state.vibrateLevel>0?"وائبریشن آن — تسبیح دبائیں":"وائبریشن بند";}
   if(sound&&state.soundEnabled)playWazifaFeedback(false);
   return;
  }
@@ -1660,7 +1678,7 @@ document.addEventListener("click",event=>{
   button.textContent=sound?"ساؤنڈ":"وائبریشن";
   if(!sound){
    if(state.vibrateEnabled&&state.vibrateLevel===0){state.vibrateLevel=10;try{localStorage.setItem("durood-wz-vibration-level","10");}catch{}const level=$("#wz-vibration-level");if(level)level.textContent="10";}
-   showWazifaVibrationStatus(vibrateWazifa());
+   lastWazifaHapticResult=undefined;const note=$("#wz-session-note");if(note)note.textContent=state.vibrateEnabled&&state.vibrateLevel>0?"وائبریشن آن — تسبیح دبائیں":"وائبریشن بند";
   }
   return;
  }
@@ -1793,7 +1811,10 @@ document.addEventListener("click",event=>{
    state.historyDay=null;
    return;
  }
- if(action==="tap")return tap();
+ if(action==="tap"){
+  if(suppressDialClick&&event.detail!==0){suppressDialClick=false;return;}
+  suppressDialClick=false;return tap();
+ }
  if(action==="delete-personal"&&id){
    if(!window.confirm("یہ ذاتی وظیفہ حذف کریں؟ اس کا ذاتی ریکارڈ بھی ختم ہوگا۔"))return;
    deleteDoc(doc(db,"memberWazaif",auth.currentUser.uid,"items",id)).then(back).catch(setError);return;
