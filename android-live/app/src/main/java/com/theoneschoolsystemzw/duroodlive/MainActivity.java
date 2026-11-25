@@ -131,7 +131,7 @@ public class MainActivity extends Activity {
         // Android 16 frequency control; reflection retains compatibility with SDK 35 builds.
     private android.os.VibrationEffect frequencyPulse(android.os.Vibrator motor,int level){
       if(Build.VERSION.SDK_INT<36)return null;
-      final float requestedFrequency=800f;
+      final float requestedFrequency=1000f;
       try{
         Class<?> vibrator=android.os.Vibrator.class;
         if(!Boolean.TRUE.equals(vibrator.getMethod("areEnvelopeEffectsSupported").invoke(motor)))return null;
@@ -155,7 +155,7 @@ public class MainActivity extends Activity {
         long minTime=((Number)info.getClass().getMethod("getMinControlPointDurationMillis").invoke(info)).longValue();
         long maxTime=((Number)info.getClass().getMethod("getMaxControlPointDurationMillis").invoke(info)).longValue();
         long maxTotal=((Number)info.getClass().getMethod("getMaxDurationMillis").invoke(info)).longValue();
-        long edge=Math.max(8L,minTime),hold=Math.max(95L,minTime);
+        long edge=Math.max(8L,minTime),hold=Math.max(150L,minTime);
         if(minTime<=0||edge>maxTime||hold>maxTime||2*edge+hold>maxTotal)return null;
         Class<?> builderType=Class.forName("android.os.VibrationEffect$WaveformEnvelopeBuilder");
         Object builder=builderType.getConstructor().newInstance();
@@ -165,49 +165,70 @@ public class MainActivity extends Activity {
         point.invoke(builder,strength,frequency,edge);
         point.invoke(builder,strength,frequency,hold);
         point.invoke(builder,0f,frequency,edge);
-        return (android.os.VibrationEffect)builderType.getMethod("build").invoke(builder);
+        android.os.VibrationEffect built=(android.os.VibrationEffect)builderType.getMethod("build").invoke(builder);
+        motorReport="requested-hz:"+Math.round(frequency);
+        return built;
       }catch(Exception | LinkageError unavailable){return null;}
     }
+    private volatile String motorReport="ready";
+    private android.os.Vibrator getTapMotor(){
+      if(Build.VERSION.SDK_INT>=31){
+        android.os.VibratorManager manager=getSystemService(android.os.VibratorManager.class);
+        return manager==null?null:manager.getDefaultVibrator();
+      }
+      return getSystemService(android.os.Vibrator.class);
+    }
+    private String motorAvailability(){
+      if(!trustedPage())return "untrusted";
+      if(checkSelfPermission(android.Manifest.permission.VIBRATE)!=android.content.pm.PackageManager.PERMISSION_GRANTED)return "permission";
+      android.os.Vibrator motor=getTapMotor();
+      if(motor==null||!motor.hasVibrator())return "no-motor";
+      if(android.provider.Settings.System.getInt(getContentResolver(),android.provider.Settings.System.HAPTIC_FEEDBACK_ENABLED,1)==0)return "system-off";
+      return "ready";
+    }
+    @JavascriptInterface public String tapMotorDiagnostic(){
+      try{
+        String availability=motorAvailability();
+        return "v6|"+(availability.equals("ready")?motorReport:availability);
+      }catch(RuntimeException ex){return "v6|error";}
+    }
+    private void sendTapEffect(android.os.Vibrator motor,android.os.VibrationEffect effect){
+      if(Build.VERSION.SDK_INT>=33){
+        motor.vibrate(effect,new android.os.VibrationAttributes.Builder().setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
+      }else{
+        motor.vibrate(effect,new android.media.AudioAttributes.Builder()
+          .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+          .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+      }
+    }
     @JavascriptInterface public boolean pulseTasbihMotor(int strength) {
-      if(!trustedPage()||strength<=0)return false;
+      if(strength<=0)return false;
       final int level=Math.min(10,strength);
       try {
-        android.os.Vibrator motor;
-        if(Build.VERSION.SDK_INT>=31){
-          android.os.VibratorManager manager=getSystemService(android.os.VibratorManager.class);
-          motor=manager==null?null:manager.getDefaultVibrator();
-        }else{
-          motor=getSystemService(android.os.Vibrator.class);
-        }
-        if(motor==null||!motor.hasVibrator())return false;
+        motorReport=motorAvailability();
+        if(!"ready".equals(motorReport))return false;
+        android.os.Vibrator motor=getTapMotor();
+        if(motor==null)return false;
+        final long length=60L+level*12L;
         if(Build.VERSION.SDK_INT>=26){
-          final long[] timings;
-          final int[] amplitudes;
-          if(motor.hasAmplitudeControl()){
-            // Full selected amplitude throughout the pulse, no reduced-strength tail.
-            int peak=level*255/10;
-            timings=new long[]{0,110};
-            amplitudes=new int[]{0,peak};
-          }else{
-            // Hardware without amplitude control uses a single shorter/longer impulse.
-            timings=new long[]{0,30+level*9L};
-            amplitudes=new int[]{0,android.os.VibrationEffect.DEFAULT_AMPLITUDE};
-          }
           android.os.VibrationEffect effect=frequencyPulse(motor,level);
-          if(effect==null)effect=android.os.VibrationEffect.createWaveform(timings,amplitudes,-1);
-          if(Build.VERSION.SDK_INT>=33){
-            motor.vibrate(effect,new android.os.VibrationAttributes.Builder()
-                .setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
-          }else{
-            motor.vibrate(effect,new android.media.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+          if(effect!=null){
+            try{sendTapEffect(motor,effect);return true;}
+            catch(RuntimeException unsupported){android.util.Log.w("TasbihMotor","Frequency effect rejected; using full amplitude",unsupported);}
           }
+          int amplitude=motor.hasAmplitudeControl()?Math.max(1,level*255/10):android.os.VibrationEffect.DEFAULT_AMPLITUDE;
+          // A single uninterrupted full-amplitude pulse is easier to feel than a short envelope.
+          final long[] timings={0,length};
+          final int[] amplitudes={0,amplitude};
+          sendTapEffect(motor,android.os.VibrationEffect.createWaveform(timings,amplitudes,-1));
+          motorReport="requested-pulse:"+length+"ms";
         }else{
-          motor.vibrate(30+level*9L);
+          motor.vibrate(length);
+          motorReport="requested-pulse:"+length+"ms";
         }
         return true;
       }catch(RuntimeException error){
+        motorReport="error:"+error.getClass().getSimpleName();
         android.util.Log.w("TasbihMotor","Motor request failed",error);
         return false;
       }
