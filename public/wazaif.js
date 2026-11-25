@@ -1451,6 +1451,11 @@ function tap(){
  }
  state.clockLastTap=pressedAt;
  state.tapQueue++;state.lastTapAt=Date.now();
+ // Trigger the motor on the accepted pointer-down, before rendering or sound.
+ // Even a very brief touch is sufficient; there is no minimum press duration.
+ lastTapMotorOutcome="off";
+ try{lastTapMotorOutcome=requestTapMotor();}catch{}
+ try{playWazifaFeedback();}catch{}
  try{const k=draftStorageKey();if(k)localStorage.setItem(k+"-v3-imported","1");}catch{}
  persistDraft();
  const el=$("#wz-dial-number");if(el)el.textContent=fmt(state.tapQueue);
@@ -1463,10 +1468,6 @@ function tap(){
  }
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
- // Sound and motor are independent; neither can block the saved count.
- try{playWazifaFeedback();}catch{}
- lastTapMotorOutcome="off";
- try{lastTapMotorOutcome=requestTapMotor();}catch{}
  tick();
  return true;
 }
