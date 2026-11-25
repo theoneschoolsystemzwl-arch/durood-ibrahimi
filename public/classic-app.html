@@ -1874,6 +1874,21 @@ function ranking() {
 }
 
 // Keep membership activity separate from GC (saved recitations).
+function chainUserCount(person){
+  // Unique downstream members in every generation; do not change GC or Level.
+  if(!person||person.deleted)return 0;
+  return [...descendants(person.id)].filter(id=>{
+    const m=getUser(id);
+    return id!==person.id&&m&&!m.deleted&&!m.isFoundingSpouse&&m.gender===person.gender;
+  }).length;
+}
+function chainProfileMarkup(person){
+  const ready=groupDirectoryReady||!person.uid;
+  const n=ready?chainUserCount(person):null;
+  return '<section class="panel section profile-chain"><h2>Chain Users · '+tr("Invitation chain","دعوتی سلسلہ")+'</h2>'+
+    '<div class="stats">'+stat("Chain Users",n===null?'—':displayNumber(n))+stat("Chain with Total",n===null?'—':displayNumber(n+1))+'</div>'+
+    '<small class="muted">'+tr("All unique downstream members; total includes yourself. Group GC and level remain unchanged.","تمام نسلوں کے منفرد ارکان؛ ٹوٹل میں خود بھی شامل ہیں۔ گروپ GC اور لیول تبدیل نہیں ہوں گے۔")+'</small></section>';
+}
 function branchMemberCount(person){
   return [...descendants(person.id)].filter(id=>{
     const m=getUser(id);
@@ -2076,7 +2091,7 @@ function profileDetails(person) {
     '<div class="stats">'+stat(tr("Direct invites","شامل کردہ ارکان"),groupDirectoryReady?displayNumber(children.length):'—')+stat(tr("Branch members","شاخ کے ارکان"),groupDirectoryReady?displayNumber(branchMemberCount(person)):'—')+stat("GC",hasGroup(person.id)?'<bdi data-group-wird="'+person.id+'">'+groupWirdText(person)+'</bdi>':'—')+'</div>'+
     '<dl class="detail-grid member-profile-details">'+values.map(([key,value])=>'<div><dt>'+key+'</dt><dd dir="auto">'+esc(value===0?0:value||'—')+'</dd></div>').join('')+
     '</dl>'+(person.uid?'<member-profile-fields data-uid="'+esc(person.uid)+'" data-private="'+(privateView?'1':'0')+'"></member-profile-fields>':'')+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
-    '</section>'+roster + (!admin||own||person.isOwner ? '' :
+    '</section>'+chainProfileMarkup(person)+roster + (!admin||own||person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -2179,6 +2194,34 @@ function profileCard(person) {
 }
 
 let dashboardGroupSettings=null,dashboardGroupStats=null,dashboardGroupYear=null,dashboardGroupDays=null;
+let dashboardSideSession=null,dashboardSideSessionReady=false;
+function selectedDashboardSession(side,stored,ready,legacy){
+  if(!ready)return null;
+  if(stored)return stored;
+  // Preserve the existing men's session, never copy it to women's dashboard.
+  return side==="male"?legacy:null;
+}
+function dashboardSessionConfig(){
+  return selectedDashboardSession(window.duroodCurrentSide,dashboardSideSession,dashboardSideSessionReady,dashboardGroupSettings);
+}
+function openDashboardSession(){
+  if(!currentUser()?.isOwner)return;
+  const side=window.duroodCurrentSide,p=annualTargetPeriod(dashboardSessionConfig(),globalDateKey());
+  const old=document.getElementById("side-session-dialog");if(old?.open)return;old?.remove();
+  const dialog=document.createElement("dialog");dialog.id="side-session-dialog";dialog.dir="rtl";
+  dialog.innerHTML='<h2>'+tr("Separate session","علیحدہ ہدف کی مدت")+' · '+(side==="female"?tr("Women","خواتین"):tr("Men","مرد"))+'</h2>'+
+    '<form class="form"><label class="field">'+tr("Start date","آغاز کی تاریخ")+'<input type="date" name="start" required value="'+esc(p?.start||globalDateKey())+'"></label>'+
+    '<label class="field">'+tr("End date","اختتام کی تاریخ")+'<input type="date" name="end" required value="'+esc(p?.end||targetAnniversary(globalDateKey()))+'"></label>'+
+    '<p role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-cancel>'+tr("Cancel","منسوخ")+'</button><button class="button">'+tr("Save","محفوظ کریں")+'</button></div></form>';
+  const f=dialog.querySelector("form");dialog.querySelector("[data-cancel]").onclick=()=>dialog.close();
+  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+  f.onsubmit=async e=>{e.preventDefault();e.stopImmediatePropagation();const start=f.elements.start.value,end=f.elements.end.value;
+    if(!targetDateValid(start)||!targetDateValid(end)||end<start)return;
+    const button=f.querySelector("button:not([type])"),note=f.querySelector("[role=status]");button.disabled=true;
+    try{await window.duroodSaveSideSession(side,start,end);if(dialog.open)dialog.close();}
+    catch{note.textContent=tr("Session not saved. Check Firebase permission.","مدت محفوظ نہیں ہوئی۔ Firebase اجازت چیک کریں۔");button.disabled=false;}
+  };document.body.append(dialog);dialog.showModal();
+}
 function groupProgressValue(goal,count){
   if(!Number.isSafeInteger(goal)||goal<=0||!Number.isSafeInteger(count)||count<0)return null;
   return Math.min(100,Math.round(count*10000/goal)/100);
@@ -2255,7 +2298,7 @@ function aggregateGroupTargets(rows,day,cfg){
  return result;
 }
 window.duroodMemberGroupTargets=memberGroupTargets;
-window.duroodAggregateGroupTargets=()=>aggregateGroupTargets(ownerGoalRows,globalDateKey(),dashboardGroupSettings);
+window.duroodAggregateGroupTargets=()=>aggregateGroupTargets(ownerGoalRows,globalDateKey(),dashboardSessionConfig());
 window.duroodAnnualTargetPeriod=cfg=>annualTargetPeriod(cfg,globalDateKey());
 function groupSessionCountdown(period,now=new Date()){
  if(!period)return '<span class="countdown-message">تاریخ مقرر نہیں</span>';
@@ -2268,7 +2311,7 @@ function groupSessionCountdown(period,now=new Date()){
 }
 function dashboardTargetCards(){
  if(!currentUser()?.isOwner)return "";
- const g=window.duroodAggregateGroupTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
+ const g=window.duroodAggregateGroupTargets(),p=annualTargetPeriod(dashboardSessionConfig(),globalDateKey());
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
  const sideLabel=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
  const targetBreakdown=tr("Daily target: ","روزانہ ہدف: ")+value(g?.dailyGoal);
@@ -2326,7 +2369,7 @@ function openMemberDailyTarget(){
 }
 document.addEventListener("click",event=>{if(event.target.closest("[data-group-daily-goal]")){event.preventDefault();event.stopImmediatePropagation();openMemberDailyTarget();}},true);
 function groupDashboardProgress(){
-  const cfg=dashboardGroupSettings;
+  const cfg=dashboardSessionConfig();
   if(!cfg)return '<p class="dashboard-progress-note">'+tr("Group targets not loaded","گروپ کے محفوظ اہداف دستیاب نہیں")+'</p>';
   const today=globalDateKey();
   const dates=dashboardGroupDays===null?null:{...dashboardGroupDays};
@@ -2459,9 +2502,9 @@ function overview() {
  ).join('');
  return '<div class="dashboard-home">'+
    '<div id="global-pkt-clock" style="font:700 .77rem system-ui,sans-serif;text-align:center;color:#83ffad;background:#082a39;border-radius:7px;padding:5px;margin:4px 0">پاکستان مرکزی وقت · '+globalClockMarkup()+'</div>'+
-   boxedHeading(ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"),
+   boxedHeading(window.duroodCurrentSide==="female"?tr("Women’s dashboard","خواتین کا ڈیش بورڈ"):tr("Men’s dashboard","مردوں کا ڈیش بورڈ"),
      tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
-   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
+   (currentUser()?.isOwner?'<div class="form-actions"><button class="button secondary" data-action="side-session">'+tr("Set side target session","اس سیکشن کی ہدف مدت مقرر کریں")+'</button></div><div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
    '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
    '<div class="recitation-periods">'+metricCards+'</div>'+
@@ -4745,6 +4788,7 @@ app.addEventListener('click', event => {
     groupFilter = null;
     if(!currentPhotoSelection())photoDraft=null;
   }
+  if(action==='side-session'){openDashboardSession();return;}
   if(action==='check-member-photo'){
     const person=getUser(Number(value));
     if(currentUser()?.isOwner&&person?.uid)window.duroodCheckMemberPhoto?.(person.uid);
@@ -4901,6 +4945,12 @@ window.duroodClassicBridge = {
     document.querySelectorAll("[data-login-uid]").forEach(node=>{
       node.innerHTML=memberLoginMarkup(node.dataset.loginUid,node.dataset.loginDisabled==="1");
     });
+  },
+  sideSession(value,ready,side){
+    if(window.duroodCurrentSide!==side)return;
+    dashboardSideSession=value;dashboardSideSessionReady=ready;
+    refreshDashboardTargetCards();refreshDashboardGroupProgress();
+    window.duroodWazaif?.refreshGroupTargets?.();
   },
   groupSettings(value){
     dashboardGroupSettings=value||null;
@@ -5066,7 +5116,7 @@ window.duroodClassicBridge = {
       liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
       savedMemberWirds=new Map();savedMemberWirdsComplete=false;ownGroupWirds=new Map();groupDirectoryReady=false;
       liveMemberPhotos=new Map();
-      periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardSideSession=null;dashboardSideSessionReady=false;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5274,7 +5324,7 @@ setInterval(()=>{
  if(clock&&!document.hidden)clock.innerHTML="پاکستان مرکزی وقت · "+globalClockMarkup();
  const node=document.querySelector("[data-group-session-countdown]");
  if(!node||document.hidden)return;
- const content=groupSessionCountdown(annualTargetPeriod(dashboardGroupSettings,globalDateKey()));
+ const content=groupSessionCountdown(annualTargetPeriod(dashboardSessionConfig(),globalDateKey()));
  if(node.innerHTML!==content)node.innerHTML=content;
 },1000);
 document.addEventListener('visibilitychange',() => {
@@ -5531,10 +5581,17 @@ function observeCounters(side){
   const sideRef=doc(db,"genderStats",side);
   const observedUid=auth.currentUser?.uid;
   const stopGroupTitle=onSnapshot(doc(db,"wazaifSettings","group"),snap=>{
-    if(auth.currentUser?.uid===observedUid && (!snap.metadata.fromCache || snap.exists()))
+    if(stillCurrent() && (!snap.metadata.fromCache || snap.exists()))
       bridge.groupSettings(snap.exists()?snap.data():null);
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
+  const stopSideSession=onSnapshot(doc(db,"dashboardSessions",side),{includeMetadataChanges:true},snap=>{
+    if(stillCurrent()&&!snap.metadata.fromCache)bridge.sideSession(snap.exists()?snap.data():null,true,side);
+  },err=>{if(stillCurrent())bridge.sideSession(null,false,side);console.warn("Side session unavailable",err.code);});
+  window.duroodSaveSideSession=async (requested,start,end)=>{
+    if(!stillCurrent()||currentProfile?.role!=="owner"||requested!==side)throw Error("Owner side changed");
+    await setDoc(doc(db,"dashboardSessions",side),{annualStartDate:start,annualEndDate:end,updatedAt:serverTimestamp()});
+  };
   const photoStops=new Map();
   let photoDirectory=[];
   function watchPhotos(uids){
@@ -5645,20 +5702,9 @@ function observeCounters(side){
   const stopMemberDays=onSnapshot(collection(memberGroupRef,"days"),{includeMetadataChanges:true},snap=>{
     if(stillCurrent()&&!snap.metadata.fromCache)bridge.memberGroupCounts(observedUid,Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count])));
   },err=>console.warn("Member group dates",err.code));
-  const stopGroupStats=currentProfile?.role==="owner"?()=>{}:onSnapshot(doc(db,"wazaifGroupStats","main"),snap=>{
-    if(stillCurrent()&&(!snap.metadata.fromCache||snap.exists()))bridge.groupProgressStats(snap.exists()?snap.data():{});
-  },err=>{if(stillCurrent())bridge.groupProgressStats(null);console.warn("Group stats unavailable",err.code);});
+  const stopGroupStats=()=>{};
   let stopGroupYear=()=>{},watchedYear="";
-  const watchGroupYear=()=>{
-    const year=globalDay().slice(0,4);
-    if(watchedYear===year)return;
-    watchedYear=year;stopGroupYear();bridge.groupProgressYear(null);
-    if(currentProfile?.role==="owner")return;
-    stopGroupYear=onSnapshot(doc(db,"wazaifGroupStats","main","years",year),snap=>{
-      if(stillCurrent()&&watchedYear===year&&(!snap.metadata.fromCache||snap.exists()))
-        bridge.groupProgressYear(snap.exists()?snap.data():{year,total:0});
-    },err=>{if(stillCurrent())bridge.groupProgressYear(null);console.warn("Group year unavailable",err.code);});
-  };
+  const watchGroupYear=()=>{const year=globalDay().slice(0,4);if(watchedYear!==year){watchedYear=year;bridge.groupProgressYear(null);}};
   watchGroupYear();
   const wirdQuery=currentProfile?.role==="owner"
     ?query(collection(db,"memberCounts"),where("gender","==",side))
@@ -5676,7 +5722,7 @@ function observeCounters(side){
     if(!stillCurrent()||snap.metadata.fromCache)return;
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
   },err=>console.warn("Saved member Wird totals unavailable",err.code));
-  const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
+  const stopTotal=onSnapshot(sideRef,snap=>{if(stillCurrent())bridge.allTime(Number(snap.data()?.totalRecitations||0));},err=>console.warn("Total unavailable",err.code));
   let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
   let historyGeneration=0;
   function watchReaderDate(day){
@@ -5794,18 +5840,10 @@ function observeCounters(side){
     },e=>{if(stillCurrent())bridge.readers(null);console.warn("Readers",e.code);});
     const week=globalWeekStart(today),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";
     stopSharedDays();
-    if(currentProfile?.role==="owner")publishSideGroup();else {
-    bridge.groupProgressDays(null);
-    const groupDaysQuery=query(collection(db,"wazaifGroupStats","main","days"),where("date",">=",week<month?week:month),where("date","<=",today));
-    stopSharedDays=onSnapshot(groupDaysQuery,{includeMetadataChanges:true},snap=>{
-      if(!stillCurrent()||(snap.metadata.fromCache&&snap.empty))return;
-      const values={};
-      snap.forEach(item=>{const d=item.data();if(Number.isSafeInteger(d.count)&&d.count>=0)values[item.id]=d.count;});
-      bridge.groupProgressDays(values);
-    },err=>{if(stillCurrent())bridge.groupProgressDays(null);console.warn("Group dated totals unavailable",err.code);});
-    }
+    if(currentProfile?.role==="owner")publishSideGroup();else bridge.groupProgressDays(null);
     const days=query(collection(sideRef,"days"),where("day",">=",week<year?week:year),where("day","<=",today));
     stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
+      if(!stillCurrent())return;
       if(snap.metadata.fromCache && snap.empty){bridge.periodTotals(null);return;}
       const totals={today:0,week:0,month:0,year:0};
       snap.forEach(item=>{
@@ -5821,7 +5859,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopSideSession();delete window.duroodSaveSideSession;stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let loginWatchUid=null,loginWatchStops=[];
 function stopMemberLoginWatch(){

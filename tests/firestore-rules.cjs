@@ -123,6 +123,13 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertSucceeds(setDoc(doc(newDb,"memberProfileShares",newId),{showJoined:true}));
   await assertSucceeds(setDoc(doc(ownerDb,"memberProfileShares",ownerId),{}));
   if((await getDoc(doc(newDb,"memberProfileShares",ownerId))).data().email!==undefined)throw Error("Unchecked email remained public");
+  await assertSucceeds(setDoc(doc(ownerDb,"dashboardSessions","male"),{annualStartDate:"2026-01-01",annualEndDate:"2026-12-31",updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(doc(ownerDb,"dashboardSessions","female"),{annualStartDate:"2026-02-01",annualEndDate:"2027-01-31",updatedAt:serverTimestamp()}));
+  await assertSucceeds(getDoc(doc(newDb,"dashboardSessions","male")));
+  await assertSucceeds(getDoc(doc(wifeDb,"dashboardSessions","female")));
+  await assertFails(getDoc(doc(newDb,"dashboardSessions","female")));
+  await assertFails(getDoc(doc(wifeDb,"dashboardSessions","male")));
+  await assertFails(setDoc(doc(newDb,"dashboardSessions","male"),{annualStartDate:"2026-01-01",annualEndDate:"2027-01-01",updatedAt:serverTimestamp()}));
   const wife=await getDoc(doc(wifeDb,"members",wifeId));
   if(wife.get("serial")!=="DI-3"||wife.get("gender")!=="female"||
      wife.get("inviterUid")!==ownerId||wife.get("role")!=="member")

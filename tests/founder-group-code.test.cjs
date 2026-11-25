@@ -18,7 +18,7 @@ const codes={groupIdentity:p=>g.get(p.id),hasGroup:id=>rows.some(p=>p.inviterUid
 assert.equal(codes.groupCode(rows[0]),"A1");assert.equal(codes.groupCode(rows[2]),"A2 B1");assert.equal(codes.groupCode(rows[6]),"B3");
 console.log("Group leader position 1, invited positions 2 onward, no duplicate recitations");
 
-const astart=src.indexOf("function branchMemberCount"),aend=src.indexOf("function treeNode",astart);
+const astart=src.indexOf("function chainUserCount"),aend=src.indexOf("function treeNode",astart);
 const branchRows=[{id:1,gender:"Male",isOwner:true},{id:3,gender:"Male"},{id:4,gender:"Male"},{id:5,gender:"Male",deleted:true},{id:6,gender:"Male"},{id:2,gender:"Female",isFoundingSpouse:true}];
 const direct=new Map([[1,[3,4]],[3,[5,6]]]);
 const ac={users:branchRows,currentUser:()=>branchRows[1],getUser:id=>branchRows.find(p=>p.id===id),descendants:id=>new Set((direct.get(id)||[]).flatMap(k=>[k,...(direct.get(k)||[])])),ownerViewingWomen:()=>false,groupDirectoryReady:true,ownedGroupName:()=> "—",formatNumber:String,groupMemberCount:()=>0,tr:(a,b)=>a,esc:String,hasGroup:()=>false};vm.createContext(ac);vm.runInContext(src.slice(astart,aend),ac);
@@ -51,3 +51,13 @@ console.log("Same-side shared profile viewing and owner-only private account con
 
 assert.equal(pc.canManagePrivateProfile({uid:"a",id:2,gender:"Male"},{uid:"b",id:3,gender:"Male"}),false);
 assert.equal(pc.canViewMemberProfile({uid:"a",id:2,gender:"Male"},{uid:"b",id:3,gender:"Male",deleted:true}),false);
+
+assert.equal(ac.chainUserCount(branchRows[0]),3);assert.equal(ac.chainUserCount(branchRows[1]),1);assert.equal(ac.chainUserCount(branchRows[2]),0);
+const sa=src.indexOf("function selectedDashboardSession"),sb=src.indexOf("function dashboardSessionConfig",sa);
+const sc={};vm.createContext(sc);vm.runInContext(src.slice(sa,sb),sc);
+const old={annualStartDate:"2026-01-01"},women={annualStartDate:"2026-02-01"};
+assert.equal(sc.selectedDashboardSession("female",null,true,old),null);
+assert.equal(sc.selectedDashboardSession("male",null,true,old),old);
+assert.equal(sc.selectedDashboardSession("female",women,true,old),women);
+assert.equal(sc.selectedDashboardSession("male",null,false,old),null);
+console.log("Chain membership and isolated dashboard sessions passed");
