@@ -284,6 +284,7 @@ function normalizeMotorStrength(value){
  return Number.isFinite(n)?Math.min(10,Math.max(0,Math.round(n))):10;
 }
 // A single short native waveform per accepted count; never wait for a hold.
+let lastTapMotorOutcome="off";
 function requestTapMotor(allowBrowser=true){
  if(!state.motorEnabled||state.motorStrength===0)return "off";
  const frames=[window];
@@ -301,7 +302,7 @@ function requestTapMotor(allowBrowser=true){
  for(const frame of frames){
   try{if(frame.navigator.vibrate?.(60)===true)return "web";}catch{}
  }
- return "unavailable";
+ return "web-pending";
 }
 function updateTapMotorControls(){
  const toggle=$('[data-wazifa-action="toggle-vibration"]');
@@ -1464,7 +1465,8 @@ function tap(){
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
  // Sound and motor are independent; neither can block the saved count.
  try{playWazifaFeedback();}catch{}
- try{requestTapMotor();}catch{}
+ lastTapMotorOutcome="off";
+ try{lastTapMotorOutcome=requestTapMotor();}catch{}
  tick();
  return true;
 }
@@ -1514,8 +1516,9 @@ document.addEventListener("pointerdown",event=>{
  clearTimeout(longHoldTimer);
  state.skipDialClick=false;
  handledFeedbackClick="tap";
- activeFeedbackPress={id:event.pointerId};
- tap();
+ const press={id:event.pointerId,retryWeb:false};activeFeedbackPress=press;
+ const counted=tap();
+ press.retryWeb=counted===true&&lastTapMotorOutcome==="web-pending";
  longHoldTimer=setTimeout(()=>{
   if(!button.isConnected)return;
   state.dialFloating=!state.dialFloating;
@@ -1526,6 +1529,8 @@ document.addEventListener("pointerup",event=>{
  const press=activeFeedbackPress;
  if(!press||press.id!==event.pointerId)return;
  clearTimeout(longHoldTimer);activeFeedbackPress=null;
+ // On browsers that require activation at touch release, retry only the motor.
+ if(press.retryWeb&&state.motorEnabled)requestTapMotor();
 },true);
 document.addEventListener("pointercancel",event=>{
  if(activeFeedbackPress?.id===event.pointerId){clearTimeout(longHoldTimer);activeFeedbackPress=null;}
