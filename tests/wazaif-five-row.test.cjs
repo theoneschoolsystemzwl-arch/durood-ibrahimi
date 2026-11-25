@@ -140,28 +140,32 @@ for(const file of ["android-online/src/app/duroodibrahimi/online/MainActivity.ja
   assert(tapSource.indexOf("state.tapQueue++")<tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()"));
   assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("playWazifaFeedback()"));
   assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("persistDraft()"));
-  assert(css.includes("#wazaif-root #wz-dial{touch-action:none"),"dedicated immediate dial touch");
+  assert(css.includes("#wazaif-root #wz-dial{touch-action:pan-y"),"dial permits vertical scroll");
  }
- // Exercise immediate pointer feedback and ensure release/click cannot double count.
+ // Confirm short stationary taps count once; scrolling and canceled gestures do not count.
  const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
  assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
  {
   const handlers={};let counts=0,pulses=0;
+  const button={isConnected:true,disabled:false,contains:node=>node===button,dataset:{wazifaAction:"tap"}};
   const ctx={
-   document:{addEventListener:(name,fn)=>{handlers[name]=fn;}},
-   state:{motorEnabled:true},lastTapMotorOutcome:"native",
+   document:{addEventListener:(name,fn)=>{handlers[name]=fn;},elementFromPoint:()=>button},
+   state:{motorEnabled:true},
    tap:()=>{counts++;pulses++;return true;},
-
    setTimeout:()=>1,clearTimeout:()=>{}
   };
   vm.createContext(ctx);vm.runInContext(src.slice(feedbackStart,feedbackEnd),ctx);
-  const eventFor=(action)=>({target:{closest:()=>({dataset:{wazifaAction:action}})},pointerId:1,button:0,isPrimary:true,pointerType:"touch",detail:1});
-  const dial=eventFor("tap");
-  handlers.pointerdown(dial);assert.equal(counts,1);assert.equal(pulses,1,"sound feedback on touch, not after a hold");
-  handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,1);assert.equal(pulses,1);
-
-  handlers.pointerdown(dial);handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,2);assert.equal(pulses,2);
-  assert.equal(ctx.consumeFeedbackClick({detail:0},"tap"),false,"keyboard activation remains available");
+  const event=(x=100,y=100)=>({target:{closest:()=>button},clientX:x,clientY:y,pointerId:1,button:0,isPrimary:true,pointerType:"touch",detail:1});
+  handlers.pointerdown(event());assert.equal(counts,0);
+  handlers.pointerup(event());assert.equal(counts,1);assert.equal(pulses,1);
+  assert.equal(ctx.consumeFeedbackClick(event(),"tap"),true);
+  handlers.pointerdown(event());handlers.pointermove(event(100,125));handlers.pointerup(event());assert.equal(counts,1,"swipe must not count");
+  assert.equal(ctx.consumeFeedbackClick(event(),"tap"),true);
+  handlers.pointerdown(event());handlers.pointercancel(event());handlers.pointerup(event());assert.equal(counts,1,"cancelled touch must not count");
+  handlers.pointerdown(event());handlers.scroll();handlers.pointerup(event());assert.equal(counts,1,"scroll must not count");
+  handlers.pointerdown(event());handlers.pointerup(event(102,101));assert.equal(counts,2);assert.equal(pulses,2);
+  assert.equal(ctx.consumeFeedbackClick(event(),"tap"),true);
+  assert.equal(ctx.consumeFeedbackClick({detail:0},"tap"),false);
  }
 
 assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
