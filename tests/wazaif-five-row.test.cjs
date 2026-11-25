@@ -100,10 +100,10 @@ assert(!reader.includes("تسبیح کی منتخب تاریخ")&&!reader.includ
 assert(reader.includes('data-wazifa-action="open-date-picker"')&&reader.includes('data-wazifa-action="save-taps"'));
 assert.equal((reader.match(/data-wazifa-action="save-taps"/g)||[]).length,1,"only one Save button exists");
 assert(reader.indexOf('data-wazifa-action="save-taps"')<reader.indexOf('id="wz-dial"'),"existing Save remains above the dial");
-assert(reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
+assert(!reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
 assert(reader.includes('class="wz-reader-controls-row"')&&reader.includes('class="wz-hero-speed"'),"speed, date and Save share one line");
-assert(reader.includes('class="wz-daily-toolbar"')&&reader.includes('class="wz-reader-feedback"'),"today/due and sound/vibration share a row");
-assert(!reader.includes('data-wazifa-action="vibration-up"')&&!reader.includes('data-wazifa-action="vibration-down"')&&!reader.includes('data-wazifa-action="test-vibration"'),"vibration is ON/OFF only");
+assert(reader.includes('class="wz-daily-toolbar"')&&reader.includes('class="wz-reader-feedback"'),"today/due and sound share a row");
+assert(!reader.includes('data-wazifa-action="vibration-up"')&&!reader.includes('data-wazifa-action="vibration-down"')&&!reader.includes('data-wazifa-action="test-vibration"'),"no vibration controls remain");
 assert(reader.includes('data-wazifa-action="sound-up"')&&reader.includes('data-wazifa-action="sound-down"'));
 assert(!reader.includes('id="wz-hero-today-read"')&&!reader.includes('class="wz-percent-today"'),"remove redundant percentage and today tiles");
 assert(!reader.includes("💾")&&!reader.includes("📳")&&!reader.includes("🔊"),"no Save / feedback icons");
@@ -112,8 +112,7 @@ assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!importan
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
 assert(src.includes('durood-wz-sound-level')&&!src.includes('durood-wz-vibration-level'),"sound level persists; vibration level removed");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
-assert(src.includes('bridge.hapticClick()')&&src.includes('bridge.vibrate(10)'),"native system haptics with older APK compatibility");
-assert(src.includes('navigator.vibrate?.(10)')&&!src.includes('navigator.vibrate?.(100)'),"browser-only fallback without custom timing control");
+assert(!/vibrat|haptic|وائبریشن/i.test(src),"no tasbih vibration code remains");
  // Exercise immediate pointer feedback and ensure release/click cannot double count.
  const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
  assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
@@ -121,16 +120,15 @@ assert(src.includes('navigator.vibrate?.(10)')&&!src.includes('navigator.vibrate
   const handlers={};let counts=0,pulses=0;
   const ctx={
    document:{addEventListener:(name,fn)=>{handlers[name]=fn;}},
-   state:{vibrateEnabled:true},lastWazifaHapticResult:true,
+   state:{},
    tap:()=>{counts++;pulses++;return true;},
-   vibrateWazifa:()=>{pulses++;return true;},
-   showWazifaVibrationStatus:()=>{},
+
    setTimeout:()=>1,clearTimeout:()=>{}
   };
   vm.createContext(ctx);vm.runInContext(src.slice(feedbackStart,feedbackEnd),ctx);
   const eventFor=(action)=>({target:{closest:()=>({dataset:{wazifaAction:action}})},pointerId:1,button:0,isPrimary:true,pointerType:"touch",detail:1});
   const dial=eventFor("tap");
-  handlers.pointerdown(dial);assert.equal(counts,1);assert.equal(pulses,1,"vibrate on touch, not after a hold");
+  handlers.pointerdown(dial);assert.equal(counts,1);assert.equal(pulses,1,"sound feedback on touch, not after a hold");
   handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,1);assert.equal(pulses,1);
 
   handlers.pointerdown(dial);handlers.pointerup(dial);assert.equal(ctx.consumeFeedbackClick(dial,"tap"),true);assert.equal(counts,2);assert.equal(pulses,2);
