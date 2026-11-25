@@ -308,6 +308,24 @@ function requestTapMotor(allowBrowser=true){
  }
  return "web-pending";
 }
+// Inspect the actual installed Android bridge without starting a vibration or changing the count.
+function inspectTapMotorBridge(){
+ if(!state.motorEnabled||state.motorStrength===0){lastMotorDiagnostic="";showTapMotorDiagnostic("off");return;}
+ const frames=[window];
+ try{if(window.parent!==window&&window.parent.location.origin===location.origin)frames.push(window.parent);}catch{}
+ for(const frame of frames){
+  try{
+   const api=frame.DuroodAndroid;
+   if(!api)continue;
+   if(typeof api.pulseTasbihMotor!=="function"||typeof api.tapMotorDiagnostic!=="function"){
+    lastMotorDiagnostic="old-native";showTapMotorDiagnostic("unavailable");return;
+   }
+   lastMotorDiagnostic=String(api.tapMotorDiagnostic());
+   showTapMotorDiagnostic(lastMotorDiagnostic==="v6|ready"?"ready":"status");return;
+  }catch{lastMotorDiagnostic="error:bridge";showTapMotorDiagnostic("unavailable");return;}
+ }
+ lastMotorDiagnostic="browser-only";showTapMotorDiagnostic("unavailable");
+}
 function showTapMotorDiagnostic(outcome){
  const note=$("#wz-motor-status");if(!note)return;
  const d=lastMotorDiagnostic;
@@ -319,7 +337,10 @@ function showTapMotorDiagnostic(outcome){
  else if(d.includes("untrusted")||d.includes("error"))message="Android موٹر سگنل ناکام: "+d.split("|").pop();
  else if(d==="old-native")message="پرانا Android موٹر ورژن؛ نئی APK درکار ہے۔";
  else if(d==="browser-only")message="براؤزر موڈ: Android موٹر دستیاب نہیں؛ نئی APK چیک کریں۔";
- else if(outcome==="native")message="Android موٹر کو سگنل بھیجا گیا: "+d.replace("v6|","").replace("requested-hz:","")+"";
+ else if(outcome==="ready")message="Android موٹر v6 منسلک ہے؛ تسبیح پر ٹچ کریں۔";
+ else if((outcome==="native"||outcome==="status")&&d.includes("requested-hz:"))message="Android موٹر v6: سگنل "+d.split("requested-hz:")[1]+" Hz (درخواست)۔";
+ else if((outcome==="native"||outcome==="status")&&d.includes("requested-pulse:"))message="Android موٹر v6: سگنل "+d.split("requested-pulse:")[1]+" (درخواست)۔";
+ else if(outcome==="native")message="Android موٹر کو سگنل بھیجا گیا؛ حقیقی وائبریشن کی تصدیق فون پر کریں۔";
  else message="وائبریشن سگنل قبول نہیں ہوا۔";
  note.textContent=message;
 }
@@ -336,7 +357,7 @@ function saveTapMotorSettings(){
   localStorage.setItem("durood-tap-motor-v5-enabled",state.motorEnabled?"1":"0");
   localStorage.setItem("durood-tap-motor-v5-strength",String(state.motorStrength));
  }catch{}
- updateTapMotorControls();
+ updateTapMotorControls();inspectTapMotorBridge();
 }
 function playWazifaFeedback(){
  if(!state.soundEnabled||state.soundLevel===0)return;
@@ -1171,6 +1192,7 @@ function render(){
  if(state.mode==="personal-reader"||state.mode==="group-reader"){
    if(root.querySelector("#wz-dial")){refreshHeroReader();return;}
    root.innerHTML=readerMarkup(state.mode==="group-reader");
+   inspectTapMotorBridge();
    if(state.immersive)setWazifaImmersive(true);
    requestAnimationFrame(syncArabicTicker);
    document.fonts?.ready?.then(syncArabicTicker);
