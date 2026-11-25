@@ -1424,6 +1424,11 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .tree .member-wird{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;margin:0;max-width:100%;flex-wrap:wrap}
 :root[data-theme] .tree-group-wird{grid-area:group;min-width:0;display:grid;justify-items:center;gap:1px;padding:3px 2px;border:1px solid #b5a367;border-radius:7px;background:#00392c;color:#fff;text-align:center;line-height:1.25}
 :root[data-theme] .tree-group-wird small{font:600 .72rem/1.5 var(--ur,serif);color:#f3dc9c}
+:root[data-theme] .tree-activity{padding:4px 3px;gap:2px;align-self:stretch;align-content:center}
+:root[data-theme] .tree-activity>small{display:flex;justify-content:space-between;align-items:center;gap:2px;width:100%;font-size:clamp(.56rem,2.5vw,.75rem);line-height:1.5}
+:root[data-theme] .tree-activity>small bdi{color:#dbffec;font-weight:800;font-family:system-ui,sans-serif}
+:root[data-theme] .tree-activity-gc{display:flex;width:100%;justify-content:space-between;align-items:center;border-top:1px solid #b5a36766;padding-top:2px;gap:3px}
+:root[data-theme] .tree-activity-gc>bdi{color:#dbffec;font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;overflow-wrap:anywhere}
 :root[data-theme] .tree-group-wird>bdi{font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;color:#dbffec;max-width:100%;overflow-wrap:anywhere}
 </style>
 </head>
@@ -1666,6 +1671,14 @@ function refreshMemberCountLabels(){
     const member=getUser(Number(node.dataset.founderGroupCode));
     node.textContent=groupCode(member);
   });
+  document.querySelectorAll("[data-tree-activity]").forEach(node=>{
+    const member=getUser(Number(node.dataset.treeActivity));
+    if(member){
+      const next=document.createElement("span");
+      next.innerHTML=treeActivityMarkup(member);
+      if(next.firstElementChild)node.replaceWith(next.firstElementChild);
+    }
+  });
   document.querySelectorAll("[data-tree-member-level]").forEach(node=>{
     const member=getUser(Number(node.dataset.treeMemberLevel));
     if(!member)return;
@@ -1841,14 +1854,39 @@ function ranking() {
       tr("<p class=\"panel empty section\">No Durood count recorded in this period.</p>", '<p class="panel empty section">اس مدت میں درود کا کوئی شمار درج نہیں۔</p>'));
 }
 
+// Keep membership activity separate from GC (saved recitations).
+function branchMemberCount(person){
+  return [...descendants(person.id)].filter(id=>{
+    const m=getUser(id);
+    return id!==person.id&&m&&!m.deleted&&!m.isFoundingSpouse;
+  }).length;
+}
+function canViewTreeBranch(viewer,target){
+  if(!viewer||!target||target.deleted)return false;
+  if(viewer.isOwner)return ownerViewingWomen()?target.gender==='Female'&&!target.isOwner:target.gender!=='Female';
+  return (viewer.gender==='Female')===(target.gender==='Female')&&
+    (viewer.id===target.id||(groupDirectoryReady&&descendants(viewer.id).has(target.id)));
+}
+function treeActivityMarkup(p){
+  const ready=!p.uid||groupDirectoryReady;
+  const group=ready?ownedGroupName(p.id):'—';
+  const members=ready?formatNumber(groupMemberCount(p)):'—';
+  const branch=ready?formatNumber(branchMemberCount(p)):'—';
+  return '<span class="tree-group-wird tree-activity" data-tree-activity="'+p.id+'">'+
+    '<small>'+tr('Group','گروپ')+' · <bdi>'+esc(group)+'</bdi></small>'+
+    '<small>'+tr('Group members','گروپ کے ارکان')+' · <bdi>'+members+'</bdi></small>'+
+    '<small>'+tr('Branch members','شاخ کے ارکان')+' · <bdi>'+branch+'</bdi></small>'+
+    (ready&&hasGroup(p.id)?'<span class="tree-activity-gc"><small>GC · '+esc(group)+'</small><bdi data-group-wird="'+p.id+'">'+groupWirdText(p)+'</bdi></span>':'')+
+    '</span>';
+}
 function treeNode(person, isRoot = false) {
- const level=memberLevel(person),clickable=!isRoot&&currentUser()?.isOwner===true&&!person.deleted,tag=clickable?'button':'div';
+ const level=memberLevel(person),clickable=!isRoot&&canViewTreeBranch(currentUser(),person),tag=clickable?'button':'div';
  return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
  (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
  '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
  '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+groupCodeMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
  (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
- '</span>'+groupWirdMarkup(person)+'</'+tag+'>';
+ '</span>'+treeActivityMarkup(person)+'</'+tag+'>';
 }
 
 function stat(label, value) {
@@ -1859,7 +1897,7 @@ function tree(person) {
   const women = ownerViewingWomen();
   const root = women
     ? visibleMembers().find(member => member.id === groupFilter && !member.deleted) || visibleMembers().find(member => member.isFoundingSpouse && !member.deleted)
-    : (person.isOwner ? getUser(groupFilter) : null) || person;
+    : (canViewTreeBranch(person,getUser(groupFilter)) ? getUser(groupFilter) : null) || person;
   if(!root) return groups();
   const children = directMembers(root.id).filter(m=>!m.deleted&&!m.isFoundingSpouse);
   const back = women
@@ -1868,10 +1906,10 @@ function tree(person) {
     ? '<div class="branch-nav"><button class="button secondary" data-action="branch" data-value="' + root.inviter +
       tr("\">Parent branch ›</button><button class=\"button secondary\" data-action=\"nav\" data-value=\"tree\">Back to my tree</button></div>", '">پچھلی شاخ ›</button><button class="button secondary" data-action="nav" data-value="tree">اپنے شجرے پر واپس</button></div>') : '';
   return heading(person.isOwner ? tr("Community Tree", 'اجتماعی دعوتی شجرہ') : tr("Your Referral Tree", 'آپ کا دعوتی شجرہ'),
-    (person.isOwner ? tr("Photo badges show member levels. Tap any member to open their branch, even when empty.", 'تصویر پر ممبر کا لیول ہے۔ کسی بھی ممبر پر ٹیپ کریں، اس کا شجرہ کھل جائے گا۔') : tr("Photo badges show member levels.", "تصویر پر بنا نشان ممبر کا لیول دکھاتا ہے۔"))) + back +
+    tr("Photo badges show levels. Tap a member in your branch to see their group activity.", 'تصویر پر ممبر کا لیول ہے۔ اپنی شاخ کے ممبر پر ٹیپ کرکے اس کے گروپ کی تفصیل دیکھیں۔')) + back +
     '<div class="stats">' + stat(tr("Group", 'گروپ'), '<bdi>' + ownedGroupName(root.id) + '</bdi>') +
-    stat(tr("Group members", 'گروپ کے ارکان'), displayNumber(groupMemberCount(root))) +
-    stat(tr("Total in branch", 'شاخ کے کل ارکان'), displayNumber(descendants(root.id).size)) + '</div>' +
+    stat(tr("Group members", 'گروپ کے ارکان'), groupDirectoryReady||!root.uid?displayNumber(groupMemberCount(root)):'—') +
+    stat(tr("Total in branch", 'شاخ کے کل ارکان'), groupDirectoryReady||!root.uid?displayNumber(branchMemberCount(root)):'—') + '</div>' +
     tr("<section class=\"panel section tree\" aria-label=\"Referral tree، ", '<section class="panel section tree" aria-label="دعوتی شجرہ، ') + esc(memberName(root)) + '"><div class="tree-scroll"><div class="tree-diagram">' +
     '<div class="root-node">' + treeNode(root,true) + '</div>' +
     (children.length ? '<ul class="child-list">' + children.map(child => '<li>' + treeNode(child) + '</li>').join('') + '</ul>' : '') +
@@ -4642,10 +4680,8 @@ app.addEventListener('click', event => {
     section = 'profile';
   }
   if (action === 'branch') {
-    if(currentUser()?.isOwner!==true)return;
     const targetId=Number(value),target=getUser(targetId);
-    if(!target||target.deleted)return;
-    if(ownerViewingWomen() ? target.gender!=='Female' || target.isOwner : target.gender==='Female')return;
+    if(!canViewTreeBranch(currentUser(),target))return;
     groupFilter = targetId === currentUserId ? null : targetId;
     section = 'tree';
   }
@@ -5882,7 +5918,7 @@ ui.addEventListener("click",event=>{
     }).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
     return;
   }
-  if(currentProfile.role==="owner" && (action==="branch" || action==="group" || (action==="nav"&&button.dataset.value==="tree"))){
+  if(action==="branch" || action==="group" || (action==="nav"&&button.dataset.value==="tree")){
     // Refresh the selected side from Firebase after the local navigation,
     // so newly registered descendants are visible without a manual reload.
     setTimeout(()=>{if(!classicLogoutBlocked())hydrate().catch(e=>console.warn("Tree refresh unavailable",e?.code||e));},0);
