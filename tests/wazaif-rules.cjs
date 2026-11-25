@@ -43,11 +43,11 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   await assertFails(updateDoc(doc(member,"wazaifSettings","group"),{active:false,updatedAt:serverTimestamp()}));
   console.log("W1_RULE_TEST_STEP_4");await assertSucceeds(updateDoc(group,{dailyGoal:250,updatedAt:serverTimestamp()}));
   // Owner's group Arabic can contain a long complete Surah, but must stay
-  // within the bounded 20,000-character Firestore field.
-  const fullSurahSample="ب".repeat(7000);
-  const oversizedArabic="ب".repeat(20001);
+  // within the 25,000-word and 600,000-byte Firestore field limits.
+  const fullSurahSample="الحمد ".repeat(25000).trim();
+  const oversizedArabic=fullSurahSample+" الحمد";
   await assertSucceeds(updateDoc(group,{arabic:fullSurahSample,updatedAt:serverTimestamp()}));
-  if((await getDoc(group)).data().arabic.length!==7000)
+  if((await getDoc(group)).data().arabic!==fullSurahSample)
     throw Error("Group Arabic text was unexpectedly truncated");
   await assertFails(updateDoc(group,{arabic:oversizedArabic,updatedAt:serverTimestamp()}));
   await assertSucceeds(updateDoc(group,{arabic:base.arabic,updatedAt:serverTimestamp()}));
@@ -71,7 +71,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   // Member's own Wazifa must accept the same long Arabic text for W-1,
   // including updates to an already-saved shortened Surah.
   await assertSucceeds(updateDoc(privateRef,{arabic:fullSurahSample,updatedAt:serverTimestamp()}));
-  if((await getDoc(privateRef)).data().arabic.length!==7000)
+  if((await getDoc(privateRef)).data().arabic!==fullSurahSample)
     throw Error("Personal Wazifa Arabic text was unexpectedly truncated");
   await assertFails(updateDoc(privateRef,{arabic:oversizedArabic,updatedAt:serverTimestamp()}));
   await assertSucceeds(updateDoc(privateRef,{arabic:personal.arabic,updatedAt:serverTimestamp()}));

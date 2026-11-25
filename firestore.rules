@@ -706,7 +706,8 @@ service cloud.firestore {
     }
     function wzSafeText(d) {
       return d.title is string && d.title.size() >= 1 && d.title.size() <= 80 &&
-        d.arabic is string && d.arabic.size() >= 1 && d.arabic.size() <= 20000 &&
+        d.arabic is string && d.arabic.size() >= 1 && d.arabic.toUtf8().size() <= 600000 &&
+        d.arabic.trim().split('[\\s\\p{Z}\\x{FEFF}\\x{000B}]+').size() <= 25000 &&
         d.instructions is string && d.instructions.size() <= 1200 &&
         d.purpose is string && d.purpose.size() <= 1200 &&
         wzDate(d.startDate);
