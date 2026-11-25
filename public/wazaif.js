@@ -212,7 +212,9 @@ try{
   state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)||0));
 }catch{}
 let wzTapAudio=null;
-function vibrateWazifa(){
+let wazifaHapticDetail="";
+function vibrateWazifa(test=false){
+ wazifaHapticDetail="";
  if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
  const targets=[window];
  try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.push(window.parent);}catch{}
@@ -222,23 +224,42 @@ function vibrateWazifa(){
    const bridge=target.DuroodAndroid;
    if(!bridge||tried.has(bridge))continue;
    tried.add(bridge);
-   const accepted=typeof bridge.vibrateTap==="function"?bridge.vibrateTap(state.vibrateLevel):
-    typeof bridge.vibrate==="function"?bridge.vibrate(state.vibrateLevel):false;
-   if(accepted===true)return true;
-   if(accepted===undefined)return null;
+   if(typeof bridge.hapticStatus==="function"){
+    const status=bridge.hapticStatus();
+    if(status==="system-off"||status==="no-motor"){
+     wazifaHapticDetail=status;return false;
+    }
+   }
+   if(test&&typeof bridge.vibrate==="function"){
+    const accepted=bridge.vibrate(10);
+    if(accepted===true)return true;
+    if(accepted===undefined)return null;
+   }else if(typeof bridge.vibrateTap==="function"){
+    const accepted=bridge.vibrateTap(state.vibrateLevel);
+    if(accepted===true)return true;
+    if(accepted===undefined)return null;
+   }
+   if(typeof bridge.vibrate==="function"&&!test){
+    const accepted=bridge.vibrate(state.vibrateLevel);
+    if(accepted===true)return true;
+    if(accepted===undefined)return null;
+   }
   }catch{}
  }
- // Use the reader's own user activation first, then the parent as fallback.
  for(const target of targets){
-  try{if(target.navigator.vibrate?.(20+state.vibrateLevel*6)===true)return true;}catch{}
+  try{
+   if(test?target.navigator.vibrate?.(200)===true:target.navigator.vibrate?.(20+state.vibrateLevel*6)===true)return true;
+  }catch{}
  }
  return false;
 }
-function showWazifaVibrationStatus(result){
+function showWazifaVibrationStatus(result,test=false){
  const note=$("#wz-session-note");
  if(!note)return;
  note.textContent=!state.vibrateEnabled||state.vibrateLevel===0?"وائبریشن بند":
-  result===true?"وائبریشن آن":
+  wazifaHapticDetail==="system-off"?"فون کی Settings میں Touch vibration / Haptic feedback آن کریں۔":
+  wazifaHapticDetail==="no-motor"?"اس ڈیوائس پر وائبریشن موٹر دستیاب نہیں۔":
+  result===true?(test?"ٹیسٹ سگنل بھیجا گیا۔ محسوس نہ ہو تو فون کی Touch vibration سیٹنگ چیک کریں۔":"وائبریشن سگنل بھیجا گیا"):
   result===null?"پرانا Android ورژن: وائبریشن کی تصدیق نہیں ہو سکی۔":
   "وائبریشن دستیاب نہیں۔ فون کی وائبریشن سیٹنگ یا Android ایپ کا ورژن چیک کریں۔";
 }
@@ -965,6 +986,7 @@ function readerMarkup(group){
   '<div class="wz-feedback-level"><button type="button" data-wazifa-action="vibration-down" aria-label="وائبریشن کم کریں">−</button>'+
   '<output id="wz-vibration-level" aria-label="وائبریشن کی سطح">'+state.vibrateLevel+'</output>'+
   '<button type="button" data-wazifa-action="vibration-up" aria-label="وائبریشن بڑھائیں">+</button></div></div>'+
+ '<button type="button" class="wz-reader-fullscreen" data-wazifa-action="test-vibration" aria-label="وائبریشن ٹیسٹ">ٹیسٹ</button>'+
  '<button type="button" class="wz-reader-fullscreen" data-wazifa-action="toggle-fullscreen" aria-pressed="false">فل سکرین</button>'+
  '</div>'+
  fiveFigureMarkup(group,w,record)+
@@ -1642,6 +1664,7 @@ document.addEventListener("click",event=>{
   }
   return;
  }
+ if(action==="test-vibration"){showWazifaVibrationStatus(vibrateWazifa(true),true);return;}
  if(action==="toggle-fullscreen"){
   // Works in the existing Android WebView even when native fullscreen is unsupported.
   setWazifaImmersive(!state.immersive);
