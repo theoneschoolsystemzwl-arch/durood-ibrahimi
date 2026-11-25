@@ -167,7 +167,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,vibrateLevel:10,immersive:false,lastTapAt:0
+ seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,vibrateEnabled:false,soundLevel:10,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -209,13 +209,12 @@ try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
  state.vibrateEnabled=localStorage.getItem("durood-wz-vibration-v2")!=="0";
   state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
-  state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)||0));
+
 }catch{}
 let wzTapAudio=null;
-let wazifaHapticDetail="";
-function vibrateWazifa(test=false){
- wazifaHapticDetail="";
- if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
+
+function vibrateWazifa(){
+ if(!state.vibrateEnabled)return false;
  const targets=[window];
  try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.push(window.parent);}catch{}
  const tried=new Set();
@@ -224,41 +223,27 @@ function vibrateWazifa(test=false){
    const bridge=target.DuroodAndroid;
    if(!bridge||tried.has(bridge))continue;
    tried.add(bridge);
-   // Use the same native motor path for counted taps and the test.
+   if(typeof bridge.hapticClick==="function")return bridge.hapticClick()===true;
    if(typeof bridge.vibrate==="function"){
-    const accepted=test?bridge.vibrate(10):bridge.vibrate(state.vibrateLevel);
+    const accepted=bridge.vibrate(10);
     if(accepted===true)return true;
     if(accepted===undefined)return null;
    }
    if(typeof bridge.vibrateTap==="function"){
-    const accepted=bridge.vibrateTap(state.vibrateLevel);
+    const accepted=bridge.vibrateTap(10);
     if(accepted===true)return true;
     if(accepted===undefined)return null;
    }
-   if(typeof bridge.hapticStatus==="function"){
-    const status=bridge.hapticStatus();
-    if(status==="system-off"||status==="no-motor"){
-     wazifaHapticDetail=status;return false;
-    }
-   }
   }catch{}
  }
- for(const target of targets){
-  try{
-   if(target.navigator.vibrate?.(100)===true)return true;
-  }catch{}
- }
+ // Browser API requires an internal pulse duration; no user timing setting.
+ for(const target of targets){try{if(target.navigator.vibrate?.(10)===true)return true;}catch{}}
  return false;
 }
-function showWazifaVibrationStatus(result,test=false){
+function showWazifaVibrationStatus(result){
  const note=$("#wz-session-note");
  if(!note)return;
- note.textContent=!state.vibrateEnabled||state.vibrateLevel===0?"وائبریشن بند":
-  wazifaHapticDetail==="system-off"?"فون کی Settings میں Touch vibration / Haptic feedback آن کریں۔":
-  wazifaHapticDetail==="no-motor"?"اس ڈیوائس پر وائبریشن موٹر دستیاب نہیں۔":
-  result===true?(test?"ٹیسٹ سگنل بھیجا گیا۔ محسوس نہ ہو تو فون کی Touch vibration سیٹنگ چیک کریں۔":"وائبریشن سگنل بھیجا گیا"):
-  result===null?"پرانا Android ورژن: وائبریشن کی تصدیق نہیں ہو سکی۔":
-  "وائبریشن دستیاب نہیں۔ فون کی وائبریشن سیٹنگ یا Android ایپ کا ورژن چیک کریں۔";
+ note.textContent=!state.vibrateEnabled?"وائبریشن بند":result===true?"وائبریشن آن":result===null?"وائبریشن کی تصدیق نہیں ہو سکی۔":"فون کی Touch vibration سیٹنگ چیک کریں۔";
 }
 let wzFullscreenHistory=false;
 let wzFullscreenScroll=null;
@@ -326,7 +311,7 @@ document.addEventListener("keydown",event=>{
 });
 let lastWazifaHapticResult;
 function playWazifaFeedback(withVibration=true){
- if(withVibration&&state.vibrateEnabled&&state.vibrateLevel>0){
+ if(withVibration&&state.vibrateEnabled){
   const result=vibrateWazifa();
   if(result!==lastWazifaHapticResult){showWazifaVibrationStatus(result);lastWazifaHapticResult=result;}
  }
@@ -980,10 +965,7 @@ function readerMarkup(group){
   '<button type="button" data-wazifa-action="sound-up" aria-label="ساؤنڈ بڑھائیں">+</button></div></div>'+
  '<div class="wz-feedback-control">'+
   '<button type="button" class="wz-feedback-button" data-wazifa-action="toggle-vibration" aria-pressed="'+state.vibrateEnabled+'">وائبریشن</button>'+
-  '<div class="wz-feedback-level"><button type="button" data-wazifa-action="vibration-down" aria-label="وائبریشن کم کریں">−</button>'+
-  '<output id="wz-vibration-level" aria-label="وائبریشن کی سطح">'+state.vibrateLevel+'</output>'+
-  '<button type="button" data-wazifa-action="vibration-up" aria-label="وائبریشن بڑھائیں">+</button></div></div>'+
- '<button type="button" class="wz-reader-fullscreen" data-wazifa-action="test-vibration" aria-label="وائبریشن ٹیسٹ">ٹیسٹ</button>'+
+  '</div>'+
  '<button type="button" class="wz-reader-fullscreen" data-wazifa-action="toggle-fullscreen" aria-pressed="false">فل سکرین</button>'+
  '</div>'+
  fiveFigureMarkup(group,w,record)+
@@ -1518,62 +1500,40 @@ setInterval(tick,125);
 let longHoldTimer=null;
 let activeFeedbackPress=null,handledFeedbackClick=null;
 function feedbackPressAction(target){
- const button=target?.closest?.('[data-wazifa-action="tap"],[data-wazifa-action="test-vibration"]');
+ const button=target?.closest?.('[data-wazifa-action="tap"]');
  return button&&!button.disabled?button:null;
-}
-function runWazifaVibrationTest(){
- const result=vibrateWazifa(true);
- showWazifaVibrationStatus(result,true);
- return result;
 }
 document.addEventListener("pointerdown",event=>{
  const button=feedbackPressAction(event.target);
  if(!button||event.button>0||event.isPrimary===false)return;
  clearTimeout(longHoldTimer);
  state.skipDialClick=false;
- const action=button.dataset.wazifaAction;
- handledFeedbackClick=action;
- activeFeedbackPress={id:event.pointerId,action,retry:false};
- // No hold threshold: count and vibrate as soon as the finger touches the button.
- if(action==="tap"){
-  const counted=tap();
-  activeFeedbackPress.retry=counted===true&&lastWazifaHapticResult===false;
-  longHoldTimer=setTimeout(()=>{
-   if(!button.isConnected)return;
-   state.dialFloating=!state.dialFloating;
-   button.classList.toggle("is-floating",state.dialFloating);
-  },5000);
- }else{
-  activeFeedbackPress.retry=runWazifaVibrationTest()===false;
- }
+ handledFeedbackClick="tap";
+ const press={id:event.pointerId,retry:false};activeFeedbackPress=press;
+ const counted=tap();
+ press.retry=counted===true&&lastWazifaHapticResult===false;
+ longHoldTimer=setTimeout(()=>{
+  if(!button.isConnected)return;
+  state.dialFloating=!state.dialFloating;
+  button.classList.toggle("is-floating",state.dialFloating);
+ },5000);
 },true);
 document.addEventListener("pointerup",event=>{
  const press=activeFeedbackPress;
  if(!press||press.id!==event.pointerId)return;
- clearTimeout(longHoldTimer);
- activeFeedbackPress=null;
- // Browser-only vibration may require touch release to grant user activation.
- // Retry vibration only; never increment the counter or play sound twice.
- if(press.retry&&state.vibrateEnabled&&state.vibrateLevel>0){
-  if(press.action==="test-vibration")runWazifaVibrationTest();
-  else{
-   const result=vibrateWazifa();
-   lastWazifaHapticResult=result;
-   showWazifaVibrationStatus(result);
-  }
+ clearTimeout(longHoldTimer);activeFeedbackPress=null;
+ if(press.retry&&state.vibrateEnabled){
+  const result=vibrateWazifa();lastWazifaHapticResult=result;showWazifaVibrationStatus(result);
  }
 },true);
 document.addEventListener("pointercancel",event=>{
- if(activeFeedbackPress?.id===event.pointerId){
-  clearTimeout(longHoldTimer);activeFeedbackPress=null;
- }
+ if(activeFeedbackPress?.id===event.pointerId){clearTimeout(longHoldTimer);activeFeedbackPress=null;}
 },true);
 document.addEventListener("contextmenu",event=>{
  if(feedbackPressAction(event.target))event.preventDefault();
 },true);
 function consumeFeedbackClick(event,action){
- // Pointer activation already ran on pointerdown. Keyboard/AT click still works.
- if(handledFeedbackClick===action&&(event.detail!==0||event.pointerType==="touch"||event.pointerType==="pen"||event.pointerType==="mouse")){
+ if(handledFeedbackClick===action&&(event.detail!==0||["touch","pen","mouse"].includes(event.pointerType))){
   handledFeedbackClick=null;return true;
  }
  handledFeedbackClick=null;return false;
@@ -1690,14 +1650,12 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem("durood-wz-marquee-speed-v3",String(wzArabicSpeed));localStorage.setItem("durood-wz-marquee-font",String(wzArabicFont));}catch{}
   syncArabicTicker();return;
  }
- if(["vibration-up","vibration-down","sound-up","sound-down"].includes(action)){
-  const sound=action.startsWith("sound-"),key=sound?"soundLevel":"vibrateLevel";
+ if(["sound-up","sound-down"].includes(action)){
+  const key="soundLevel";
   state[key]=Math.min(10,Math.max(0,state[key]+(action.endsWith("-up")?1:-1)));
-  try{localStorage.setItem(sound?"durood-wz-sound-level":"durood-wz-vibration-level",String(state[key]));}catch{}
-  const output=$(sound?"#wz-sound-level":"#wz-vibration-level");
-  if(output)output.textContent=String(state[key]);
-  if(!sound){lastWazifaHapticResult=undefined;const note=$("#wz-session-note");if(note)note.textContent=state.vibrateEnabled&&state.vibrateLevel>0?"وائبریشن آن — تسبیح دبائیں":"وائبریشن بند";}
-  if(sound&&state.soundEnabled)playWazifaFeedback(false);
+  try{localStorage.setItem("durood-wz-sound-level",String(state[key]));}catch{}
+  const output=$("#wz-sound-level");if(output)output.textContent=String(state[key]);
+  if(state.soundEnabled)playWazifaFeedback(false);
   return;
  }
  if(action==="toggle-sound"||action==="toggle-vibration"){
@@ -1707,12 +1665,12 @@ document.addEventListener("click",event=>{
   button.setAttribute("aria-pressed",String(state[key]));
   button.textContent=sound?"ساؤنڈ":"وائبریشن";
   if(!sound){
-   if(state.vibrateEnabled&&state.vibrateLevel===0){state.vibrateLevel=10;try{localStorage.setItem("durood-wz-vibration-level","10");}catch{}const level=$("#wz-vibration-level");if(level)level.textContent="10";}
-   lastWazifaHapticResult=undefined;const note=$("#wz-session-note");if(note)note.textContent=state.vibrateEnabled&&state.vibrateLevel>0?"وائبریشن آن — تسبیح دبائیں":"وائبریشن بند";
+
+   lastWazifaHapticResult=undefined;const note=$("#wz-session-note");if(note)note.textContent=state.vibrateEnabled?"وائبریشن آن — تسبیح دبائیں":"وائبریشن بند";
   }
   return;
  }
- if(action==="test-vibration"){if(!consumeFeedbackClick(event,action))runWazifaVibrationTest();return;}
+
  if(action==="toggle-fullscreen"){
   // Works in the existing Android WebView even when native fullscreen is unsupported.
   setWazifaImmersive(!state.immersive);
