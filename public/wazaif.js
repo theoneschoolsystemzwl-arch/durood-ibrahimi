@@ -245,7 +245,7 @@ function vibrateWazifa(test=false){
  }
  for(const target of targets){
   try{
-   if(target.navigator.vibrate?.(400)===true)return true;
+   if(target.navigator.vibrate?.(100)===true)return true;
   }catch{}
  }
  return false;
