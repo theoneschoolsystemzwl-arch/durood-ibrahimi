@@ -1050,3 +1050,6 @@ body.wz-immersive-reader #wazaif-root .wz-session-card .wz-hero-dial:not(.is-flo
  flex:none!important;margin:auto auto 8px!important;
  padding:clamp(4px,2vw,12px)!important;
 }
+
+/* Keep the new motor ON/OFF label readable within the existing compact control. */
+.wz-hero-reader .wz-daily-toolbar [data-wazifa-action="toggle-vibration"]{white-space:normal;line-height:1.12;overflow-wrap:normal}
