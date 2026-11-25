@@ -115,7 +115,7 @@ assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sou
 assert(src.includes('durood-tap-motor-v5-strength')&&src.includes('api.pulseTasbihMotor(state.motorStrength)'),"fresh native motor and settings");
 assert(!src.includes('bridge.vibrateTap')&&!src.includes('bridge.hapticClick'),"do not restore the previous motor engine");
 {
- const a=src.indexOf("function normalizeMotorStrength("),b=src.indexOf("function updateTapMotorControls()",a);
+ const a=src.indexOf("function normalizeMotorStrength("),b=src.indexOf("function showTapMotorDiagnostic(",a);
  assert(a>=0&&b>a);
  let levels=[],fallbacks=0;
  const win={DuroodAndroid:{pulseTasbihMotor:n=>{levels.push(n);return true;}},navigator:{vibrate:()=>{fallbacks++;return true;}}};win.parent=win;
@@ -150,7 +150,7 @@ for(const file of ["android-online/src/app/duroodibrahimi/online/MainActivity.ja
   const button={isConnected:true,disabled:false,contains:node=>node===button,dataset:{wazifaAction:"tap"}};
   const ctx={
    document:{addEventListener:(name,fn)=>{handlers[name]=fn;},elementFromPoint:()=>button},
-   state:{motorEnabled:true},
+   state:{motorEnabled:true},lastTapMotorOutcome:"native",
    tap:()=>{counts++;pulses++;return true;},
    setTimeout:()=>1,clearTimeout:()=>{}
   };
