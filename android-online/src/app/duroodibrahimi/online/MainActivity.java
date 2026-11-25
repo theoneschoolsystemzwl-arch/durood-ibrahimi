@@ -189,7 +189,51 @@ public final class MainActivity extends Activity {
         if(root!=null)root.requestApplyInsets();
     }
     private final class ReaderControls {
-        @JavascriptInterface public void setImmersive(boolean enabled) {
+        // Independent motor engine: a non-repeating high-amplitude envelope on every tap.
+    @JavascriptInterface public boolean pulseTasbihMotor(int strength) {
+      if(!trustedPage()||strength<=0)return false;
+      final int level=Math.min(10,strength);
+      try {
+        android.os.Vibrator motor;
+        if(Build.VERSION.SDK_INT>=31){
+          android.os.VibratorManager manager=getSystemService(android.os.VibratorManager.class);
+          motor=manager==null?null:manager.getDefaultVibrator();
+        }else{
+          motor=getSystemService(android.os.Vibrator.class);
+        }
+        if(motor==null||!motor.hasVibrator())return false;
+        if(Build.VERSION.SDK_INT>=26){
+          final long[] timings;
+          final int[] amplitudes;
+          if(motor.hasAmplitudeControl()){
+            // Fast attack, strong sustained impulse, then a short taper.
+            int peak=level*255/10;
+            timings=new long[]{0,12,40,12};
+            amplitudes=new int[]{0,peak,Math.max(1,peak*4/5),Math.max(1,peak/3)};
+          }else{
+            // Hardware without amplitude control uses a single shorter/longer impulse.
+            timings=new long[]{0,20+level*5L};
+            amplitudes=new int[]{0,android.os.VibrationEffect.DEFAULT_AMPLITUDE};
+          }
+          android.os.VibrationEffect effect=android.os.VibrationEffect.createWaveform(timings,amplitudes,-1);
+          if(Build.VERSION.SDK_INT>=33){
+            motor.vibrate(effect,new android.os.VibrationAttributes.Builder()
+                .setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
+          }else{
+            motor.vibrate(effect,new android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+          }
+        }else{
+          motor.vibrate(20+level*5L);
+        }
+        return true;
+      }catch(RuntimeException error){
+        android.util.Log.w("TasbihMotor","Motor request failed",error);
+        return false;
+      }
+    }
+    @JavascriptInterface public void setImmersive(boolean enabled) {
             if(!trustedPage())return;
             runOnUiThread(()->updateImmersive(enabled));
         }
