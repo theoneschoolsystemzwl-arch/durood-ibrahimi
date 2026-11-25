@@ -118,6 +118,21 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   if(wifeReferrals.size!==0)throw Error("New wife should start with zero referrals");
   await assertSucceeds(getDoc(doc(wifeDb,"genderMembers","female")));
   await assertFails(getDoc(doc(newDb,"members",wifeId)));
+  // Shared targets are readable within the same gender only, never writable by peers.
+  const goalDate="2026-11-26";
+  const goalRef=(db,uid)=>doc(db,"memberPrivate",uid,"duroodGoals",goalDate);
+  await assertSucceeds(setDoc(goalRef(ownerDb,ownerId),{date:goalDate,goal:100,updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(goalRef(newDb,newId),{date:goalDate,goal:101,updatedAt:serverTimestamp()}));
+  await assertSucceeds(setDoc(goalRef(wifeDb,wifeId),{date:goalDate,goal:80,updatedAt:serverTimestamp()}));
+  await assertSucceeds(getDocs(collection(newDb,"memberPrivate",ownerId,"duroodGoals")));
+  await assertSucceeds(getDoc(goalRef(newDb,ownerId)));
+  await assertSucceeds(getDocs(collection(ownerDb,"memberPrivate",wifeId,"duroodGoals")));
+  await assertFails(getDocs(collection(newDb,"memberPrivate",wifeId,"duroodGoals")));
+  await assertFails(getDocs(collection(wifeDb,"memberPrivate",newId,"duroodGoals")));
+  await assertFails(getDocs(collection(guestDb,"memberPrivate",newId,"duroodGoals")));
+  await assertFails(updateDoc(goalRef(newDb,ownerId),{goal:200,updatedAt:serverTimestamp()}));
+  await assertFails(getDocs(collection(newDb,"memberPrivate",ownerId,"prayers")));
+
   console.log("Owner female first member signup passed: DI-3, role=member, own referrals=0.");
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
   // Another valid password sign-in must NOT replace the first active session.

@@ -181,8 +181,11 @@ if(!lastVerifiedLive){
 const afterDailyGoalFix=historicalRules('47de0727fb67b7d198e9881f064e37818c36fccb');
 const afterGroupLedgerRelease=historicalRules('58ae04928c2372e61e75b212b840ce8c0865ee64');
 const afterReaderRepair=historicalRules('1fd3eab0718e34a1acf5421f523d9a5b2fc09be1');
+// Exact intact pre-presence source recovered during the 26 Nov audit.
+// Accept only a full normalized source match with the actual published rules.
+const beforePresence=historicalRules('e8cafa41c1199c02fa7d3d377c9672622a29b62b');
 const baselines=[
-  afterReaderRepair,afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
+  beforePresence,  afterReaderRepair,afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,
   beforeGapRepair,beforeContinuationFix,beforeRepeatedGoalEdit,beforeDateRevision,afterDateRevision,beforeAggregateGoals
