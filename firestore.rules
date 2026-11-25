@@ -8,8 +8,41 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly(['at']) && request.resource.data.at==request.time;
       allow list, delete: if false;
     }
+    // Private biodata is never available to peers. The separate share document
+    // contains only fields the account holder explicitly chose to publish.
+    match /memberProfileDetails/{uid} {
+      allow get: if (self(uid) && currentMember()) || owner();
+      allow create, update: if self(uid) && currentMember() &&
+        request.resource.data.keys().hasOnly(['age','birthDate','address','adultConfirmed']) &&
+        request.resource.data.keys().hasAll(['age','birthDate','address','adultConfirmed']) &&
+        request.resource.data.age is int && request.resource.data.age >= 0 && request.resource.data.age <= 120 &&
+        request.resource.data.birthDate is string && request.resource.data.birthDate.size() <= 10 &&
+        request.resource.data.address is string && request.resource.data.address.size() <= 240 &&
+        request.resource.data.adultConfirmed is bool;
+      allow list, delete: if false;
+    }
+    match /memberProfileShares/{uid} {
+      allow get: if (self(uid) && currentMember()) || owner() ||
+        (currentMember() && active(uid) && matchingGender(get(memberPath(uid)).data));
+      allow list: if false;
+      allow create, update: if self(uid) && currentMember() &&
+        request.resource.data.keys().hasOnly(['image','mobile','email','address','age','birthDate','showJoined']) &&
+        (!('image' in request.resource.data) || (request.resource.data.image is string &&
+          request.resource.data.image.size() <= 180000 &&
+          request.resource.data.image.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'))) &&
+        (!('showJoined' in request.resource.data) || request.resource.data.showJoined == true) &&
+        (!request.resource.data.keys().hasAny(['mobile','email','address','age','birthDate']) ||
+          (getAfter(/databases/$(database)/documents/memberProfileDetails/$(uid)).data.adultConfirmed == true &&
+           getAfter(/databases/$(database)/documents/memberProfileDetails/$(uid)).data.age >= 18)) &&
+        (!('mobile' in request.resource.data) || (request.resource.data.mobile is string && request.resource.data.mobile.size() <= 32)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 254)) &&
+        (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 240)) &&
+        (!('age' in request.resource.data) || (request.resource.data.age is int && request.resource.data.age >= 18 && request.resource.data.age <= 120)) &&
+        (!('birthDate' in request.resource.data) || (request.resource.data.birthDate is string && request.resource.data.birthDate.size() <= 10));
+      allow delete: if self(uid) && currentMember();
+    }
     match /memberContacts/{uid} {
-      allow get: if self(uid) && currentMember();
+      allow get: if (self(uid) && currentMember()) || owner();
       allow create, update: if self(uid) && currentMember() &&
         request.resource.data.keys().hasAll(['mobile','email']) &&
         request.resource.data.keys().hasOnly(['mobile','email']) &&

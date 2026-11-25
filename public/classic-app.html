@@ -1439,6 +1439,12 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .member-profile-hero .form-actions{justify-content:center;margin:3px 0}
 :root[data-theme] .member-profile-details{gap:5px!important;margin:8px 0 0}
 :root[data-theme] .member-profile-details>div{display:flex;flex-direction:column;gap:2px;padding:5px 8px!important;border-radius:8px;background:#064537;border:1px solid #236f58;min-width:0}
+:root[data-theme] .profile-member-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:6px}
+:root[data-theme] .profile-roster-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 3px;border:1px solid #388b70;background:#064537;color:#fff;border-radius:10px;min-width:0;overflow-wrap:anywhere;text-align:center}
+:root[data-theme] .profile-roster-card .avatar{width:48px;height:48px}
+:root[data-theme] .profile-roster-card small{font-size:.72rem}
+:root[data-theme] member-shared-photo{display:inline-flex;align-items:center;justify-content:center}
+:root[data-theme] .profile-share-check{display:flex;align-items:center;gap:6px;font-size:.85rem}
 :root[data-theme] .member-profile-details dt{font-size:.75rem;color:#d0e6d9;line-height:1.5}
 :root[data-theme] .member-profile-details dd{font-weight:700;color:#fff;line-height:1.5;min-height:0;overflow-wrap:anywhere}
 :root[data-theme] .tree-group-wird>bdi{font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;color:#dbffec;max-width:100%;overflow-wrap:anywhere}
@@ -1622,6 +1628,7 @@ let savedMemberWirds=new Map(),savedMemberWirdsComplete=false,ownGroupWirds=new 
 function memberWirdText(person){
   if(!person)return '—';
   if(!person.uid)return formatNumber(score(person,'all','current'));
+  if(ownGroupWirds.has(person.uid))return formatNumber(ownGroupWirds.get(person.uid));
   if(savedMemberWirds.has(person.uid))return formatNumber(savedMemberWirds.get(person.uid));
   if(savedMemberWirdsComplete&&!(ownerViewingWomen()&&person.isOwner))return formatNumber(0);
   return '—';
@@ -1631,7 +1638,7 @@ function groupWirdPeople(p){
  return p.isOwner||p.isMasterFounder||p.isFoundingSpouse?[p,...list]:list;
 }
 function groupWirdText(p){
- if(p.uid&&(!groupDirectoryReady||(!currentUser()?.isOwner&&p.uid!==currentUser()?.uid)))return '—';
+ if(p.uid&&(!groupDirectoryReady||!canViewMemberProfile(currentUser(),p)))return '—';
  if(p.uid&&currentUser()?.isOwner&&!savedMemberWirdsComplete)return '—';
  if(p.uid&&!currentUser()?.isOwner&&!groupWirdPeople(p).every(m=>ownGroupWirds.has(m.uid)))return '—';
  const list=groupWirdPeople(p);
@@ -1887,17 +1894,18 @@ function accessibleTreeMembers(viewer){
     (viewer.isOwner||p.id===viewer.id||(groupDirectoryReady&&descendantsSet.has(p.id))));
 }
 function treeMembersPage(){
-  const viewer=currentUser(),members=accessibleTreeMembers(viewer);
+  const viewer=currentUser(),treeMembers=accessibleTreeMembers(viewer);
   const ready=groupDirectoryReady||!viewer?.uid;
   const side=viewer?.isOwner&&ownerViewingWomen()?'Female':viewer?.gender;
+  const members=users.filter(p=>!p.deleted&&!p.disabled&&p.gender===side);
   const sideTotal=users.filter(p=>!p.deleted&&p.gender===side).length;
-  const owned=members.filter(p=>hasGroup(p.id)).length;
-  return heading(tr("Members","ارکان"),tr("Select a member to view their group and branch, not their private profile.","رکن پر ٹیپ کریں، اس کا گروپ اور شجرہ دیکھیں۔ نجی پروفائل نہیں۔"))+
+  const owned=treeMembers.filter(p=>hasGroup(p.id)).length;
+  return heading(tr("Members","ارکان"),tr("Select a member to view their shared profile and group information.","رکن پر ٹیپ کرکے اس کی شیئر کردہ پروفائل اور گروپ دیکھیں۔"))+
     '<div class="stats">'+stat(tr("Total members in community","کمیونٹی کے کل ارکان"),ready?displayNumber(sideTotal):'—')+
-    stat(tr("Members in your tree","اپنے شجرے کے ارکان"),ready?displayNumber(members.length):'—')+
+    stat(tr("Members in your tree","اپنے شجرے کے ارکان"),ready?displayNumber(treeMembers.length):'—')+
     stat(tr("Groups","گروپس"),ready?displayNumber(owned):'—')+'</div>'+
     '<div class="form-actions section"><button class="button secondary" data-action="nav" data-value="ranking">'+tr("Top members","نمایاں ارکان")+'</button></div>'+
-    '<section class="panel section tree"><ul class="child-list">'+members.map(p=>'<li>'+treeNode(p,false)+'</li>').join('')+'</ul></section>';
+    '<section class="panel section tree"><ul class="child-list">'+members.map(p=>'<li>'+treeNode(p,false,true)+'</li>').join('')+'</ul></section>';
 }
 function treeActivityMarkup(p){
   const ready=!p.uid||groupDirectoryReady;
@@ -1911,11 +1919,11 @@ function treeActivityMarkup(p){
     (ready&&hasGroup(p.id)&&(currentUser()?.isOwner||currentUser()?.id===p.id)?'<span class="tree-activity-gc"><small>GC · '+esc(group)+'</small><bdi data-group-wird="'+p.id+'">'+groupWirdText(p)+'</bdi></span>':'')+
     '</span>';
 }
-function treeNode(person, isRoot = false) {
- const level=memberLevel(person),clickable=!isRoot&&canViewTreeBranch(currentUser(),person),tag=clickable?'button':'div';
+function treeNode(person, isRoot = false, profileMode=false) {
+ const level=memberLevel(person),clickable=!isRoot&&(profileMode?canViewMemberProfile(currentUser(),person):canViewTreeBranch(currentUser(),person)),tag=clickable?'button':'div';
  return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
- (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
- '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
+ (clickable?' data-action="'+(profileMode?'profile':'branch')+'" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
+ '<span class="tree-portrait"><member-shared-photo data-uid="'+esc(person.uid||'')+'"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></member-shared-photo></span>'+
  '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+groupCodeMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
  (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
  '</span>'+treeActivityMarkup(person)+'</'+tag+'>';
@@ -2036,33 +2044,39 @@ function ownerPasswordRecoveryMarkup(person){
     '<a class="button secondary" href="https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/update" target="_blank" rel="noopener noreferrer">'+tr("Open authorized Google password reset","مجاز گوگل پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
     feedback("owner-password-reset-feedback")+'</section>';
 }
-function canViewMemberProfile(viewer,person){
+function canManagePrivateProfile(viewer,person){
   return !!viewer&&!!person&&(viewer.isOwner===true||(viewer.uid&&person.uid?viewer.uid===person.uid:viewer.id===person.id));
+}
+function canViewMemberProfile(viewer,person){
+  return !!viewer&&!!person&&(canManagePrivateProfile(viewer,person)||(!person.deleted&&!person.disabled&&viewer.gender===person.gender));
 }
 function profileDetails(person) {
   const viewer=currentUser();
   if(!canViewMemberProfile(viewer,person))return treeMembersPage();
-  const own=viewer.id===person.id,admin=viewer.isOwner===true;
+  const own=viewer.id===person.id,admin=viewer.isOwner===true,privateView=own||admin;
   const inviter=getUser(person.inviter);
-  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
-    [tr("Membership date", 'تاریخِ رکنیت'),membershipDateLabel(person)],
-    [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Address", 'پتہ'),person.address],
-    [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),inviter ? memberName(inviter) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
+  const values = [[tr("Member ID",'رکنیت نمبر'),serial(person.id)],[tr("Group",'گروپ'),ownedGroupName(person.id)],[tr("Gender",'جنس'),genderLabels[person.gender]||person.gender],
+    [tr("Invited directly by",'براہ راست دعوت دینے والا'),inviter?memberName(inviter):'—']];
+  if(privateView)values.push([tr("Login ID",'لاگ اِن آئی ڈی'),person.username],[tr("Membership date",'تاریخ رکنیت'),membershipDateLabel(person)]);
+  const children=directMembers(person.id).filter(m=>!m.deleted&&!m.isFoundingSpouse);
+  const roster='<section class="panel section"><h2>'+tr("Direct members","براہ راست شامل کردہ ارکان")+' · '+(groupDirectoryReady?formatNumber(children.length):'—')+'</h2>'+
+    '<div class="profile-member-roster">'+children.map(m=>'<button class="profile-roster-card" data-action="profile" data-value="'+m.id+'"><member-shared-photo data-uid="'+esc(m.uid||'')+'"><span class="profile-portrait-level">'+avatar(m)+'<span class="node-dot level-'+memberLevel(m)+'">'+displayNumber(memberLevel(m))+'</span></span></member-shared-photo><strong dir="auto">'+esc(memberName(m))+'</strong><small>'+displayId(m.id)+' '+groupCodeMarkup(m)+'</small><small>'+tr("Invited","شامل کردہ")+' · '+(groupDirectoryReady?formatNumber(directMembers(m.id).filter(x=>!x.deleted&&!x.isFoundingSpouse).length):'—')+'</small></button>').join('')+'</div>'+
+    (!children.length?ur(tr("No direct members yet.","ابھی کوئی نیا ممبر شامل نہیں کیا۔"),'p','muted'):'')+'</section>';
   const level=memberLevel(person);
   const editButton=own?'<button class="button secondary" data-action="nav" data-value="settings">'+tr("Edit profile / settings","پروفائل تبدیل کریں / ترتیبات")+'</button>':'';
-  const backButton=admin&&!own?'<button class="button secondary" data-action="nav" data-value="directory">'+tr("Back to users","صارفین پر واپس")+'</button>':'';
+  const backButton=!own?'<button class="button secondary" data-action="nav" data-value="'+(admin?'directory':'members')+'">'+tr("Back to members","ارکان پر واپس")+'</button>':'';
   return heading(own?tr("My profile","میری پروفائل"):tr("Member Profile","رکن کی پروفائل"))+
     '<section class="panel member-profile-view"><div class="member-profile-hero">'+
-      '<span class="profile-portrait-level">'+avatar(person,true)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'">'+displayNumber(level)+'</span></span>'+
+      '<member-shared-photo data-uid="'+esc(person.uid||'')+'"><span class="profile-portrait-level">'+avatar(person,true)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'">'+displayNumber(level)+'</span></span></member-shared-photo>'+
       '<strong dir="auto" class="member-profile-name">'+esc(memberName(person))+'</strong>'+
       '<span class="member-profile-code" dir="ltr">'+displayId(person.id)+' '+groupCodeMarkup(person)+'</span>'+
       '<small>'+((person.isOwner||person.isFoundingSpouse)?tr("Founder","بانی"):tr("Member","رکن"))+'</small>'+
       '<div class="member-profile-metrics">'+stat(tr("Level","لیول"),displayNumber(level))+stat(tr("Personal Durood","ذاتی ورد"),'<bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi>')+'</div>'+
       '<div class="form-actions">'+editButton+backButton+'</div></div>'+
+    '<div class="stats">'+stat(tr("Direct invites","شامل کردہ ارکان"),groupDirectoryReady?displayNumber(children.length):'—')+stat(tr("Branch members","شاخ کے ارکان"),groupDirectoryReady?displayNumber(branchMemberCount(person)):'—')+stat("GC",hasGroup(person.id)?'<bdi data-group-wird="'+person.id+'">'+groupWirdText(person)+'</bdi>':'—')+'</div>'+
     '<dl class="detail-grid member-profile-details">'+values.map(([key,value])=>'<div><dt>'+key+'</dt><dd dir="auto">'+esc(value===0?0:value||'—')+'</dd></div>').join('')+
-    (own&&person.uid?'<div><dt>'+tr("Mobile / WhatsApp","موبائل / واٹس ایپ")+'</dt><dd dir="ltr" data-own-profile-contact="mobile">—</dd></div><div><dt>'+tr("Email","ای میل")+'</dt><dd dir="ltr" data-own-profile-contact="email">—</dd></div>':'')+
-    '</dl>'+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
-    '</section>' + (!admin||own||person.isOwner ? '' :
+    '</dl>'+(person.uid?'<member-profile-fields data-uid="'+esc(person.uid)+'" data-private="'+(privateView?'1':'0')+'" data-joined="'+esc(membershipDateLabel(person))+'"></member-profile-fields>':'')+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
+    '</section>'+roster + (!admin||own||person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -2133,13 +2147,9 @@ function settings(person) {
     tr("<form id=\"profile-form\" class=\"form\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" value=\"", '<form id="profile-form" class="form"><label class="field">پورا نام<input name="name" dir="auto" value="') + esc(memberName(person)) +
     tr("\" maxlength=\"60\" required></label><label class=\"field\">Member ID and Login ID<input readonly value=\"", '" maxlength="60" required></label><label class="field">رکنیت نمبر اور لاگ اِن آئی ڈی<input readonly value="') + serial(person.id) + ' | ' +
     esc(person.username) + '"></label><div class="form-grid">' +
-    tr("<label class=\"field\">Date of birth<input name=\"birthDate\" type=\"date\" value=\"", '<label class="field">تاریخِ پیدائش<input name="birthDate" type="date" value="') + esc(person.birthDate) + '"></label>' +
-    tr("<label class=\"field\">Age<input name=\"age\" type=\"number\" min=\"1\" max=\"120\" value=\"", '<label class="field">عمر<input name="age" type="number" min="1" max="120" value="') + esc(person.age) + '"></label>' +
-    genderField(person.gender) +
-    tr("<label class=\"field\">Full address<input name=\"address\" maxlength=\"240\" dir=\"auto\" placeholder=\"City and country\" value=\"", '<label class="field">مکمل پتہ<input name="address" maxlength="240" dir="auto" placeholder="شہر اور ملک" value="') + esc(person.address) + '"></label>' +
-    (person.uid?ur(tr("Name and photo are saved to Firebase. Age, birth date and address are not yet synced to Firebase.","نام اور تصویر Firebase میں محفوظ ہوتے ہیں۔ عمر، تاریخ پیدائش اور پتہ ابھی Firebase میں محفوظ نہیں ہوتے۔"),'p','muted'):'')+
+    genderField(person.gender) + '</div>'+
     feedback('profile-feedback') + tr("<div><button class=\"button\">Save profile</button></div></form></section>", '<div><button class="button">پروفائل محفوظ کریں</button></div></form></section>') +
-    '<profile-contacts></profile-contacts>' +
+    '<member-profile-sharing></member-profile-sharing>' +
     tr("<section class=\"panel section\"><h2>Change password</h2><form id=\"password-form\" class=\"form\">", '<section class="panel section"><h2>پاس ورڈ تبدیل کریں</h2><form id="password-form" class="form">') +
     passwordField('old',tr("Current password", 'موجودہ پاس ورڈ'),'current-password') + '<div class="form-grid">' +
     passwordField('password',tr("New password", 'نیا پاس ورڈ')) + passwordField('confirm',tr("Confirm new password", 'نئے پاس ورڈ کی تصدیق')) + '</div>' +
@@ -4281,10 +4291,11 @@ function dashboard(person) {
   links.push(['groups','◇',tr("Groups", 'گروپس')]);
   const women = ownerViewingWomen();
   const personalTabs = ['tasbih','wazifa-reader','namaz','settings','my-profile'];
-  const active = section === 'wazifa-reader' ? 'tasbih' : section === 'profile' ? 'directory' : section==='ranking'?'members':section==='settings'?'my-profile':section;
+  const active = section === 'wazifa-reader' ? 'tasbih' : section === 'profile' ? (owner?'directory':'members') : section==='ranking'?'members':section==='settings'?'my-profile':section;
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
   const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:treeMembersPage,ranking,groups,tree:() => tree(person),settings:() => settings(person),'my-profile':()=>profileDetails(person),messages:groupMessagesPage};
-  if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
+  screens.profile=()=>profileDetails(getUser(profileId)||person);
+  if(owner)Object.assign(screens,{directory});
   return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+prayerTickerMarkup(person)+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
@@ -4520,8 +4531,10 @@ function render({keepScroll = false} = {}) {
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
-  if(person&&section==='my-profile')window.duroodLoadOwnProfileContacts?.(person.uid);
-  if(person&&section==='profile'&&profileId===person.id)window.duroodLoadOwnProfileContacts?.(person.uid);
+  if(person&&['my-profile','profile'].includes(section)){
+    const viewed=section==='my-profile'?person:getUser(profileId);
+    if(canViewMemberProfile(person,viewed))window.duroodLoadViewedProfileCounts?.(viewed.uid,groupWirdPeople(viewed).map(m=>m.uid).filter(Boolean));
+  }
   if (person && section === 'tasbih') window.duroodWazaif?.render?.();
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();
@@ -4753,9 +4766,11 @@ app.addEventListener('click', event => {
   }
   if (action === 'record') record = value;
   if (action === 'period') selectedPeriod = value;
-  if (action === 'profile' && currentUser()?.isOwner && visibleMembers().some(member => member.id === Number(value))) {
-    profileId = Number(value);
-    section = 'profile';
+  if (action === 'profile') {
+    const target=getUser(Number(value));
+    if(!canViewMemberProfile(currentUser(),target))return;
+    profileId=target.id;
+    section='profile';
   }
   if (action === 'branch') {
     const targetId=Number(value),target=getUser(targetId);
@@ -4851,7 +4866,7 @@ app.addEventListener('submit', async event => {
     }
     case 'profile-form': {
       if (!person || !data.get('name').trim()) return setFeedback('profile-feedback',tr("Enter your name.", 'نام درج کریں۔'));
-      for (const key of ['name','age','birthDate','address']) person[key] = data.get(key).trim();
+      for (const key of ['name','age','birthDate','address']) if(data.has(key))person[key] = String(data.get(key)||'').trim();
       if (photoDraft) person.photo = photoDraft;
       photoDraft = null;
       saveOfflineState();
@@ -5278,15 +5293,16 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-window.duroodLoadOwnProfileContacts=async uid=>{
-  if(!uid||auth.currentUser?.uid!==uid)return;
-  const fields=[...document.querySelectorAll("[data-own-profile-contact]")];
-  if(!fields.length)return;
-  try{
-    const snap=await getDoc(doc(db,"memberContacts",uid));
-    if(auth.currentUser?.uid!==uid)return;
-    for(const node of fields)if(node.isConnected)node.textContent=snap.data()?.[node.dataset.ownProfileContact]||"—";
-  }catch{for(const node of fields)if(node.isConnected)node.textContent="—";}
+import "./member-profile-sharing.js";
+window.duroodLoadViewedProfileCounts=async (uid,groupUids)=>{
+  const viewer=auth.currentUser?.uid;if(!viewer||!uid)return;
+  const side=window.duroodCurrentSide;
+  await Promise.all([...new Set([uid,...groupUids])].map(async memberUid=>{
+    try{
+      const snap=await getDocFromServer(doc(db,"memberCounts",memberUid));
+      if(auth.currentUser?.uid===viewer&&window.duroodCurrentSide===side)bridge.ownGroupWird(viewer,memberUid,snap.exists()?snap.data().total:0,side);
+    }catch(error){console.warn("Profile count unavailable",error.code);}
+  }));
 };
 import "./wazaif.js?release=motor-bridge-20261125-visible-v7";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";

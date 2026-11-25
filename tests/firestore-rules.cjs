@@ -109,6 +109,20 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertSucceeds(setDoc(doc(wifeDb,"activeLogins",wifeId),{
     authTime:1700000030,sessionId:"woman-original-session",claimedAt:serverTimestamp()
   }));
+  // Profile visibility is an explicit publication, not access to private data.
+  await assertSucceeds(setDoc(doc(ownerDb,"memberProfileDetails",ownerId),{age:35,birthDate:"",address:"private",adultConfirmed:true}));
+  await assertSucceeds(setDoc(doc(ownerDb,"memberProfileShares",ownerId),{showJoined:true,email:"public@example.test"}));
+  await assertSucceeds(getDoc(doc(newDb,"memberProfileShares",ownerId)));
+  await assertFails(getDoc(doc(newDb,"memberProfileDetails",ownerId)));
+  await assertFails(getDoc(doc(guestDb,"memberProfileShares",ownerId)));
+  await assertFails(getDoc(doc(wifeDb,"memberProfileShares",ownerId)));
+  await assertFails(setDoc(doc(newDb,"memberProfileShares",ownerId),{mobile:"123"}));
+  await assertFails(setDoc(doc(newDb,"memberProfileShares",newId),{password:"not-public"}));
+  await assertSucceeds(setDoc(doc(newDb,"memberProfileDetails",newId),{age:7,birthDate:"",address:"",adultConfirmed:false}));
+  await assertFails(setDoc(doc(newDb,"memberProfileShares",newId),{mobile:"123"}));
+  await assertSucceeds(setDoc(doc(newDb,"memberProfileShares",newId),{showJoined:true}));
+  await assertSucceeds(setDoc(doc(ownerDb,"memberProfileShares",ownerId),{}));
+  if((await getDoc(doc(newDb,"memberProfileShares",ownerId))).data().email!==undefined)throw Error("Unchecked email remained public");
   const wife=await getDoc(doc(wifeDb,"members",wifeId));
   if(wife.get("serial")!=="DI-3"||wife.get("gender")!=="female"||
      wife.get("inviterUid")!==ownerId||wife.get("role")!=="member")
