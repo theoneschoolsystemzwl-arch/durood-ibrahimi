@@ -250,15 +250,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const start=classic.indexOf("function latestReaderGoal("),end=classic.indexOf("window.duroodMemberGroupTargets=",start);
  assert(start>=0&&end>start);
  const targetContext=vm.createContext({Date,Number,Math,Object,Array,window:{}});
+ vm.runInContext(fs.readFileSync("public/hijri-session.js","utf8"),targetContext);
+ vm.runInContext("window.duroodHijri=globalThis.duroodHijri",targetContext);
  vm.runInContext(classic.slice(start,end),targetContext);
  const aggregate=vm.runInContext("aggregateGroupTargets",targetContext);
  const member=(goal,date="2026-11-24",joined=date)=>({daily:[{date,goal}],legacy:[],joined});
  const total=aggregate([member(100),member(100)],"2026-11-24");
  assert.equal(total.dailyGoal,200);assert.equal(total.weeklyGoal,1400);assert.equal(total.monthlyGoal,6000);assert.equal(total.yearlyGoal,7600);
- const example=aggregate([member(100),member(101)],"2026-11-25",{annualStartDate:"2026-11-24",annualEndDate:"2026-12-31"});
+ const example=aggregate([member(100),member(101)],"2026-11-25",{annualStartDate:"2026-11-24",annualEndDate:"2027-08-16"});
  assert.equal(example.dailyGoal,201);
- assert.equal(example.overallGoal,201);assert.equal(example.fullYearGoal,7638);
- assert.equal(example.yearlyGoal,7638);
+ assert.equal(example.overallGoal,201);assert.equal(example.fullYearGoal,53466);
+ assert.equal(example.yearlyGoal,53466);
  assert(classic.includes('gender=m.role==="owner"?"male":(m.gender==="female"?"female":"male")'));
  assert.equal(aggregate([member(100,"2028-02-01")],"2028-02-29").monthlyGoal,2900);
  assert.equal(aggregate([member(100,"2028-02-01")],"2028-02-29").yearlyGoal,33500);
@@ -267,17 +269,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([member(100),member(0)],"2026-11-24").dailyGoal,100);
  assert.equal(aggregate([{daily:[{date:"2026-11-23",goal:100},{date:"2026-11-24",goal:0}],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:200}]}],"2026-11-24").dailyGoal,0);
  assert.equal(aggregate([{daily:[],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:500}]}],"2026-11-24").dailyGoal,0);
- const period={annualStartDate:"2026-11-24",annualEndDate:"2027-11-23"};
+ const period={annualStartDate:"2026-11-24",annualEndDate:"2027-08-16"};
  const rolling=aggregate([member(100),member(100,"2026-11-25")],"2026-11-25",period);
- assert.equal(rolling.overallGoal,200);assert.equal(rolling.fullYearGoal,72900);
- assert.equal(rolling.yearlyGoal,72900);
- const next=aggregate([member(100)],"2027-11-24",period);
+ assert.equal(rolling.overallGoal,200);assert.equal(rolling.fullYearGoal,53100);
+ assert.equal(rolling.yearlyGoal,53100);
+ const next=aggregate([member(100)],"2027-08-17",period);
  // The next session starts immediately after the prior inclusive end.
- assert.equal(next.annualStartDate,"2027-11-24");
- assert.equal(next.annualEndDate,"2028-11-23");
- assert.equal(next.overallGoal,100);assert.equal(next.fullYearGoal,36600);assert.equal(next.yearlyGoal,36600);
+ assert.equal(next.annualStartDate,"2027-08-17");
+ assert.equal(next.annualEndDate,"2028-08-03");
+ assert.equal(next.overallGoal,100);assert.equal(next.fullYearGoal,35300);assert.equal(next.yearlyGoal,35300);
  const shortSession=aggregate([member(100)],"2026-12-31",{annualStartDate:"2026-11-24",annualEndDate:"2026-12-31"});
- assert.equal(shortSession.yearlyGoal,3800);
+ assert.equal(shortSession.yearlyGoal,26500); // Old Gregorian end is replaced by estimated 12 Rabi al-Awwal.
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:50}]}],"2026-11-25",period).overallGoal,50);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100}],active:false,inactiveDay:"2026-11-25"}],"2026-11-26",period).overallGoal,0);
  assert.equal(aggregate(null,"2026-11-24"),null);
@@ -297,7 +299,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(fourResult.dailyGoal,400);assert.equal(fourResult.overallGoal,400);assert.equal(fourResult.fullYearGoal,14600);assert.equal(fourResult.missingTargets,0);
  assert.equal(aggregate(four,"2026-11-27").overallGoal,400);assert.equal(aggregate(four,"2026-11-27").fullYearGoal,14600);
  assert.equal(aggregate(four,"2026-11-27").dailyGoal,400);
- assert.equal(aggregate(four,"2026-11-27",{annualStartDate:"2026-11-24",annualEndDate:"2027-11-23"}).yearlyGoal,145400);
+ assert.equal(aggregate(four,"2026-11-27",{annualStartDate:"2026-11-24",annualEndDate:"2027-08-16"}).yearlyGoal,105800);
  assert.equal(aggregate([member(100),member(100)],"2026-11-26").fullYearGoal,7600);
  assert.equal(aggregate([member(100,"2028-01-01")],"2028-02-29").fullYearGoal,36600);
  assert.equal(audit(four,"2026-11-26").reduce((n,r)=>n+r.annual,0),14600);
@@ -310,14 +312,14 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const daily221=aggregate([member(100),member(100),member(21)],"2026-11-26");
  assert.equal(daily221.overallGoal,221);assert.equal(daily221.fullYearGoal,8398);
  assert.equal(aggregate([member(100),member(100),member(21)],"2026-11-27").fullYearGoal,8398);
- const janSession={annualStartDate:"2027-01-01",annualEndDate:"2027-12-31"};
- const joiners=["2027-01-01","2027-06-01","2027-07-01","2027-10-01"].map(d=>member(100,d));
- const yearOne=aggregate(joiners,"2027-10-01",janSession);
- assert.equal(yearOne.dailyGoal,400);assert.equal(yearOne.yearlyGoal,85500);
- assert.equal(aggregate(joiners,"2027-10-02",janSession).yearlyGoal,85500);
- assert.equal(aggregate(joiners,"2028-01-01",janSession).yearlyGoal,146400);
+ const janSession={annualStartDate:"2027-01-01",annualEndDate:"2027-08-16"};
+ const joiners=["2027-01-01","2027-06-01","2027-07-01","2027-08-01"].map(d=>member(100,d));
+ const yearOne=aggregate(joiners,"2027-08-01",janSession);
+ assert.equal(yearOne.dailyGoal,400);assert.equal(yearOne.yearlyGoal,36800);
+ assert.equal(aggregate(joiners,"2027-08-02",janSession).yearlyGoal,36800);
+ assert.equal(aggregate(joiners,"2028-01-01",janSession).yearlyGoal,141200);
  const yearTwo=[...joiners,member(100,"2028-06-01")];
- assert.equal(aggregate(yearTwo,"2028-06-01",janSession).yearlyGoal,167800);
+ assert.equal(aggregate(yearTwo,"2028-06-01",janSession).yearlyGoal,147600);
  assert.equal(aggregate([{daily:[{date:"2027-01-01",goal:100}]}],"2027-01-01",janSession).yearlyGoal,null);
  assert.equal(aggregate([{...joiners[0],active:false}],"2028-01-01",janSession).yearlyGoal,0);
  const home=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
@@ -379,4 +381,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(classic.includes("directoryGroupName(person.id)"));
  assert(rules.includes("match /memberPresence/{presenceId}"));
  assert(!classic.includes("Open authorized Google password reset"));
+}
+
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const ctx=vm.createContext({Date,Number,Math,Object,window:{}});
+ vm.runInContext(fs.readFileSync("public/hijri-session.js","utf8"),ctx);
+ vm.runInContext('window.duroodHijri=globalThis.duroodHijri;let today="2026-11-26";const globalDateKey=()=>today;let dashboardGroupSettings={annualStartDate:"2026-11-24",annualEndDate:"2027-08-16"};let periodCounts={month:244};let periodDatedCounts={"2026-08-01":1000,"2026-11-22":1,"2026-11-23":29,"2026-11-24":214};const annualTargetPeriod=(cfg,day)=>window.duroodHijri.period(cfg,day);',ctx);
+ const a=classic.indexOf("function dashboardPeriodCount("),b=classic.indexOf("function periodGoalStatus(",a);
+ vm.runInContext(classic.slice(a,b),ctx);
+ assert.equal(vm.runInContext('dashboardPeriodCount("year")',ctx),244);
+ assert.equal(vm.runInContext('dashboardPeriodCount("month")',ctx),244);
+ vm.runInContext('today="2027-08-17";periodDatedCounts["2027-08-16"]=7;periodDatedCounts["2027-08-17"]=3;',ctx);
+ assert.equal(vm.runInContext('dashboardPeriodCount("year")',ctx),3);
 }

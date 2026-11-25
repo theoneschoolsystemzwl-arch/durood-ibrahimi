@@ -1477,7 +1477,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <body>
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
-<script src="./hijri-session.js?v=hijri-group-session-20261126-v1"></script>
+<script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
 <script>
 'use strict';
 
@@ -2429,7 +2429,7 @@ function groupDashboardProgress(){
   const weekly=sumSince(weekStart),monthly=sumSince(monthStart);
   if(!currentUser()?.isOwner)return '<p class="dashboard-progress-note">'+tr("Side totals are awaiting verified migration. Personal counts are available in your group reader.","علیحدہ گروپ شمار کی تصدیق باقی ہے۔ اپنا ریکارڈ گروپ تسبیح میں دیکھیں۔")+'</p>';
   const session=annualTargetPeriod(cfg,today);
-  const annual=currentUser()?.isOwner ? (dates===null||!session?null:Object.entries(dates).filter(([day])=>day>=session.start&&day<=session.end&&day<=today).reduce((sum,[,count])=>sum+count,0)) : (dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null);
+  const annual=currentUser()?.isOwner ? (dates===null||!session?null:Object.entries(dates).filter(([day])=>day>=(session.countStart||session.start)&&day<=session.end&&day<=today).reduce((sum,[,count])=>sum+count,0)) : (dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null);
   const make=(label,goal,count)=>{
     const valid=Number.isSafeInteger(goal)&&goal>0,percent=groupProgressValue(goal,count);
     return '<div class="goal-progress"><p class="dashboard-progress-note">'+label+'</p>'+
@@ -2550,7 +2550,7 @@ function dashboardPeriodCount(key){
  if(key!=="year")return periodCounts?.[key]??null;
  const today=globalDateKey(),p=annualTargetPeriod(dashboardGroupSettings,today);
  if(!p||!periodDatedCounts)return null;
- return Object.entries(periodDatedCounts).filter(([day])=>day>=p.start&&day<=p.end&&day<=today).reduce((sum,[,n])=>sum+n,0);
+ return Object.entries(periodDatedCounts).filter(([day])=>day>=(p.countStart||p.start)&&day<=p.end&&day<=today).reduce((sum,[,n])=>sum+n,0);
 }
 function periodGoalStatus(count,goal){
  return !Number.isSafeInteger(count)||!Number.isSafeInteger(goal)?"unknown":count<goal?"short":"complete";

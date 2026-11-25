@@ -25,8 +25,13 @@
  const a=anchor(cfg.annualEndDate);
  let confirmed=!!a&&a.k>=start&&a.k-start<=358;
  if(confirmed){end=a.k;year=a.y;}
- while(end<day){start=end+1;end=lunar(++year,3,12);confirmed=false;}
- return {start:key(start),end:key(end),next:key(end+1),confirmed,hijriYear:year};
+ // In the initial partial session, count already-saved readings from the
+ // same Rabi-to-Rabi cycle even if the group settings were created later.
+ // A start near 13 Rabi is a real rollover boundary and must remain exact.
+ const cycleStart=lunar(year-1,3,12)+1;
+ let countStart=start>cycleStart+3?cycleStart:start;
+ while(end<day){start=end+1;countStart=start;end=lunar(++year,3,12);confirmed=false;}
+ return {start:key(start),countStart:key(countStart),end:key(end),next:key(end+1),confirmed,hijriYear:year};
  }
  function validEnd(s,p){const a=anchor(s);return !!a&&!!p&&a.y===p.hijriYear&&s>=p.start;}
  function nextDay(s){const k=index(s);return Number.isFinite(k)?key(k+1):"";}
