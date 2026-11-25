@@ -209,33 +209,40 @@ try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
  state.vibrateEnabled=localStorage.getItem("durood-wz-vibration-v2")!=="0";
   state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
-  state.vibrateLevel=Math.min(10,Math.max(1,Number(localStorage.getItem("durood-wz-vibration-level"))||10));
+  state.vibrateLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-vibration-level")??10)||0));
 }catch{}
 let wzTapAudio=null;
 function vibrateWazifa(){
  if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
- // The reader runs inside a same-origin frame; some WebViews expose the
- // native interface only on the top-level page.
+ // Prefer the native Android bridge. A legacy void return cannot confirm
+ // success; do not run a second vibration that could cancel the native pulse.
  const targets=[window];
- try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.push(window.parent);}catch{}
+ try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.unshift(window.parent);}catch{}
+ const tried=new Set();
  for(const target of targets){
   try{
    const bridge=target.DuroodAndroid;
-   if(typeof bridge?.vibrate==="function"){
-    const accepted=bridge.vibrate(state.vibrateLevel);
-    if(accepted===true)return true;
-    if(accepted===undefined){
-     // Older APK exposes a void bridge, so also try the browser fallback.
-     try{target.navigator.vibrate?.(40+state.vibrateLevel*16);}catch{}
-     return true;
-    }
-   }
+   if(typeof bridge?.vibrate!=="function"||tried.has(bridge))continue;
+   tried.add(bridge);
+   const accepted=bridge.vibrate(state.vibrateLevel);
+   if(accepted===true)return true;
+   if(accepted===undefined)return null;
   }catch{}
  }
+ // A top-level browser document may permit vibration when an embedded
+ // reader does not. Run this synchronously within the original user tap.
  for(const target of targets){
   try{if(target.navigator.vibrate?.(35+state.vibrateLevel*14)===true)return true;}catch{}
  }
  return false;
+}
+function showWazifaVibrationStatus(result){
+ const note=$("#wz-session-note");
+ if(!note)return;
+ note.textContent=!state.vibrateEnabled||state.vibrateLevel===0?"وائبریشن بند":
+  result===true?"وائبریشن آن":
+  result===null?"پرانا Android ورژن: وائبریشن کی تصدیق نہیں ہو سکی۔":
+  "وائبریشن دستیاب نہیں۔ فون کی وائبریشن سیٹنگ یا Android ایپ کا ورژن چیک کریں۔";
 }
 let wzFullscreenHistory=false;
 let wzFullscreenScroll=null;
@@ -301,8 +308,8 @@ document.addEventListener("keydown",event=>{
   event.preventDefault();exitWazifaFullscreen();
  }
 });
-function playWazifaFeedback(){
- vibrateWazifa();
+function playWazifaFeedback(withVibration=true){
+ if(withVibration)vibrateWazifa();
  if(!state.soundEnabled||state.soundLevel===0)return;
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;
@@ -1616,8 +1623,8 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem(sound?"durood-wz-sound-level":"durood-wz-vibration-level",String(state[key]));}catch{}
   const output=$(sound?"#wz-sound-level":"#wz-vibration-level");
   if(output)output.textContent=String(state[key]);
-  if(!sound)vibrateWazifa();
-  if(sound&&state.soundEnabled)playWazifaFeedback();
+  if(!sound)showWazifaVibrationStatus(vibrateWazifa());
+  if(sound&&state.soundEnabled)playWazifaFeedback(false);
   return;
  }
  if(action==="toggle-sound"||action==="toggle-vibration"){
@@ -1626,14 +1633,9 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem(sound?"durood-wz-sound":"durood-wz-vibration-v2",state[key]?"1":"0");}catch{}
   button.setAttribute("aria-pressed",String(state[key]));
   button.textContent=sound?"ساؤنڈ":"وائبریشن";
-  if(!sound&&state.vibrateEnabled){
-   if(state.vibrateLevel===0){state.vibrateLevel=10;try{localStorage.setItem("durood-wz-vibration-level","10");}catch{}const level=$("#wz-vibration-level");if(level)level.textContent="10";}
-   if(!vibrateWazifa()){
-    const note=$("#wz-session-note");
-    if(note)note.textContent="اس WebView میں وائبریشن دستیاب نہیں۔ نئی Android APK میں ہپٹک سپورٹ شامل کی گئی ہے۔";
-   }else{
-    const note=$("#wz-session-note");if(note)note.textContent="وائبریشن آن";
-   }
+  if(!sound){
+   if(state.vibrateEnabled&&state.vibrateLevel===0){state.vibrateLevel=10;try{localStorage.setItem("durood-wz-vibration-level","10");}catch{}const level=$("#wz-vibration-level");if(level)level.textContent="10";}
+   showWazifaVibrationStatus(vibrateWazifa());
   }
   return;
  }
