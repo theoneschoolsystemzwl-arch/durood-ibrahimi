@@ -167,7 +167,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,soundLevel:10,immersive:false,lastTapAt:0
+ seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -207,6 +207,8 @@ function checkWzIdle(){
 const owner=()=>state.profile?.role==="owner";
 try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
+ state.motorEnabled=localStorage.getItem("durood-tap-motor-v5-enabled")!=="0";
+ state.motorStrength=normalizeMotorStrength(localStorage.getItem("durood-tap-motor-v5-strength")??10);
 
   state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
 
@@ -277,6 +279,45 @@ document.addEventListener("keydown",event=>{
   event.preventDefault();exitWazifaFullscreen();
  }
 });
+function normalizeMotorStrength(value){
+ const n=Number(value);
+ return Number.isFinite(n)?Math.min(10,Math.max(0,Math.round(n))):10;
+}
+// A single short native waveform per accepted count; never wait for a hold.
+function requestTapMotor(allowBrowser=true){
+ if(!state.motorEnabled||state.motorStrength===0)return "off";
+ const frames=[window];
+ try{if(window.parent!==window&&window.parent.location.origin===location.origin)frames.push(window.parent);}catch{}
+ for(const frame of frames){
+  try{
+   const api=frame.DuroodAndroid;
+   if(typeof api?.pulseTasbihMotor==="function"){
+    return api.pulseTasbihMotor(state.motorStrength)===true?"native":"unavailable";
+   }
+  }catch{return "unavailable";}
+ }
+ if(!allowBrowser)return "unavailable";
+ // Ordinary browsers do not expose motor amplitude; use a short web pulse only.
+ for(const frame of frames){
+  try{if(frame.navigator.vibrate?.(60)===true)return "web";}catch{}
+ }
+ return "unavailable";
+}
+function updateTapMotorControls(){
+ const toggle=$('[data-wazifa-action="toggle-vibration"]');
+ if(toggle){
+  toggle.setAttribute("aria-pressed",String(state.motorEnabled));
+  toggle.textContent=state.motorEnabled?"وائبریشن ON":"وائبریشن OFF";
+ }
+ const strength=$("#wz-motor-strength");if(strength)strength.textContent=String(state.motorStrength);
+}
+function saveTapMotorSettings(){
+ try{
+  localStorage.setItem("durood-tap-motor-v5-enabled",state.motorEnabled?"1":"0");
+  localStorage.setItem("durood-tap-motor-v5-strength",String(state.motorStrength));
+ }catch{}
+ updateTapMotorControls();
+}
 function playWazifaFeedback(){
  if(!state.soundEnabled||state.soundLevel===0)return;
  try{
@@ -919,12 +960,17 @@ function readerMarkup(group){
  '<span class="wz-progress-copy"><b id="wz-daily-progress-label" dir="ltr">0.00%</b>'+
  '<small id="wz-daily-progress-detail" dir="ltr">0 / '+fmt(s.dailyGoal)+'</small></span></div></div>'+
  '<div class="wz-daily-toolbar">'+
- '<div class="wz-reader-feedback" aria-label="ساؤنڈ اور فل سکرین">'+
+ '<div class="wz-reader-feedback" aria-label="ساؤنڈ، وائبریشن اور فل سکرین">'+
  '<div class="wz-feedback-control">'+
   '<button type="button" class="wz-feedback-button" data-wazifa-action="toggle-sound" aria-pressed="'+state.soundEnabled+'">ساؤنڈ</button>'+
   '<div class="wz-feedback-level"><button type="button" data-wazifa-action="sound-down" aria-label="ساؤنڈ کم کریں">−</button>'+
   '<output id="wz-sound-level" aria-label="ساؤنڈ کی سطح">'+state.soundLevel+'</output>'+
   '<button type="button" data-wazifa-action="sound-up" aria-label="ساؤنڈ بڑھائیں">+</button></div></div>'+
+ '<div class="wz-feedback-control">'+
+  '<button type="button" class="wz-feedback-button" data-wazifa-action="toggle-vibration" aria-pressed="'+state.motorEnabled+'">'+(state.motorEnabled?'وائبریشن ON':'وائبریشن OFF')+'</button>'+
+  '<div class="wz-feedback-level"><button type="button" data-wazifa-action="vibration-down" aria-label="وائبریشن کم کریں">−</button>'+
+  '<output id="wz-motor-strength" aria-label="وائبریشن کی طاقت">'+state.motorStrength+'</output>'+
+  '<button type="button" data-wazifa-action="vibration-up" aria-label="وائبریشن بڑھائیں">+</button></div></div>'+
  '<button type="button" class="wz-reader-fullscreen" data-wazifa-action="toggle-fullscreen" aria-pressed="false">فل سکرین</button>'+
  '</div>'+
  fiveFigureMarkup(group,w,record)+
@@ -1416,9 +1462,9 @@ function tap(){
  }
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
- // Feedback runs immediately after the accepted count, before slower UI updates.
-
+ // Sound and motor are independent; neither can block the saved count.
  try{playWazifaFeedback();}catch{}
+ try{requestTapMotor();}catch{}
  tick();
  return true;
 }
@@ -1611,6 +1657,17 @@ document.addEventListener("click",event=>{
   try{localStorage.setItem("durood-wz-sound-level",String(state[key]));}catch{}
   const output=$("#wz-sound-level");if(output)output.textContent=String(state[key]);
   if(state.soundEnabled)playWazifaFeedback();
+  return;
+ }
+ if(action==="vibration-up"||action==="vibration-down"){
+  state.motorStrength=normalizeMotorStrength(state.motorStrength+(action==="vibration-up"?1:-1));
+  saveTapMotorSettings();
+  return;
+ }
+ if(action==="toggle-vibration"){
+  state.motorEnabled=!state.motorEnabled;
+  if(state.motorEnabled&&state.motorStrength===0)state.motorStrength=10;
+  saveTapMotorSettings();
   return;
  }
  if(action==="toggle-sound"){
