@@ -50,7 +50,7 @@ assert(css.includes("grid-template-columns:repeat(5,minmax(0,1fr))"));
 assert(src.includes("if(clock)clock.textContent=compactTasbihClock(value);"),"dial has no millisecond suffix or leading hours");
 assert(src.includes('minimumFractionDigits:1,maximumFractionDigits:1'),"Tasbih pace uses one decimal place");
 assert(src.includes("const perMinute=seconds>0?pace(60/seconds)"));
-assert(src.includes("const perHour=seconds>0?pace(3600/seconds)"));
+assert(src.includes('const perHour=seconds>0?(3600/seconds).toLocaleString("en",{maximumFractionDigits:0})'),"Hourly projection uses whole numbers; seconds and minutes retain one decimal");
 assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durable storage before local increment");
 
 const todayEntry={count:587,tasbihCount:15,manualCount:572,durationMs:150000,intervals:14};

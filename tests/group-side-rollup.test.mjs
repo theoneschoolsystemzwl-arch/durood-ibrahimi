@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import {rollupSideGroup} from "../public/group-side-rollup.js";
+const today="2026-11-26";
+const member=(total,days,summary={})=>({groupSummary:{total,...summary},groupDays:days,meta:{joined:"2026-11-20"}});
+const male=[member(300,{"2026-11-25":100,"2026-11-26":200}),member(150,{"2026-11-26":150})];
+const female=[member(500,{"2026-11-26":500}),member(75,{}, {day:today,today:75})];
+assert.equal(rollupSideGroup(male,today).total,450);
+assert.equal(rollupSideGroup(male,today).today,350);
+assert.equal(rollupSideGroup(female,today).total,575);
+assert.equal(rollupSideGroup(female,today).today,575);
+assert.equal(rollupSideGroup([member(100,{"2026-11-25":80})],today).undated,20);
+assert.equal(rollupSideGroup([member(100,{"2026-11-25":101})],today),null);
+assert.equal(rollupSideGroup([member(100,{"2026-11-19":100})],today),null);
+assert.equal(rollupSideGroup([member(100,{"2026-11-27":100})],today),null);
+assert.equal(rollupSideGroup([member(100,{[today]:50},{day:today,today:100})],today),null);
+assert.equal(rollupSideGroup([{groupSummary:null,groupDays:{}}],today),null);
+console.log("Gender-specific group rollup, legacy dates and inconsistent data safeguards passed");

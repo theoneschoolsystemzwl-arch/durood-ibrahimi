@@ -2224,6 +2224,7 @@ function groupDashboardProgress(){
     make(tr("Weekly goal","ہفتہ وار ہدف"),window.duroodAggregateGroupTargets()?.weeklyGoal??0,weekly)+
     make(tr("Monthly goal","ماہانہ ہدف"),window.duroodAggregateGroupTargets()?.monthlyGoal??0,monthly)+
     make(tr("Annual goal","سالانہ ہدف"),currentUser()?.isOwner?(window.duroodAggregateGroupTargets()?.yearlyGoal??0):Number(cfg.yearlyGoal),annual)+
+    (dashboardGroupStats?.undated>0?'<p class="dashboard-progress-note">'+tr("Saved counts without a verified date: ","بغیر تصدیق شدہ تاریخ کا محفوظ شمار: ")+displayNumber(dashboardGroupStats.undated)+'</p>':"")+
     '<small class="muted">'+tr("Weekly and monthly totals use saved dated group entries; earlier dates without records are not estimated.","ہفتہ وار اور ماہانہ شمار محفوظ تاریخ وار گروپ ریکارڈ سے ہے؛ پرانی غیر محفوظ تاریخوں کا اندازہ نہیں لگایا گیا۔")+'</small>';
 }
 function refreshDashboardGroupProgress(){
@@ -5146,6 +5147,7 @@ import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?rel
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const bridge=window.duroodClassicBridge;
 const ui=document.getElementById("app");
@@ -5404,15 +5406,10 @@ function observeCounters(side){
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
   const publishSideGroup=()=>{
     if(!stillCurrent()||currentProfile?.role!=="owner")return;
-    const records=[...goalMembers.values()];
-    if(!goalDirectoryReady||records.some(r=>r.groupDays===null||r.groupSummary===null)){bridge.groupProgressStats(null);bridge.groupProgressDays(null);return;}
-    const days={};let total=0;
-    for(const r of records){const own={...r.groupDays},summary=r.groupSummary;
-      if(summary.day&&!(summary.day in own)&&Number.isSafeInteger(summary.today)&&summary.today>=0)own[summary.day]=summary.today;
-      for(const [day,count] of Object.entries(own))days[day]=(days[day]||0)+count;
-      total+=Number(summary.total||0);
-    }
-    const today=globalDay();bridge.groupProgressStats({total,day:today,today:days[today]||0});bridge.groupProgressDays(days);
+    const rolled=goalDirectoryReady?rollupSideGroup([...goalMembers.values()],globalDay()):null;
+    if(!rolled){bridge.groupProgressStats(null);bridge.groupProgressDays(null);return;}
+    const {days,...summary}=rolled;
+    bridge.groupProgressStats(summary);bridge.groupProgressDays(days);
   };
   const publishGoals=()=>{
     if(!stillCurrent())return;
