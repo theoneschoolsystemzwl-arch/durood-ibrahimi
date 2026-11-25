@@ -1529,7 +1529,7 @@ const serial = id => {
   if (person?.gender === 'Female') return person.sideNumber ? 'F-' + person.sideNumber : '—';
   return person?.sideNumber ? 'M-' + person.sideNumber : (person?.isOwner ? 'M-1' : '—');
 };
-const groupId = id => hasGroup(id) ? (getUser(id)?.gender === 'Female' ? groupName(id) : 'G-' + id) : '—';
+const groupId = id => ownedGroupName(id);
 const getUser = id => users.find(person => person.id === id);
 const memberName = person => person.id<=seedRows.length && person.name===seedRows[person.id-1][0] ?
   tr(person.name,demoNames[person.name] || person.name) : person.name;
@@ -1557,47 +1557,50 @@ function descendants(id) {
   return collected;
 }
 
-function generationLetter(id) {
-  let level = 1;
-  let person = getUser(id);
-  const women = person?.gender === 'Female';
-  const visited = new Set();
-  while (person?.inviter && !visited.has(person.id)) {
-    visited.add(person.id);
-    const parent = getUser(person.inviter);
-    if (!parent || (women && parent.gender !== 'Female')) break;
-    level += 1;
-    person = parent;
+// One independent alphabet per gender, allocated in first-invite order.
+// Historical (soft-deleted) rows reserve positions and letters; active totals exclude them.
+function buildGroupIdentity(rows){
+  const byUid=new Map(rows.filter(p=>p.uid).map(p=>[p.uid,p]));
+  const result=new Map();
+  const letter=n=>{let out='';for(;n>0;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;};
+  const founder=p=>p.isOwner===true||p.isFoundingSpouse===true;
+  for(const female of [false,true]){
+    const side=rows.filter(p=>(p.gender==='Female')===female).sort((a,b)=>a.id-b.id);
+    const kids=new Map();
+    for(const p of side){
+      const parent=byUid.get(p.inviterUid)||(!p.uid?side.find(x=>x.id===p.inviter):null);
+      if(!parent||parent.id===p.id||(parent.gender==='Female')!==female||founder(p))continue;
+      if(!kids.has(parent.id))kids.set(parent.id,[]);
+      kids.get(parent.id).push(p);
+    }
+    const leaders=side.filter(p=>!founder(p)&&kids.has(p.id)).sort((a,b)=>kids.get(a.id)[0].id-kids.get(b.id)[0].id||a.id-b.id);
+    const owned=new Map(side.filter(founder).filter(p=>kids.has(p.id)).map(p=>[p.id,'A']));
+    leaders.forEach((p,i)=>owned.set(p.id,letter(i+2)));
+    for(const p of side)result.set(p.id,{membership:'',owned:owned.get(p.id)||''});
+    for(const [id,children] of kids){
+      const g=owned.get(id);if(!g)continue;
+      children.forEach((p,i)=>{result.get(p.id).membership=g+(i+1);});
+    }
   }
-  let prefix = '';
-  for (; level; level = Math.floor((level - 1) / 26)) {
-    prefix = String.fromCharCode(65 + (level - 1) % 26) + prefix;
-  }
-  return prefix;
+  return result;
 }
-
+let groupDirectoryReady=false;
 const ownerViewingWomen = () => currentUser()?.isOwner === true && window.duroodCurrentSide === 'female';
 const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && !person.isOwner) : users;
-
-function groupName(id) {
-  return generationLetter(id);
+function groupIdentity(person){return person&&groupDirectoryReady?buildGroupIdentity(users).get(person.id):null;}
+function groupName(id){return groupIdentity(getUser(id))?.owned||'—';}
+function hasGroup(id){const p=getUser(id);return !!p&&!p.deleted&&directMembers(id).some(m=>!m.deleted);}
+function ownedGroupName(id){return hasGroup(id)?groupName(id):'—';}
+function groupCode(person){
+  const g=groupIdentity(person);return g?[g.membership,hasGroup(person.id)?g.owned:''].filter(Boolean).join(' '):'';
 }
-
-function hasGroup(id) {
-  return directMembers(id).length > 0;
+function groupCodeMarkup(person){
+  return '<bdi class="founder-group-code" data-founder-group-code="'+person.id+'" dir="ltr">'+esc(groupCode(person))+'</bdi>';
 }
-
-function ownedGroupName(id) {
-  return hasGroup(id) ? groupName(id) : '—';
-}
-
-function treeMemberLabel(person) {
-  const group = hasGroup(person.id) ? '<bdi>' + groupName(person.id) + '</bdi>' : '';
-  return '<span class="pill tree-member-label" dir="ltr">' + displayId(person.id) + group + '</span>';
-}
+function treeMemberLabel(person){return '<span class="pill tree-member-label" dir="ltr">'+displayId(person.id)+groupCodeMarkup(person)+'</span>';}
 
 let liveGroupMemberCounts=new Map();
-let savedMemberWirds=new Map(),savedMemberWirdsComplete=false;
+let savedMemberWirds=new Map(),savedMemberWirdsComplete=false,ownGroupWirds=new Map();
 function memberWirdText(person){
   if(!person)return '—';
   if(!person.uid)return formatNumber(score(person,'all','current'));
@@ -1606,18 +1609,19 @@ function memberWirdText(person){
   return '—';
 }
 function groupWirdPeople(p){
- const ids=descendants(p.id);ids.delete(p.id);
- const list=[...ids].map(getUser).filter(Boolean);
+ const list=directMembers(p.id).filter(m=>!m.deleted&&!m.isOwner&&!m.isFoundingSpouse);
  return p.isOwner||p.isFoundingSpouse?[p,...list]:list;
 }
 function groupWirdText(p){
- if(p.uid&&(!currentUser()?.isOwner||!savedMemberWirdsComplete))return '—';
+ if(p.uid&&(!groupDirectoryReady||(!currentUser()?.isOwner&&p.uid!==currentUser()?.uid)))return '—';
+ if(p.uid&&currentUser()?.isOwner&&!savedMemberWirdsComplete)return '—';
+ if(p.uid&&!currentUser()?.isOwner&&!groupWirdPeople(p).every(m=>ownGroupWirds.has(m.uid)))return '—';
  const list=groupWirdPeople(p);
- const vals=list.map(m=>m.uid?(savedMemberWirds.get(m.uid)??(savedMemberWirdsComplete?0:null)):score(m,'all','current'));
+ const vals=list.map(m=>m.uid?(currentUser()?.isOwner?(savedMemberWirds.get(m.uid)??(savedMemberWirdsComplete?0:null)):ownGroupWirds.get(m.uid)):score(m,'all','current'));
  return vals.some(v=>v===null)?'—':formatNumber(vals.reduce((a,b)=>a+b,0));
 }
 function groupWirdMarkup(p){
- return '<span class="tree-group-wird"><small>'+tr('Group count','گروپ شمار')+'</small><bdi data-group-wird="'+p.id+'">'+groupWirdText(p)+'</bdi><small>'+formatNumber(groupWirdPeople(p).length)+' '+tr('members','ارکان')+'</small></span>';
+ return hasGroup(p.id)?'<span class="tree-group-wird"><small>GC · '+esc(groupName(p.id))+'</small><bdi data-group-wird="'+p.id+'">'+groupWirdText(p)+'</bdi></span>':'';
 }
 function memberWirdMarkup(person){
   return '<span class="member-wird"><small>'+tr('Wird','ورد')+'</small><bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi></span>';
@@ -1642,23 +1646,14 @@ function groupMemberCount(person) {
   // Only the founding owner and founding woman count themselves.
   // Everyone else earns one level per directly invited member.
   const base=(person.isOwner===true||(person.gender==='Female'&&person.isFoundingSpouse===true))?1:0;
-  if(liveGroupMemberCounts.has(person.uid))return base+liveGroupMemberCounts.get(person.uid);
+  if(!groupDirectoryReady&&liveGroupMemberCounts.has(person.uid))return base+liveGroupMemberCounts.get(person.uid);
   const female=person.gender==='Female';
   const unique=new Set();
   for(const member of users){
-    if(!member.uid||member.uid===person.uid||member.deleted||(member.gender==='Female')!==female)continue;
+    if(!member.uid||member.uid===person.uid||member.deleted||member.isFoundingSpouse||(member.gender==='Female')!==female)continue;
     if(member.inviterUid===person.uid && person.uid)unique.add(member.uid);
   }
   return base+unique.size;
-}
-// The first confirmed naming rule is for the two founding group owners only.
-function founderGroupCode(person){
-  if(!person||person.deleted||!(person.isOwner===true||person.gender==='Female'&&person.isFoundingSpouse===true))return '';
-  return 'A'+groupMemberCount(person);
-}
-function founderGroupMarkup(person){
-  const code=founderGroupCode(person);
-  return code?'<bdi class="founder-group-code" data-founder-group-code="'+person.id+'" dir="ltr">'+esc(code)+'</bdi>':'';
 }
 function refreshMemberCountLabels(){
   const person=ownerViewingWomen()?visibleMembers().find(m=>m.isFoundingSpouse):currentUser();
@@ -1668,7 +1663,7 @@ function refreshMemberCountLabels(){
   });
   document.querySelectorAll("[data-founder-group-code]").forEach(node=>{
     const member=getUser(Number(node.dataset.founderGroupCode));
-    node.textContent=founderGroupCode(member);
+    node.textContent=groupCode(member);
   });
   document.querySelectorAll("[data-tree-member-level]").forEach(node=>{
     const member=getUser(Number(node.dataset.treeMemberLevel));
@@ -1850,7 +1845,7 @@ function treeNode(person, isRoot = false) {
  return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
  (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
  '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
- '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+founderGroupMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
+ '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+groupCodeMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
  (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
  '</span>'+groupWirdMarkup(person)+'</'+tag+'>';
 }
@@ -1865,7 +1860,7 @@ function tree(person) {
     ? visibleMembers().find(member => member.id === groupFilter && !member.deleted) || visibleMembers().find(member => member.isFoundingSpouse && !member.deleted)
     : (person.isOwner ? getUser(groupFilter) : null) || person;
   if(!root) return groups();
-  const children = directMembers(root.id);
+  const children = directMembers(root.id).filter(m=>!m.deleted&&!m.isFoundingSpouse);
   const back = women
     ? '<div class="branch-nav"><button class="button secondary" data-action="nav" data-value="groups">' + tr('Back to groups','گروپس پر واپس') + '</button></div>'
     : root.id !== person.id
@@ -1885,11 +1880,11 @@ function tree(person) {
 function groups() {
   const branches = visibleMembers().filter(person => hasGroup(person.id));
   const title = tr('Groups','گروپس');
-  return heading(title,tr("The letter shows the branch depth.", 'گروپ کا حرف شاخ کی سطح دکھاتا ہے۔')) +
+  return heading(title,tr("Group letters identify individual groups; numbers show joining positions.", 'حرف الگ گروپ اور عدد اس میں شامل ہونے کی پوزیشن دکھاتا ہے۔')) +
     (branches.length ? '' : ur(tr('No groups yet.','ابھی کوئی گروپ موجود نہیں۔'),'p','panel empty')) +
     '<div class="groups">' + branches.map(person =>
       '<article class="panel group-card"><div class="identity">' + photoWithWird(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
-      '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
+      '</strong><small class="muted">' + displayId(person.id) + groupCodeMarkup(person) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Group members · ", '</bdi></small><span>گروپ کے ارکان · ') + displayNumber(groupMemberCount(person)) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
       displayNumber(descendants(person.id).size) + '</span>'+groupWirdMarkup(person)+'</div><button class="button secondary" data-action="group" data-value="' + person.id +
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
@@ -2063,7 +2058,7 @@ function profileCard(person) {
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
-    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + founderGroupMarkup(person) + '<span aria-hidden="true">·</span>' + role +
+    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + groupCodeMarkup(person) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' <bdi data-profile-member-level>' + formatNumber(memberLevel(person)) + '</bdi>' +
     '</span></div></section></header>';
 }
@@ -4294,7 +4289,7 @@ function womenSectionCard(person) {
     '<small class="muted direct-invites">' + tr('Members (including founder): ', 'بانی سمیت گروپ کے ارکان: ') +
     '<bdi data-profile-member-count>'+(founder?formatNumber(groupMemberCount(founder)):"—")+'</bdi></small>'+
     '<small class="muted">'+tr("Level ","لیول ")+'<bdi data-profile-member-level>'+(founder?formatNumber(memberLevel(founder)):"—")+'</bdi></small></div></div>' +
-    '<div class="profile-card-foot">' + sectionSwitch(person) + (founder?'<span class="pill account-id">'+displayId(founder.id)+founderGroupMarkup(founder)+'</span>':'') + '</div></section></header>';
+    '<div class="profile-card-foot">' + sectionSwitch(person) + (founder?'<span class="pill account-id">'+displayId(founder.id)+groupCodeMarkup(founder)+'</span>':'') + '</div></section></header>';
 }
 
 function changeLanguage(value) {
@@ -4795,6 +4790,11 @@ window.duroodClassicBridge = {
     readerGoalsByUid=new Map(entries);
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
   },
+  ownGroupWird(uid,memberUid,total,side){
+    if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
+    if(Number.isSafeInteger(total)&&total>=0)ownGroupWirds.set(memberUid,total);else ownGroupWirds.delete(memberUid);
+    refreshMemberWirds();
+  },
   savedWirdTotals(uid,rows,complete,side){
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
     savedMemberWirds=new Map(rows.filter(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0).map(r=>[r.uid,r.total]));
@@ -4932,12 +4932,13 @@ window.duroodClassicBridge = {
   enter(profile,rows,totals,refresh=false){
     if(!refresh){
       liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
-      savedMemberWirds=new Map();savedMemberWirdsComplete=false;
+      savedMemberWirds=new Map();savedMemberWirdsComplete=false;ownGroupWirds=new Map();groupDirectoryReady=false;
       liveMemberPhotos=new Map();
       periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
+    groupDirectoryReady=totals.groupDirectoryReady===true;
     for(const [uid,total] of Object.entries(totals.memberCounts||{})){
       if(!savedMemberWirds.has(uid)&&Number.isSafeInteger(total)&&total>=0)savedMemberWirds.set(uid,total);
     }
@@ -5471,7 +5472,7 @@ function observeCounters(side){
       publishGoals();publishSideGroup();
     },err=>{goalDirectoryReady=false;publishGoals();publishSideGroup();console.warn("Group goal directory unavailable",err.code);});
   }else{
-    stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side)),{includeMetadataChanges:true},snap=>{
+    stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side),limit(200)),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       bridge.liveMemberCounts(observedUid,snap.docs.map(d=>({...d.data(),uid:d.id})),false,side);
     },err=>console.warn("Direct members unavailable",err.code));
@@ -5505,6 +5506,15 @@ function observeCounters(side){
   const wirdQuery=currentProfile?.role==="owner"
     ?query(collection(db,"memberCounts"),where("gender","==",side))
     :query(collection(db,"memberCounts"),where("gender","==",side),limit(200));
+  const ownWirdStops=new Map();
+  window.duroodWatchOwnGroupWirds=uids=>{
+    if(!stillCurrent()||currentProfile?.role==="owner")return;
+    const wanted=new Set(uids);
+    for(const [uid,stop] of ownWirdStops)if(!wanted.has(uid)){stop();ownWirdStops.delete(uid);bridge.ownGroupWird(observedUid,uid,null,side);}
+    for(const uid of wanted)if(!ownWirdStops.has(uid))ownWirdStops.set(uid,onSnapshot(doc(db,"memberCounts",uid),{includeMetadataChanges:true},snap=>{
+      if(stillCurrent()&&!snap.metadata.fromCache)bridge.ownGroupWird(observedUid,uid,snap.exists()?snap.data().total:0,side);
+    },err=>{if(stillCurrent())bridge.ownGroupWird(observedUid,uid,null,side);console.warn("Direct group count unavailable",err.code);}));
+  };
   const stopWirdTotals=onSnapshot(wirdQuery,{includeMetadataChanges:true},snap=>{
     if(!stillCurrent()||snap.metadata.fromCache)return;
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
@@ -5654,7 +5664,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let loginWatchUid=null,loginWatchStops=[];
 function stopMemberLoginWatch(){
@@ -5756,7 +5766,7 @@ async function hydrate(){
       return null;
     });
   // Full same-side directory gives a stable rank even when direct invites are incomplete.
-  let sideRanks=new Map();
+  let sideRanks=new Map(),directoryReady=false;
   try {
     let last=null;const directory=[];
     for(;;){const constraints=[where("gender","==",side),limit(200)];if(last)constraints.push(startAfter(last));
@@ -5767,6 +5777,8 @@ async function hydrate(){
     if(side==="male"&&profile.role==="owner"&&!directory.some(x=>x.uid===profile.uid))directory.push(profile);
     directory.sort((a,b)=>Number(a.memberNumber)-Number(b.memberNumber));
     sideRanks=new Map(directory.map((x,i)=>[x.uid,i+1]));
+    for(const d of directory)if(!docs.has(d.uid))docs.set(d.uid,d);
+    directoryReady=true;
   }catch(error){console.warn("Side serial directory unavailable",error.code||error);}
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
@@ -5784,7 +5796,8 @@ async function hydrate(){
   }
   if(classicLogoutBlocked()||auth.currentUser?.uid!==profile.uid)return;
   if(window.duroodCurrentSide!==side)return;
-  bridge.enter(profile,rows,{memberCounts},true);
+  bridge.enter(profile,rows,{memberCounts,groupDirectoryReady:directoryReady},true);
+  window.duroodWatchOwnGroupWirds?.(rows.filter(d=>d.deleted!==true&&d.gender===side&&(d.inviterUid===profile.uid||(d.uid===profile.uid&&side==='female'&&d.sideNumber===1))).map(d=>d.uid));
   if(owner)watchMemberLogins(profile.uid);else stopMemberLoginWatch();
   if(owner&&side==="male")window.duroodAutoRepairLegacyReader?.();
   if(owner && side==='female')return;
