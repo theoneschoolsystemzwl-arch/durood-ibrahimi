@@ -187,6 +187,7 @@ assert(editorSource.includes('accept="application/pdf,.pdf"'));
 const pdfModule=fs.readFileSync("public/wazifa-pdf.js","utf8");
 assert(pdfModule.includes("isEvalSupported:false")&&!pdfModule.includes("downloadArabicPdf")&&!pdfModule.includes("makeArabicPdf"));
 assert(pdfModule.includes("page.render(")&&pdfModule.includes("mountPdfViewer")&&!pdfModule.includes("createWorker"));
+assert(pdfModule.includes('data-pdf-scroll-toggle aria-pressed="false"') && pdfModule.includes('class="wz-pdf-scroll is-scroll-off"') && pdfModule.includes('scroll.toggleAttribute("data-no-pull",on)'));
 assert(pdfModule.includes("data-pdf-scroll-toggle") && pdfModule.includes("IntersectionObserver") && !pdfModule.includes("data-pdf-next") && !pdfModule.includes("data-pdf-prev"));
 assert(pdfModule.includes("ensurePdfCloud") && pdfModule.includes("getDocFromServer") && !pdfModule.includes("localOnly:true"));
 assert(sharing.includes('await pdf.ensurePdfCloud(data.arabic,uid,"personal")') && sharing.includes('await pdf.savePdfAttachment({marker:initial.arabic,bytes},uid,"personal")'));
