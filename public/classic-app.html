@@ -1181,7 +1181,7 @@ body { background:linear-gradient(145deg,hsl(var(--theme-hue) 42% 91%),hsl(var(-
 .dashboard-quick-strip .next-prayer-marquee strong,.dashboard-pkt-clock .pkt-time{font:800 clamp(.68rem,3vw,.94rem)/1.25 system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dashboard-pkt-clock{display:grid;align-content:center;justify-items:center;gap:1px;text-align:center;padding:4px 2px;background:#082a39;color:#83ffad;font:700 .66rem/1.2 system-ui,sans-serif}
 .dashboard-pkt-clock .pkt-date{font-size:clamp(.52rem,2.4vw,.72rem);font-variant-numeric:tabular-nums;white-space:nowrap}
-.dashboard-pkt-clock small{font-size:.53rem;line-height:1.1}
+.dashboard-pkt-clock small{font-size:.53rem;line-height:1.1}.dashboard-pkt-clock .pkt-hijri{font-size:clamp(.49rem,2.1vw,.65rem);line-height:1.2;text-align:center;overflow-wrap:anywhere}
 .dashboard-quick-strip .target-audit-launch{margin:0;padding:4px 3px;min-height:0;white-space:normal;line-height:1.4;font-size:clamp(.59rem,2.5vw,.78rem);overflow-wrap:anywhere}
 .next-prayer-marquee span small{font:inherit}
 .next-prayer-marquee span strong{margin-inline-start:4px;font-variant-numeric:tabular-nums}
@@ -1477,6 +1477,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <body>
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
+<script src="./hijri-session.js?v=hijri-group-session-20261126-v1"></script>
 <script>
 'use strict';
 
@@ -2221,7 +2222,9 @@ function goalPeriods(daily,day){
  return {dailyGoal:daily,weeklyGoal:daily*7,monthlyGoal:daily*monthDays,yearlyGoal:daily*yearDays};
 }
 function memberGroupTargets(day=globalDateKey()){
- return goalPeriods(effectiveGroupDailyGoal(memberReaderGoalRows,memberGoalRows,day),day);
+ const goals=goalPeriods(effectiveGroupDailyGoal(memberReaderGoalRows,memberGoalRows,day),day);
+ const period=annualTargetPeriod(dashboardGroupSettings,day);if(period)goals.yearlyGoal=goals.dailyGoal*sessionTargetDays(period);
+ return goals;
 }
 const targetDayMs=86400000;
 function targetDateValid(s){return typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+"T00:00:00Z"))&&new Date(s+"T00:00:00Z").toISOString().slice(0,10)===s;}
@@ -2231,17 +2234,7 @@ function targetAnniversary(day){
  return String(y+1)+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(d,last)).padStart(2,"0");
 }
 function annualTargetPeriod(cfg,today){
- if(!cfg)return null;
- let start=targetDateValid(cfg.annualStartDate)?cfg.annualStartDate:cfg.startDate;
- if(!targetDateValid(start))return null;
- let end=cfg.annualEndDate;
- if(!targetDateValid(end)||end<start)return null;
- // Preserve the first configured period; subsequent sessions are full years.
- while(end<today){
-  start=targetAddDays(end,1);
-  end=targetAddDays(targetAnniversary(start),-1);
- }
- return {start,end};
+ return window.duroodHijri?.period(cfg,today)||null;
 }
 function accruedMemberTarget(row,start,end){
  if(!targetDateValid(end))return 0;
@@ -2328,7 +2321,7 @@ function dashboardTargetCards(){
  const incomplete=g?.missingTargets?'<small>'+esc(String(g.missingTargets))+tr(" target(s) not set"," ممبرز کے اہداف مقرر نہیں")+'</small>':"";
  return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+(noTargets?"—":value(g?.dailyGoal))+'</strong><small>'+tr("Daily target","روزانہ ہدف")+' · '+memberCount+'</small>'+incomplete+'</section>'+
  '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(noTargets?null:g?.yearlyGoal)+'</strong>'+(g?.missingJoinDates?'<small>'+tr("Membership date missing","رکنیت کی تاریخ دستیاب نہیں")+'</small>':(!p?'<small>'+tr("Calendar year","کیلنڈر سال")+'</small>':""))+'</section>'+
- '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
+ '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small>'+(p?'12 ربیع الاول'+(p.confirmed?'':' · تخمینی'):'')+'</small><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
 }
 function targetAuditProgressMarkup(progress){
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
@@ -2357,7 +2350,7 @@ function targetAuditMarkup(){
  }).join("")+
  '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+"—"+'</b><b>'+value(noTargets?null:g.yearlyGoal)+'</b></div></div>'+
  '<p class="muted">'+tr("Read / target to date uses the saved all-time Durood total and effective-dated daily goals from membership through today. Red: below target; green: target met or exceeded.","پڑھا / آج تک ہدف میں Firebase کا محفوظ مجموعی درود اور رکنیت سے آج تک تاریخ وار مقررہ روزانہ اہداف شامل ہیں۔ سرخ: کم؛ سبز: برابر یا زیادہ۔")+'</p>'+
- '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. After the first session, new full-year sessions begin automatically. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ پہلے سیشن کے بعد اگلا پورا سال خود شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
+ '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. Each session ends on 12 Rabi al-Awwal; the next starts on 13 Rabi al-Awwal. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ ہر سال 12 ربیع الاول کو ختم اور 13 ربیع الاول کو شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
 }
 function openTargetAudit(){
  if(!currentUser()||document.getElementById("member-target-audit-dialog"))return;
@@ -2725,7 +2718,7 @@ function globalDateKey(date){
 function globalClockMarkup(){
  const clock=window.duroodGlobalClock,now=clock?.now()??Date.now();
  const shifted=new Date(now+18000000).toISOString();
- return '<span class="pkt-date" dir="ltr">'+shifted.slice(0,10)+'</span><strong class="pkt-time" dir="ltr">'+shifted.slice(11,19)+'</strong><small>PKT'+(clock?.verified()?'':' · '+tr("estimated","تخمینی"))+'</small>';
+ return '<span class="pkt-date" dir="ltr">'+shifted.slice(0,10)+'</span><span class="pkt-hijri" dir="auto">'+esc(window.duroodHijri?.format(shifted.slice(0,10),dashboardGroupSettings,tr("en","ur")==="en")||"—")+'</span><strong class="pkt-time" dir="ltr">'+shifted.slice(11,19)+'</strong><small>PKT'+(clock?.verified()?'':' · '+tr("estimated","تخمینی"))+'</small>';
 }
 function dateKey(date = new Date()) {
   return [date.getFullYear(),date.getMonth() + 1,date.getDate()].map((part,index) =>
@@ -5361,7 +5354,10 @@ setInterval(updateClock, 125);
 setInterval(updateNamazDate, 5000);
 setInterval(monitorPrayerTime, 5000);
 setInterval(updateNextPrayerTicker, 1000);
+let lastGroupSessionDay=globalDateKey();
 setInterval(()=>{
+ const day=globalDateKey();
+ if(day!==lastGroupSessionDay){lastGroupSessionDay=day;refreshDashboardTargetCards();refreshDashboardGroupProgress();refreshMemberGroupProgress();window.duroodWazaif?.refreshGroupTargets?.();}
  const clock=document.getElementById("global-pkt-clock");
  if(clock&&!document.hidden)clock.innerHTML=globalClockMarkup();
  const node=document.querySelector("[data-group-session-countdown]");
@@ -5385,7 +5381,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=joining-session-target-20261126-v1";
+import "./wazaif.js?release=hijri-group-session-20261126-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";

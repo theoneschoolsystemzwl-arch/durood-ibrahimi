@@ -461,7 +461,7 @@ function subscribe(){
   state.subscriptions.push(onSnapshot(collection(ownGroup,"days"),safe(snap=>{
     state.groupDays=Object.fromEntries(snap.docs.map(d=>[d.id,d.data()]));
     state.groupDaysReady=!snap.metadata.fromCache;
-    if(state.mode==="group-reader")refreshHeroReader();
+    if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();
   }),err));
   const ownCollection=query(collection(db,"memberWazaif",uid,"items"),limit(100));
   state.subscriptions.push(onSnapshot(ownCollection,safe(snap=>{
@@ -518,6 +518,11 @@ function tasbihTabLabel(title){
  const name=String(title||"").trim();
  return /تسبیح\s*$/u.test(name)?name:name+" تسبیح";
 }
+function groupSessionInfo(g){
+ const today=groupReadingDay(),p=window.duroodAnnualTargetPeriod?.(g);if(!p)return "";
+ const count=state.groupDaysReady?Object.entries(state.groupDays).filter(([day])=>day>=p.start&&day<=p.end&&day<=today).reduce((sum,[,row])=>sum+(Number.isSafeInteger(row.count)&&row.count>=0?row.count:0),0):null;
+ return '<p class="wz-help" dir="rtl">اسلامی سال: <bdi>'+esc(p.start)+'</bdi> تا <bdi>'+esc(p.end)+'</bdi> (12 ربیع الاول'+(p.confirmed?'':'، تخمینی')+')<br>نیا سال 13 ربیع الاول: <bdi>'+esc(p.next)+'</bdi> • میرا اس سال محفوظ شمار: '+(count===null?'—':fmt(count))+'</p>';
+}
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
  const stats=state.groupMember||{},today=groupReadingDay();
@@ -528,7 +533,7 @@ function groupCard(){
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
- compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا مجموعی شمار",all)+'</div>'+
+ compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا مجموعی شمار",all)+'</div>'+groupSessionInfo(g)+
  arabicOrPdf(g.arabic,"group")+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  '<div class="wz-actions">'+
@@ -664,8 +669,8 @@ function formMarkup(){
  '<label class="wz-goal-field" data-wz-goal="month">ماہانہ ہدف<input name="monthlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.monthlyGoal||"")+'"></label>'+
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-form-goals" data-wz-auto-goals hidden>'+autoGroupGoalMarkup()+'</div>'+
- '<div class="wz-dates" data-wz-annual-dates hidden><label>سیشن کی آغاز تاریخ (Start Date)<input name="annualStartDate" type="date" value="'+esc(annual?.start||groupReadingDay())+'"></label>'+
- '<label>سیشن کی اختتامی تاریخ (End Date)<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">پہلے سیشن کی مدت مالک مقرر کرے گا۔ اختتام کے اگلے دن نیا ایک سالہ سیشن خود شروع ہوگا۔ ہر ممبر کا ہدف اس کی اصل رکنیت یا سیشن کے آغاز سے، جو بعد میں ہو، اختتام تک شمار ہوگا۔</p></div>'+
+ '<div class="wz-dates" data-wz-annual-dates hidden><label>موجودہ اسلامی سال کا آغاز<input name="annualStartDate" type="date" readonly value="'+esc(annual?.start||groupReadingDay())+'"></label>'+
+ '<label>12 ربیع الاول — پاکستانی عیسوی تاریخ مقرر کریں<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help" id="wz-hijri-preview"></p><p class="wz-help">پاکستان میں رویتِ ہلال کے مطابق 12 ربیع الاول کی اصل تاریخ مالک خود محفوظ کرے۔ اسی دن کے اختتام پر سال مکمل، اگلے دن 13 ربیع الاول سے نیا سال شروع ہوگا۔ آئندہ سال کی خودکار تاریخ تخمینی ہے، اسے بھی درست کر سکتے ہیں۔ پرانی گنتی نہیں مٹے گی۔</p></div>'+
  '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||(g?groupReadingDay():readingDay()))+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
@@ -1099,7 +1104,7 @@ function readerMarkup(group){
  '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div><small>SEC</small><strong id="wz-speed-sec">—</strong></div>'+
  '</div>'+
- (group?'<span class="wz-current-date">'+esc(displayRecordDate(today))+'</span>':
+ (group?'<span class="wz-current-date">'+esc(displayRecordDate(today))+'<small style="display:block">'+esc(window.duroodHijri?.format(today,w)||"—")+'</small></span>':
  '<div class="wz-date-select"><input id="wz-save-date" type="hidden" value="'+esc(state.draftDay||today)+'">'+
  '<button type="button" class="wz-day-step" data-wazifa-action="day-prev" aria-label="پچھلا دن">−</button>'+
  '<button type="button" class="wz-date-button" data-wazifa-action="open-date-picker" aria-label="تسبیح کی تاریخ منتخب کریں">'+
@@ -1340,7 +1345,15 @@ function syncForm(){
  const annualFields=form.querySelector("[data-wz-annual-dates]");
  annualFields.hidden=kind!=="group";
  for(const input of annualFields.querySelectorAll("input")){input.required=kind==="group";input.disabled=kind!=="group";}
- if(kind==="group")form.elements.annualEndDate.min=form.elements.annualStartDate.value;
+ if(kind==="group"){
+  const end=form.elements.annualEndDate,start=form.elements.annualStartDate;
+  const period=window.duroodAnnualTargetPeriod?.(currentGroup());
+  end.min=start.value;
+  const valid=window.duroodHijri?.validEnd(end.value,period);
+  end.setCustomValidity(valid?"":"پاکستانی 12 ربیع الاول کی درست تاریخ منتخب کریں۔");
+  const note=form.querySelector("#wz-hijri-preview");
+  if(note)note.textContent=valid?"12 ربیع الاول: "+end.value+" • 13 ربیع الاول (نیا سال): "+window.duroodHijri.nextDay(end.value):"12 ربیع الاول کی تخمینی تاریخ کے قریب درست دن منتخب کریں۔";
+ }else form.elements.annualEndDate.setCustomValidity("");
  const end=form.querySelector("[data-wz-end]");
  const daysField=form.querySelector("[data-wz-days]");
  end.hidden=kind!=="fixed";daysField.hidden=kind!=="fixed";
@@ -1433,7 +1446,8 @@ async function saveForm(form){
      const realDate=d=>dayOk(d)&&new Date(d+"T12:00:00Z").toISOString().slice(0,10)===d;
      if(!realDate(annualStartDate)||!realDate(annualEndDate)||annualEndDate<annualStartDate)throw Error("سیشن کی درست آغاز اور اختتامی تاریخ مقرر کریں۔");
      const current=window.duroodAnnualTargetPeriod?.(prior);
-     if(current?.start===annualStartDate&&current?.end===annualEndDate&&prior.annualStartDate&&prior.annualEndDate){annualStartDate=prior.annualStartDate;annualEndDate=prior.annualEndDate;}
+     if(!window.duroodHijri?.validEnd(annualEndDate,current)||annualStartDate!==current?.start)throw Error("موجودہ سال کے لیے 12 ربیع الاول کی درست پاکستانی تاریخ مقرر کریں۔");
+     if(current.confirmed&&current.start===annualStartDate&&current.end===annualEndDate&&prior.annualStartDate&&prior.annualEndDate){annualStartDate=prior.annualStartDate;annualEndDate=prior.annualEndDate;}
      const value={...common,annualStartDate,annualEndDate,kind:"group",dailyGoal:legacy(prior.dailyGoal),weeklyGoal:legacy(prior.weeklyGoal),monthlyGoal:legacy(prior.monthlyGoal),yearlyGoal:legacy(prior.yearlyGoal),
        active:data.has("active"),countAsDurood:data.has("countAsDurood"),updatedAt:serverTimestamp()};
      const ref=doc(db,"wazaifSettings","group");
