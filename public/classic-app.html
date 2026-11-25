@@ -2206,6 +2206,7 @@ function groupDashboardProgress(){
   const sumSince=start=>dates===null?null:Object.entries(dates).filter(([day])=>day>=start&&day<=today).reduce((sum,[,count])=>sum+count,0);
   const daily=dates?.[today]??(dashboardGroupStats===null?null:dashboardGroupStats.day===today?Number(dashboardGroupStats.today||0):0);
   const weekly=sumSince(weekStart),monthly=sumSince(monthStart);
+  if(!currentUser()?.isOwner)return '<p class="dashboard-progress-note">'+tr("Side totals are awaiting verified migration. Personal counts are available in your group reader.","علیحدہ گروپ شمار کی تصدیق باقی ہے۔ اپنا ریکارڈ گروپ تسبیح میں دیکھیں۔")+'</p>';
   const session=annualTargetPeriod(cfg,today);
   const annual=currentUser()?.isOwner ? (dates===null||!session?null:Object.entries(dates).filter(([day])=>day>=session.start&&day<=session.end&&day<=today).reduce((sum,[,count])=>sum+count,0)) : (dashboardGroupYear?.year===today.slice(0,4)?Number(dashboardGroupYear.total||0):null);
   const make=(label,goal,count)=>{
@@ -2219,9 +2220,9 @@ function groupDashboardProgress(){
   };
   return '<p class="dashboard-progress-note">'+tr("Shared group Wazifa targets","گروپ وظیفے کے مشترکہ اہداف")+
     ' · '+(cfg.active===true?tr("Active","جاری"):tr("Inactive","بند"))+'</p>'+
-    make(tr("Daily goal","روزانہ ہدف"),Number(cfg.dailyGoal),daily)+
-    make(tr("Weekly goal","ہفتہ وار ہدف"),Number(cfg.weeklyGoal),weekly)+
-    make(tr("Monthly goal","ماہانہ ہدف"),Number(cfg.monthlyGoal),monthly)+
+    make(tr("Daily goal","روزانہ ہدف"),window.duroodAggregateGroupTargets()?.dailyGoal??0,daily)+
+    make(tr("Weekly goal","ہفتہ وار ہدف"),window.duroodAggregateGroupTargets()?.weeklyGoal??0,weekly)+
+    make(tr("Monthly goal","ماہانہ ہدف"),window.duroodAggregateGroupTargets()?.monthlyGoal??0,monthly)+
     make(tr("Annual goal","سالانہ ہدف"),currentUser()?.isOwner?(window.duroodAggregateGroupTargets()?.yearlyGoal??0):Number(cfg.yearlyGoal),annual)+
     '<small class="muted">'+tr("Weekly and monthly totals use saved dated group entries; earlier dates without records are not estimated.","ہفتہ وار اور ماہانہ شمار محفوظ تاریخ وار گروپ ریکارڈ سے ہے؛ پرانی غیر محفوظ تاریخوں کا اندازہ نہیں لگایا گیا۔")+'</small>';
 }
