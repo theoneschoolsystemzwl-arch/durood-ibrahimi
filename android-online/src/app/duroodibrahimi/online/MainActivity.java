@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
     private static final String WEB_HOST = "durood-e-ibrahimi-global-c74e0.web.app";
     private static final int PICK_IMAGE = 42;
     private android.webkit.ValueCallback<Uri[]> pendingImage;
+    private boolean pendingPdfPicker=false;
     private WebView web;
     private FrameLayout root;
     private TextView retryView;
@@ -70,7 +71,7 @@ public final class MainActivity extends Activity {
             settings.setUseWideViewPort(true);
             settings.setLoadWithOverviewMode(false);
             settings.setAllowFileAccess(false);
-            settings.setAllowContentAccess(false);
+            settings.setAllowContentAccess(true);
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             settings.setSupportMultipleWindows(false);
             web.setWebChromeClient(new WebChromeClient() {
@@ -80,7 +81,9 @@ public final class MainActivity extends Activity {
                     pendingImage = callback;
                     Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     pick.addCategory(Intent.CATEGORY_OPENABLE);
-                    pick.setType("image/*");
+                    pendingPdfPicker=false;
+                    for(String type:params.getAcceptTypes())if(type!=null&&(type.contains("application/pdf")||type.contains(".pdf")))pendingPdfPicker=true;
+                    pick.setType(pendingPdfPicker?"application/pdf":"image/*");
                     try { startActivityForResult(pick, PICK_IMAGE); }
                     catch (ActivityNotFoundException e) { finishImage(null); }
                     return true;
@@ -154,16 +157,39 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+    if(request==SAVE_WAZIFA_PDF){finishWazifaPdfSave(result,data);return;}
         if (request != PICK_IMAGE) return;
         Uri selected = result == RESULT_OK && data != null ? data.getData() : null;
         if (selected != null && "content".equals(selected.getScheme())) {
             try {
                 String mime = getContentResolver().getType(selected);
-                if (mime != null && mime.startsWith("image/")) { finishImage(selected); return; }
+                if (mime != null && (pendingPdfPicker?mime.equals("application/pdf"):mime.startsWith("image/"))) { finishImage(selected); return; }
             } catch (SecurityException ignored) { }
         }
         finishImage(null);
     }
+  private static final int SAVE_WAZIFA_PDF=4202;
+  private byte[] pendingWazifaPdf;
+  private void openWazifaPdfSave(byte[] pdf){
+    if(!trustedPage()||pendingWazifaPdf!=null)return;
+    pendingWazifaPdf=pdf;
+    Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+    save.addCategory(Intent.CATEGORY_OPENABLE);save.setType("application/pdf");save.putExtra(Intent.EXTRA_TITLE,"wazifa-arabic.pdf");
+    try{startActivityForResult(save,SAVE_WAZIFA_PDF);}
+    catch(ActivityNotFoundException e){pendingWazifaPdf=null;android.widget.Toast.makeText(this,"PDF save unavailable",android.widget.Toast.LENGTH_SHORT).show();}
+  }
+  private void finishWazifaPdfSave(int result,Intent data){
+    final byte[] pdf=pendingWazifaPdf;pendingWazifaPdf=null;
+    if(result!=RESULT_OK||data==null||data.getData()==null||pdf==null)return;
+    final Uri uri=data.getData();if(!"content".equals(uri.getScheme()))return;
+    new Thread(()->{
+      boolean ok=false;
+      try(java.io.OutputStream out=getContentResolver().openOutputStream(uri,"w")){if(out!=null){out.write(pdf);out.flush();ok=true;}}
+      catch(Exception ignored){}
+      final boolean saved=ok;
+      runOnUiThread(()->android.widget.Toast.makeText(this,saved?"PDF محفوظ ہو گئی":"PDF محفوظ نہیں ہو سکی",android.widget.Toast.LENGTH_LONG).show());
+    }).start();
+  }
     private boolean trustedPage() {
         // JavaScriptInterface runs off the UI thread; do not call WebView.getUrl().
         return mainPageTrusted;
@@ -294,6 +320,14 @@ public final class MainActivity extends Activity {
         android.util.Log.w("TasbihMotor","Motor request failed",error);
         return false;
       }
+    }
+    @JavascriptInterface public boolean saveWazifaPdf(String encoded){
+      if(!trustedPage()||encoded==null||encoded.length()>45000000)return false;
+      try{
+        byte[] pdf=android.util.Base64.decode(encoded,android.util.Base64.NO_WRAP);
+        if(pdf.length<5||pdf.length>32*1024*1024||pdf[0]!='%'||pdf[1]!='P'||pdf[2]!='D'||pdf[3]!='F'||pdf[4]!='-')return false;
+        runOnUiThread(()->openWazifaPdfSave(pdf));return true;
+      }catch(IllegalArgumentException e){return false;}
     }
     @JavascriptInterface public void setImmersive(boolean enabled) {
             if(!trustedPage())return;

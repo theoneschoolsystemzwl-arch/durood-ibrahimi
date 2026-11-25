@@ -87,6 +87,7 @@ public class MainActivity extends Activity {
   }
   @Override protected void onActivityResult(int request,int result,Intent data){
     super.onActivityResult(request,result,data);
+    if(request==SAVE_WAZIFA_PDF){finishWazifaPdfSave(result,data);return;}
     if(request==FILE_PICK&&filePicker!=null){
       filePicker.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result,data));
       filePicker=null;
@@ -101,6 +102,28 @@ public class MainActivity extends Activity {
     if(item.getItemId()==1){web.reload();return true;}
     if(item.getItemId()==2){startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(HOME)));return true;}
     return super.onOptionsItemSelected(item);
+  }
+  private static final int SAVE_WAZIFA_PDF=4202;
+  private byte[] pendingWazifaPdf;
+  private void openWazifaPdfSave(byte[] pdf){
+    if(!trustedPage()||pendingWazifaPdf!=null)return;
+    pendingWazifaPdf=pdf;
+    Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+    save.addCategory(Intent.CATEGORY_OPENABLE);save.setType("application/pdf");save.putExtra(Intent.EXTRA_TITLE,"wazifa-arabic.pdf");
+    try{startActivityForResult(save,SAVE_WAZIFA_PDF);}
+    catch(ActivityNotFoundException e){pendingWazifaPdf=null;android.widget.Toast.makeText(this,"PDF save unavailable",android.widget.Toast.LENGTH_SHORT).show();}
+  }
+  private void finishWazifaPdfSave(int result,Intent data){
+    final byte[] pdf=pendingWazifaPdf;pendingWazifaPdf=null;
+    if(result!=RESULT_OK||data==null||data.getData()==null||pdf==null)return;
+    final Uri uri=data.getData();if(!"content".equals(uri.getScheme()))return;
+    new Thread(()->{
+      boolean ok=false;
+      try(java.io.OutputStream out=getContentResolver().openOutputStream(uri,"w")){if(out!=null){out.write(pdf);out.flush();ok=true;}}
+      catch(Exception ignored){}
+      final boolean saved=ok;
+      runOnUiThread(()->android.widget.Toast.makeText(this,saved?"PDF محفوظ ہو گئی":"PDF محفوظ نہیں ہو سکی",android.widget.Toast.LENGTH_LONG).show());
+    }).start();
   }
   private boolean trustedPage(){
     // JavaScriptInterface callbacks are on a background thread; never call
@@ -232,6 +255,14 @@ public class MainActivity extends Activity {
         android.util.Log.w("TasbihMotor","Motor request failed",error);
         return false;
       }
+    }
+    @JavascriptInterface public boolean saveWazifaPdf(String encoded){
+      if(!trustedPage()||encoded==null||encoded.length()>45000000)return false;
+      try{
+        byte[] pdf=android.util.Base64.decode(encoded,android.util.Base64.NO_WRAP);
+        if(pdf.length<5||pdf.length>32*1024*1024||pdf[0]!='%'||pdf[1]!='P'||pdf[2]!='D'||pdf[3]!='F'||pdf[4]!='-')return false;
+        runOnUiThread(()->openWazifaPdfSave(pdf));return true;
+      }catch(IllegalArgumentException e){return false;}
     }
     @JavascriptInterface public void setImmersive(boolean enabled){
       if(!trustedPage())return;
