@@ -2048,7 +2048,7 @@ function canManagePrivateProfile(viewer,person){
   return !!viewer&&!!person&&(viewer.isOwner===true||(viewer.uid&&person.uid?viewer.uid===person.uid:viewer.id===person.id));
 }
 function canViewMemberProfile(viewer,person){
-  return !!viewer&&!!person&&(canManagePrivateProfile(viewer,person)||(!person.deleted&&!person.disabled&&viewer.gender===person.gender));
+  return !!viewer&&!!person&&(canManagePrivateProfile(viewer,person)||(!person.deleted&&!person.disabled&&['Male','Female'].includes(viewer.gender)&&viewer.gender===person.gender));
 }
 function profileDetails(person) {
   const viewer=currentUser();
@@ -2075,7 +2075,7 @@ function profileDetails(person) {
       '<div class="form-actions">'+editButton+backButton+'</div></div>'+
     '<div class="stats">'+stat(tr("Direct invites","شامل کردہ ارکان"),groupDirectoryReady?displayNumber(children.length):'—')+stat(tr("Branch members","شاخ کے ارکان"),groupDirectoryReady?displayNumber(branchMemberCount(person)):'—')+stat("GC",hasGroup(person.id)?'<bdi data-group-wird="'+person.id+'">'+groupWirdText(person)+'</bdi>':'—')+'</div>'+
     '<dl class="detail-grid member-profile-details">'+values.map(([key,value])=>'<div><dt>'+key+'</dt><dd dir="auto">'+esc(value===0?0:value||'—')+'</dd></div>').join('')+
-    '</dl>'+(person.uid?'<member-profile-fields data-uid="'+esc(person.uid)+'" data-private="'+(privateView?'1':'0')+'" data-joined="'+esc(membershipDateLabel(person))+'"></member-profile-fields>':'')+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
+    '</dl>'+(person.uid?'<member-profile-fields data-uid="'+esc(person.uid)+'" data-private="'+(privateView?'1':'0')+'"></member-profile-fields>':'')+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
     '</section>'+roster + (!admin||own||person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +

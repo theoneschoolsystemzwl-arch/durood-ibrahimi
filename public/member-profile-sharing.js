@@ -22,7 +22,7 @@ class MemberProfileFields extends HTMLElement{
  connectedCallback(){
   const uid=this.dataset.uid,viewer=auth.currentUser?.uid;if(!uid||!viewer)return;
   const privateView=this.dataset.private==="1";
-  const render=(data,contacts)=>{
+  const render=(data,contacts,joined)=>{
    if(!this.isConnected||auth.currentUser?.uid!==viewer)return;
    const dl=document.createElement("dl");dl.className="detail-grid member-profile-details";
    for(const [key,en,ur] of fields){
@@ -32,19 +32,28 @@ class MemberProfileFields extends HTMLElement{
    }
    if(!privateView&&data?.showJoined===true){
     const cell=document.createElement("div"),dt=document.createElement("dt"),dd=document.createElement("dd");
-    dt.textContent=tr("Membership date","تاریخ رکنیت");dd.textContent=this.dataset.joined||"—";cell.append(dt,dd);dl.append(cell);
+    dt.textContent=tr("Membership date","تاریخ رکنیت");dd.textContent=joined||"—";cell.append(dt,dd);dl.append(cell);
    }
    this.replaceChildren(dl);
   };
   if(privateView)Promise.all([getDoc(doc(db,"memberProfileDetails",uid)),getDoc(doc(db,"memberContacts",uid))]).then(([d,c])=>render(d.data(),c.data())).catch(()=>{});
-  else this.stop=onSnapshot(doc(db,"memberProfileShares",uid),snap=>render(snap.data(),null),()=>this.replaceChildren());
+  else this.stop=onSnapshot(doc(db,"memberProfileShares",uid),async snap=>{
+   const revision=(this.revision||0)+1;this.revision=revision;
+   const data=snap.data();let joined="";
+   if(data?.showJoined===true)try{
+    const member=(await getDoc(doc(db,"members",uid))).data();
+    const date=(member?.createdAt||member?.pledgeAcceptedAt)?.toDate?.();
+    if(date&&Number.isFinite(date.getTime()))joined=new Intl.DateTimeFormat(lang()?"ur-PK":"en-GB",{dateStyle:"medium"}).format(date);
+   }catch{}
+   if(this.revision===revision)render(data,null,joined);
+  },()=>{this.revision=(this.revision||0)+1;this.replaceChildren();});
  }
  disconnectedCallback(){this.stop?.();}
 }
 class MemberProfileSharing extends HTMLElement{
  async connectedCallback(){
   const uid=auth.currentUser?.uid;if(!uid)return;
-  this.innerHTML='<section class="panel section"><h2>'+tr("Profile information & visibility","پروفائل معلومات اور رازداری")+'</h2><p class="muted">'+tr("Unchecked information stays private. Contact details are for adults only. Do not publish a child’s address, phone, email or birth date.","بغیر ٹک معلومات نجی رہیں گی۔ رابطے کی معلومات صرف بالغ افراد شیئر کریں۔ بچوں کا پتہ، فون، ای میل یا تاریخ پیدائش عام نہ کریں۔")+'</p><form class="form"><fieldset disabled>'+fields.map(([k,en,ur])=>'<label class="field">'+tr(en,ur)+'<input name="'+k+'" dir="auto" '+(k==="age"?'type="number" min="0" max="120"':k==="birthDate"?'type="date"':k==="email"?'type="email" maxlength="254"':k==="mobile"?'type="tel" maxlength="32"':'maxlength="240"')+'></label><label class="profile-share-check"><input type="checkbox" name="show_'+k+'"> '+tr("Show other users","دوسرے صارفین کو دکھائیں")+'</label>').join("")+'<label class="profile-share-check"><input type="checkbox" name="adultConfirmed"> '+tr("I am 18 or older and consent to sharing selected contact information","میری عمر 18 سال یا زیادہ ہے اور منتخب معلومات شیئر کرنے کی اجازت دیتا/دیتی ہوں")+'</label><label class="profile-share-check"><input type="checkbox" name="showJoined"> '+tr("Show membership date","تاریخ رکنیت دکھائیں")+'</label><label class="profile-share-check"><input type="checkbox" name="showPhoto"> '+tr("Show my saved photo to other members","اپنی محفوظ تصویر دوسرے ممبران کو دکھائیں")+'</label><button class="button">'+tr("Save information and privacy","معلومات اور رازداری محفوظ کریں")+'</button></fieldset><p role="status"></p></form></section>';
+  this.innerHTML='<section class="panel section"><h2>'+tr("Profile information & visibility","پروفائل معلومات اور رازداری")+'</h2><p class="muted">'+tr("Unchecked information stays private. Contact details are for adults only. Do not publish a child’s address, phone, email or birth date.","بغیر ٹک معلومات نجی رہیں گی۔ رابطے کی معلومات صرف بالغ افراد شیئر کریں۔ بچوں کا پتہ، فون، ای میل یا تاریخ پیدائش عام نہ کریں۔")+'</p><form class="form"><fieldset disabled>'+fields.map(([k,en,ur])=>'<label class="field">'+tr(en,ur)+'<input name="'+k+'" dir="auto" '+(k==="age"?'type="number" min="0" max="120"':k==="birthDate"?'type="date"':k==="email"?'type="email" maxlength="254"':k==="mobile"?'type="tel" maxlength="32"':'maxlength="240"')+'></label><label class="profile-share-check"><input type="checkbox" name="show_'+k+'"> '+tr("Show other users","دوسرے صارفین کو دکھائیں")+'</label>').join("")+'<label class="profile-share-check"><input type="checkbox" name="adultConfirmed"> '+tr("I am 18 or older and consent to sharing selected contact information","میری عمر 18 سال یا زیادہ ہے اور منتخب معلومات شیئر کرنے کی اجازت دیتا/دیتی ہوں")+'</label><label class="profile-share-check"><input type="checkbox" name="showJoined"> '+tr("Show membership date","تاریخ رکنیت دکھائیں")+'</label><label class="profile-share-check"><input type="checkbox" name="showPhoto"> '+tr("Show my saved photo to other members (guardian permission required for children)","اپنی محفوظ تصویر دوسرے ممبران کو دکھائیں (بچوں کے لیے سرپرست کی اجازت ضروری ہے)")+'</label><button class="button">'+tr("Save information and privacy","معلومات اور رازداری محفوظ کریں")+'</button></fieldset><p role="status"></p></form></section>';
   const form=this.querySelector("form"),fs=form.querySelector("fieldset"),status=form.querySelector("[role=status]");
   const e=form.elements;
   const valid=()=>this.isConnected&&auth.currentUser?.uid===uid;
@@ -56,7 +65,7 @@ class MemberProfileSharing extends HTMLElement{
    for(const [k] of fields){e[k].value=priv[k]||"";e["show_"+k].checked=Object.hasOwn(pub,k);}
    e.adultConfirmed.checked=priv.adultConfirmed===true;e.showJoined.checked=pub.showJoined===true;e.showPhoto.checked=!!pub.image;
    fs.disabled=false;toggle();
-  }catch{status.textContent=tr("Profile sharing is not available yet. No information was published.","شیئرنگ ابھی دستیاب نہیں۔ کوئی معلومات عام نہیں ہوئیں۔");return;}
+  }catch{status.textContent=tr("Profile sharing is not available yet. No information was published.","شیئرنگ ابھی دستیاب نہیں۔ کوئی معلومات عام نہیں ہوئیں۔");this.append(document.createElement("profile-contacts"));return;}
   form.addEventListener("change",toggle);
   form.addEventListener("submit",async ev=>{
    ev.preventDefault();ev.stopPropagation();if(!valid()||fs.disabled)return;

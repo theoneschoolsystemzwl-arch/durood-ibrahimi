@@ -23,7 +23,10 @@ service cloud.firestore {
     }
     match /memberProfileShares/{uid} {
       allow get: if (self(uid) && currentMember()) || owner() ||
-        (currentMember() && active(uid) && matchingGender(get(memberPath(uid)).data));
+        (currentMember() && active(uid) && matchingGender(get(memberPath(uid)).data) &&
+          (!resource.data.keys().hasAny(['mobile','email','address','age','birthDate']) ||
+            (get(/databases/$(database)/documents/memberProfileDetails/$(uid)).data.adultConfirmed == true &&
+             get(/databases/$(database)/documents/memberProfileDetails/$(uid)).data.age >= 18)));
       allow list: if false;
       allow create, update: if self(uid) && currentMember() &&
         request.resource.data.keys().hasOnly(['image','mobile','email','address','age','birthDate','showJoined']) &&
