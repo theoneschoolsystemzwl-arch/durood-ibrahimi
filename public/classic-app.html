@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-double-counts-20261126-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-fireworks-20261126-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2600,14 +2600,72 @@ function metricPeriodCards(){
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
    const badge=goal===null?"—":displayNumber(goal),read=count===null?"—":displayNumber(count);
-   return '<section class="recitation-period period-'+status+'" aria-label="'+esc(label)+'">'+
+   return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
  }).join('');
 }
+// Brief, local-only fireworks. No reads/writes to Firebase and no repeated
+// celebrations from initial loading, periodic snapshots or page refresh.
+let fireworkScope="",periodFireworkStates=new Map(),periodFireworkUntil=new Map(),profileFireworkUntil=0;
+const fireworkDuration=1800;
+function fireworkTransition(previous,current,positiveGoal){
+ return previous==="short"&&current==="complete"&&positiveGoal;
+}
+function fireworkPeriodId(key,day){
+ if(key==="today")return day;
+ if(key==="week")return targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
+ if(key==="month")return day.slice(0,7);
+ const p=annualTargetPeriod(dashboardGroupSettings,day);return p?.start||"";
+}
+function mountFireworks(host,until,profile=false){
+ if(!host||until<=Date.now()||host.querySelector(":scope > .dashboard-fireworks")||window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)return;
+ const layer=document.createElement("span");layer.className="dashboard-fireworks"+(profile?" profile-fireworks":"");layer.setAttribute("aria-hidden","true");
+ const colors=["#ffda72","#b3ffd4","#ff9bb6","#a9ddff","#fff7da","#e7b6ff"];
+ const elapsed=Math.max(0,fireworkDuration-(until-Date.now()));
+ for(let burst=0;burst<2;burst++){
+  for(let i=0;i<12;i++){
+   const spark=document.createElement("i"),angle=i*Math.PI/6+burst*.24,dist=32+(i%3)*13;
+   spark.style.setProperty("--spark-x",(Math.cos(angle)*dist).toFixed(1)+"px");
+   spark.style.setProperty("--spark-y",(Math.sin(angle)*dist).toFixed(1)+"px");
+   spark.style.setProperty("--spark-color",colors[(i+burst*2)%colors.length]);
+   spark.style.setProperty("--spark-left",burst?"72%":"28%");
+   spark.style.setProperty("--spark-top",profile?"37%":burst?"63%":"35%");
+   spark.style.setProperty("--spark-delay",(burst*370-elapsed)+"ms");
+   layer.append(spark);
+  }
+ }
+ host.append(layer);setTimeout(()=>layer.remove(),Math.max(0,until-Date.now()));
+}
+function syncDashboardFireworks(){
+ const person=currentUser();if(!person)return;
+ const scope=(person.uid||person.id)+":"+String(window.duroodCurrentSide||person.gender||"");
+ if(scope!==fireworkScope){fireworkScope=scope;periodFireworkStates.clear();periodFireworkUntil.clear();}
+ const day=globalDateKey(),now=Date.now();
+ const cards=document.getElementById("dashboard-period-cards");
+ if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
+  const key=card.dataset.celebratePeriod,id=fireworkPeriodId(key,day);
+  const status=card.classList.contains("period-complete")?"complete":card.classList.contains("period-short")?"short":"unknown";
+  const prev=periodFireworkStates.get(key);
+  if(id&&status!=="unknown"){
+   if(prev?.id===id&&fireworkTransition(prev.status,status,card.dataset.positiveGoal==="1"))periodFireworkUntil.set(key,{id,until:now+fireworkDuration});
+   periodFireworkStates.set(key,{id,status});
+  }
+  const running=periodFireworkUntil.get(key);
+  if(running?.id===id&&running.until>now)mountFireworks(card,running.until);
+  else if(running)periodFireworkUntil.delete(key);
+ }
+ if(profileFireworkUntil>now)mountFireworks(app.querySelector(".profile-card .profile-portrait-level"),profileFireworkUntil,true);
+}
+window.addEventListener("message",event=>{
+ if(window.parent===window||event.source!==window.parent||event.origin!==location.origin||event.data?.type!=="durood-login-fireworks")return;
+ if(!currentUser()?.uid||event.data.uid!==currentUser().uid)return;
+ profileFireworkUntil=Date.now()+fireworkDuration;syncDashboardFireworks();
+});
 function refreshPeriodCards(){
  const container=document.getElementById("dashboard-period-cards");if(!container)return;
- const html=metricPeriodCards();if(container.innerHTML!==html)container.innerHTML=html;
+ const html=metricPeriodCards();if(container._periodMarkup!==html){container.innerHTML=html;container._periodMarkup=html;}
+ syncDashboardFireworks();
 }
 function overview() {
  const metricCards=metricPeriodCards();
@@ -4690,6 +4748,8 @@ function render({keepScroll = false} = {}) {
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
+  if(person)syncDashboardFireworks();
+  else {fireworkScope="";periodFireworkStates.clear();periodFireworkUntil.clear();profileFireworkUntil=0;}
   if (person && section === 'tasbih') window.duroodWazaif?.render?.();
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();

@@ -28,6 +28,7 @@ window.duroodVerifiedProfile=uid=>!logoutBlocked() && auth.currentUser?.uid===ui
 window.duroodParentAuthUser=()=>!logoutBlocked() && appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
 let classicFrameRequested=false;
 let classicReadyUid=null;
+let pendingLoginFireworkUid=null;
 let dashboardTimer;
 let authGeneration=0;
 let nullAuthTimer=null;
@@ -207,6 +208,7 @@ $("#access-form").addEventListener("submit",async event=>{
         checkLoginRetry();
         const profile=await login(form.get("loginUsername"),form.get("loginPassword"),{remember:$("#remember-login").checked});
         clearLoginRetry();
+        pendingLoginFireworkUid=profile.uid;
         showSignedIn(profile);
       } finally {
         appState.signingIn=false;
@@ -230,6 +232,7 @@ $("#access-form").addEventListener("submit",async event=>{
       // auth-state listener until the same transaction creates the member record.
       const profile=await loadProfile(auth.currentUser);
       await claimDeviceSession(auth.currentUser,profile);
+      pendingLoginFireworkUid=profile.uid;
       showSignedIn(profile);
     }
     accessForm.reset();
@@ -256,6 +259,7 @@ function showProfileRetry(err){
   $("#loading-retry").hidden=false;
 }
 function showSignedOut() {
+  pendingLoginFireworkUid=null;
   clearTimeout(nullAuthTimer);
   clearTimeout(dashboardTimer);
   document.body.classList.remove("classic-pending");
@@ -308,7 +312,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=dashboard-double-counts-20261126-v1";
+  frame.src="./classic-app.html?release=dashboard-fireworks-20261126-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -322,6 +326,10 @@ function revealOriginalDashboard(){
   view("#portal",true);
   document.body.classList.remove("classic-pending");
   document.body.classList.add("classic-active");
+  if(pendingLoginFireworkUid===classicReadyUid){
+    pendingLoginFireworkUid=null;
+    frame.contentWindow?.postMessage({type:"durood-login-fireworks",uid:classicReadyUid},location.origin);
+  }
 }
 // Keep the working portal visible until the authenticated classic dashboard
 // explicitly confirms that it has rendered with the current Firebase user.

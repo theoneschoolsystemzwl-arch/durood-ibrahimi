@@ -1,6 +1,6 @@
 // Network-first app shell. Never caches personal member records, Firebase API responses,
 // OAuth credentials, or third-party CDN requests. Online launches fetch latest deploy.
-const SHELL_CACHE="durood-global-shell-v67";
+const SHELL_CACHE="durood-global-shell-v68";
 const ALLOWED=new Set([
   "/","/index.html","/classic-app","/classic-app.html","/pull-refresh.js","/pwa.js","/arabic-fonts.css","/styles.css","/app.js","/community-pages.js",
   "/password-change.js","/member-auth.js","/firebase-client.js",
