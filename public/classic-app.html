@@ -2137,6 +2137,7 @@ function settings(person) {
     tr("<label class=\"field\">Age<input name=\"age\" type=\"number\" min=\"1\" max=\"120\" value=\"", '<label class="field">عمر<input name="age" type="number" min="1" max="120" value="') + esc(person.age) + '"></label>' +
     genderField(person.gender) +
     tr("<label class=\"field\">Full address<input name=\"address\" maxlength=\"240\" dir=\"auto\" placeholder=\"City and country\" value=\"", '<label class="field">مکمل پتہ<input name="address" maxlength="240" dir="auto" placeholder="شہر اور ملک" value="') + esc(person.address) + '"></label>' +
+    (person.uid?ur(tr("Name and photo are saved to Firebase. Age, birth date and address are not yet synced to Firebase.","نام اور تصویر Firebase میں محفوظ ہوتے ہیں۔ عمر، تاریخ پیدائش اور پتہ ابھی Firebase میں محفوظ نہیں ہوتے۔"),'p','muted'):'')+
     feedback('profile-feedback') + tr("<div><button class=\"button\">Save profile</button></div></form></section>", '<div><button class="button">پروفائل محفوظ کریں</button></div></form></section>') +
     '<profile-contacts></profile-contacts>' +
     tr("<section class=\"panel section\"><h2>Change password</h2><form id=\"password-form\" class=\"form\">", '<section class="panel section"><h2>پاس ورڈ تبدیل کریں</h2><form id="password-form" class="form">') +
@@ -4269,6 +4270,7 @@ function dashboardMetricIcon(key){
  return '<svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(bits[key]||bits.today)+'</svg>';
 }
 function dashboardNavIcon(key){
+ if(key==="my-profile")key="settings";
  const shapes={"overview":"<path d=\"m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z\"/>","tasbih":"<circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"m18 6 2-2M11 4V2m4 19 2 1\"/>","namaz":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 6v6l4 3\"/>","tree":"<circle cx=\"12\" cy=\"4\" r=\"2\"/><circle cx=\"5\" cy=\"19\" r=\"2\"/><circle cx=\"19\" cy=\"19\" r=\"2\"/><path d=\"M12 6v6M5 17v-5h14v5\"/>","settings":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c0-5 3-8 8-8s8 3 8 8\"/>","members":"<circle cx=\"9\" cy=\"7.5\" r=\"3\"/><path d=\"M2 20c0-4 2.5-7 7-7s7 3 7 7M17 5a3 3 0 0 1 0 6M18 13c3 0 4 2 4 6\"/>","messages":"<rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 7 9-7\"/>","directory":"<path d=\"M9 5h12M9 12h12M9 19h12\"/><circle cx=\"4\" cy=\"5\" r=\"1\"/><circle cx=\"4\" cy=\"12\" r=\"1\"/><circle cx=\"4\" cy=\"19\" r=\"1\"/>","groups":"<path d=\"m12 3 9 9-9 9-9-9z\"/>"};
  return '<svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'+(shapes[key]||shapes.groups)+'</svg>';
 }

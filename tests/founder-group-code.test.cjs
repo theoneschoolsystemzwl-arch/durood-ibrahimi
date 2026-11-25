@@ -29,7 +29,7 @@ console.log("Tree activity for empty groups and scoped descendant navigation pas
 
 assert.equal(ac.accessibleTreeMembers(branchRows[1]).map(p=>p.id).join(","),"3,6");
 assert.equal(ac.accessibleTreeMembers(branchRows[0]).map(p=>p.id).join(","),"1,3,4,6");
-assert(src.includes("members:treeMembersPage,ranking,groups")&&src.includes("if(currentUser()?.isOwner!==true)return treeMembersPage()"));
+assert(src.includes("members:treeMembersPage,ranking,groups")&&src.includes("if(!canViewMemberProfile(viewer,person))return treeMembersPage()"));
 console.log("Member group and directory scope, no private profile access, passed");
 
 const resetA=src.indexOf("function ownerPasswordRecoveryMarkup"),resetB=src.indexOf("function profileDetails",resetA);
