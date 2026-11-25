@@ -1280,17 +1280,16 @@ service cloud.firestore {
 
     // Original PDF pages are stored as bounded binary chunks, not OCR text.
     function wzPdfChunk(fileId,chunkId) {
-      return fileId.matches('^[a-f0-9]{32}
-      allow read, write: if false;
+      return fileId.matches('^[a-f0-9]{32}$') && chunkId.matches('^([0-9]|[1-5][0-9]|6[0-5])$');
     }
-  }
-}
-) && chunkId.matches('^([0-9]|[1-5][0-9]|6[0-5])
-      allow read, write: if false;
-    }
-  }
-}
-);
+    // Only an explicitly addressed inbox grants access to the sender's PDF.
+    // The inbox is immutable and verified against the sender's own Wazifa.
+    function wzPdfShareRead(uid,fileId) {
+      let ref = /databases/$(database)/documents/wazifaInbox/$(request.auth.uid)/items/$(fileId);
+      return exists(ref) &&
+        get(ref).data.senderUid == uid &&
+        get(ref).data.recipientUid == request.auth.uid &&
+        get(ref).data.arabic.matches('^\\[\\[WZPDF:' + fileId + ':[1-9][0-9]{0,2}:[1-9][0-9]?\\]\\]$');
     }
     function validWzPdfChunk() {
       return request.resource.data.keys().hasOnly(['data']) &&
@@ -1300,7 +1299,7 @@ service cloud.firestore {
         request.resource.data.data.size() <= 400000;
     }
     match /wazifaPdfPrivate/{uid}/files/{fileId}/chunks/{chunkId} {
-      allow get: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId);
+      allow get: if currentMember() && wzPdfChunk(fileId,chunkId) && (self(uid) || wzPdfShareRead(uid,fileId));
       allow create, update: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId) && validWzPdfChunk();
       allow list: if false;
       allow delete: if self(uid) && currentMember() && wzPdfChunk(fileId,chunkId);
