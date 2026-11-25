@@ -100,10 +100,10 @@ assert(!reader.includes("تسبیح کی منتخب تاریخ")&&!reader.includ
 assert(reader.includes('data-wazifa-action="open-date-picker"')&&reader.includes('data-wazifa-action="save-taps"'));
 assert.equal((reader.match(/data-wazifa-action="save-taps"/g)||[]).length,1,"only one Save button exists");
 assert(reader.indexOf('data-wazifa-action="save-taps"')<reader.indexOf('id="wz-dial"'),"existing Save remains above the dial");
-assert(!reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
+assert(reader.includes('data-wazifa-action="toggle-vibration"')&&reader.includes('data-wazifa-action="toggle-sound"'));
 assert(reader.includes('class="wz-reader-controls-row"')&&reader.includes('class="wz-hero-speed"'),"speed, date and Save share one line");
 assert(reader.includes('class="wz-daily-toolbar"')&&reader.includes('class="wz-reader-feedback"'),"today/due and sound share a row");
-assert(!reader.includes('data-wazifa-action="vibration-up"')&&!reader.includes('data-wazifa-action="vibration-down"')&&!reader.includes('data-wazifa-action="test-vibration"'),"no vibration controls remain");
+assert(reader.includes('data-wazifa-action="vibration-up"')&&reader.includes('data-wazifa-action="vibration-down"')&&!reader.includes('data-wazifa-action="test-vibration"'),"new strength controls without test button");
 assert(reader.includes('data-wazifa-action="sound-up"')&&reader.includes('data-wazifa-action="sound-down"'));
 assert(!reader.includes('id="wz-hero-today-read"')&&!reader.includes('class="wz-percent-today"'),"remove redundant percentage and today tiles");
 assert(!reader.includes("💾")&&!reader.includes("📳")&&!reader.includes("🔊"),"no Save / feedback icons");
@@ -112,7 +112,27 @@ assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!importan
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
 assert(src.includes('durood-wz-sound-level')&&!src.includes('durood-wz-vibration-level'),"sound level persists; vibration level removed");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
-assert(!/vibrat|haptic|وائبریشن/i.test(src),"no tasbih vibration code remains");
+assert(src.includes('durood-tap-motor-v5-strength')&&src.includes('api.pulseTasbihMotor(state.motorStrength)'),"fresh native motor and settings");
+assert(!src.includes('bridge.vibrateTap')&&!src.includes('bridge.hapticClick'),"do not restore the previous motor engine");
+{
+ const a=src.indexOf("function normalizeMotorStrength("),b=src.indexOf("function updateTapMotorControls()",a);
+ assert(a>=0&&b>a);
+ let levels=[],fallbacks=0;
+ const win={DuroodAndroid:{pulseTasbihMotor:n=>{levels.push(n);return true;}},navigator:{vibrate:()=>{fallbacks++;return true;}}};win.parent=win;
+ const c={window:win,state:{motorEnabled:true,motorStrength:10}};
+ vm.createContext(c);vm.runInContext(src.slice(a,b),c);
+ assert.equal(c.normalizeMotorStrength(50),10);
+ assert.equal(c.normalizeMotorStrength(-1),0);
+ assert.equal(c.requestTapMotor(),"native");assert.deepEqual(levels,[10]);assert.equal(fallbacks,0);
+ c.state.motorEnabled=false;assert.equal(c.requestTapMotor(),"off");assert.deepEqual(levels,[10]);
+ c.state.motorEnabled=true;c.state.motorStrength=0;assert.equal(c.requestTapMotor(),"off");
+ c.state.motorStrength=4;assert.equal(c.requestTapMotor(),"native");assert.deepEqual(levels,[10,4]);
+ delete win.DuroodAndroid;assert.equal(c.requestTapMotor(),"web");assert.equal(fallbacks,1);
+}
+for(const file of ["android-online/src/app/duroodibrahimi/online/MainActivity.java","android-live/app/src/main/java/com/theoneschoolsystemzw/duroodlive/MainActivity.java"]){
+ const native=fs.readFileSync(file,"utf8");
+ assert(native.includes("pulseTasbihMotor(int strength)")&&native.includes("createWaveform(timings,amplitudes,-1)"),"new non-repeating waveform on both Android versions");
+}
  // Exercise immediate pointer feedback and ensure release/click cannot double count.
  const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
  assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
@@ -120,7 +140,7 @@ assert(!/vibrat|haptic|وائبریشن/i.test(src),"no tasbih vibration code re
   const handlers={};let counts=0,pulses=0;
   const ctx={
    document:{addEventListener:(name,fn)=>{handlers[name]=fn;}},
-   state:{},
+   state:{motorEnabled:true},lastTapMotorOutcome:"native",
    tap:()=>{counts++;pulses++;return true;},
 
    setTimeout:()=>1,clearTimeout:()=>{}
