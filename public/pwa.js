@@ -1,4 +1,4 @@
-const RELEASE="hijri-group-session-20261126-v1";
+const RELEASE="dashboard-target-rings-20261126-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

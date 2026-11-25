@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=profile-centered-20261123-v5">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-target-rings-20261126-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2366,6 +2366,7 @@ function openTargetAudit(){
  dialog.showModal();
 }
 function refreshDashboardTargetCards(){
+ refreshPeriodCards();
  const node=document.getElementById("group-target-cards");
  if(node)node.innerHTML=dashboardTargetCards();
  const audit=document.getElementById("member-target-audit");if(audit)audit.innerHTML=targetAuditMarkup();
@@ -2531,22 +2532,48 @@ function readerList(){
  }).join('')+'</ol>';
 }
 
-let periodCounts=null;
+let periodCounts=null,periodDatedCounts=null;
 let dashboardGroupTitle='';
 function groupTitleLabel(){
   return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
 }
 function periodLabels(){
   return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
-    ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this year','اس سال کا کل درود')]];
+    ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this Hijri session','اس اسلامی سال کا کل درود')]];
+}
+function dashboardPeriodGoal(key,goals){
+ const name={today:"dailyGoal",week:"weeklyGoal",month:"monthlyGoal",year:"yearlyGoal"}[key];
+ if(!goals||goals.missingTargets>0||(key==="year"&&!annualTargetPeriod(dashboardGroupSettings,globalDateKey())))return null;
+ const value=goals[name];return Number.isSafeInteger(value)&&value>=0?value:null;
+}
+function dashboardPeriodCount(key){
+ if(key!=="year")return periodCounts?.[key]??null;
+ const today=globalDateKey(),p=annualTargetPeriod(dashboardGroupSettings,today);
+ if(!p||!periodDatedCounts)return null;
+ return Object.entries(periodDatedCounts).filter(([day])=>day>=p.start&&day<=p.end&&day<=today).reduce((sum,[,n])=>sum+n,0);
+}
+function periodGoalStatus(count,goal){
+ return !Number.isSafeInteger(count)||!Number.isSafeInteger(goal)?"unknown":count<goal?"short":"complete";
+}
+function periodGoalLabel(key){
+ return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal","ہفتہ وار ہدف"),month:tr("Monthly goal","ماہانہ ہدف"),year:tr("Yearly goal","سالانہ ہدف")}[key];
+}
+function metricPeriodCards(){
+ const goals=window.duroodAggregateGroupTargets();
+ return periodLabels().map(([key,label])=>{
+   const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
+   const badge=goal===null?"—":displayNumber(goal),read=count===null?"—":displayNumber(count);
+   return '<section class="recitation-period period-'+status+'" aria-label="'+esc(label)+'">'+
+   '<span class="dashboard-period-icon dashboard-target-ring" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><small>'+periodGoalLabel(key)+'</small><bdi dir="ltr">'+badge+'</bdi></span>'+
+   '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
+ }).join('');
+}
+function refreshPeriodCards(){
+ const container=document.getElementById("dashboard-period-cards");if(!container)return;
+ const html=metricPeriodCards();if(container.innerHTML!==html)container.innerHTML=html;
 }
 function overview() {
- const metricCards=periodLabels().map(([key,label])=>
-   '<section class="recitation-period" aria-label="'+esc(label)+'">'+
-   '<span class="dashboard-period-icon">'+dashboardMetricIcon(key)+'</span>'+
-   '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'">'+
-   (periodCounts?displayNumber(periodCounts[key]):'—')+'</strong></div></section>'
- ).join('');
+ const metricCards=metricPeriodCards();
  return '<div class="dashboard-home">'+
    '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
@@ -2556,7 +2583,7 @@ function overview() {
    (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
    '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
-   '<div class="recitation-periods">'+metricCards+'</div>'+
+   '<div class="recitation-periods" id="dashboard-period-cards">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
    '<section class="panel section readers-section"><div class="reader-card-heading"><h2><span aria-hidden="true">♧</span> '+
@@ -5134,9 +5161,8 @@ window.duroodClassicBridge = {
     refreshReaderAudit();
     refreshReaderDateControls();
   },
-  periodTotals(values){
-    periodCounts=values;
-    document.querySelectorAll('[data-period]').forEach(el=>{el.textContent=values ? formatNumber(values[el.dataset.period]) : '—';});
+  periodTotals(values,dated=null){
+    periodCounts=values;periodDatedCounts=dated;refreshPeriodCards();
   },
   allTime(value){
     globalTotal=value;
@@ -5151,7 +5177,7 @@ window.duroodClassicBridge = {
       liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
       savedMemberWirds=new Map();savedMemberWirdsComplete=false;ownGroupWirds=new Map();groupDirectoryReady=false;
       liveMemberPhotos=new Map();
-      periodCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;periodDatedCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5883,20 +5909,25 @@ function observeCounters(side){
       bridge.groupProgressDays(values);
     },err=>{if(stillCurrent())bridge.groupProgressDays(null);console.warn("Group dated totals unavailable",err.code);});
     }
-    const days=query(collection(sideRef,"days"),where("day",">=",week<year?week:year),where("day","<=",today));
+    // One rolling window covers the whole Hijri session, including the previous
+    // Gregorian year. Keep dated values so owner corrections update immediately.
+    const from=targetAddDays(today,-370);
+    bridge.periodTotals(null);
+    const days=query(collection(sideRef,"days"),where("day",">=",from),where("day","<=",today));
     stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
-      if(snap.metadata.fromCache && snap.empty){bridge.periodTotals(null);return;}
-      const totals={today:0,week:0,month:0,year:0};
+      if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache)return;
+      const totals={today:0,week:0,month:0},dated={};
       snap.forEach(item=>{
         const {day,total}=item.data();
+        if(!targetDateValid(day)||!Number.isSafeInteger(total)||total<0)return;
+        dated[day]=total;
         if(day===today)totals.today+=total;
         if(day>=week)totals.week+=total;
         if(day>=month)totals.month+=total;
-        if(day>=year)totals.year+=total;
       });
-      bridge.periodTotals(totals);
-      if(stillCurrent()&&!snap.metadata.fromCache)bridge.readerAudit(today,totals.today,true);
-    },err=>{bridge.periodTotals(null);console.warn("Period totals unavailable",err.code);});
+      bridge.periodTotals(totals,dated);
+      bridge.readerAudit(today,totals.today,true);
+    },err=>{if(stillCurrent())bridge.periodTotals(null);console.warn("Period totals unavailable",err.code);});
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
