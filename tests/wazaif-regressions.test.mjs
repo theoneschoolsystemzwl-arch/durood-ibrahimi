@@ -312,3 +312,18 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(format(row,"2026-11-25",history,false),"75");
  assert(classic.includes("bridge.readerDirectoryGoals(observedUid,[...goalMembers]"));
 }
+
+// Foreground presence is independent of the login lease and group membership.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const begin=classic.indexOf("function presenceOnline("),end=classic.indexOf("function memberLoginMarkup(",begin);
+ assert(begin>=0&&end>begin);
+ const context=vm.createContext({Date,Number,window:{duroodMemberLoginStatus:{presence:new Map([["a",100000]])}}});
+ vm.runInContext(classic.slice(begin,end),context);
+ const online=vm.runInContext("presenceOnline",context);
+ assert.equal(online("a",159999),true);assert.equal(online("a",160000),false);assert.equal(online("b",110000),false);
+ assert(classic.includes("document.hidden||navigator.onLine===false"));
+ assert(classic.includes("directoryGroupName(person.id)"));
+ assert(rules.includes("match /memberPresence/{presenceId}"));
+ assert(!classic.includes("Open authorized Google password reset"));
+}

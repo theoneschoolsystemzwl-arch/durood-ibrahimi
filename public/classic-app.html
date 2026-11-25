@@ -322,6 +322,17 @@ button.tree-node:hover { background: hsl(calc(var(--theme-hue) - 18.18) calc(52.
 .detail-grid div { background: hsl(calc(var(--theme-hue) - 4.0) calc(23.81% * var(--theme-saturation)) 95.88%); border-radius: 10px; padding: 8px; }
 .detail-grid dt { font-size: .78rem; color: var(--muted); }
 .detail-grid dd { margin: 0; overflow-wrap: anywhere; }
+.member-profile-panel{overflow:hidden;padding:14px}
+.member-profile-panel>.panel-head{background:linear-gradient(135deg,#064e3b,#087f5b);color:white;border-radius:15px;padding:16px;gap:10px;flex-wrap:wrap}
+.member-profile-panel>.panel-head .muted{color:#d1fae5}
+.member-profile-panel>.panel-head .identity{min-width:0;gap:12px}
+.member-profile-panel>.panel-head .identity strong{font-size:1.2rem;overflow-wrap:anywhere}
+.member-profile-status{margin:12px 0}
+.member-profile-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
+.member-profile-summary>*{min-width:0;overflow-wrap:anywhere}
+.member-profile-details{gap:9px}
+.member-profile-details>div{padding:12px;border:1px solid var(--line)}
+.member-profile-details dd{font-weight:650;margin-top:4px}
 .profile-title { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 13px; background: var(--mint); border-radius: 13px; }
 .profile-title strong { display: block; }
 .profile-title .button { min-height: 35px; margin-top: 5px; font-size: .84rem; cursor: pointer; }
@@ -1597,6 +1608,14 @@ function groupIdentity(person){return person&&groupDirectoryReady?groupIdentityC
 function groupName(id){return groupIdentity(getUser(id))?.owned||'—';}
 function hasGroup(id){const p=getUser(id);return !!p&&!p.deleted&&directMembers(id).some(m=>!m.deleted);}
 function ownedGroupName(id){return hasGroup(id)?groupName(id):'—';}
+function joinedGroupName(id){
+ const g=groupIdentity(getUser(id));
+ return g?.membership?.replace(/[0-9]+$/,"")||g?.owned||"—";
+}
+function directoryGroupName(id){
+ const joined=joinedGroupName(id),owned=ownedGroupName(id);
+ return owned!=="—"&&owned!==joined?joined+" / "+owned:joined;
+}
 function groupCode(person){
   const g=groupIdentity(person);return g?[g.membership,hasGroup(person.id)&&g.owned?g.owned+'1':''].filter(Boolean).join(' '):'';
 }
@@ -1978,17 +1997,24 @@ function groupMessagesPage() {
     '</button></form><p id="group-chat-feedback" class="feedback" role="status"></p></section>';
 }
 
+function presenceOnline(uid,now=Date.now()){
+ const data=window.duroodMemberLoginStatus;
+ const seen=Number(data?.presence?.get(uid)||0);
+ return seen>0&&now-seen<60000;
+}
 function memberLoginMarkup(uid,disabled=false) {
   const data=window.duroodMemberLoginStatus;
   const own=uid===currentUser()?.uid;
   const lease=data?.leases?.get(uid);
   const known=own||disabled||data?.leasesReady===true;
-  const online=!disabled&&(own||!!lease);
-  const status=known?(online?'online':'offline'):'unknown';
+  const loggedIn=!disabled&&(own||!!lease);
+  const online=!disabled&&presenceOnline(uid);
+  const presenceKnown=data?.presenceReady===true;
+  const status=presenceKnown||disabled?(online?'online':'offline'):'unknown';
   const time=Math.max(Number(lease?.authTime)||0,Number(data?.history?.get(uid)?.authTime)||0);
   const date=time>0?new Intl.DateTimeFormat(language==='ur'?'ur-PK':'en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}).format(new Date(time*1000)):'—';
   return '<span class="member-login-light '+status+'" aria-hidden="true"></span><span>'+
-    (known?(online?tr('Logged in','لاگ اِن'):tr('Logged out','لاگ آؤٹ')):tr('Status unknown','اسٹیٹس نامعلوم'))+
+    (presenceKnown||disabled?(online?tr('Online','آن لائن'):tr('Offline','آف لائن')):tr('Presence unknown','آن لائن اسٹیٹس نامعلوم'))+' · '+(known?(loggedIn?tr('Logged in','لاگ اِن'):tr('Logged out','لاگ آؤٹ')):tr('Login unknown','لاگ اِن نامعلوم'))+
     '</span><span>'+tr('Last login: ','آخری لاگ اِن: ')+'<bdi>'+esc(date)+'</bdi></span>';
 }
 function directory() {
@@ -2002,7 +2028,7 @@ function directory() {
       (currentUser()?.isOwner&&person.uid?'<span class="member-login-status" data-login-uid="'+esc(person.uid)+'" data-login-disabled="'+(person.disabled?'1':'0')+'">'+memberLoginMarkup(person.uid,person.disabled)+'</span>':'') +
       '<span class="serial">' + displayId(person.id) +
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
-      tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + ownedGroupName(person.id) + '</bdi>' +
+      tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + esc(directoryGroupName(person.id)) + '</bdi>' +
       '</small>' + memberWirdMarkup(person) +
       (person.disabled ? tr("<small class=\"account-status disabled\">Suspended</small>", '<small class="account-status disabled">معطل</small>') : '') + '</span><span class="chevron" aria-hidden="true">‹</span></button>'
     ).join('') + '</div>';
@@ -2015,25 +2041,21 @@ function memberLevel(person) {
 // Spark Hosting cannot perform privileged Auth mutations with a member token.
 function ownerPasswordRecoveryMarkup(person){
   if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted)return '';
-  const request=JSON.stringify({targetProjectId:"durood-e-ibrahimi-global-c74e0",localId:person.uid,password:"REPLACE_WITH_NEW_PASSWORD"},null,2);
-  return '<section class="panel section"><h2>'+tr("Admin password reset","مالک کے ذریعے پاس ورڈ ری سیٹ")+'</h2>'+
-    ur(tr("Existing passwords cannot be displayed. Use the authorized Google Cloud account to set a new password for this member. No password is saved in this app.","پرانا پاس ورڈ نظر نہیں آ سکتا۔ اس رکن کا نیا پاس ورڈ مقرر کرنے کے لیے مجاز گوگل کلاؤڈ اکاؤنٹ استعمال کریں۔ اس ایپ میں پاس ورڈ محفوظ نہیں ہوگا۔"),'p','muted')+
-    '<label class="field">'+tr("Reset request template (copy, then replace the password placeholder in Google API Explorer)","ری سیٹ کا نمونہ (نقل کریں، پھر گوگل API Explorer میں نیا پاس ورڈ لکھیں)")+
-    '<textarea id="owner-password-reset-template" dir="ltr" readonly rows="6">'+esc(request)+'</textarea></label>'+
-    '<div class="form-actions"><button type="button" class="button secondary" data-action="copy-owner-reset-template" data-value="'+person.id+'">'+tr("Copy reset template","ری سیٹ کا نمونہ نقل کریں")+'</button>'+
-    '<a class="button secondary" href="https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/update" target="_blank" rel="noopener noreferrer">'+tr("Open authorized Google password reset","مجاز گوگل پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
-    feedback("owner-password-reset-feedback")+'</section>';
+  return '<section class="panel section"><h2>'+tr("Password recovery","پاس ورڈ کی بحالی")+'</h2>'+
+    ur(tr("Existing passwords cannot be viewed. Direct administrator password changes require a trusted server; they are not available on this Spark client.","موجودہ پاس ورڈ نظر نہیں آ سکتا۔ مالک کے ذریعے نیا پاس ورڈ مقرر کرنے کے لیے محفوظ سرور درکار ہے؛ موجودہ Spark ایپ میں یہ سہولت دستیاب نہیں۔"),'p','muted')+'</section>';
 }
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
-  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
+  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Joined group", 'شمولیت والا گروپ'),joinedGroupName(person.id)],[tr("Own group", 'اپنا گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
     [tr("Membership date", 'تاریخِ رکنیت'),membershipDateLabel(person)],
     [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Mobile / WhatsApp", 'موبائل / واٹس ایپ'),person.phone],[tr("Address", 'پتہ'),person.address],
     [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),person.inviter ? memberName(getUser(person.inviter)) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
-  return heading(tr("Member Profile", 'رکن کی پروفائل')) + '<section class="panel"><div class="panel-head"><div class="identity">' +
+  return heading(tr("Member Profile", 'رکن کی پروفائل')) + '<section class="panel member-profile-panel"><div class="panel-head"><div class="identity">' +
     avatar(person,true) + '<div><strong dir="auto">' + esc(memberName(person)) + '</strong><small class="muted">' + displayId(person.id) +
     tr("</small></div></div><button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Back to users</button></div>", '</small></div></div><button class="button secondary" data-action="nav" data-value="directory">صارفین پر واپس</button></div>') +
-    '<dl class="detail-grid">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
+    '<div class="member-profile-status member-login-status" data-login-uid="'+esc(person.uid||"")+'" data-login-disabled="'+(person.disabled?'1':'0')+'">'+memberLoginMarkup(person.uid,person.disabled)+'</div>'+
+    '<div class="member-profile-summary">'+stat(tr("Total Durood","کل درود"),displayNumber(score(person,"all","current")))+stat(tr("Group","گروپ"),esc(joinedGroupName(person.id)))+stat(tr("Level","لیول"),esc(String(memberLevel(person))))+'</div>'+
+    '<dl class="detail-grid member-profile-details">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
     '</dl>'+(currentUser()?.isOwner&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">Firebase سے تصویر لوڈ کریں</button></div>'+feedback("member-photo-check")+
       "":"")+'</section>' + (person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
@@ -2376,10 +2398,10 @@ function readerList(){
  if(!selected.length)return tr("No saved Durood found for this date.","اس تاریخ کے لیے درود شریف کا محفوظ ریکارڈ نہیں ملا۔");
  const now=Date.now();
  return '<ol class="reader-list">'+selected.map((row,index)=>{
-   const online=now-row.seen<90000,active=online && row.lastTap>0 && now-row.lastTap<90000;
+   const online=presenceOnline(row.uid,now),active=online && row.lastTap>0 && now-row.lastTap<60000;
    const lastReading=Math.max(row.lastTap||0,row.lastManual||0);
    const seconds=Math.max(0,Math.floor((now-lastReading)/1000));
-   const status=active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
+   const status=window.duroodMemberLoginStatus?.presenceReady!==true?tr("Status unknown","اسٹیٹس نامعلوم"):active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
    // Join the reader UID to the authenticated member directory, never guess an ID or level.
    const person=users.find(member=>member.uid===row.uid && !member.deleted);
    const picture=avatar(person||{name:row.name||'',photo:''});
@@ -4667,14 +4689,6 @@ app.addEventListener('click', event => {
       handleQazaAction(action,button,value) || handleNamazAction(action,button,value)) return;
   if (action === 'create-invite') return createInvite();
   if (action === 'copy-invite') return copyInvite();
-  if(action==='copy-owner-reset-template'){
-    const target=getUser(Number(value));
-    if(currentUser()?.isOwner!==true||!target?.uid||target.isOwner||target.deleted||profileId!==target.id)return;
-    const field=document.getElementById("owner-password-reset-template");
-    if(!field)return;
-    navigator.clipboard.writeText(field.value).then(()=>setFeedback("owner-password-reset-feedback",tr("Template copied; enter the new password only in Google's authorized interface.","نمونہ نقل ہو گیا؛ نیا پاس ورڈ صرف گوگل کے مجاز صفحے میں لکھیں۔"),true)).catch(()=>{field.focus();field.select();setFeedback("owner-password-reset-feedback",tr("Copy the selected template manually.","منتخب نمونہ دستی طور پر نقل کریں۔"));});
-    return;
-  }
   if (action === 'toggle-live') {
     liveRunning = !liveRunning;
     render({keepScroll:true});
@@ -4849,11 +4863,12 @@ app.addEventListener('submit', async event => {
 /* Keep this original design unchanged; hydrate its UI with real Firebase member data. */
 window.duroodClassicBridge = {
   memberLoginStatus(uid,state){
-    if(currentUser()?.uid!==uid||!currentUser()?.isOwner)return;
+    if(currentUser()?.uid!==uid)return;
     window.duroodMemberLoginStatus=state;
     document.querySelectorAll("[data-login-uid]").forEach(node=>{
       node.innerHTML=memberLoginMarkup(node.dataset.loginUid,node.dataset.loginDisabled==="1");
     });
+    const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
   },
   groupSettings(value){
     dashboardGroupSettings=value||null;
@@ -5246,11 +5261,11 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=pdf-scroll-share-20261126-v5";
+import "./wazaif.js?release=foreground-presence-20261126-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
-import {loadMemberProfile,signOut,onAuthStateChanged} from "./member-auth.js?release=member-login-status-v1";
+import {loadMemberProfile,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=foreground-presence-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -5765,16 +5780,50 @@ function observeCounters(side){
   watchDays();
   stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
+let presenceUid="",presenceTimer=null,presenceLast=0,presenceBusy=false,presenceGeneration=0;
+function startPresence(profile){
+ if(presenceUid===profile.uid)return;
+ stopPresence();
+ presenceUid=profile.uid;
+ const generation=presenceGeneration,uid=profile.uid;
+ const ref=doc(db,"memberPresence",uid+"_"+sessionId());
+ const pulse=async(force=false)=>{
+  if(generation!==presenceGeneration||auth.currentUser?.uid!==uid||classicLogoutBlocked()||document.hidden||navigator.onLine===false||presenceBusy||(!force&&Date.now()-presenceLast<25000))return;
+  presenceBusy=true;presenceLast=Date.now();
+  try{await setDoc(ref,{uid,device:sessionId(),gender:profile.gender==="female"?"female":"male",seen:serverTimestamp()});}
+  catch(error){console.warn("Foreground presence unavailable",error?.code||error);}
+  finally{if(generation===presenceGeneration)presenceBusy=false;}
+ };
+ const wake=()=>{if(!document.hidden)void pulse(true);};
+ document.addEventListener("visibilitychange",wake);
+ window.addEventListener("focus",wake);window.addEventListener("pageshow",wake);window.addEventListener("online",wake);
+ presenceTimer=setInterval(()=>void pulse(),30000);
+ presenceCleanup=()=>{document.removeEventListener("visibilitychange",wake);window.removeEventListener("focus",wake);window.removeEventListener("pageshow",wake);window.removeEventListener("online",wake);};
+ void pulse(true);
+}
+let presenceCleanup=()=>{};
+function stopPresence(){
+ presenceGeneration++;presenceCleanup();presenceCleanup=()=>{};clearInterval(presenceTimer);presenceTimer=null;presenceUid="";presenceLast=0;presenceBusy=false;
+}
 let loginWatchUid=null,loginWatchStops=[];
 function stopMemberLoginWatch(){
   loginWatchStops.forEach(stop=>stop());loginWatchStops=[];loginWatchUid=null;
   window.duroodMemberLoginStatus=null;
 }
-function watchMemberLogins(uid){
-  if(loginWatchUid===uid)return;
-  stopMemberLoginWatch();loginWatchUid=uid;
-  const state={leases:new Map(),history:new Map(),leasesReady:false};
-  const publish=()=>{if(loginWatchUid===uid&&auth.currentUser?.uid===uid)bridge.memberLoginStatus(uid,state);};
+function watchMemberLogins(uid,isOwner,side){
+  const key=uid+":"+side;
+  if(loginWatchUid===key)return;
+  stopMemberLoginWatch();loginWatchUid=key;
+  const state={leases:new Map(),history:new Map(),leasesReady:false,presence:new Map(),presenceReady:false};
+  const publish=()=>{if(loginWatchUid===key&&auth.currentUser?.uid===uid)bridge.memberLoginStatus(uid,state);};
+  const presenceQuery=isOwner?collection(db,"memberPresence"):query(collection(db,"memberPresence"),where("gender","==",side));
+  loginWatchStops.push(onSnapshot(presenceQuery,{includeMetadataChanges:true},snap=>{
+    if(snap.metadata.fromCache)return;
+    const map=new Map();for(const d of snap.docs){const row=d.data();const seen=row.seen?.toMillis?.()||0;map.set(row.uid,Math.max(map.get(row.uid)||0,seen));}
+    state.presence=map;state.presenceReady=true;publish();
+  },error=>{state.presenceReady=false;publish();console.warn("Presence unavailable",error?.code||error);}));
+  const expiry=setInterval(publish,2000);loginWatchStops.push(()=>clearInterval(expiry));
+  if(!isOwner)return;
   loginWatchStops.push(onSnapshot(collection(db,"activeLogins"),{includeMetadataChanges:true},snap=>{
     state.leases=new Map(snap.docs.map(d=>[d.id,d.data()]));
     state.leasesReady=!snap.metadata.fromCache;publish();
@@ -5897,7 +5946,7 @@ async function hydrate(){
   if(window.duroodCurrentSide!==side)return;
   bridge.enter(profile,rows,{memberCounts,groupDirectoryReady:directoryReady},true);
   window.duroodWatchOwnGroupWirds?.(rows.filter(d=>d.deleted!==true&&d.gender===side&&(d.inviterUid===profile.uid||(d.uid===profile.uid&&side==='female'&&d.sideNumber===1))).map(d=>d.uid));
-  if(owner)watchMemberLogins(profile.uid);else stopMemberLoginWatch();
+  startPresence(profile);watchMemberLogins(profile.uid,owner,side);
   if(owner&&side==="male")window.duroodAutoRepairLegacyReader?.();
   if(owner && side==='female')return;
   try{
@@ -5907,7 +5956,7 @@ async function hydrate(){
 }
 onAuthStateChanged(auth,async user=>{
   if(classicLogoutBlocked()){
-    stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";stopCounters();
+    stopPresence();stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";stopCounters();
     // The parent owns the active logout; never copy its cached user back.
     if(window.parent===window&&!classicSigningOut){
       if(user)try{await firebaseSignOut(auth);}catch(error){console.warn("Logout restoration blocked",error?.code||error);}
@@ -5916,7 +5965,7 @@ onAuthStateChanged(auth,async user=>{
     return;
   }
   if(!user){
-    stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";
+    stopPresence();stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";
     stopCounters();
     if(window.parent!==window){
       // The parent may have just signed in while this fresh iframe still

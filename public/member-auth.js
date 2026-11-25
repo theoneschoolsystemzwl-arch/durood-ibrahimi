@@ -2,7 +2,7 @@
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
 import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {doc,getDoc,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {doc,getDoc,runTransaction,serverTimestamp,deleteDoc} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js?release=fast-login-reader-v4";
@@ -17,7 +17,7 @@ const DELETED_TEST_OWNER_UID="ecrykLlmTAbV90llOdQVRSX4OyE3";
 const DEVICE_KEY="durood-device-id-v1";
 let inMemoryDeviceId=null;
 
-function sessionId(){
+export function sessionId(){
   if(inMemoryDeviceId)return inMemoryDeviceId;
   try{
     const stored=localStorage.getItem(DEVICE_KEY);
@@ -74,6 +74,7 @@ export async function signOut(currentAuth=auth){
   if(user){
     try{
       const [timestamp,id]=await Promise.all([authTime(user),Promise.resolve(sessionId())]);
+      try{await deleteDoc(doc(db,"memberPresence",user.uid+"_"+id));}catch(error){console.warn("Presence logout cleanup",error?.code||error);}
       const ref=doc(db,"activeLogins",user.uid);
       await rememberLastLogin(user,timestamp);
       await runTransaction(db,async tx=>{

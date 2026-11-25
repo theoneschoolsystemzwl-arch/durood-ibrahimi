@@ -3,7 +3,7 @@ import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
   claimDeviceSession, signOut, onAuthStateChanged
-} from "./member-auth.js?release=member-login-status-v1";
+} from "./member-auth.js?release=foreground-presence-v1";
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {sendPasswordResetEmail,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -308,7 +308,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=reader-target-20261125-v4";
+  frame.src="./classic-app.html?release=foreground-presence-20261126-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
