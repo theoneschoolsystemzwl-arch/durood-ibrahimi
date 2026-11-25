@@ -1563,7 +1563,7 @@ function buildGroupIdentity(rows){
   const byUid=new Map(rows.filter(p=>p.uid).map(p=>[p.uid,p]));
   const result=new Map();
   const letter=n=>{let out='';for(;n>0;n=Math.floor((n-1)/26))out=String.fromCharCode(65+(n-1)%26)+out;return out;};
-  const founder=p=>p.isOwner===true||p.isFoundingSpouse===true;
+  const founder=p=>p.isOwner===true||p.isMasterFounder===true||p.isFoundingSpouse===true;
   for(const female of [false,true]){
     const side=rows.filter(p=>(p.gender==='Female')===female).sort((a,b)=>a.id-b.id);
     const kids=new Map();
@@ -1584,10 +1584,10 @@ function buildGroupIdentity(rows){
   }
   return result;
 }
-let groupDirectoryReady=false;
+let groupDirectoryReady=false,groupIdentityCache=new Map();
 const ownerViewingWomen = () => currentUser()?.isOwner === true && window.duroodCurrentSide === 'female';
 const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && !person.isOwner) : users;
-function groupIdentity(person){return person&&groupDirectoryReady?buildGroupIdentity(users).get(person.id):null;}
+function groupIdentity(person){return person&&groupDirectoryReady?groupIdentityCache.get(person.id):null;}
 function groupName(id){return groupIdentity(getUser(id))?.owned||'—';}
 function hasGroup(id){const p=getUser(id);return !!p&&!p.deleted&&directMembers(id).some(m=>!m.deleted);}
 function ownedGroupName(id){return hasGroup(id)?groupName(id):'—';}
@@ -1610,7 +1610,7 @@ function memberWirdText(person){
 }
 function groupWirdPeople(p){
  const list=directMembers(p.id).filter(m=>!m.deleted&&!m.isOwner&&!m.isFoundingSpouse);
- return p.isOwner||p.isFoundingSpouse?[p,...list]:list;
+ return p.isOwner||p.isMasterFounder||p.isFoundingSpouse?[p,...list]:list;
 }
 function groupWirdText(p){
  if(p.uid&&(!groupDirectoryReady||(!currentUser()?.isOwner&&p.uid!==currentUser()?.uid)))return '—';
@@ -1645,8 +1645,8 @@ function groupMemberCount(person) {
   if(!person || person.deleted) return 0;
   // Only the founding owner and founding woman count themselves.
   // Everyone else earns one level per directly invited member.
-  const base=(person.isOwner===true||(person.gender==='Female'&&person.isFoundingSpouse===true))?1:0;
-  if(!groupDirectoryReady&&liveGroupMemberCounts.has(person.uid))return base+liveGroupMemberCounts.get(person.uid);
+  const base=(person.isOwner===true||person.isMasterFounder===true||(person.gender==='Female'&&person.isFoundingSpouse===true))?1:0;
+  if(liveGroupMemberCounts.has(person.uid)&&(!groupDirectoryReady||currentUser()?.isOwner))return base+liveGroupMemberCounts.get(person.uid);
   const female=person.gender==='Female';
   const unique=new Set();
   for(const member of users){
@@ -4957,7 +4957,7 @@ window.duroodClassicBridge = {
         ? x.sideNumber ?? legacyNumber ?? (profile.role === 'owner' ? numbers.get(x.uid) : null)
         : x.sideNumber ?? (profile.role === 'owner' ? numbers.get(x.uid) : null);
       users.push({
-        id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",name:x.name||"Member",username:x.username||"",
+        id:memberId,uid:x.uid,isOwner:x.uid===profile.uid && profile.role==="owner",isMasterFounder:x.role==="owner"&&x.gender!=="female",name:x.name||"Member",username:x.username||"",
         isFoundingSpouse:x.gender==="female" && sideNumber===1,
         sideNumber,
         inviterUid:x.inviterUid||null,inviter:ids.get(x.inviterUid)||null,daily:0,added:Number(totals.memberCounts?.[x.uid]||0),
@@ -4975,6 +4975,7 @@ window.duroodClassicBridge = {
     }
     for(const member of users)if(member.isFoundingSpouse)member.sideNumber=1;
     users.sort((a,b)=>a.id-b.id);
+    groupIdentityCache=groupDirectoryReady?buildGroupIdentity(users):new Map();
     if(!refresh)globalTotal=Number(totals.global||0);
     liveAdded=0;
     selectedPeriod="all";
@@ -5425,6 +5426,15 @@ function observeCounters(side){
   bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
+  let previousGroupDirectoryKey=null,groupRefreshTimer=null;
+  function refreshOnDirectoryChange(rows){
+    const key=JSON.stringify(rows.map(m=>[m.uid,m.inviterUid||null,m.memberNumber,m.gender,m.deleted===true]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+    if(previousGroupDirectoryKey!==null&&key!==previousGroupDirectoryKey){
+      clearTimeout(groupRefreshTimer);
+      groupRefreshTimer=setTimeout(()=>{if(stillCurrent())hydrate().catch(e=>console.warn("Group directory refresh",e.code||e));},250);
+    }
+    previousGroupDirectoryKey=key;
+  }
   const publishSideGroup=()=>{
     if(!stillCurrent()||currentProfile?.role!=="owner")return;
     const rolled=goalDirectoryReady?rollupSideGroup([...goalMembers.values()],globalDay()):null;
@@ -5441,7 +5451,9 @@ function observeCounters(side){
   if(currentProfile?.role==="owner"){
     stopGoalDirectory=onSnapshot(collection(db,"members"),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
-      bridge.liveMemberCounts(observedUid,snap.docs.map(d=>({...d.data(),uid:d.id})),true,side);
+      const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
+      refreshOnDirectoryChange(directoryRows);
+      bridge.liveMemberCounts(observedUid,directoryRows,true,side);
       goalDirectoryReady=true;
       const directory=new Map(snap.docs.filter(d=>{
         // Match the member directory's legacy-gender handling and never
@@ -5474,7 +5486,9 @@ function observeCounters(side){
   }else{
     stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side),limit(200)),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
-      bridge.liveMemberCounts(observedUid,snap.docs.map(d=>({...d.data(),uid:d.id})),false,side);
+      const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
+      refreshOnDirectoryChange(directoryRows);
+      bridge.liveMemberCounts(observedUid,directoryRows,false,side);
     },err=>console.warn("Direct members unavailable",err.code));
   }
 
@@ -5664,7 +5678,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let loginWatchUid=null,loginWatchStops=[];
 function stopMemberLoginWatch(){
@@ -5782,7 +5796,7 @@ async function hydrate(){
   }catch(error){console.warn("Side serial directory unavailable",error.code||error);}
   const rows=[...docs.values()].filter(d=>d.uid===profile.uid||
     (d.gender==="female"?"female":"male")===side).map(d=>({
-      uid:d.uid,name:d.name,username:d.username,gender:d.gender,
+      uid:d.uid,name:d.name,username:d.username,gender:d.gender,role:d.role,
       memberNumber:d.memberNumber,sideNumber:d.sideNumber??sideRanks.get(d.uid),deleted:d.deleted===true,
       disabled:d.disabled===true,inviterUid:d.inviterUid||null,
       joined:registrationDate(d),registrationDate:registrationDate(d)
