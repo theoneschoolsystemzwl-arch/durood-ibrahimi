@@ -133,6 +133,15 @@ for(const file of ["android-online/src/app/duroodibrahimi/online/MainActivity.ja
  const native=fs.readFileSync(file,"utf8");
  assert(native.includes("pulseTasbihMotor(int strength)")&&native.includes("createWaveform(timings,amplitudes,-1)"),"new non-repeating waveform on both Android versions");
 }
+ // Motor request must happen before audio and before rendering the accepted count.
+ {
+  const a=src.indexOf("function tap(){"),b=src.indexOf("async function drain",a);
+  const tapSource=src.slice(a,b);
+  assert(tapSource.indexOf("state.tapQueue++")<tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()"));
+  assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("playWazifaFeedback()"));
+  assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("persistDraft()"));
+  assert(css.includes("#wazaif-root #wz-dial{touch-action:none"),"dedicated immediate dial touch");
+ }
  // Exercise immediate pointer feedback and ensure release/click cannot double count.
  const feedbackStart=src.indexOf("let longHoldTimer=null;"),feedbackEnd=src.indexOf('document.addEventListener("visibilitychange"',feedbackStart);
  assert(feedbackStart>=0&&feedbackEnd>feedbackStart);
