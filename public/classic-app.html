@@ -2012,6 +2012,18 @@ function memberLevel(person) {
   return groupMemberCount(person);
 }
 
+// Spark Hosting cannot perform privileged Auth mutations with a member token.
+function ownerPasswordRecoveryMarkup(person){
+  if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted)return '';
+  const request=JSON.stringify({targetProjectId:"durood-e-ibrahimi-global-c74e0",localId:person.uid,password:"REPLACE_WITH_NEW_PASSWORD"},null,2);
+  return '<section class="panel section"><h2>'+tr("Admin password reset","مالک کے ذریعے پاس ورڈ ری سیٹ")+'</h2>'+
+    ur(tr("Existing passwords cannot be displayed. Use the authorized Google Cloud account to set a new password for this member. No password is saved in this app.","پرانا پاس ورڈ نظر نہیں آ سکتا۔ اس رکن کا نیا پاس ورڈ مقرر کرنے کے لیے مجاز گوگل کلاؤڈ اکاؤنٹ استعمال کریں۔ اس ایپ میں پاس ورڈ محفوظ نہیں ہوگا۔"),'p','muted')+
+    '<label class="field">'+tr("Reset request template (copy, then replace the password placeholder in Google API Explorer)","ری سیٹ کا نمونہ (نقل کریں، پھر گوگل API Explorer میں نیا پاس ورڈ لکھیں)")+
+    '<textarea id="owner-password-reset-template" dir="ltr" readonly rows="6">'+esc(request)+'</textarea></label>'+
+    '<div class="form-actions"><button type="button" class="button secondary" data-action="copy-owner-reset-template" data-value="'+person.id+'">'+tr("Copy reset template","ری سیٹ کا نمونہ نقل کریں")+'</button>'+
+    '<a class="button secondary" href="https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/update" target="_blank" rel="noopener noreferrer">'+tr("Open authorized Google password reset","مجاز گوگل پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
+    feedback("owner-password-reset-feedback")+'</section>';
+}
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
   const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
@@ -2034,7 +2046,7 @@ function profileDetails(person) {
       '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
       tr('">Delete member</button></div>', '">رکن حذف کریں</button></div>') +
-      '</section>' + managementDialog(person));
+      '</section>' + managementDialog(person) + ownerPasswordRecoveryMarkup(person));
 }
 
 let genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
@@ -4655,6 +4667,14 @@ app.addEventListener('click', event => {
       handleQazaAction(action,button,value) || handleNamazAction(action,button,value)) return;
   if (action === 'create-invite') return createInvite();
   if (action === 'copy-invite') return copyInvite();
+  if(action==='copy-owner-reset-template'){
+    const target=getUser(Number(value));
+    if(currentUser()?.isOwner!==true||!target?.uid||target.isOwner||target.deleted||profileId!==target.id)return;
+    const field=document.getElementById("owner-password-reset-template");
+    if(!field)return;
+    navigator.clipboard.writeText(field.value).then(()=>setFeedback("owner-password-reset-feedback",tr("Template copied; enter the new password only in Google's authorized interface.","نمونہ نقل ہو گیا؛ نیا پاس ورڈ صرف گوگل کے مجاز صفحے میں لکھیں۔"),true)).catch(()=>{field.focus();field.select();setFeedback("owner-password-reset-feedback",tr("Copy the selected template manually.","منتخب نمونہ دستی طور پر نقل کریں۔"));});
+    return;
+  }
   if (action === 'toggle-live') {
     liveRunning = !liveRunning;
     render({keepScroll:true});
