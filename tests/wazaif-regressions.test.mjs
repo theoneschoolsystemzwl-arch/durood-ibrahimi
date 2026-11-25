@@ -182,6 +182,11 @@ assert(editorSource.includes('data-wazifa-action="pdf-upload"')&&!editorSource.i
 assert(editorSource.includes('accept="application/pdf,.pdf"'));
 const pdfModule=fs.readFileSync("public/wazifa-pdf.js","utf8");
 assert(pdfModule.includes("isEvalSupported:false")&&!pdfModule.includes("downloadArabicPdf")&&!pdfModule.includes("makeArabicPdf"));
+assert(pdfModule.includes('createWorker("ara",1')&&pdfModule.includes("worker.recognize(canvas)")&&pdfModule.includes("worker.terminate()"));
+assert(pdfModule.includes("unreadPages")&&source.includes("result.unreadPages"));
+const deployedRelease=JSON.parse(fs.readFileSync("public/release.json","utf8")).version;
+assert(fs.readFileSync("public/pwa.js","utf8").includes('const RELEASE="'+deployedRelease+'";'));
+assert(fs.readFileSync("public/index.html","utf8").includes("pwa.js?v="+deployedRelease));
 const editorCss=fs.readFileSync("public/wazaif.css","utf8");
 assert(editorCss.includes('textarea[name="arabic"]'));
 assert(editorCss.includes("min-height:260px")&&editorCss.includes("resize:vertical"));

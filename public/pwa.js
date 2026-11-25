@@ -1,4 +1,7 @@
-const RELEASE="pkt-auto-daily-repair-20261125-v4";
+const RELEASE="arabic-ocr-refresh-20261126-v3";
+const seenKey="durood-update-refresh-attempt";
+function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
+function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
 let checking=false,prompted=false;
 async function checkRelease(){
  if(checking||prompted||navigator.onLine===false)return;
@@ -7,7 +10,7 @@ async function checkRelease(){
   const res=await fetch("/release.json?t="+Date.now(),{cache:"no-store"});
   if(!res.ok)return;
   const data=await res.json();
-  if(!data.version||data.version===RELEASE)return;
+  if(typeof data.version!=="string"||!data.version||data.version===RELEASE||attemptedRelease()===data.version)return;
   prompted=true;
   const button=document.createElement("button");
   button.type="button";button.textContent="نئی اپڈیٹ دستیاب ہے — ریفریش کریں";
@@ -17,6 +20,7 @@ async function checkRelease(){
    try{
     if(frame?.contentDocument&&!frame.contentDocument.dispatchEvent(new frame.contentWindow.CustomEvent("durood:before-refresh",{cancelable:true})))return;
     if(!document.dispatchEvent(new CustomEvent("durood:before-refresh",{cancelable:true})))return;
+    markAttempt(data.version);button.disabled=true;button.textContent="اپ ڈیٹ ہو رہی ہے…";
     if("caches" in window){const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith("durood-global-shell-")).map(k=>caches.delete(k)));}
     if("serviceWorker" in navigator)await navigator.serviceWorker.getRegistration().then(r=>r?.update()).catch(()=>{});
    }catch(e){console.debug("Update refresh",e);}

@@ -1210,11 +1210,13 @@ async function importWazifaPdf(form,file){
  const button=form.querySelector("[data-wazifa-action='pdf-upload']");button.disabled=true;
  pdfStatus(form,"PDF پڑھ رہے ہیں…");
  try{
-  const p=await import("./wazifa-pdf.js?v=2"),progress=(n,total)=>pdfStatus(form,"PDF صفحات: "+n+" / "+total);
-  const text=await p.readArabicPdf(file,progress);if(!form.isConnected)return;
+  const p=await import("./wazifa-pdf.js?v=3"),progress=(n,total,phase,percent)=>pdfStatus(form,"PDF صفحہ: "+n+" / "+total+(phase==="ocr"?" — عربی OCR "+percent+"%":phase==="loading"?" — عربی OCR تیار ہو رہا ہے "+percent+"%":""));
+  const result=await p.readArabicPdf(file,progress);if(!form.isConnected)return;
+  const text=result.text;
   if(field.value!==prior)throw Error("عبارت تبدیل ہو چکی ہے۔ دوبارہ PDF منتخب کریں۔");
   const error=arabicLengthError(text);if(error)throw Error(error);
-  field.value=text;syncArabicCounter(form);pdfStatus(form,"PDF کی عبارت آگئی ہے۔ اعراب اور ترتیب چیک کر کے محفوظ کریں۔");
+  if(result.unreadPages.length&&!window.confirm("ان صفحات سے عربی عبارت نہیں ملی: "+result.unreadPages.join("، ")+"۔ کیا باقی عبارت شامل کریں؟"))return;
+  field.value=text;syncArabicCounter(form);pdfStatus(form,result.ocrPages?"OCR سے عبارت آگئی ہے۔ قرآن و درود کے الفاظ، اعراب اور ترتیب اصل PDF سے ضرور ملائیں۔"+(result.unreadPages.length?" نامکمل صفحات: "+result.unreadPages.join("، "):""):"PDF کی عبارت آگئی ہے۔ اعراب اور ترتیب چیک کر کے محفوظ کریں۔",result.unreadPages.length>0);
  }catch(error){pdfStatus(form,error?.message||"PDF نہیں پڑھی جا سکی۔",true);}
  finally{button.disabled=false;}
 }
