@@ -113,7 +113,7 @@ assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due
 assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
 assert(src.includes('bridge.vibrateTap(state.vibrateLevel)')&&src.includes('bridge.vibrate(state.vibrateLevel)'),"native touch vibration uses chosen level and supports older APKs");
-assert(src.includes('navigator.vibrate?.(400)'),"browser vibration uses the requested 400 ms pulse");
+assert(src.includes('navigator.vibrate?.(100)'),"browser vibration uses the requested 100 ms pulse");
 assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
 const histStart=src.indexOf("function wazifaHistoryMarkup(record){"),histEnd=src.indexOf("function heroReadingState(group,w,record)");
 const historySource=src.slice(histStart,histEnd);
