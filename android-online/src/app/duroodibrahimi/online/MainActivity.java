@@ -193,7 +193,7 @@ public final class MainActivity extends Activity {
         // Android 16 frequency control; reflection retains compatibility with SDK 35 builds.
     private android.os.VibrationEffect frequencyPulse(android.os.Vibrator motor,int level){
       if(Build.VERSION.SDK_INT<36)return null;
-      final float frequency=600f;
+      final float requestedFrequency=800f;
       try{
         Class<?> vibrator=android.os.Vibrator.class;
         if(!Boolean.TRUE.equals(vibrator.getMethod("areEnvelopeEffectsSupported").invoke(motor)))return null;
@@ -202,11 +202,22 @@ public final class MainActivity extends Activity {
         if(profile==null||info==null)return null;
         float min=((Number)profile.getClass().getMethod("getMinFrequencyHz").invoke(profile)).floatValue();
         float max=((Number)profile.getClass().getMethod("getMaxFrequencyHz").invoke(profile)).floatValue();
-        if(!(frequency>=min&&frequency<=max))return null;
+        if(!Float.isFinite(min)||!Float.isFinite(max)||min<=0||max<min)return null;
+        // Prefer the fastest frequency that still produces a strong physical response.
+        float peakGs=((Number)profile.getClass().getMethod("getMaxOutputAccelerationGs").invoke(profile)).floatValue();
+        Object strongRange=profile.getClass().getMethod("getFrequencyRange",float.class).invoke(profile,peakGs*0.75f);
+        float low=min,high=max;
+        if(strongRange instanceof android.util.Range){
+          android.util.Range<?> range=(android.util.Range<?>)strongRange;
+          low=Math.max(min,((Number)range.getLower()).floatValue());
+          high=Math.min(max,((Number)range.getUpper()).floatValue());
+        }
+        if(high<low)return null;
+        final float frequency=Math.max(low,Math.min(high,requestedFrequency));
         long minTime=((Number)info.getClass().getMethod("getMinControlPointDurationMillis").invoke(info)).longValue();
         long maxTime=((Number)info.getClass().getMethod("getMaxControlPointDurationMillis").invoke(info)).longValue();
         long maxTotal=((Number)info.getClass().getMethod("getMaxDurationMillis").invoke(info)).longValue();
-        long edge=Math.max(12L,minTime),hold=Math.max(40L,minTime);
+        long edge=Math.max(8L,minTime),hold=Math.max(95L,minTime);
         if(minTime<=0||edge>maxTime||hold>maxTime||2*edge+hold>maxTotal)return null;
         Class<?> builderType=Class.forName("android.os.VibrationEffect$WaveformEnvelopeBuilder");
         Object builder=builderType.getConstructor().newInstance();
@@ -235,13 +246,13 @@ public final class MainActivity extends Activity {
           final long[] timings;
           final int[] amplitudes;
           if(motor.hasAmplitudeControl()){
-            // Fast attack, strong sustained impulse, then a short taper.
+            // Full selected amplitude throughout the pulse, no reduced-strength tail.
             int peak=level*255/10;
-            timings=new long[]{0,12,40,12};
-            amplitudes=new int[]{0,peak,Math.max(1,peak*4/5),Math.max(1,peak/3)};
+            timings=new long[]{0,110};
+            amplitudes=new int[]{0,peak};
           }else{
             // Hardware without amplitude control uses a single shorter/longer impulse.
-            timings=new long[]{0,20+level*5L};
+            timings=new long[]{0,30+level*9L};
             amplitudes=new int[]{0,android.os.VibrationEffect.DEFAULT_AMPLITUDE};
           }
           android.os.VibrationEffect effect=frequencyPulse(motor,level);
@@ -255,7 +266,7 @@ public final class MainActivity extends Activity {
                 .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
           }
         }else{
-          motor.vibrate(20+level*5L);
+          motor.vibrate(30+level*9L);
         }
         return true;
       }catch(RuntimeException error){
