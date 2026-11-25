@@ -112,8 +112,8 @@ assert(css.includes('background:linear-gradient(125deg,#075943,#004b38)!importan
 assert(css.includes('.wz-due-number.is-pending')&&css.includes('animation:wz-due-flash'),"only overdue number flashes red");
 assert(src.includes('durood-wz-sound-level')&&src.includes('durood-wz-vibration-level'),"feedback levels persist");
 assert(src.includes('gain.gain.setValueAtTime(0.01+state.soundLevel*0.014'),"sound gain responds to selected level");
-assert(src.includes('window.DuroodAndroid.vibrate(state.vibrateLevel)'),"native Android vibration bridge responds to the chosen level");
-assert(src.includes('navigator.vibrate?.(20+state.vibrateLevel*12)'),"browser vibration remains as a fallback");
+assert(src.includes('bridge.vibrateTap(state.vibrateLevel)')&&src.includes('bridge.vibrate(state.vibrateLevel)'),"native touch vibration uses chosen level and supports older APKs");
+assert(src.includes('navigator.vibrate?.(20+state.vibrateLevel*6)'),"browser vibration remains as a short per-tap fallback");
 assert(src.includes('advanceHistoryEditTap(historyEditTap,day,Date.now())'),"triple tap controls dated editing");
 const histStart=src.indexOf("function wazifaHistoryMarkup(record){"),histEnd=src.indexOf("function heroReadingState(group,w,record)");
 const historySource=src.slice(histStart,histEnd);

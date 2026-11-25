@@ -214,25 +214,23 @@ try{
 let wzTapAudio=null;
 function vibrateWazifa(){
  if(!state.vibrateEnabled||state.vibrateLevel<=0)return false;
- // Prefer the native Android bridge. A legacy void return cannot confirm
- // success; do not run a second vibration that could cancel the native pulse.
  const targets=[window];
- try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.unshift(window.parent);}catch{}
+ try{if(window.parent!==window&&window.parent.location.origin===location.origin)targets.push(window.parent);}catch{}
  const tried=new Set();
  for(const target of targets){
   try{
    const bridge=target.DuroodAndroid;
-   if(typeof bridge?.vibrate!=="function"||tried.has(bridge))continue;
+   if(!bridge||tried.has(bridge))continue;
    tried.add(bridge);
-   const accepted=bridge.vibrate(state.vibrateLevel);
+   const accepted=typeof bridge.vibrateTap==="function"?bridge.vibrateTap(state.vibrateLevel):
+    typeof bridge.vibrate==="function"?bridge.vibrate(state.vibrateLevel):false;
    if(accepted===true)return true;
    if(accepted===undefined)return null;
   }catch{}
  }
- // A top-level browser document may permit vibration when an embedded
- // reader does not. Run this synchronously within the original user tap.
+ // Use the reader's own user activation first, then the parent as fallback.
  for(const target of targets){
-  try{if(target.navigator.vibrate?.(35+state.vibrateLevel*14)===true)return true;}catch{}
+  try{if(target.navigator.vibrate?.(20+state.vibrateLevel*6)===true)return true;}catch{}
  }
  return false;
 }
@@ -308,8 +306,13 @@ document.addEventListener("keydown",event=>{
   event.preventDefault();exitWazifaFullscreen();
  }
 });
+let lastWazifaHapticResult;
 function playWazifaFeedback(withVibration=true){
- if(withVibration)vibrateWazifa();
+ if(withVibration&&state.vibrateEnabled&&state.vibrateLevel>0){
+  const result=vibrateWazifa();
+  if(result!==lastWazifaHapticResult){showWazifaVibrationStatus(result);lastWazifaHapticResult=result;}
+ }
+
  if(!state.soundEnabled||state.soundLevel===0)return;
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;

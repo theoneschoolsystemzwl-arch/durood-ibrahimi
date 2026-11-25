@@ -192,6 +192,33 @@ public final class MainActivity extends Activity {
         if(root!=null)root.requestApplyInsets();
     }
     private final class ReaderHaptics {
+        // Short, distinct touch pulses use Android's touch-feedback category.
+        @JavascriptInterface public boolean vibrateTap(int level) {
+            if(!trustedPage()||level<=0)return false;
+            final int safe=Math.min(10,level);
+            try {
+                Vibrator motor;
+                if(Build.VERSION.SDK_INT>=31){
+                    android.os.VibratorManager manager=(android.os.VibratorManager)getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                    motor=manager==null?null:manager.getDefaultVibrator();
+                }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+                if(motor==null||!motor.hasVibrator())return false;
+                long duration=20L+safe*6L;
+                if(Build.VERSION.SDK_INT>=26){
+                    int amplitude=motor.hasAmplitudeControl()?Math.min(255,safe*25+5):VibrationEffect.DEFAULT_AMPLITUDE;
+                    VibrationEffect effect=VibrationEffect.createOneShot(duration,amplitude);
+                    if(Build.VERSION.SDK_INT>=33){
+                        motor.vibrate(effect,new android.os.VibrationAttributes.Builder().setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
+                    }else{
+                        motor.vibrate(effect,new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+                    }
+                }else motor.vibrate(duration);
+                return true;
+            }catch(RuntimeException error){
+                android.util.Log.w("DuroodHaptics","Touch pulse failed",error);
+                return false;
+            }
+        }
         @JavascriptInterface public boolean vibrate(int level) {
             if(!trustedPage()||level<=0)return false;
             final int safe=Math.min(10,level);
