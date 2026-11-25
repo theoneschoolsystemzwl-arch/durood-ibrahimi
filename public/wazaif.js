@@ -284,8 +284,9 @@ function normalizeMotorStrength(value){
  return Number.isFinite(n)?Math.min(10,Math.max(0,Math.round(n))):10;
 }
 // A single short native waveform per accepted count; never wait for a hold.
-let lastTapMotorOutcome="off";
+let lastTapMotorOutcome="off",lastMotorDiagnostic="";
 function requestTapMotor(allowBrowser=true){
+ lastMotorDiagnostic="";
  if(!state.motorEnabled||state.motorStrength===0)return "off";
  const frames=[window];
  try{if(window.parent!==window&&window.parent.location.origin===location.origin)frames.push(window.parent);}catch{}
@@ -293,16 +294,34 @@ function requestTapMotor(allowBrowser=true){
   try{
    const api=frame.DuroodAndroid;
    if(typeof api?.pulseTasbihMotor==="function"){
-    return api.pulseTasbihMotor(state.motorStrength)===true?"native":"unavailable";
+    const accepted=api.pulseTasbihMotor(state.motorStrength)===true;
+    try{lastMotorDiagnostic=typeof api.tapMotorDiagnostic==="function"?String(api.tapMotorDiagnostic()):"old-native";}catch{lastMotorDiagnostic="old-native";}
+    return accepted?"native":"unavailable";
    }
   }catch{return "unavailable";}
  }
+ lastMotorDiagnostic="browser-only";
  if(!allowBrowser)return "unavailable";
  // Ordinary browsers do not expose motor amplitude; use a short web pulse only.
  for(const frame of frames){
-  try{if(frame.navigator.vibrate?.(110)===true)return "web";}catch{}
+  try{if(frame.navigator.vibrate?.(180)===true)return "web";}catch{}
  }
  return "web-pending";
+}
+function showTapMotorDiagnostic(outcome){
+ const note=$("#wz-motor-status");if(!note)return;
+ const d=lastMotorDiagnostic;
+ let message="";
+ if(outcome==="off")message="وائبریشن بند";
+ else if(d.includes("system-off"))message="فون کی Settings میں Touch vibration آن کریں۔";
+ else if(d.includes("no-motor"))message="فون کی وائبریشن موٹر دستیاب نہیں۔";
+ else if(d.includes("permission"))message="Android وائبریشن کی اجازت نہیں۔";
+ else if(d.includes("untrusted")||d.includes("error"))message="Android موٹر سگنل ناکام: "+d.split("|").pop();
+ else if(d==="old-native")message="پرانا Android موٹر ورژن؛ نئی APK درکار ہے۔";
+ else if(d==="browser-only")message="براؤزر موڈ: Android موٹر دستیاب نہیں؛ نئی APK چیک کریں۔";
+ else if(outcome==="native")message="Android موٹر کو سگنل بھیجا گیا: "+d.replace("v6|","").replace("requested-hz:","")+"";
+ else message="وائبریشن سگنل قبول نہیں ہوا۔";
+ note.textContent=message;
 }
 function updateTapMotorControls(){
  const toggle=$('[data-wazifa-action="toggle-vibration"]');
@@ -1006,6 +1025,7 @@ function readerMarkup(group){
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">ہر دباؤ فوراً فون میں محفوظ اور Firebase پر منتقل ہوتا ہے۔ Save صرف کاؤنٹر صفر کرتا ہے؛ پانچ منٹ خاموشی پر خودکار Save ہوگا۔</p>'+
  '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite"></p>'+
+ '<p id="wz-motor-status" class="wz-help" role="status"></p>'+
  '<p id="wz-session-note" class="wz-help" role="status"></p>'+
  (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
  '<p id="wz-hero-error" class="wz-error" '+(state.error?'':'hidden')+'>'+esc(state.error)+'</p>'+
@@ -1456,7 +1476,7 @@ function tap(){
  // Trigger the motor on the confirmed tap, before rendering or sound.
  // Even a very brief touch is sufficient; there is no minimum press duration.
  lastTapMotorOutcome="off";
- try{lastTapMotorOutcome=requestTapMotor();}catch{}
+ try{lastTapMotorOutcome=requestTapMotor();showTapMotorDiagnostic(lastTapMotorOutcome);}catch{}
  try{playWazifaFeedback();}catch{}
  try{const k=draftStorageKey();if(k)localStorage.setItem(k+"-v3-imported","1");}catch{}
  persistDraft();
@@ -1508,7 +1528,7 @@ function tick(){
 }
 setInterval(tick,125);
 let longHoldTimer=null;
-let activeFeedbackPress=null,handledFeedbackClick=null;
+let activeFeedbackPress=null,handledFeedbackClick=null,pendingMotorClick=false;
 const dialMoveTolerance=10;
 function feedbackPressAction(target){
  const button=target?.closest?.('#wz-dial[data-wazifa-action="tap"]');
@@ -1523,7 +1543,7 @@ document.addEventListener("pointerdown",event=>{
  if(!button||event.button>0||event.isPrimary===false)return;
  clearTimeout(longHoldTimer);
  state.skipDialClick=false;
- handledFeedbackClick="tap";
+ handledFeedbackClick="tap";pendingMotorClick=false;
  const press={id:event.pointerId,button,x:event.clientX,y:event.clientY,cancelled:false};
  activeFeedbackPress=press;
  // Do not count until a genuine tap is completed; scrolling starts with pointerdown too.
@@ -1548,7 +1568,7 @@ document.addEventListener("pointerup",event=>{
  const hit=document.elementFromPoint(event.clientX,event.clientY);
  if(!hit||!press.button.contains(hit))return;
  // A confirmed stationary touch counts exactly once and vibrates immediately on release.
- tap();
+ const counted=tap();pendingMotorClick=counted===true&&lastTapMotorOutcome==="web-pending";
 },true);
 document.addEventListener("pointercancel",event=>{
  if(activeFeedbackPress?.id===event.pointerId){cancelDialGesture();activeFeedbackPress=null;}
@@ -1559,9 +1579,11 @@ document.addEventListener("contextmenu",event=>{
 },true);
 function consumeFeedbackClick(event,action){
  if(handledFeedbackClick===action&&(event.detail!==0||["touch","pen","mouse"].includes(event.pointerType))){
-  handledFeedbackClick=null;return true;
+  handledFeedbackClick=null;
+  if(pendingMotorClick){pendingMotorClick=false;try{showTapMotorDiagnostic(requestTapMotor());}catch{}}
+  return true;
  }
- handledFeedbackClick=null;return false;
+ handledFeedbackClick=null;pendingMotorClick=false;return false;
 }
 
 document.addEventListener("visibilitychange",()=>{
