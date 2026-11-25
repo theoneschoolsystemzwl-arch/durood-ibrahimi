@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
     getWindow().setNavigationBarColor(Color.rgb(0,55,43));
     web=new WebView(this);
     web.setOverScrollMode(View.OVER_SCROLL_NEVER);
-    web.addJavascriptInterface(new ReaderHaptics(),"DuroodAndroid");
+    web.addJavascriptInterface(new ReaderControls(),"DuroodAndroid");
     setContentView(web);
     WebSettings settings=web.getSettings();
     settings.setJavaScriptEnabled(true);
@@ -126,24 +126,8 @@ public class MainActivity extends Activity {
       getWindow().getDecorView().setSystemUiVisibility(flags);
     }
   }
-  private final class ReaderHaptics{
-    // Short, distinct touch pulses use Android's touch-feedback category.
-    @JavascriptInterface public boolean hapticClick() {
-            if(!trustedPage()||web==null)return false;
-            // Native Android chooses the normal touch effect and honors system settings.
-            return web.post(()->{
-                if(trustedPage()&&web.isAttachedToWindow()){
-                    web.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
-                }
-            });
-        }
-        @JavascriptInterface public boolean vibrateTap(int level) {
-            return level>0&&hapticClick();
-        }
-        @JavascriptInterface public boolean vibrate(int level) {
-            return level>0&&hapticClick();
-        }
-        @JavascriptInterface public void setImmersive(boolean enabled){
+  private final class ReaderControls{
+    @JavascriptInterface public void setImmersive(boolean enabled){
       if(!trustedPage())return;
       runOnUiThread(()->updateImmersive(enabled));
     }
