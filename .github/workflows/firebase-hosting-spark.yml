@@ -48,6 +48,9 @@ jobs:
           node --check public/wazaif-counter.js
           node --check public/wazifa-sharing.js
           node tests/wazaif-regressions.test.mjs
+          node tests/founder-group-code.test.cjs
+          node tests/tasbih-durable-sync.test.cjs
+          node tests/prayer-regressions.test.mjs
       - name: Set up Google Cloud SDK for Firebase rules comparison
         uses: google-github-actions/setup-gcloud@v2
       - name: Verify production Firestore rules are unchanged before update

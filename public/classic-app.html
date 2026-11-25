@@ -5634,7 +5634,7 @@ function observeCounters(side){
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner",side);
   },err=>console.warn("Saved member Wird totals unavailable",err.code));
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
-  let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null,myRow=null,lastPing=0;
+  let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
   let historyGeneration=0;
   function watchReaderDate(day){
     stopHistory();stopHistory=()=>{};
@@ -5723,10 +5723,6 @@ function observeCounters(side){
     if(Date.now()-lastClockSync>300000){lastClockSync=Date.now();void syncGlobalClock();}
     if(rows)bridge.readers(rows);
     if(currentProfile?.role==="owner"){publishGoals();if(side==="male"&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();}
-    if(myRow && Date.now()-lastPing>=45000){
-      lastPing=Date.now();
-      updateDoc(myRow,{seen:serverTimestamp()}).catch(e=>console.warn("Presence",e.code));
-    }
   },15000);
   function decodeReaderRows(snap){
     return snap.docs.map(item=>{
@@ -5738,7 +5734,7 @@ function observeCounters(side){
   }
   function watchDays(){
     watchGroupYear();refreshDashboardGroupProgress();
-    stopDays();stopRows();rows=null;myRow=null;bridge.readers(null);refreshReaderDateControls();
+    stopDays();stopRows();rows=null;bridge.readers(null);refreshReaderDateControls();
     const now=new Date(globalNow()),today=globalDay(now);
     observedDay=today;
     bridge.readerAudit(today,null,true);
@@ -5746,7 +5742,6 @@ function observeCounters(side){
     stopRows=onSnapshot(readers,{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||(snap.metadata.fromCache && snap.empty))return;
       rows=decodeReaderRows(snap);
-      myRow=snap.docs.find(item=>item.id===auth.currentUser?.uid)?.ref;
       bridge.readers(rows);
     },e=>{if(stillCurrent())bridge.readers(null);console.warn("Readers",e.code);});
     const week=globalWeekStart(today),month=today.slice(0,7)+"-01",year=today.slice(0,4)+"-01-01";

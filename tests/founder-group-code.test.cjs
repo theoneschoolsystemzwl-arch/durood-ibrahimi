@@ -37,5 +37,10 @@ let viewer={isOwner:false};
 const resetCtx={currentUser:()=>viewer,tr:(a,b)=>a,ur:a=>a,feedback:()=>"",esc:s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")};vm.createContext(resetCtx);vm.runInContext(src.slice(resetA,resetB),resetCtx);
 assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"}),"");viewer={isOwner:true};
 assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"admin",isOwner:true}),"");assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"deleted",deleted:true}),"");
-const reset=resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"});assert(reset.includes("member-uid")&&reset.includes("REPLACE_WITH_NEW_PASSWORD")&&reset.includes("docs.cloud.google.com"));
+const reset=resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"});assert(reset.includes("trusted server")&&!reset.includes("REPLACE_WITH_NEW_PASSWORD")&&!reset.includes("docs.cloud.google.com"));
 console.log("Owner-only password recovery helper, no stored password, passed");
+
+const ja=src.indexOf("function joinedGroupName("),jb=src.indexOf("function groupCode(",ja);
+const jc={groupIdentity:p=>g.get(p.id),getUser:id=>rows.find(p=>p.id===id),ownedGroupName:id=>g.get(id)?.owned||"—"};
+vm.createContext(jc);vm.runInContext(src.slice(ja,jb),jc);
+assert.equal(jc.joinedGroupName(9),"A");assert.equal(jc.directoryGroupName(9),"A");assert.equal(jc.directoryGroupName(3),"A / B");assert.equal(jc.joinedGroupName(8),"A");
