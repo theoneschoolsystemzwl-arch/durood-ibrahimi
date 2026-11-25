@@ -1,0 +1,12 @@
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const src=fs.readFileSync("public/classic-app.html","utf8");
+const a=src.indexOf("function groupMemberCount(person)"),b=src.indexOf("function refreshMemberCountLabels()",a);
+assert(a>=0&&b>a);
+const male={id:1,uid:"m1",gender:"Male",isOwner:true},female={id:2,uid:"f1",gender:"Female",isFoundingSpouse:true},branch={id:3,uid:"m3",gender:"Male",inviterUid:"m1"};
+const users=[male,female,branch,...Array.from({length:7},(_,i)=>({id:i+4,uid:"m"+(i+4),gender:"Male",inviterUid:"m1"})),{uid:"f2",gender:"Female",inviterUid:"f1"},{uid:"f3",gender:"Female",inviterUid:"m1"},{uid:"gone",gender:"Male",inviterUid:"m1",deleted:true},{uid:"m11",gender:"Male",inviterUid:"m3"}];
+const liveGroupMemberCounts=new Map();
+const ctx={users,liveGroupMemberCounts,esc:String};vm.createContext(ctx);vm.runInContext(src.slice(a,b),ctx);
+assert.equal(ctx.founderGroupCode(male),"A9");assert.equal(ctx.founderGroupCode(female),"A2");assert.equal(ctx.founderGroupCode(branch),"");
+liveGroupMemberCounts.set("m1",9);assert.equal(ctx.founderGroupCode(male),"A10");
+assert(src.includes('class="profile-portrait-level"')&&src.includes('data-founder-group-code')&&src.includes('data-tree-member-level'));
+console.log("Founder group A count and independent female numbering tests passed");

@@ -1393,6 +1393,11 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 </style>
 <style id="member-wird-compact">
 :root[data-theme] .member-photo-wird{display:inline-flex;flex-direction:column;align-items:center;gap:2px;flex:none;max-width:100%}
+:root[data-theme] .profile-portrait-level{position:relative;display:inline-flex;flex:none}
+:root[data-theme] .profile-portrait-level .node-dot{top:1px;right:1px;z-index:2;min-width:26px;height:26px}
+:root[data-theme] .profile-card .profile-portrait-level .node-dot{min-width:34px;height:34px;font-size:.95rem}
+:root[data-theme] .founder-group-code{display:inline-flex;gap:4px;font-weight:800;white-space:nowrap;direction:ltr;color:#f5df9e}
+:root[data-theme] .tree-name-line .founder-group-code{font-size:.85em}
 :root[data-theme] .member-wird{display:inline-flex;flex-direction:column;align-items:center;gap:0;line-height:1.25;color:#fff;min-width:0}
 :root[data-theme] .member-wird small{font:600 .78rem/1.5 var(--ur,serif);color:#f5df9e}
 :root[data-theme] .member-wird bdi{font:800 clamp(.88rem,3.4vw,1.15rem)/1.25 system-ui,sans-serif;color:#d5ffe9;overflow-wrap:anywhere;max-width:100%}
@@ -1618,7 +1623,9 @@ function memberWirdMarkup(person){
   return '<span class="member-wird"><small>'+tr('Wird','ورد')+'</small><bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi></span>';
 }
 function photoWithWird(person,large=false){
-  return '<span class="member-photo-wird">'+avatar(person,large)+memberWirdMarkup(person)+'</span>';
+  const level=memberLevel(person);
+  return '<span class="member-photo-wird"><span class="profile-portrait-level">'+avatar(person,large)+
+    '<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+esc(tr("Level ","لیول ")+level)+'">'+displayNumber(level)+'</span></span>'+memberWirdMarkup(person)+'</span>';
 }
 function refreshMemberWirds(){
   const byUid=new Map(users.map(p=>[p.uid||'local:'+p.id,p]));
@@ -1644,11 +1651,24 @@ function groupMemberCount(person) {
   }
   return base+unique.size;
 }
+// The first confirmed naming rule is for the two founding group owners only.
+function founderGroupCode(person){
+  if(!person||person.deleted||!(person.isOwner===true||person.gender==='Female'&&person.isFoundingSpouse===true))return '';
+  return 'A'+groupMemberCount(person);
+}
+function founderGroupMarkup(person){
+  const code=founderGroupCode(person);
+  return code?'<bdi class="founder-group-code" data-founder-group-code="'+person.id+'" dir="ltr">'+esc(code)+'</bdi>':'';
+}
 function refreshMemberCountLabels(){
   const person=ownerViewingWomen()?visibleMembers().find(m=>m.isFoundingSpouse):currentUser();
   const count=person?groupMemberCount(person):null;
   document.querySelectorAll("[data-profile-member-count],[data-profile-member-level]").forEach(node=>{
     node.textContent=count===null?"—":formatNumber(count);
+  });
+  document.querySelectorAll("[data-founder-group-code]").forEach(node=>{
+    const member=getUser(Number(node.dataset.founderGroupCode));
+    node.textContent=founderGroupCode(member);
   });
   document.querySelectorAll("[data-tree-member-level]").forEach(node=>{
     const member=getUser(Number(node.dataset.treeMemberLevel));
@@ -1830,7 +1850,7 @@ function treeNode(person, isRoot = false) {
  return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
  (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
  '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
- '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
+ '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+founderGroupMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
  (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
  '</span>'+groupWirdMarkup(person)+'</'+tag+'>';
 }
@@ -2038,12 +2058,12 @@ function profileCard(person) {
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
-    '<small class="muted direct-invites">' + tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ') +
+    '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
-    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
+    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + founderGroupMarkup(person) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' <bdi data-profile-member-level>' + formatNumber(memberLevel(person)) + '</bdi>' +
     '</span></div></section></header>';
 }
@@ -4271,10 +4291,10 @@ function womenSectionCard(person) {
   return '<header class="app-head"><section class="profile-card">' + topCornerControls() + '<div class="profile-greeting">' +
     (founder ? photoWithWird(founder,true) : '') + '<div class="profile-copy"><strong dir="auto">' +
     (founder ? esc(memberName(founder)) : tr('Women’s section','خواتین کا سیکشن')) + '</strong>' +
-    '<small class="muted direct-invites">' + tr('Members (including founder): ', 'آپ کے شامل کردہ ممبرز: ') +
+    '<small class="muted direct-invites">' + tr('Members (including founder): ', 'بانی سمیت گروپ کے ارکان: ') +
     '<bdi data-profile-member-count>'+(founder?formatNumber(groupMemberCount(founder)):"—")+'</bdi></small>'+
     '<small class="muted">'+tr("Level ","لیول ")+'<bdi data-profile-member-level>'+(founder?formatNumber(memberLevel(founder)):"—")+'</bdi></small></div></div>' +
-    '<div class="profile-card-foot">' + sectionSwitch(person) + '</div></section></header>';
+    '<div class="profile-card-foot">' + sectionSwitch(person) + (founder?'<span class="pill account-id">'+displayId(founder.id)+founderGroupMarkup(founder)+'</span>':'') + '</div></section></header>';
 }
 
 function changeLanguage(value) {
