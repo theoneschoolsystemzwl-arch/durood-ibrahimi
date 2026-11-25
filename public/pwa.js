@@ -1,4 +1,4 @@
-const RELEASE="dashboard-running-goals-20261126-v1";
+const RELEASE="dashboard-double-counts-20261126-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
