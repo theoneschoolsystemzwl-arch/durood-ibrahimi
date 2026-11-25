@@ -1053,3 +1053,6 @@ body.wz-immersive-reader #wazaif-root .wz-session-card .wz-hero-dial:not(.is-flo
 
 /* Keep the new motor ON/OFF label readable within the existing compact control. */
 .wz-hero-reader .wz-daily-toolbar [data-wazifa-action="toggle-vibration"]{white-space:normal;line-height:1.12;overflow-wrap:normal}
+
+/* Dial is a dedicated counter: prevent browser pan/zoom recognition from delaying a brief touch. */
+#wazaif-root #wz-dial{touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
