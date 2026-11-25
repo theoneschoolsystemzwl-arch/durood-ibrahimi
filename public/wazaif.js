@@ -1435,8 +1435,8 @@ function tap(){
   }
  }
  const pressedAt=performance.now();
- // Only suppress events closer than 0.1 ms; no minimum touch/hold duration.
- if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<0.1)return false;
+ // Only suppress events closer than 0.9 ms; no minimum touch/hold duration.
+ if(state.clockLastTap!==null&&pressedAt-state.clockLastTap<0.9)return false;
  if(state.clockStart===null)state.clockStart=pressedAt;
  if(state.clockLastTap!==null){
    const gap=pressedAt-state.clockLastTap;
