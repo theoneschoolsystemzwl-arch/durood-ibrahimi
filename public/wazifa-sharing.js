@@ -129,9 +129,11 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
   sameUid(uid);
   if(!source.exists())throw Error("یہ وظیفہ آپ کے اکاؤنٹ میں موجود نہیں۔");
   const data=source.data();
-  if(/^\[\[WZPDF:/.test(String(data.arabic??"")))throw Error("PDF وظیفہ فی الحال شیئر نہیں کیا جا سکتا۔");
+  const pdf=await import("./wazifa-pdf.js?v=5"),meta=pdf.pdfMarker(data.arabic);
+  if(meta)await pdf.ensurePdfCloud(data.arabic,uid,"personal");
+  sameUid(uid);
   const outgoing=Object.fromEntries(DATA_KEYS.map(key=>[key,data[key]]));
-  const target=doc(inboxCollection(recipient.uid));
+  const target=meta?inboxRef(recipient.uid,meta.id):doc(inboxCollection(recipient.uid));
   await setDoc(target,{...outgoing,senderUid:uid,recipientUid:recipient.uid,
     senderSerial:displayMemberSerial(profile),sourceId:itemId,
     createdAt:serverTimestamp()});
@@ -141,11 +143,20 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
 export async function acceptSharedWazifa(inboxId){
   const uid=currentUid();
   const received=inboxRef(uid,inboxId),newItem=doc(personalCollection(uid));
+  const preview=await getDocFromServer(received);
+  if(!preview.exists())throw Error("یہ شیئرڈ وظیفہ پہلے ہی محفوظ یا حذف ہو چکا ہے۔");
+  const initial=preview.data(),pdf=await import("./wazifa-pdf.js?v=5"),meta=pdf.pdfMarker(initial.arabic);
+  if(meta){
+    if(initial.recipientUid!==uid||meta.id!==inboxId)throw Error("PDF شیئر درست نہیں۔");
+    const bytes=await pdf.loadPdfAttachment(initial.arabic,uid,"shared:"+initial.senderUid);
+    await pdf.savePdfAttachment({marker:initial.arabic,bytes},uid,"personal");
+  }
+  sameUid(uid);
   return allocateSerial(uid,async(tx,n)=>{
     const message=await tx.get(received);
     if(!message.exists())throw Error("یہ شیئرڈ وظیفہ پہلے ہی محفوظ یا حذف ہو چکا ہے۔");
     const source=message.data();
-    if(source.recipientUid!==uid)throw Error("یہ پیغام آپ کے اکاؤنٹ کا نہیں۔");
+    if(source.recipientUid!==uid||source.arabic!==initial.arabic||source.senderUid!==initial.senderUid)throw Error("یہ پیغام بدل چکا ہے۔ دوبارہ کوشش کریں۔");
     const config=Object.fromEntries(DATA_KEYS.map(key=>[key,source[key]]));
     tx.set(newItem,{...config,uid,total:0,today:0,day:todayLocal(),
       wNumber:n,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
