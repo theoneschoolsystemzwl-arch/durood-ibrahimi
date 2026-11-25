@@ -220,6 +220,11 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const member=(goal,date="2026-11-24")=>({daily:[{date,goal}],legacy:[]});
  const total=aggregate([member(100),member(100)],"2026-11-24");
  assert.equal(total.dailyGoal,200);assert.equal(total.weeklyGoal,1400);assert.equal(total.monthlyGoal,6000);assert.equal(total.yearlyGoal,73000);
+ const example=aggregate([member(100),member(101)],"2026-11-25",{annualStartDate:"2026-11-24",annualEndDate:"2026-12-31"});
+ assert.equal(example.dailyGoal,201);
+ assert.equal(example.overallGoal,402);
+ assert.equal(example.yearlyGoal,7638);
+ assert(classic.includes('gender=m.role==="owner"?"male":(m.gender==="female"?"female":"male")'));
  assert.equal(aggregate([member(100,"2028-02-01")],"2028-02-29").monthlyGoal,2900);
  assert.equal(aggregate([member(100,"2028-02-01")],"2028-02-29").yearlyGoal,36600);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:120}],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:100}]}],"2026-11-24").dailyGoal,120);

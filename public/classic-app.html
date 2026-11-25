@@ -2140,7 +2140,9 @@ function dashboardTargetCards(){
  if(!currentUser()?.isOwner)return "";
  const g=window.duroodAggregateGroupTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
- return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+value(g?.overallGoal)+'</strong><small>آج تک</small></section>'+
+ const sideLabel=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
+ const targetBreakdown=tr("Daily target: ","روزانہ ہدف: ")+value(g?.dailyGoal);
+ return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+value(g?.overallGoal)+'</strong><small>'+sideLabel+' · '+tr("Through today","آج تک")+'</small><small>'+targetBreakdown+'</small></section>'+
  '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(p?g?.yearlyGoal:null)+'</strong><small>مقررہ سیشن</small></section>'+
  '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
 }
@@ -5410,7 +5412,9 @@ function observeCounters(side){
       bridge.liveMemberCounts(observedUid,snap.docs.map(d=>({...d.data(),uid:d.id})),true,side);
       goalDirectoryReady=true;
       const directory=new Map(snap.docs.filter(d=>{
-        const m=d.data(),gender=m.role==="owner"?(m.gender||"male"):m.gender;
+        // Match the member directory's legacy-gender handling and never
+        // include the male master owner in the women's target aggregation.
+        const m=d.data(),gender=m.role==="owner"?"male":(m.gender==="female"?"female":"male");
         return gender===side;
       }).map(d=>{
         const m=d.data(),joined=registrationDate(m),inactive=m.disabled===true||m.deleted===true;

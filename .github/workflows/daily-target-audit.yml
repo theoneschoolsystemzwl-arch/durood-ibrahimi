@@ -1,0 +1,71 @@
+name: Read-only daily target and side audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/daily-target-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read side-specific goal history without modifying records
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node <<'NODE'
+          const root="https://firestore.googleapis.com/v1/projects/durood-e-ibrahimi-global-c74e0/databases/(default)/documents/";
+          const headers={Authorization:"Bearer "+process.env.ACCESS_TOKEN};
+          const field=(d,k)=>d?.fields?.[k];
+          const str=(d,k)=>field(d,k)?.stringValue||"";
+          const num=(d,k)=>Number(field(d,k)?.integerValue||0);
+          const bool=(d,k)=>field(d,k)?.booleanValue===true;
+          async function list(path){
+            let docs=[],page="";
+            do {
+              const u=new URL(root+path);u.searchParams.set("pageSize","100");
+              if(page)u.searchParams.set("pageToken",page);
+              const r=await fetch(u,{headers});
+              if(!r.ok)throw Error("Read-only Firestore request failed: HTTP "+r.status);
+              const body=await r.json();docs.push(...(body.documents||[]));page=body.nextPageToken||"";
+              if(docs.length>1000)throw Error("Audit scope exceeds safety limit");
+            }while(page);
+            return docs;
+          }
+          async function get(path){
+            const r=await fetch(root+path,{headers});
+            if(r.status===404)return null;
+            if(!r.ok)throw Error("Read-only settings request failed: HTTP "+r.status);
+            return r.json();
+          }
+          const dayKey=(d)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Karachi",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+          (async()=>{
+            const members=await list("members");
+            const settings=await get("wazaifSettings/group");
+            const today=dayKey(new Date());
+            console.log(JSON.stringify({today,sessionStart:str(settings,"annualStartDate")||str(settings,"startDate"),sessionEnd:str(settings,"annualEndDate")}));
+            for(const side of ["male","female"]){
+              const rows=members.filter(m=>(str(m,"role")==="owner"?"male":str(m,"gender")==="female"?"female":"male")===side).sort((a,b)=>num(a,"memberNumber")-num(b,"memberNumber"));
+              let daily=0;
+              for(let i=0;i<rows.length;i++){
+                const m=rows[i],uid=m.name.split("/").at(-1);
+                const active=!bool(m,"deleted")&&!bool(m,"disabled");
+                const history=(await list("memberPrivate/"+encodeURIComponent(uid)+"/duroodGoals")).map(g=>({date:str(g,"date"),goal:num(g,"goal")})).sort((a,b)=>a.date.localeCompare(b.date));
+                const goal=history.filter(g=>g.date<=today).at(-1)?.goal??null;
+                if(active)daily+=goal??0;
+                console.log(JSON.stringify({side,sideSerial:"DI-"+(i+1),active,joined:field(m,"createdAt")?.timestampValue?dayKey(new Date(field(m,"createdAt").timestampValue)):null,goal,history}));
+              }
+              console.log(JSON.stringify({side,daily,memberCount:rows.filter(m=>!bool(m,"deleted")&&!bool(m,"disabled")).length}));
+            }
+          })().catch(e=>{console.error(e.message);process.exitCode=1;});
+          NODE
