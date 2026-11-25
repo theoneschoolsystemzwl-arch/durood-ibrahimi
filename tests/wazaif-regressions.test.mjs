@@ -395,3 +395,35 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  vm.runInContext('today="2027-08-17";periodDatedCounts["2027-08-16"]=7;periodDatedCounts["2027-08-17"]=3;',ctx);
  assert.equal(vm.runInContext('dashboardPeriodCount("year")',ctx),3);
 }
+
+ // Running targets use each day's saved goal and actual membership start.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const ctx=vm.createContext({Date,Number,Math,Object,Array,window:{}});
+ vm.runInContext(fs.readFileSync("public/hijri-session.js","utf8"),ctx);
+ vm.runInContext("window.duroodHijri=globalThis.duroodHijri",ctx);
+ const a=classic.indexOf("function latestReaderGoal("),b=classic.indexOf("window.duroodMemberGroupTargets=",a);
+ vm.runInContext(classic.slice(a,b),ctx);
+ const c=classic.indexOf("function runningDashboardTargets("),d=classic.indexOf("function dashboardPeriodCount(",c);
+ vm.runInContext(classic.slice(c,d),ctx);
+ const running=vm.runInContext("runningDashboardTargets",ctx);
+ const row=(joined,goal=100)=>({joined,active:true,daily:[{date:joined,goal}]});
+ const cfg={annualStartDate:"2026-11-23",annualEndDate:"2027-08-16"};
+ const four=Array.from({length:4},()=>row("2026-11-23"));
+ for(const [day,expected] of [["2026-11-23",400],["2026-11-24",800],["2026-11-25",1200],["2026-11-29",2800]]){
+  const g=running(four,day,cfg);assert.equal(g.week,expected);assert.equal(g.month,expected);assert.equal(g.year,expected);assert.equal(g.today,400);
+ }
+ assert.equal(running(four,"2026-11-30",cfg).week,400);
+ assert.equal(running(four,"2026-12-01",cfg).month,400);
+ assert.equal(running(four,"2027-08-17",cfg).year,400);
+ const changed=[{...row("2026-11-23"),daily:[{date:"2026-11-23",goal:100},{date:"2026-11-25",goal:200}]},row("2026-11-25")];
+ assert.equal(running(changed,"2026-11-25",cfg).week,500);
+ assert.equal(running(changed,"2026-11-25",cfg).today,300);
+ assert.equal(running([row("2026-11-23",0)],"2026-11-25",cfg).week,0);
+ assert.equal(running([{joined:"2026-11-23",active:true,daily:[]}],"2026-11-25",cfg).week,null);
+ assert.equal(running([{...row("2026-11-23"),joined:null}],"2026-11-25",cfg).year,null);
+ assert.equal(running([{...row("2026-11-23"),active:false,inactiveDay:"2026-11-24"}],"2026-11-25",cfg).week,200);
+ assert.equal(running(null,"2026-11-25",cfg),null);
+ const full=vm.runInContext("aggregateGroupTargets",ctx);
+ assert(full(four,"2026-11-25",cfg).yearlyGoal>running(four,"2026-11-25",cfg).year);
+}

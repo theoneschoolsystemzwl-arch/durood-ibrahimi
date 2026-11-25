@@ -2541,10 +2541,47 @@ function periodLabels(){
   return [['today',tr('Durood today','آج کا کل درود')],['week',tr('Durood this week','اس ہفتے کا کل درود')],
     ['month',tr('Durood this month','اس مہینے کا کل درود')],['year',tr('Durood this Hijri session','اس اسلامی سال کا کل درود')]];
 }
+// Dashboard targets are accrued through the current Pakistan day, not the
+// full future period. Keep the blue annual projection independent.
+function runningDashboardTargets(rows,day,cfg){
+ if(!Array.isArray(rows)||!targetDateValid(day))return null;
+ const monday=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
+ const period=annualTargetPeriod(cfg,day);
+ const starts={week:monday,month:day.slice(0,7)+"-01",year:period?(period.countStart||period.start):null};
+ const result={today:0,week:0,month:0,year:0};
+ for(const key of Object.keys(starts))if(!starts[key])result[key]=null;
+ for(const row of rows){
+  if(targetDateValid(row.joined)&&row.joined>day)continue;
+  const current=latestReaderGoal(row.daily,day);
+  if(row.active!==false){
+   if(!current)result.today=null;
+   else if(result.today!==null)result.today+=current.goal;
+  }
+  for(const [key,start] of Object.entries(starts)){
+   if(result[key]===null)continue;
+   // A disabled member keeps their prior target history; never add future days.
+   if(row.active===false&&targetDateValid(row.inactiveDay)&&row.inactiveDay<start)continue;
+   if(!current){
+    if(row.active!==false)result[key]=null;
+    continue;
+   }
+   if(!targetDateValid(row.joined)){
+    // Zero-only target history needs no membership-date estimate.
+    if((row.daily||[]).some(g=>targetDateValid(g.date)&&g.date<=day&&Number.isSafeInteger(g.goal)&&g.goal>0))result[key]=null;
+    continue;
+   }
+   if(row.active===false&&!targetDateValid(row.inactiveDay)){
+    if((row.daily||[]).some(g=>targetDateValid(g.date)&&g.date<=day&&Number.isSafeInteger(g.goal)&&g.goal>0))result[key]=null;
+    continue;
+   }
+   result[key]+=accruedMemberTarget(row,start,day);
+  }
+ }
+ return result;
+}
 function dashboardPeriodGoal(key,goals){
- const name={today:"dailyGoal",week:"weeklyGoal",month:"monthlyGoal",year:"yearlyGoal"}[key];
- if(!goals||goals.missingTargets>0||(key==="year"&&!annualTargetPeriod(dashboardGroupSettings,globalDateKey())))return null;
- const value=goals[name];return Number.isSafeInteger(value)&&value>=0?value:null;
+ const value=goals?.[key];
+ return Number.isSafeInteger(value)&&value>=0?value:null;
 }
 function dashboardPeriodCount(key){
  if(key!=="year")return periodCounts?.[key]??null;
@@ -2556,10 +2593,10 @@ function periodGoalStatus(count,goal){
  return !Number.isSafeInteger(count)||!Number.isSafeInteger(goal)?"unknown":count<goal?"short":"complete";
 }
 function periodGoalLabel(key){
- return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal","ہفتہ وار ہدف"),month:tr("Monthly goal","ماہانہ ہدف"),year:tr("Yearly goal","سالانہ ہدف")}[key];
+ return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
 }
 function metricPeriodCards(){
- const goals=window.duroodAggregateGroupTargets();
+ const goals=runningDashboardTargets(ownerGoalRows,globalDateKey(),dashboardGroupSettings);
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
    const badge=goal===null?"—":displayNumber(goal),read=count===null?"—":displayNumber(count);
@@ -2585,7 +2622,7 @@ function overview() {
    '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
    '<div class="recitation-periods" id="dashboard-period-cards">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
-   tr("Period totals include entries saved with a date.","مدت وار شمار میں تاریخ کے ساتھ محفوظ کیے گئے اندراجات شامل ہیں۔")+'</p>'+
+   tr("Dated totals and targets through today; future days are excluded.","تاریخ وار محفوظ شمار اور آج تک کا ہدف؛ آئندہ دن شامل نہیں۔")+'</p>'+
    '<section class="panel section readers-section"><div class="reader-card-heading"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
    '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'">−</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'</div><div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
