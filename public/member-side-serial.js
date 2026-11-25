@@ -7,7 +7,7 @@ export function sideSerialDirectory(rows,side){
  for(const [i,m] of ordered.entries()){
    const n=side==="female"?Number(m.sideNumber??i+1):i+1;
    if(!Number.isSafeInteger(n)||n<1||used.has(n))throw Error("Duplicate or invalid side serial; reconciliation required");
-   used.add(n);result.set(m.uid,{number:n,label:(side==="female"?"F-":"M-")+n,member:m});
+   used.add(n);result.set(m.uid,{number:n,label:(side==="female"?"F":"M")+n,member:m});
  }
  return result;
 }

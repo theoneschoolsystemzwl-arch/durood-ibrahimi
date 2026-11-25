@@ -1573,8 +1573,8 @@ const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({
 }[char]));
 const serial = id => {
   const person = getUser(id);
-  if (person?.gender === 'Female') return person.sideNumber ? 'F-' + person.sideNumber : '—';
-  return person?.sideNumber ? 'M-' + person.sideNumber : (person?.isOwner ? 'M-1' : '—');
+  if (person?.gender === 'Female') return person.sideNumber ? 'F' + person.sideNumber : '—';
+  return person?.sideNumber ? 'M' + person.sideNumber : (person?.isOwner ? 'M1' : '—');
 };
 const groupId = id => ownedGroupName(id);
 const getUser = id => users.find(person => person.id === id);
@@ -1823,8 +1823,8 @@ function authMarkup() {
       tr("<div class=\"auth-links\"><button class=\"link warm\" data-action=\"screen\" data-value=\"reset\">Forgot password?</button>", '<div class="auth-links"><button class="link warm" data-action="screen" data-value="reset">پاس ورڈ بھول گئے؟</button>') +
       tr("<button class=\"link\" data-action=\"screen\" data-value=\"register\">Create account</button></div>", '<button class="link" data-action="screen" data-value="register">اکاؤنٹ بنائیں</button></div>');
     extras = tr("<section class=\"demo-box\"><strong>Demo accounts</strong><div class=\"form-actions\">", '<section class="demo-box"><strong>آزمائشی اکاؤنٹس</strong><div class="form-actions">') +
-      tr("<button class=\"button secondary\" data-action=\"demo-login\" data-value=\"1\">Owner · <bdi>DI-1</bdi></button>", '<button class="button secondary" data-action="demo-login" data-value="1">مالک · <bdi>DI-1</bdi></button>') +
-      tr("<button class=\"button soft\" data-action=\"demo-login\" data-value=\"2\">Member · <bdi>DI-2</bdi></button></div>", '<button class="button soft" data-action="demo-login" data-value="2">رکن · <bdi>DI-2</bdi></button></div>') +
+      tr("<button class=\"button secondary\" data-action=\"demo-login\" data-value=\"1\">Owner · <bdi>M1</bdi></button>", '<button class="button secondary" data-action="demo-login" data-value="1">مالک · <bdi>M1</bdi></button>') +
+      tr("<button class=\"button soft\" data-action=\"demo-login\" data-value=\"2\">Member · <bdi>M2</bdi></button></div>", '<button class="button soft" data-action="demo-login" data-value="2">رکن · <bdi>M2</bdi></button></div>') +
       ur(tr("Use sample information. Your counts are saved in this browser.", 'آزمائش کے لیے فرضی معلومات استعمال کریں۔ خودکار شمار اسی براؤزر میں محفوظ ہوتا ہے۔')) + '</section>';
   } else if (screen === 'register') {
     form = tr("<header class=\"auth-head\"><h1>Create account</h1>", '<header class="auth-head"><h1>اکاؤنٹ بنائیں</h1>') +
@@ -2471,7 +2471,7 @@ let readerAuditToday=null,readerAuditPast=null;
 const legacyRepairDay="2026-11-24";
 function legacyRepairTarget(requireDate=true){
  if((requireDate&&readerDayLabel()!==legacyRepairDay)||window.duroodCurrentSide!=="male"||!currentUser()?.isOwner)return null;
- const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="M-2"&&/wah+a?b|و[ھہه]اب/iu.test(String(m.name||"").normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640\s-]/gu,"")));
+ const matches=users.filter(m=>m.uid&&!m.deleted&&!m.isOwner&&m.gender!=="Female"&&serial(m.id)==="M2"&&/wah+a?b|و[ھہه]اب/iu.test(String(m.name||"").normalize("NFKC").replace(/[\u064b-\u065f\u0670\u0640\s-]/gu,"")));
  return matches.length===1?matches[0]:null;
 }
 function readerAuditMarkup(){
@@ -5843,7 +5843,7 @@ function observeCounters(side){
         tx.set(readerRef,{name:member.data().name,total:taps,manualTotal:100},{merge:true});
       });
       legacyRepairDone=true;
-      report("DI-2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔",true);
+      report("M2 کے نام سے پہلے سے محفوظ 100 درود منسلک ہو گئے؛ مجموعی شمار نہیں بڑھا۔",true);
     }catch(err){report(err?.code==="permission-denied"?"Firebase اجازت نہیں دے رہا؛ تازہ Firestore سیکیورٹی قواعد شائع کریں۔":errorText(err));}
     finally{repairingLegacy=false;}
   };

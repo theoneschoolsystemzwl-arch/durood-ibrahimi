@@ -308,7 +308,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=shared-member-targets-20261126-v1";
+  frame.src="./classic-app.html?release=member-serial-no-dash-20261126-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -562,7 +562,7 @@ function memberSerial(member,directory=null){
   const same=directory?.filter(m=>gender(m)===side).sort((a,b)=>Number(a.memberNumber)-Number(b.memberNumber));
   const rank=same?.findIndex(m=>m.uid===member.uid||m.memberNumber===member.memberNumber);
   const number=member.role==="owner"?1:member.sideNumber??(rank>=0?rank+1:null)??(side==="female"?({2:1,3:2})[member.memberNumber]:null);
-  return number?(side==="female"?"F-":"M-")+number:"—";
+  return number?(side==="female"?"F":"M")+number:"—";
 }
 async function resolveMemberSerial(profile){
   if(memberSerial(profile)!=="—")return;
