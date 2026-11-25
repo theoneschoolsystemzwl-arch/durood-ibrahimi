@@ -216,12 +216,10 @@ public final class MainActivity extends Activity {
                     motor=manager==null?null:manager.getDefaultVibrator();
                 }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
                 if(motor==null||!motor.hasVibrator())return false;
-                long duration=20L+safe*6L;
+                long duration=400L;
                 if(Build.VERSION.SDK_INT>=26){
                     int amplitude=motor.hasAmplitudeControl()?Math.min(255,safe*25+5):VibrationEffect.DEFAULT_AMPLITUDE;
-                    VibrationEffect effect=Build.VERSION.SDK_INT>=29
-                        ?VibrationEffect.createPredefined(safe<=3?VibrationEffect.EFFECT_TICK:safe<=7?VibrationEffect.EFFECT_CLICK:VibrationEffect.EFFECT_HEAVY_CLICK)
-                        :VibrationEffect.createOneShot(duration,amplitude);
+                    VibrationEffect effect=VibrationEffect.createOneShot(duration,amplitude);
                     if(Build.VERSION.SDK_INT>=33){
                         motor.vibrate(effect,new android.os.VibrationAttributes.Builder().setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
                     }else{
@@ -244,7 +242,7 @@ public final class MainActivity extends Activity {
                     motor=manager==null?null:manager.getDefaultVibrator();
                 }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
                 if(motor==null||!motor.hasVibrator())return false;
-                long duration=35L+safe*15L;
+                long duration=400L;
                 if(Build.VERSION.SDK_INT>=26){
                     int amplitude=motor.hasAmplitudeControl()?Math.max(1,safe*25):VibrationEffect.DEFAULT_AMPLITUDE;
                     motor.vibrate(VibrationEffect.createOneShot(duration,amplitude));
