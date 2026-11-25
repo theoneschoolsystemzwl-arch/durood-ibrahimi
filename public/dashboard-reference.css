@@ -301,11 +301,13 @@
  }
 }
 
-/* Period target circle replaces the decorative icon without enlarging cards. */
-:root[data-theme] .dashboard-home .recitation-period .dashboard-target-ring{flex:0 0 clamp(48px,15vw,69px);width:clamp(48px,15vw,69px);height:clamp(48px,15vw,69px);border:2px solid currentColor;border-radius:50%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px;padding:3px;filter:none;background:#002e26;color:#c6dfd6;box-shadow:inset 0 0 7px #0005;text-align:center;overflow:hidden}
-:root[data-theme] .dashboard-home .dashboard-target-ring small{font:650 clamp(.52rem,1.95vw,.72rem)/1.25 var(--ur,system-ui,sans-serif);color:inherit;max-width:100%;overflow-wrap:anywhere}
-:root[data-theme] .dashboard-home .dashboard-target-ring bdi{font:800 clamp(.59rem,2.35vw,.88rem)/1.1 system-ui,sans-serif;font-variant-numeric:tabular-nums;max-width:100%;overflow-wrap:anywhere}
-:root[data-theme] .dashboard-home .recitation-period.period-short :is(.dashboard-target-ring,strong[data-period]){color:#ff8181;text-shadow:none}
-:root[data-theme] .dashboard-home .recitation-period.period-complete :is(.dashboard-target-ring,strong[data-period]){color:#65ffa2;text-shadow:none}
+/* Small, unboxed goals in the lower-right corner; main count stays centered. */
+:root[data-theme] .dashboard-home .recitation-period{position:relative;display:flex;justify-content:center;align-items:center;min-width:0;padding:6px 7px 23px}
+:root[data-theme] .dashboard-home .recitation-period .dashboard-period-copy{width:100%;flex:1 1 auto;min-width:0}
+:root[data-theme] .dashboard-home .recitation-period .dashboard-period-goal{position:absolute;right:8px;bottom:5px;display:flex;align-items:baseline;gap:4px;direction:rtl;background:none;border:0;border-radius:0;box-shadow:none;filter:none;padding:0;color:#c6dfd6;max-width:calc(100% - 16px);line-height:1.2;white-space:nowrap}
+:root[data-theme] .dashboard-home .dashboard-period-goal small{font:600 clamp(.52rem,2.05vw,.73rem)/1.4 var(--ur,system-ui,sans-serif);color:inherit}
+:root[data-theme] .dashboard-home .dashboard-period-goal bdi{font:650 clamp(.62rem,2.5vw,.9rem)/1.2 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:inherit}
+:root[data-theme] .dashboard-home .recitation-period.period-short :is(.dashboard-period-goal,strong[data-period]){color:#ffb0b5;text-shadow:none}
+:root[data-theme] .dashboard-home .recitation-period.period-complete :is(.dashboard-period-goal,strong[data-period]){color:#a6ffd0;text-shadow:none}
 :root[data-theme] .dashboard-home .recitation-period.period-unknown strong[data-period]{color:#f2fff8}
 :root[data-theme] .dashboard-home .recitation-period strong[data-period]{max-width:100%;overflow-wrap:anywhere;font-size:clamp(1.15rem,4.6vw,2rem)}
