@@ -101,6 +101,7 @@ export async function recordPersonalWazifa(id,amount=1,day=readingDay(),
   const snap=await tx.get(ref);
   if(!snap.exists())throw Error("وظیفہ موجود نہیں ہے۔");
   const w=snap.data();
+  if(Array.isArray(w.pausePeriods)&&w.pausePeriods.some(p=>p&&day>=p.startDate&&(!p.endDate||day<p.endDate)))throw Error("اس تاریخ کو وظیفہ موقوف ہے۔");
   const legacyContinuation=w.kind==="fixed"&&typeof w.continueStartDate==="string" &&
    Number.isSafeInteger(w.continueDailyGoal)&&w.continueDailyGoal>0 &&
    day>=w.continueStartDate&&w.continueStartDate>w.endDate;

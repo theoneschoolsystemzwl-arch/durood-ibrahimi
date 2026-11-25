@@ -886,7 +886,7 @@ service cloud.firestore {
       let d=request.resource.data;
       return self(uid) && currentMember() &&
         d.keys().hasOnly(['uid','title','arabic','instructions','purpose','kind',
-          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger','continueStartDate','continueDailyGoal','continueBaseTotal','continueGoalHistory','continuePeriods','lastReadingDay','lastReadingSource']) &&
+          'goal','startDate','endDate','total','day','today','createdAt','updatedAt','wNumber','durationDays','dailyLedger','continueStartDate','continueDailyGoal','continueBaseTotal','continueGoalHistory','continuePeriods','lastReadingDay','lastReadingSource','pausePeriods']) &&
         d.keys().hasAll(['uid','title','arabic','instructions','purpose','kind',
           'goal','startDate','endDate','total','day','today','createdAt','updatedAt']) &&
         (!('wNumber' in d) || (d.wNumber is int && d.wNumber >= 1 && d.wNumber <= 1000000000)) &&
@@ -903,6 +903,7 @@ service cloud.firestore {
         (!('lastReadingSource' in d) || d.lastReadingSource in ['tasbih','manual']) &&
         (!('continueGoalHistory' in d) || (d.continueGoalHistory is map &&
           d.continueGoalHistory.size() <= 3660)) &&
+        (!('pausePeriods' in d) || (d.pausePeriods is list && d.pausePeriods.size() <= 1000)) &&
         (!('continuePeriods' in d) ||
           (d.continuePeriods is list && d.continuePeriods.size() <= 50)) &&
         ( (!d.keys().hasAny(['continueStartDate','continueDailyGoal','continueBaseTotal'])) ||
@@ -1113,6 +1114,26 @@ service cloud.firestore {
            resource.data.today) &&
         validWzLedgerIncrement(amount);
     }
+    function validWzPauseChange(d,changed) {
+      let old=resource.data.get('pausePeriods',[]);
+      let next=d.get('pausePeriods',[]);
+      let p=next[next.size()-1];
+      return changed.hasOnly(['pausePeriods','updatedAt']) &&
+        next is list && next.size() > 0 && next.size() <= 1000 &&
+        (d.kind == 'daily' || (d.kind == 'fixed' &&
+          (d.get('continuePeriods',[]).size() > 0 &&
+           d.continuePeriods[d.continuePeriods.size()-1].mode == 'daily' ||
+           d.keys().hasAll(['continueStartDate','continueDailyGoal'])))) &&
+        p is map && p.keys().hasOnly(['startDate','endDate']) &&
+        wzDate(p.startDate) && p.startDate >= d.startDate &&
+        ((p.endDate == '' && next.size() == old.size()+1 &&
+          (old.size() == 0 || (old[old.size()-1].endDate != '' && p.startDate >= old[old.size()-1].endDate)) &&
+          next == old.concat([p])) ||
+         (old.size() > 0 && next.size() == old.size() &&
+          old[old.size()-1].endDate == '' && p.startDate == old[old.size()-1].startDate &&
+          wzDate(p.endDate) && p.endDate >= p.startDate &&
+          next == old.removeAll([old[old.size()-1]]).concat([p])));
+    }
     function validWzPrivateChange() {
       let d=request.resource.data;
       let changed=d.diff(resource.data).affectedKeys();
@@ -1121,7 +1142,8 @@ service cloud.firestore {
         (changed.hasAny(['total','today','dailyLedger','lastReadingDay','lastReadingSource']) ?
            (d.keys().hasAll(['lastReadingDay','lastReadingSource']) ?
              validWzDatedCount(d,changed,amount) : validWzOldCount(d,changed,amount)) :
-           (changed.hasAny(['continuePeriods']) ?
+           (changed.hasAny(['pausePeriods']) ? validWzPauseChange(d,changed) :
+             changed.hasAny(['continuePeriods']) ?
              (validWzPeriodAppend(d,changed) || validWzPeriodRevision(d,changed)) :
              changed.hasAny(['continueStartDate','continueDailyGoal','continueGoalHistory','continueBaseTotal']) ?
              validWzContinuingEdit(d,changed) : validWzRegularEdit(d,changed)));

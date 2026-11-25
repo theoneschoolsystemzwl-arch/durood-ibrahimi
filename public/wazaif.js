@@ -2,12 +2,12 @@
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
-import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=pkt-global-20261125-v1";
+import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWazifaWithSerial,
   sharePersonalWazifa,acceptSharedWazifa,discardSharedWazifa,inboxCollection}
-  from "./wazifa-sharing.js?v=5";
+  from "./wazifa-sharing.js?v=6";
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -51,7 +51,7 @@ function fixedExpired(task,today=readingDay()){
  return !!(end&&dayOk(end)&&today>end);
 }
 function activeDailyGoal(task,today=readingDay()){
- if(task?.kind==="fixed")return targetForDay(task,today);
+ if(task?.kind==="fixed"||task?.kind==="daily")return targetForDay(task,today);
  return Number(task?.goal||0);
 }
 function continuationGoal(t,day){
@@ -65,7 +65,15 @@ function periodDailyGoal(p,day){
  const goal=Number(p.goal||0);
  return Math.floor(goal/n)+(i<goal%n?1:0);
 }
+function pausePeriods(task){return Array.isArray(task?.pausePeriods)?task.pausePeriods:[];}
+function pausedOn(task,day){return pausePeriods(task).some(p=>p&&day>=p.startDate&&(!p.endDate||day<p.endDate));}
+function savedOn(task,day){return Number(task?.dailyLedger?.[day]?.count|| (task?.day===day?task.today:0)||0)>0;}
+function isDailyPlan(task,day=readingDay()){
+ return !!task&&(task.kind==="daily"||periodOnDay(task,day)?.mode==="daily"||
+   (legacyContinuation(task)&&day>=task.continueStartDate));
+}
 function targetForDay(t,day){
+ if(pausedOn(t,day)&&!savedOn(t,day))return 0;
  if(!t||day<t.startDate)return 0;
  if(t.kind==="fixed"){
   if(day<=t.endDate){
@@ -408,7 +416,7 @@ function setMember(profile){
 }
 function setError(e){
   state.error=String(e?.code||e?.message||e||"رابطہ دستیاب نہیں").slice(0,180);
-  const form=$("#wazifa-form")||$("#wz-continue-form");
+  const form=$("#wazifa-form")||$("#wz-continue-form")||$("#wz-shared-form");
   if(form){
     let region=form.querySelector(".wz-error");
     if(!region){region=document.createElement("p");region.className="wz-error";form.append(region);}
@@ -530,6 +538,7 @@ function groupCard(){
 }
 function taskStatus(task){
  const now=readingDay();
+ if(pausedOn(task,now))return "موقوف";
  if(task.startDate>now)return "شروع نہیں ہوا";
  const active=periodOnDay(task,now);
  if(active)return active.mode==="fixed"?"فکس جاری":"روزانہ جاری";
@@ -540,7 +549,7 @@ function taskStatus(task){
 function personalCard(task){
  const stateText=taskStatus(task);
  return '<article class="wz-card wz-personal">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  arabicOrPdf(task.arabic,"personal")+'<p class="wz-help">'+esc(task.instructions)+'</p>'+
  (task.kind==="fixed"?fixedPlanMarkup(task):
@@ -551,11 +560,59 @@ function personalCard(task){
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
+ (isDailyPlan(task)&&task.startDate<=readingDay()?'<div class="wz-actions"><button type="button" class="wz-button '+(pausedOn(task,readingDay())?'wz-primary':'')+'" data-wazifa-action="pause-personal" data-wazifa-id="'+esc(task.id)+'">'+(pausedOn(task,readingDay())?'▶ وظیفہ دوبارہ جاری کریں (Resume)':'⏸ وظیفہ روکیں (Pause)')+'</button></div>':'')+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)</label>'+
  '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"F-2":"M-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
  '<p class="wz-help">مردوں کی شناخت M-1، M-2 اور خواتین کی F-1، F-2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔</p></div>':'')+
  '</article>';
+}
+function sharedSetupMarkup(){
+ const item=state.inbox.find(x=>x.id===state.sharedFor);
+ if(!item)return '<p class="wz-error">شیئرڈ وظیفہ دستیاب نہیں۔</p><button type="button" class="wz-button" data-wazifa-action="back">واپس</button>';
+ return '<div class="wz-form-head"><button type="button" class="wz-button" data-wazifa-action="back">واپس</button><h2>'+esc(item.title)+'</h2></div>'+
+ '<form id="wz-shared-form" class="wz-form"><p class="wz-help">اپنی نئی سیٹنگ مقرر کریں۔ بھیجنے والے کا ہدف، تاریخ اور شمار آپ کے ریکارڈ میں شامل نہیں ہوگا۔</p>'+
+ '<label>وظیفے کی قسم<select name="kind" required><option value="">منتخب کریں</option><option value="daily">ڈیلی</option><option value="fixed">فکس</option><option value="open">اوپن</option></select></label>'+
+ '<label>آغاز کی تاریخ<input type="date" name="startDate" required value="'+readingDay()+'"></label>'+
+ '<label>ہدف (ڈیلی میں روزانہ، فکس میں مجموعی)<input type="number" name="goal" required min="1" max="1000000000"></label>'+
+ '<label data-share-duration hidden>فکس وظیفے کے دن<input name="durationDays" type="number" min="1" max="3650"></label>'+
+ '<button type="submit" class="wz-button wz-primary">اپنی سیٹنگ محفوظ کریں</button></form>';
+}
+async function saveSharedSetup(form){
+ if(state.busy)return;
+ const data=new FormData(form),id=state.sharedFor;
+ state.busy=true;const button=form.querySelector('[type="submit"]');button.disabled=true;
+ try{
+  await reconcileLegacySerials();
+  const result=await acceptSharedWazifa(id,{kind:String(data.get("kind")),goal:Number(data.get("goal")),startDate:String(data.get("startDate")),durationDays:Number(data.get("durationDays"))});
+  state.shareNotice="شیئرڈ وظیفہ "+wazifaSerial(result)+" نئی سیٹنگ کے ساتھ محفوظ ہو گیا۔";
+  state.sharedFor=null;state.error="";state.mode="list";render();
+ }catch(e){setError(e);}finally{state.busy=false;if(button.isConnected)button.disabled=false;}
+}
+async function toggleDailyPause(id){
+ if(state.busy)return;
+ const uid=auth.currentUser?.uid,today=readingDay(),task=state.personal.find(x=>x.id===id);
+ if(!uid||!task||!isDailyPlan(task,today)||task.startDate>today)return;
+ state.busy=true;
+ try{
+  await wzSync.flush();
+  if(wzSync.pending(id))throw Error("پہلے زیر التوا گنتی محفوظ کریں۔");
+  const ref=doc(db,"memberWazaif",uid,"items",id);
+  await runTransaction(db,async tx=>{
+   const snap=await tx.get(ref);if(!snap.exists()||auth.currentUser?.uid!==uid)throw Error("وظیفہ دستیاب نہیں۔");
+   const current=snap.data();if(!isDailyPlan(current,today)||current.startDate>today)throw Error("صرف جاری ڈیلی وظیفہ روک سکتے ہیں۔");
+   const periods=pausePeriods(current),last=periods.at(-1);
+   if(last&&!last.endDate){
+    if(today<last.startDate)throw Error("فون کی تاریخ درست کریں۔");
+    tx.update(ref,{pausePeriods:[...periods.slice(0,-1),{...last,endDate:today}],updatedAt:serverTimestamp()});
+   }else{
+    if(periods.length>=1000||last&&today<last.endDate)throw Error("وقفے کی تاریخ درست نہیں۔");
+    tx.update(ref,{pausePeriods:[...periods,{startDate:today,endDate:""}],updatedAt:serverTimestamp()});
+   }
+  });
+  const fresh=await getDocFromServer(ref);if(fresh.exists())state.personal=state.personal.map(item=>item.id===id?{id,...fresh.data()}:item);
+  state.error="";render();
+ }catch(e){setError(e);}finally{state.busy=false;}
 }
 function inboxMarkup(){
  if(!state.inbox.length)return "";
@@ -566,7 +623,7 @@ function inboxMarkup(){
  '<h3>'+esc(item.title)+'</h3></div></header>'+
  arabicOrPdf(item.arabic,"shared:"+item.senderUid)+
  '<p class="wz-help">'+esc(item.instructions)+'</p>'+
- '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">محفوظ کریں</button>'+
+ '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">اپنی سیٹنگ بنائیں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
 }
 function listMarkup(){
@@ -695,7 +752,7 @@ function readingTimes(record,live=false){
 }
 function dailyFigures(group,w,record,queued=0){
  const today=group?groupReadingDay():readingDay(),rows=group?[]:datedProgress(record);
- const r=rows.length?rows[rows.length-1]:null,entry=record?.dailyLedger?.[today]||{};
+ const r=rows.find(row=>row.day===today),entry=record?.dailyLedger?.[today]||{};
  const goal=group?Number(w.dailyGoal||0):targetForDay(w,today);
  const saved=group?(record?.day===today?Number(record.today||0):0):
   Number(r?.count??(record?.day===today?record.today:0))||0;
@@ -740,7 +797,7 @@ function displayRecordDate(key){
   .format(new Date(key+"T12:00:00Z"));
 }
 function canEnterDay(record,day){
- return !!record&&dayOk(day)&&day>=record.startDate&&day<=readingDay()&&
+ return !!record&&dayOk(day)&&day>=record.startDate&&day<=readingDay()&&!pausedOn(record,day)&&
   (record.kind!=="fixed"||day<=record.endDate||
    !!periodOnDay(record,day)||
    (legacyContinuation(record)&&day>=record.continueStartDate));
@@ -795,6 +852,7 @@ function datedProgress(record){
  const dates=[];
  let cumulativeGoal=0,cumulativeRead=0;
  for(let d=start,i=0;d<=today&&i<3660;i++,d=addDays(d,1)){
+  if(pausedOn(record,d)&&!savedOn(record,d))continue;
   const entry=ledger[d]||{},goal=targetForDay(record,d),count=Math.max(0,Number(entry.count||0));
   const previousDue=Math.max(0,cumulativeGoal-cumulativeRead);
   const previousCredit=Math.max(0,cumulativeRead-cumulativeGoal);
@@ -814,8 +872,7 @@ function datedProgress(record){
 }
 function historyEditMarkup(record,day){
  const entry=record?.dailyLedger?.[day]||{},count=Math.max(0,Number(entry.count||0));
- const permitted=record.kind!=="fixed"||day<=record.endDate||
-   !!periodOnDay(record,day)||(legacyContinuation(record)&&day>=record.continueStartDate);
+ const permitted=canEnterDay(record,day);
  return '<form class="wz-edit-form" id="wz-manual-form" data-day="'+esc(day)+'">'+
  '<h3 id="wz-edit-title">روزانہ گنتی میں تبدیلی</h3>'+
  '<p class="wz-edit-date"><time datetime="'+esc(day)+'">'+esc(displayRecordDate(day))+'</time></p>'+
@@ -1201,6 +1258,10 @@ function render(){
  if(!root||!state.profile)return;
  if(!["personal-reader","group-reader"].includes(state.mode)&&state.immersive)setWazifaImmersive(false);
  if(!state.started)subscribe();
+ if(state.mode==="shared-form"){
+   if(root.querySelector("#wz-shared-form"))return;
+   root.innerHTML=sharedSetupMarkup();return;
+ }
  if(state.mode==="form"){
    if(root.querySelector("#wazifa-form"))return;
    root.innerHTML=formMarkup();syncForm();autoPdfView(root);return;
@@ -1538,10 +1599,7 @@ function tap(){
  if(state.mode==="group-reader"&&window.duroodEnsureMemberDailyGoal?.()===false)return;
  if(state.mode==="personal-reader"){
   const task=state.personal.find(item=>item.id===state.readerId);
-  if(!task||state.draftDay<task.startDate||
-    task.kind==="fixed"&&state.draftDay>task.endDate&&
-    !periodOnDay(task,state.draftDay)&&
-    !(legacyContinuation(task)&&state.draftDay>=task.continueStartDate)){
+  if(!canEnterDay(task,state.draftDay||readingDay())){
    setError("منتخب تاریخ وظیفے کی مدت میں نہیں ہے۔");return;
   }
  }
@@ -1852,13 +1910,9 @@ document.addEventListener("click",event=>{
  }
  if(action==="accept-share"&&id){
    if(state.busy)return;
-   state.busy=true;button.disabled=true;
-   reconcileLegacySerials().then(()=>acceptSharedWazifa(id)).then(result=>{
-     state.shareNotice="شیئرڈ وظیفہ "+wazifaSerial(result)+" کے طور پر محفوظ ہو گیا۔";
-     state.error="";render();
-   }).catch(setError).finally(()=>{state.busy=false;if(button.isConnected)button.disabled=false;});
-   return;
+   state.sharedFor=id;state.mode="shared-form";state.error="";render();return;
  }
+ if(action==="pause-personal"&&id){void toggleDailyPause(id);return;}
  if(action==="reject-share"&&id){
    if(!window.confirm("اس شیئرڈ وظیفے کو بغیر محفوظ کیے حذف کریں؟"))return;
    if(state.busy)return;
@@ -1886,7 +1940,7 @@ document.addEventListener("click",event=>{
  }
  if(action==="read-personal"){
    const selected=state.personal.find(item=>item.id===id);
-   if(!selected||!["جاری","روزانہ جاری","فکس جاری"].includes(taskStatus(selected)))return;
+   if(!selected||!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(taskStatus(selected)))return;
    state.readerId=id;state.mode="personal-reader";state.historyDay=null;state.historyLimit=60;state.error="";startClock();restoreDraft();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});return;
  }
@@ -1958,6 +2012,7 @@ document.addEventListener("click",event=>{
  }
 },true);
 document.addEventListener("submit",event=>{
+ if(event.target?.id==="wz-shared-form"){event.preventDefault();event.stopImmediatePropagation();void saveSharedSetup(event.target);return;}
  if(event.target?.id==="wz-continue-form"){
   event.preventDefault();event.stopImmediatePropagation();
   void saveContinuationForm(event.target);return;
@@ -2054,6 +2109,7 @@ document.addEventListener("submit",event=>{
  saveForm(event.target);
 },true);
 document.addEventListener("change",event=>{
+ if(event.target?.closest("#wz-shared-form")&&event.target.name==="kind"){const form=event.target.closest("form"),fixed=event.target.value==="fixed";form.querySelector("[data-share-duration]").hidden=!fixed;form.elements.durationDays.required=fixed;return;}
  if(event.target?.id==="wz-pdf-file"){
   const input=event.target,form=input.closest("#wazifa-form"),file=input.files?.[0];input.value="";
   if(form&&file)void importWazifaPdf(form,file);return;

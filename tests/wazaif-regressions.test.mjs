@@ -32,6 +32,16 @@ const daily={
  durationDays:0,goal:20
 };
 assert.equal(f.fixedExpired(original),true);
+const paused={kind:"daily",goal:100,startDate:"2026-11-20",pausePeriods:[{startDate:"2026-11-21",endDate:"2026-11-24"}]};
+assert.equal(f.targetForDay(paused,"2026-11-20"),100);
+assert.equal(f.targetForDay(paused,"2026-11-21"),0);
+assert.equal(f.targetForDay(paused,"2026-11-23"),0);
+assert.equal(f.targetForDay(paused,"2026-11-24"),100);
+assert.equal(f.targetForDay({...paused,dailyLedger:{"2026-11-21":{count:20}}},"2026-11-21"),100);
+assert.equal(f.targetForDay({...paused,pausePeriods:[{startDate:"2026-11-21",endDate:""}]},"2026-11-24"),0);
+assert(sharing.includes("acceptSharedWazifa(inboxId,settings)")&&sharing.includes("kind,goal,startDate,endDate,durationDays"));
+assert(source.includes('data-wazifa-action="pause-personal"')&&source.includes("if(pausedOn(record,d)&&!savedOn(record,d))continue;"));
+assert(rules.includes("validWzPauseChange"));
 assert.equal(f.addDays(original.endDate,1),"2026-10-12");
 assert.equal(f.targetForDay({...original,continuePeriods:[extension]},"2026-10-12"),10);
 assert.equal(f.targetForDay({...original,continuePeriods:[extension]},"2026-11-21"),10);

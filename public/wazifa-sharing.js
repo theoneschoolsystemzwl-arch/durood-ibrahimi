@@ -140,7 +140,14 @@ export async function sharePersonalWazifa(itemId,memberSerial,profile){
   sameUid(uid);
   return {recipient:recipient.displaySideSerial};
 }
-export async function acceptSharedWazifa(inboxId){
+export async function acceptSharedWazifa(inboxId,settings){
+  const {kind,goal,startDate,durationDays}=settings||{};
+  const validDay=d=>typeof d==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d+"T12:00:00Z"))&&new Date(d+"T12:00:00Z").toISOString().slice(0,10)===d;
+  if(!["daily","fixed","open"].includes(kind)||!Number.isSafeInteger(goal)||goal<1||goal>1000000000||!validDay(startDate)||
+    (kind==="fixed"&&(!Number.isSafeInteger(durationDays)||durationDays<1||durationDays>3650)))
+    throw Error("اپنا ہدف، قسم اور آغاز کی تاریخ درست مقرر کریں۔");
+  const endDate=kind==="fixed"?new Date(Date.parse(startDate+"T12:00:00Z")+(durationDays-1)*86400000).toISOString().slice(0,10):"";
+  if(kind==="fixed"&&!validDay(endDate))throw Error("اختتامی تاریخ درست نہیں۔");
   const uid=currentUid();
   const received=inboxRef(uid,inboxId),newItem=doc(personalCollection(uid));
   const preview=await getDocFromServer(received);
@@ -157,7 +164,8 @@ export async function acceptSharedWazifa(inboxId){
     if(!message.exists())throw Error("یہ شیئرڈ وظیفہ پہلے ہی محفوظ یا حذف ہو چکا ہے۔");
     const source=message.data();
     if(source.recipientUid!==uid||source.arabic!==initial.arabic||source.senderUid!==initial.senderUid)throw Error("یہ پیغام بدل چکا ہے۔ دوبارہ کوشش کریں۔");
-    const config=Object.fromEntries(DATA_KEYS.map(key=>[key,source[key]]));
+    const config={...Object.fromEntries(["title","arabic","instructions","purpose"].map(key=>[key,source[key]])),
+      kind,goal,startDate,endDate,durationDays:kind==="fixed"?durationDays:0};
     tx.set(newItem,{...config,uid,total:0,today:0,day:todayLocal(),
       wNumber:n,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     tx.delete(received);

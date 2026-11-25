@@ -1,4 +1,4 @@
-const RELEASE="pdf-scroll-share-20261126-v5";
+const RELEASE="wazifa-share-pause-20261126-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
