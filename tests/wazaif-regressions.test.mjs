@@ -281,6 +281,16 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100},{date:"2026-11-25",goal:50}]}],"2026-11-25",period).overallGoal,150);
  assert.equal(aggregate([{daily:[{date:"2026-11-24",goal:100}],active:false,inactiveDay:"2026-11-25"}],"2026-11-26",period).overallGoal,200);
  assert.equal(aggregate(null,"2026-11-24"),null);
+ const audit=vm.runInContext("memberTargetAudit",targetContext);
+ const four=[member(100,"2026-11-25"),member(100,"2026-11-25"),member(100,"2026-11-26"),member(100,"2026-11-26")];
+ const fourResult=aggregate(four,"2026-11-26");
+ assert.equal(fourResult.dailyGoal,400);assert.equal(fourResult.overallGoal,600);assert.equal(fourResult.missingTargets,0);
+ const women=[{daily:[],legacy:[{date:"2026-11-24",mode:"personal",dailyGoal:100}]},{daily:[]}];
+ assert.equal(aggregate(women,"2026-11-26").missingTargets,2);
+ assert.equal(audit(women,"2026-11-26")[0].goal,null);assert.equal(audit(women,"2026-11-26")[0].legacyGoal,100);
+ assert.equal(audit([member(0)],"2026-11-26")[0].goal,0);
+ assert.equal(aggregate([member(0)],"2026-11-26").missingTargets,0);
+ assert(classic.includes('id="member-target-audit"'));
  assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
  assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
  const overview=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));

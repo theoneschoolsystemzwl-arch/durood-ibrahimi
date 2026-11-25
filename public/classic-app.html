@@ -1170,6 +1170,15 @@ body { background:linear-gradient(145deg,hsl(var(--theme-hue) 42% 91%),hsl(var(-
 .recitation-banner { display:grid; gap:8px; border-radius:20px; padding:clamp(18px,4vw,32px); text-align:right; color:white; background:linear-gradient(115deg,hsl(var(--theme-hue) 38% 33%),hsl(var(--theme-hue) 50% 19%)); border-inline-end:4px solid var(--gold); }
 .recitation-banner h2,.recitation-period h2 { font-size:1rem; margin:0; color:inherit; }
 .recitation-banner strong { font-size:clamp(2rem,6vw,3.6rem); line-height:1.25; }
+.target-audit{padding:9px;border-radius:12px;font-size:.75rem}
+.target-audit summary{font-weight:700;cursor:pointer}
+.target-audit-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:8px 0}
+.target-audit-title>b{font-size:1.25rem;color:var(--deep)}
+.target-audit-table{display:grid;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.target-audit-row{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));align-items:center;gap:3px;padding:5px;border-bottom:1px solid var(--line)}
+.target-audit-row>*{min-width:0;overflow-wrap:anywhere;text-align:center}
+.target-audit-row small{display:block;color:var(--muted);font-size:.65rem}
+.target-audit-header{background:var(--mint);font-weight:700}
 .group-target-cards{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.55fr);gap:2px;padding:1.5px;border:1px solid hsl(var(--theme-hue) 25% 65%);border-radius:11px;direction:rtl}
 .group-target-cards .recitation-banner{min-width:0;padding:2.5px 1.5px;gap:1px;border-radius:6px;border:1px solid #ffffff35;justify-items:center;align-content:center;text-align:center;color:#fff}
 .group-target-cards .group-overall-target{background:linear-gradient(145deg,#146448,#093f32)}
@@ -2226,9 +2235,21 @@ function accruedMemberTarget(row,start,end){
  }
  return sum;
 }
+function memberTargetAudit(rows,day,cfg){
+ if(!Array.isArray(rows))return null;
+ const period=annualTargetPeriod(cfg,day);
+ return rows.map(row=>{
+  const current=latestReaderGoal(row.daily,day);
+  const legacy=(row.legacy||[]).filter(r=>targetDateValid(r.date)&&r.date<=day&&r.mode==="personal"&&Number.isSafeInteger(r.dailyGoal)&&r.dailyGoal>0).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+  return {...row,goal:current?.goal??null,effectiveDate:current?.date??null,legacyGoal:legacy?.dailyGoal??null,
+    accrued:accruedMemberTarget(row,null,day),annual:period?accruedMemberTarget(row,period.start,period.end):null};
+ }).sort((a,b)=>(a.memberNumber??0)-(b.memberNumber??0));
+}
 function aggregateGroupTargets(rows,day,cfg){
  if(rows===null)return null;
  const result=goalPeriods(rows.reduce((sum,r)=>sum+(r.active===false?0:effectiveGroupDailyGoal(r.daily,r.legacy,day)),0),day);
+ result.activeMembers=rows.filter(r=>r.active!==false).length;
+ result.missingTargets=rows.filter(r=>r.active!==false&&!latestReaderGoal(r.daily,day)).length;
  result.overallGoal=rows.reduce((sum,r)=>sum+accruedMemberTarget(r,null,day),0);
  const period=annualTargetPeriod(cfg,day);
  if(period){
@@ -2254,14 +2275,39 @@ function dashboardTargetCards(){
  const g=window.duroodAggregateGroupTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
  const sideLabel=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
- const targetBreakdown=tr("Daily target: ","روزانہ ہدف: ")+value(g?.dailyGoal);
- return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+value(g?.overallGoal)+'</strong><small>'+sideLabel+' · '+tr("Through today","آج تک")+'</small><small>'+targetBreakdown+'</small></section>'+
- '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(p?g?.yearlyGoal:null)+'</strong><small>مقررہ سیشن</small></section>'+
+ const noTargets=g&&g.activeMembers>0&&g.missingTargets===g.activeMembers;
+ const targetBreakdown=tr("Daily target: ","روزانہ ہدف: ")+(noTargets?tr("Not set","مقرر نہیں"):value(g?.dailyGoal));
+ const incomplete=g?.missingTargets?'<small>'+esc(String(g.missingTargets))+tr(" target(s) not set"," ممبرز کے اہداف مقرر نہیں")+'</small>':"";
+ return '<section class="recitation-banner group-overall-target"><h2>آج تک کا مجموعی ہدف</h2><strong dir="ltr">'+(noTargets&&!g.overallGoal?"—":value(g?.overallGoal))+'</strong><small>'+sideLabel+' · '+tr("Through today","آج تک")+'</small><small>'+targetBreakdown+'</small>'+incomplete+'</section>'+
+ '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(p&&!(noTargets&&!g.yearlyGoal)?g?.yearlyGoal:null)+'</strong><small>مقررہ سیشن</small></section>'+
  '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
+}
+function targetAuditMarkup(){
+ if(!currentUser()?.isOwner)return "";
+ const day=globalDateKey(),rows=memberTargetAudit(ownerGoalRows,day,dashboardGroupSettings);
+ const side=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
+ const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
+ if(!rows)return '<p class="muted">'+tr("Waiting for confirmed Firebase targets","Firebase کے تصدیق شدہ اہداف کا انتظار ہے")+'</p>';
+ const g=aggregateGroupTargets(ownerGoalRows,day,dashboardGroupSettings);
+ const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
+ return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
+ '<p class="muted">'+value(g.activeMembers)+tr(" active members; "," فعال ممبرز؛ ")+value(g.missingTargets)+tr(" targets not set."," کے ہدف مقرر نہیں۔")+' '+esc(day)+'</p>'+
+ '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Through today","آج تک")+'</span><span>'+tr("Session","سالانہ")+'</span></div>'+
+ rows.map(row=>{
+  const member=users.find(p=>p.uid===row.uid);
+  const name=member?.name||row.name||tr("Member","ممبر"),label=member?serial(member.id):"";
+  const goal=row.goal===null?tr("Not set","مقرر نہیں"):value(row.goal);
+  return '<div class="target-audit-row"><span><b>'+esc(name)+'</b><small>'+esc(label)+(row.active===false?' · '+tr("Inactive","غیر فعال"):"")+'</small><small>'+esc(row.effectiveDate||"")+'</small>'+
+    (row.goal===null&&row.legacyGoal!==null?'<small>'+tr("Old group target (not counted): ","پرانا گروپ ہدف (شامل نہیں): ")+value(row.legacyGoal)+'</small>':"")+'</span>'+
+    '<span>'+goal+'</span><span>'+value(row.goal===null&&!row.accrued?null:row.accrued)+'</span><span>'+value(row.goal===null&&!row.annual?null:row.annual)+'</span></div>';
+ }).join("")+
+ '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+(noTargets&&!g.overallGoal?"—":value(g.overallGoal))+'</b><b>'+value(annualTargetPeriod(dashboardGroupSettings,day)&&!(noTargets&&!g.yearlyGoal)?g.yearlyGoal:null)+'</b></div></div>'+
+ '<p class="muted">'+tr("Daily is the sum of current active goals. Through today includes prior dated goals; annual follows the selected session. Unset goals are not assumed to be 100 or 0.","روزانہ ہدف فعال ممبرز کا موجودہ مجموعہ ہے۔ آج تک میں پچھلی تاریخوں کے اہداف بھی شامل ہیں۔ سالانہ ہدف مقررہ سیشن کے مطابق ہے۔ غیر مقررہ ہدف کو 100 یا صفر فرض نہیں کیا جاتا۔")+'</p>';
 }
 function refreshDashboardTargetCards(){
  const node=document.getElementById("group-target-cards");
  if(node)node.innerHTML=dashboardTargetCards();
+ const audit=document.getElementById("member-target-audit");if(audit)audit.innerHTML=targetAuditMarkup();
 }
 function refreshMemberGroupProgress(){
  window.duroodWazaif?.refreshGroupTargets?.();
@@ -2444,7 +2490,7 @@ function overview() {
    '<div id="global-pkt-clock" style="font:700 .77rem system-ui,sans-serif;text-align:center;color:#83ffad;background:#082a39;border-radius:7px;padding:5px;margin:4px 0">پاکستان مرکزی وقت · '+globalClockMarkup()+'</div>'+
    boxedHeading(ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"),
      tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
-   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
+   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div><details class="panel section target-audit" open><summary>'+tr("Member target breakdown","ممبرز کے اہداف کی تفصیل")+'</summary><div id="member-target-audit">'+targetAuditMarkup()+'</div></details>':"")+
    '<section class="recitation-banner"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
    '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
    '<div class="recitation-periods">'+metricCards+'</div>'+
@@ -5546,7 +5592,7 @@ function observeCounters(side){
     if(!stillCurrent())return;
     const rows=[...goalMembers.values()];
     bridge.readerDirectoryGoals(observedUid,[...goalMembers].map(([uid,r])=>[uid,r.daily]));
-    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily,...r.meta})):null);
+    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily,legacy:r.legacy,...r.meta})):null);
   };
   if(currentProfile?.role==="owner"){
     stopGoalDirectory=onSnapshot(collection(db,"members"),{includeMetadataChanges:true},snap=>{
@@ -5563,18 +5609,18 @@ function observeCounters(side){
       }).map(d=>{
         const m=d.data(),joined=registrationDate(m),inactive=m.disabled===true||m.deleted===true;
         const changed=m.updatedAt?.toDate?.();
-        return [d.id,{active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
+        return [d.id,{uid:d.id,name:m.name||"",memberNumber:Number(m.memberNumber)||0,active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
       }));
       const active=new Set(directory.keys());
       watchPhotos([...active]);
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
-        const r={daily:null,groupDays:null,groupSummary:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
+        const r={daily:null,legacy:null,groupDays:null,groupSummary:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
         const memberRef=doc(db,"wazaifGroupStats","main","members",uid);
         r.stops.push(onSnapshot(memberRef,{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupSummary=snap.exists()?snap.data():{};publishSideGroup();},err=>{r.groupSummary=null;publishSideGroup();console.warn("Side group member summary",err.code);}));
         r.stops.push(onSnapshot(collection(memberRef,"days"),{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupDays=Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count]));publishSideGroup();},err=>{r.groupDays=null;publishSideGroup();console.warn("Side group member dates",err.code);}));
-        for(const [key,name] of [["daily","duroodGoals"]]){
+        for(const [key,name] of [["daily","duroodGoals"],["legacy","groupTargets"]]){
           r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();
