@@ -17,3 +17,25 @@ const cstart=src.indexOf("function groupCode(person)"),cend=src.indexOf("functio
 const codes={groupIdentity:p=>g.get(p.id),hasGroup:id=>rows.some(p=>p.inviterUid===rows.find(r=>r.id===id)?.uid&&!p.deleted)};vm.createContext(codes);vm.runInContext(src.slice(cstart,cend),codes);
 assert.equal(codes.groupCode(rows[0]),"A1");assert.equal(codes.groupCode(rows[2]),"A2 B1");assert.equal(codes.groupCode(rows[6]),"B3");
 console.log("Group leader position 1, invited positions 2 onward, no duplicate recitations");
+
+const astart=src.indexOf("function branchMemberCount"),aend=src.indexOf("function treeNode",astart);
+const branchRows=[{id:1,gender:"Male",isOwner:true},{id:3,gender:"Male"},{id:4,gender:"Male"},{id:5,gender:"Male",deleted:true},{id:6,gender:"Male"},{id:2,gender:"Female",isFoundingSpouse:true}];
+const direct=new Map([[1,[3,4]],[3,[5,6]]]);
+const ac={users:branchRows,currentUser:()=>branchRows[1],getUser:id=>branchRows.find(p=>p.id===id),descendants:id=>new Set((direct.get(id)||[]).flatMap(k=>[k,...(direct.get(k)||[])])),ownerViewingWomen:()=>false,groupDirectoryReady:true,ownedGroupName:()=> "—",formatNumber:String,groupMemberCount:()=>0,tr:(a,b)=>a,esc:String,hasGroup:()=>false};vm.createContext(ac);vm.runInContext(src.slice(astart,aend),ac);
+assert.equal(ac.branchMemberCount(branchRows[0]),3);assert.equal(ac.branchMemberCount(branchRows[1]),1);
+assert.equal(ac.canViewTreeBranch(branchRows[1],branchRows[4]),true);assert.equal(ac.canViewTreeBranch(branchRows[1],branchRows[2]),false);assert.equal(ac.canViewTreeBranch(branchRows[1],branchRows[5]),false);assert.equal(ac.canViewTreeBranch(branchRows[1],branchRows[3]),false);
+const empty=ac.treeActivityMarkup(branchRows[2]);assert(empty.includes("Group members")&&empty.includes("Branch members")&&!empty.includes("GC ·"));
+console.log("Tree activity for empty groups and scoped descendant navigation passed");
+
+assert.equal(ac.accessibleTreeMembers(branchRows[1]).map(p=>p.id).join(","),"3,6");
+assert.equal(ac.accessibleTreeMembers(branchRows[0]).map(p=>p.id).join(","),"1,3,4,6");
+assert(src.includes("members:treeMembersPage,ranking,groups")&&src.includes("if(currentUser()?.isOwner!==true)return treeMembersPage()"));
+console.log("Member group and directory scope, no private profile access, passed");
+
+const resetA=src.indexOf("function ownerPasswordRecoveryMarkup"),resetB=src.indexOf("function profileDetails",resetA);
+let viewer={isOwner:false};
+const resetCtx={currentUser:()=>viewer,tr:(a,b)=>a,ur:a=>a,feedback:()=>"",esc:s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")};vm.createContext(resetCtx);vm.runInContext(src.slice(resetA,resetB),resetCtx);
+assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"}),"");viewer={isOwner:true};
+assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"admin",isOwner:true}),"");assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"deleted",deleted:true}),"");
+const reset=resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"});assert(reset.includes("member-uid")&&reset.includes("REPLACE_WITH_NEW_PASSWORD")&&reset.includes("docs.cloud.google.com"));
+console.log("Owner-only password recovery helper, no stored password, passed");
