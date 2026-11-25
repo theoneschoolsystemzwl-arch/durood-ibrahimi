@@ -154,7 +154,7 @@ public class MainActivity extends Activity {
                 motor=manager==null?null:manager.getDefaultVibrator();
             }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
             if(motor==null||!motor.hasVibrator())return false;
-            long duration=400L;
+            long duration=100L;
             if(Build.VERSION.SDK_INT>=26){
                 int amplitude=motor.hasAmplitudeControl()?Math.min(255,safe*25+5):VibrationEffect.DEFAULT_AMPLITUDE;
                 VibrationEffect effect=VibrationEffect.createOneShot(duration,amplitude);
@@ -180,7 +180,7 @@ public class MainActivity extends Activity {
                 motor=manager==null?null:manager.getDefaultVibrator();
             }else motor=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
             if(motor==null||!motor.hasVibrator())return false;
-            long duration=400L;
+            long duration=100L;
             if(Build.VERSION.SDK_INT>=26){
                 int amplitude=motor.hasAmplitudeControl()?Math.max(1,safe*25):VibrationEffect.DEFAULT_AMPLITUDE;
                 motor.vibrate(VibrationEffect.createOneShot(duration,amplitude));
