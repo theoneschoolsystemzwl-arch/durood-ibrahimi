@@ -128,6 +128,35 @@ public class MainActivity extends Activity {
   }
   private final class ReaderControls{
     // Independent motor engine: a non-repeating high-amplitude envelope on every tap.
+        // Android 16 frequency control; reflection retains compatibility with SDK 35 builds.
+    private android.os.VibrationEffect frequencyPulse(android.os.Vibrator motor,int level){
+      if(Build.VERSION.SDK_INT<36)return null;
+      final float frequency=600f;
+      try{
+        Class<?> vibrator=android.os.Vibrator.class;
+        if(!Boolean.TRUE.equals(vibrator.getMethod("areEnvelopeEffectsSupported").invoke(motor)))return null;
+        Object profile=vibrator.getMethod("getFrequencyProfile").invoke(motor);
+        Object info=vibrator.getMethod("getEnvelopeEffectInfo").invoke(motor);
+        if(profile==null||info==null)return null;
+        float min=((Number)profile.getClass().getMethod("getMinFrequencyHz").invoke(profile)).floatValue();
+        float max=((Number)profile.getClass().getMethod("getMaxFrequencyHz").invoke(profile)).floatValue();
+        if(!(frequency>=min&&frequency<=max))return null;
+        long minTime=((Number)info.getClass().getMethod("getMinControlPointDurationMillis").invoke(info)).longValue();
+        long maxTime=((Number)info.getClass().getMethod("getMaxControlPointDurationMillis").invoke(info)).longValue();
+        long maxTotal=((Number)info.getClass().getMethod("getMaxDurationMillis").invoke(info)).longValue();
+        long edge=Math.max(12L,minTime),hold=Math.max(40L,minTime);
+        if(minTime<=0||edge>maxTime||hold>maxTime||2*edge+hold>maxTotal)return null;
+        Class<?> builderType=Class.forName("android.os.VibrationEffect$WaveformEnvelopeBuilder");
+        Object builder=builderType.getConstructor().newInstance();
+        builderType.getMethod("setInitialFrequencyHz",float.class).invoke(builder,frequency);
+        java.lang.reflect.Method point=builderType.getMethod("addControlPoint",float.class,float.class,long.class);
+        float strength=level/10f;
+        point.invoke(builder,strength,frequency,edge);
+        point.invoke(builder,strength,frequency,hold);
+        point.invoke(builder,0f,frequency,edge);
+        return (android.os.VibrationEffect)builderType.getMethod("build").invoke(builder);
+      }catch(Exception | LinkageError unavailable){return null;}
+    }
     @JavascriptInterface public boolean pulseTasbihMotor(int strength) {
       if(!trustedPage()||strength<=0)return false;
       final int level=Math.min(10,strength);
@@ -153,7 +182,8 @@ public class MainActivity extends Activity {
             timings=new long[]{0,20+level*5L};
             amplitudes=new int[]{0,android.os.VibrationEffect.DEFAULT_AMPLITUDE};
           }
-          android.os.VibrationEffect effect=android.os.VibrationEffect.createWaveform(timings,amplitudes,-1);
+          android.os.VibrationEffect effect=frequencyPulse(motor,level);
+          if(effect==null)effect=android.os.VibrationEffect.createWaveform(timings,amplitudes,-1);
           if(Build.VERSION.SDK_INT>=33){
             motor.vibrate(effect,new android.os.VibrationAttributes.Builder()
                 .setUsage(android.os.VibrationAttributes.USAGE_TOUCH).build());
