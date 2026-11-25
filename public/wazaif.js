@@ -576,6 +576,7 @@ function formMarkup(){
  '<form id="wazifa-form" class="wz-form"><label>وظیفے کا نام<input name="title" required maxlength="80" placeholder="مثلاً آیت الکرسی" value="'+esc(original.title||'')+'"></label>'+
  '<label>عربی عبارت / درود<textarea name="arabic" lang="ar" dir="rtl" id="wz-arabic-input" rows="12" required aria-describedby="wz-arabic-length" placeholder="مکمل عربی عبارت یا پوری سورۃ یہاں پیسٹ کریں">'+esc(original.arabic||'')+'</textarea></label>'+
  '<p id="wz-arabic-length" class="wz-arabic-length" role="status" aria-live="polite">الفاظ: 0 / 25,000</p>'+
+ '<div class="wz-pdf-tools"><button type="button" class="wz-button" data-wazifa-action="pdf-upload">↑ PDF اپلوڈ</button><button type="button" class="wz-button" data-wazifa-action="pdf-download">↓ PDF ڈاؤن لوڈ</button><input id="wz-pdf-file" type="file" accept="application/pdf,.pdf" hidden aria-label="PDF منتخب کریں"></div><p id="wz-pdf-status" class="wz-pdf-status" role="status" aria-live="polite"></p>'+
  '<label>طریقہ / ہدایات<textarea name="instructions" rows="3" maxlength="1200" placeholder="پڑھنے کا طریقہ">'+esc(original.instructions||'')+'</textarea></label>'+
  '<label>وظیفے کا مقصد<textarea name="purpose" rows="3" maxlength="1200" placeholder="اس وظیفے کا مقصد">'+esc(original.purpose||'')+'</textarea></label>'+
  '<p class="wz-label">وظیفے کی قسم منتخب کریں</p><div class="wz-kind">'+kinds.map(([id,name,description])=>
@@ -1200,6 +1201,30 @@ function render(){
  }
  root.innerHTML=listMarkup()+(state.error?'<p class="wz-error">'+esc(state.error)+'</p>':'');
 }
+function pdfStatus(form,message,error=false){
+ const el=form.querySelector("#wz-pdf-status");if(el){el.textContent=message;el.classList.toggle("is-error",error);}
+}
+async function wazifaPdfAction(form,file,upload){
+ const field=form.elements.arabic,prior=field.value;
+ if(upload&&prior.trim()&&!window.confirm("PDF کی عبارت موجودہ عبارت کی جگہ لکھیں؟"))return;
+ if(!upload&&!prior.trim()){pdfStatus(form,"پہلے عربی عبارت لکھیں۔",true);return;}
+ const buttons=form.querySelectorAll("[data-wazifa-action^='pdf-']");buttons.forEach(b=>b.disabled=true);
+ pdfStatus(form,upload?"PDF پڑھ رہے ہیں…":"PDF تیار ہو رہی ہے…");
+ try{
+  const p=await import("./wazifa-pdf.js?v=1"),progress=(n,total)=>pdfStatus(form,"PDF صفحات: "+n+" / "+total);
+  if(upload){
+   const text=await p.readArabicPdf(file,progress);if(!form.isConnected)return;
+   if(field.value!==prior)throw Error("عبارت تبدیل ہو چکی ہے۔ دوبارہ PDF منتخب کریں۔");
+   const error=arabicLengthError(text);if(error)throw Error(error);
+   field.value=text;syncArabicCounter(form);pdfStatus(form,"PDF کی عبارت آگئی ہے۔ اعراب اور ترتیب چیک کر کے محفوظ کریں۔");
+  }else{
+   const error=arabicLengthError(prior);if(error)throw Error(error);
+   const blob=await p.makeArabicPdf(prior,progress);if(!form.isConnected)return;
+   const mode=await p.downloadArabicPdf(blob);pdfStatus(form,mode==="native"?"موبائل میں PDF محفوظ کرنے کی جگہ منتخب کریں۔":"PDF ڈاؤن لوڈ کی درخواست دے دی گئی ہے۔");
+  }
+ }catch(error){pdfStatus(form,error?.message||"PDF کا عمل مکمل نہیں ہوا۔",true);}
+ finally{buttons.forEach(b=>b.disabled=false);}
+}
 function syncArabicCounter(form){
  if(!form)return;
  const textarea=form.elements.arabic,notice=form.querySelector("#wz-arabic-length");
@@ -1708,6 +1733,10 @@ document.addEventListener("click",event=>{
  if(!button)return;
  const action=button.dataset.wazifaAction,id=button.dataset.wazifaId;
  event.preventDefault();event.stopImmediatePropagation();
+ if(action==="pdf-upload"||action==="pdf-download"){
+  const form=button.closest("#wazifa-form");if(!form)return;
+  if(action==="pdf-upload")form.querySelector("#wz-pdf-file").click();else void wazifaPdfAction(form,null,false);return;
+ }
  if(action==="toggle-arabic-scroll"){
   const passage=button.nextElementSibling;
   if(!passage?.classList.contains("wz-arabic-scroll"))return;
@@ -1983,6 +2012,10 @@ document.addEventListener("submit",event=>{
  saveForm(event.target);
 },true);
 document.addEventListener("change",event=>{
+ if(event.target?.id==="wz-pdf-file"){
+  const input=event.target,form=input.closest("#wazifa-form"),file=input.files?.[0];input.value="";
+  if(form&&file)void wazifaPdfAction(form,file,true);return;
+ }
  if(event.target?.closest("#wz-continue-form")){syncContinuationForm(event.target.name);return;}
  if(event.target?.id==="wz-save-date"||event.target?.id==="wz-cal-native-date"){
   if(changeWazifaDay(event.target.value)){
