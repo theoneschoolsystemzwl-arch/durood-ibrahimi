@@ -300,7 +300,7 @@ function requestTapMotor(allowBrowser=true){
  if(!allowBrowser)return "unavailable";
  // Ordinary browsers do not expose motor amplitude; use a short web pulse only.
  for(const frame of frames){
-  try{if(frame.navigator.vibrate?.(60)===true)return "web";}catch{}
+  try{if(frame.navigator.vibrate?.(110)===true)return "web";}catch{}
  }
  return "web-pending";
 }
