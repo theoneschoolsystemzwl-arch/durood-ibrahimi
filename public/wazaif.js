@@ -1475,9 +1475,11 @@ function tap(){
  }
  const unsaved=$("#wz-unsaved");if(unsaved)unsaved.textContent=fmt(state.tapQueue);
  const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=false;
- tick();
- // Update the saved count before feedback; vibration must not block counting.
+ // Feedback runs immediately after the accepted count, before slower UI updates.
+ lastWazifaHapticResult=undefined;
  try{playWazifaFeedback();}catch{}
+ tick();
+ return true;
 }
 async function drain(){
  // Every tap was queued already. Save resets only the visible session.
@@ -1514,40 +1516,68 @@ function tick(){
 }
 setInterval(tick,125);
 let longHoldTimer=null;
-let dialTouch=null,suppressDialClick=false;
+let activeFeedbackPress=null,handledFeedbackClick=null;
+function feedbackPressAction(target){
+ const button=target?.closest?.('[data-wazifa-action="tap"],[data-wazifa-action="test-vibration"]');
+ return button&&!button.disabled?button:null;
+}
+function runWazifaVibrationTest(){
+ const result=vibrateWazifa(true);
+ showWazifaVibrationStatus(result,true);
+ return result;
+}
 document.addEventListener("pointerdown",event=>{
- const dial=event.target.closest?.("#wz-dial");
- if(!dial||event.button>0||event.isPrimary===false)return;
+ const button=feedbackPressAction(event.target);
+ if(!button||event.button>0||event.isPrimary===false)return;
  clearTimeout(longHoldTimer);
- state.skipDialClick=false;suppressDialClick=false;dialTouch=null;
- if(event.pointerType==="touch"||event.pointerType==="pen"){
-  dialTouch={id:event.pointerId,dial,x:event.clientX,y:event.clientY};
- }
- longHoldTimer=setTimeout(()=>{
-   if(!dial.isConnected)return;
+ state.skipDialClick=false;
+ const action=button.dataset.wazifaAction;
+ handledFeedbackClick=action;
+ activeFeedbackPress={id:event.pointerId,action,retry:false};
+ // No hold threshold: count and vibrate as soon as the finger touches the button.
+ if(action==="tap"){
+  const counted=tap();
+  activeFeedbackPress.retry=counted===true&&lastWazifaHapticResult===false;
+  longHoldTimer=setTimeout(()=>{
+   if(!button.isConnected)return;
    state.dialFloating=!state.dialFloating;
-   state.skipDialClick=true;
-   dial.classList.toggle("is-floating",state.dialFloating);
- },5000);
+   button.classList.toggle("is-floating",state.dialFloating);
+  },5000);
+ }else{
+  activeFeedbackPress.retry=runWazifaVibrationTest()===false;
+ }
 },true);
 document.addEventListener("pointerup",event=>{
+ const press=activeFeedbackPress;
+ if(!press||press.id!==event.pointerId)return;
  clearTimeout(longHoldTimer);
- const gesture=dialTouch;
- if(!gesture||event.pointerId!==gesture.id)return;
- dialTouch=null;suppressDialClick=true;
- if(state.skipDialClick){state.skipDialClick=false;return;}
- if(!gesture.dial.isConnected||Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y)>24)return;
- event.preventDefault();
- tap();
+ activeFeedbackPress=null;
+ // Browser-only vibration may require touch release to grant user activation.
+ // Retry vibration only; never increment the counter or play sound twice.
+ if(press.retry&&state.vibrateEnabled&&state.vibrateLevel>0){
+  if(press.action==="test-vibration")runWazifaVibrationTest();
+  else{
+   const result=vibrateWazifa();
+   lastWazifaHapticResult=result;
+   showWazifaVibrationStatus(result);
+  }
+ }
 },true);
 document.addEventListener("pointercancel",event=>{
- clearTimeout(longHoldTimer);
- if(dialTouch?.id===event.pointerId){dialTouch=null;suppressDialClick=true;}
- state.skipDialClick=false;
+ if(activeFeedbackPress?.id===event.pointerId){
+  clearTimeout(longHoldTimer);activeFeedbackPress=null;
+ }
 },true);
-document.addEventListener("pointerleave",event=>{
- if(event.target===document)clearTimeout(longHoldTimer);
+document.addEventListener("contextmenu",event=>{
+ if(feedbackPressAction(event.target))event.preventDefault();
 },true);
+function consumeFeedbackClick(event,action){
+ // Pointer activation already ran on pointerdown. Keyboard/AT click still works.
+ if(handledFeedbackClick===action&&(event.detail!==0||event.pointerType==="touch"||event.pointerType==="pen"||event.pointerType==="mouse")){
+  handledFeedbackClick=null;return true;
+ }
+ handledFeedbackClick=null;return false;
+}
 
 document.addEventListener("visibilitychange",()=>{
  if(!document.hidden){checkWzIdle();wzSync.schedule(0);}
@@ -1682,7 +1712,7 @@ document.addEventListener("click",event=>{
   }
   return;
  }
- if(action==="test-vibration"){showWazifaVibrationStatus(vibrateWazifa(true),true);return;}
+ if(action==="test-vibration"){if(!consumeFeedbackClick(event,action))runWazifaVibrationTest();return;}
  if(action==="toggle-fullscreen"){
   // Works in the existing Android WebView even when native fullscreen is unsupported.
   setWazifaImmersive(!state.immersive);
@@ -1811,10 +1841,7 @@ document.addEventListener("click",event=>{
    state.historyDay=null;
    return;
  }
- if(action==="tap"){
-  if(suppressDialClick&&event.detail!==0){suppressDialClick=false;return;}
-  suppressDialClick=false;return tap();
- }
+ if(action==="tap"){if(!consumeFeedbackClick(event,action))return tap();return;}
  if(action==="delete-personal"&&id){
    if(!window.confirm("یہ ذاتی وظیفہ حذف کریں؟ اس کا ذاتی ریکارڈ بھی ختم ہوگا۔"))return;
    deleteDoc(doc(db,"memberWazaif",auth.currentUser.uid,"items",id)).then(back).catch(setError);return;
