@@ -1032,6 +1032,7 @@ function readerMarkup(group){
  'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
 
+ '<p id="wz-motor-status" role="status" aria-live="polite" style="margin:2px 0;padding:4px 6px;text-align:center;line-height:1.4;font-size:12px;color:inherit;border:1px solid #35b995;border-radius:6px"></p>'+ 
  arabicTickerMarkup(w.arabic)+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
  '<svg class="wz-dial-ring-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
@@ -1046,7 +1047,6 @@ function readerMarkup(group){
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">ہر دباؤ فوراً فون میں محفوظ اور Firebase پر منتقل ہوتا ہے۔ Save صرف کاؤنٹر صفر کرتا ہے؛ پانچ منٹ خاموشی پر خودکار Save ہوگا۔</p>'+
  '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite"></p>'+
- '<p id="wz-motor-status" class="wz-help" role="status"></p>'+
  '<p id="wz-session-note" class="wz-help" role="status"></p>'+
  (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
  '<p id="wz-hero-error" class="wz-error" '+(state.error?'':'hidden')+'>'+esc(state.error)+'</p>'+
