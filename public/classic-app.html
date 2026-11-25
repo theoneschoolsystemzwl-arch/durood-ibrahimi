@@ -1429,6 +1429,18 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .tree-activity>small bdi{color:#dbffec;font-weight:800;font-family:system-ui,sans-serif}
 :root[data-theme] .tree-activity-gc{display:flex;width:100%;justify-content:space-between;align-items:center;border-top:1px solid #b5a36766;padding-top:2px;gap:3px}
 :root[data-theme] .tree-activity-gc>bdi{color:#dbffec;font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;overflow-wrap:anywhere}
+:root[data-theme] .member-profile-view{padding:10px!important;border:1px solid #3d9c80;border-radius:16px}
+:root[data-theme] .member-profile-hero{display:grid;justify-items:center;gap:5px;padding:12px 8px 8px;background:linear-gradient(150deg,#075846,#04382f);border:1px solid #b6a05d;border-radius:13px;text-align:center}
+:root[data-theme] .member-profile-hero .avatar{width:98px;height:98px;min-width:98px;min-height:98px;border:3px solid #d9b760;border-radius:50%;font-size:2rem}
+:root[data-theme] .member-profile-name{font-size:clamp(1.15rem,5vw,1.55rem);color:#f4fff9;overflow-wrap:anywhere;max-width:100%}
+:root[data-theme] .member-profile-code{font-weight:800;color:#f6df99;display:flex;gap:4px;align-items:center}
+:root[data-theme] .member-profile-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:6px;margin-top:3px}
+:root[data-theme] .member-profile-metrics .stat{padding:5px!important;min-height:0!important;background:#003c30;border:1px solid #388b70;border-radius:9px}
+:root[data-theme] .member-profile-hero .form-actions{justify-content:center;margin:3px 0}
+:root[data-theme] .member-profile-details{gap:5px!important;margin:8px 0 0}
+:root[data-theme] .member-profile-details>div{display:flex;flex-direction:column;gap:2px;padding:5px 8px!important;border-radius:8px;background:#064537;border:1px solid #236f58;min-width:0}
+:root[data-theme] .member-profile-details dt{font-size:.75rem;color:#d0e6d9;line-height:1.5}
+:root[data-theme] .member-profile-details dd{font-weight:700;color:#fff;line-height:1.5;min-height:0;overflow-wrap:anywhere}
 :root[data-theme] .tree-group-wird>bdi{font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;color:#dbffec;max-width:100%;overflow-wrap:anywhere}
 </style>
 </head>
@@ -2024,18 +2036,33 @@ function ownerPasswordRecoveryMarkup(person){
     '<a class="button secondary" href="https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/update" target="_blank" rel="noopener noreferrer">'+tr("Open authorized Google password reset","مجاز گوگل پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
     feedback("owner-password-reset-feedback")+'</section>';
 }
+function canViewMemberProfile(viewer,person){
+  return !!viewer&&!!person&&(viewer.isOwner===true||(viewer.uid&&person.uid?viewer.uid===person.uid:viewer.id===person.id));
+}
 function profileDetails(person) {
-  if(currentUser()?.isOwner!==true)return treeMembersPage();
+  const viewer=currentUser();
+  if(!canViewMemberProfile(viewer,person))return treeMembersPage();
+  const own=viewer.id===person.id,admin=viewer.isOwner===true;
+  const inviter=getUser(person.inviter);
   const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Group", 'گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
     [tr("Membership date", 'تاریخِ رکنیت'),membershipDateLabel(person)],
-    [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Mobile / WhatsApp", 'موبائل / واٹس ایپ'),person.phone],[tr("Address", 'پتہ'),person.address],
-    [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),person.inviter ? memberName(getUser(person.inviter)) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
-  return heading(tr("Member Profile", 'رکن کی پروفائل')) + '<section class="panel"><div class="panel-head"><div class="identity">' +
-    avatar(person,true) + '<div><strong dir="auto">' + esc(memberName(person)) + '</strong><small class="muted">' + displayId(person.id) +
-    tr("</small></div></div><button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Back to users</button></div>", '</small></div></div><button class="button secondary" data-action="nav" data-value="directory">صارفین پر واپس</button></div>') +
-    '<dl class="detail-grid">' + values.map(([key,value]) => '<div><dt>' + key + '</dt><dd dir="auto">' + esc(value || '—') + '</dd></div>').join('') +
-    '</dl>'+(currentUser()?.isOwner&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">Firebase سے تصویر لوڈ کریں</button></div>'+feedback("member-photo-check")+
-      "":"")+'</section>' + (person.isOwner ? '' :
+    [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Address", 'پتہ'),person.address],
+    [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),inviter ? memberName(inviter) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
+  const level=memberLevel(person);
+  const editButton=own?'<button class="button secondary" data-action="nav" data-value="settings">'+tr("Edit profile / settings","پروفائل تبدیل کریں / ترتیبات")+'</button>':'';
+  const backButton=admin&&!own?'<button class="button secondary" data-action="nav" data-value="directory">'+tr("Back to users","صارفین پر واپس")+'</button>':'';
+  return heading(own?tr("My profile","میری پروفائل"):tr("Member Profile","رکن کی پروفائل"))+
+    '<section class="panel member-profile-view"><div class="member-profile-hero">'+
+      '<span class="profile-portrait-level">'+avatar(person,true)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'">'+displayNumber(level)+'</span></span>'+
+      '<strong dir="auto" class="member-profile-name">'+esc(memberName(person))+'</strong>'+
+      '<span class="member-profile-code" dir="ltr">'+displayId(person.id)+' '+groupCodeMarkup(person)+'</span>'+
+      '<small>'+((person.isOwner||person.isFoundingSpouse)?tr("Founder","بانی"):tr("Member","رکن"))+'</small>'+
+      '<div class="member-profile-metrics">'+stat(tr("Level","لیول"),displayNumber(level))+stat(tr("Personal Durood","ذاتی ورد"),'<bdi data-member-wird="'+esc(person.uid||'local:'+person.id)+'">'+memberWirdText(person)+'</bdi>')+'</div>'+
+      '<div class="form-actions">'+editButton+backButton+'</div></div>'+
+    '<dl class="detail-grid member-profile-details">'+values.map(([key,value])=>'<div><dt>'+key+'</dt><dd dir="auto">'+esc(value===0?0:value||'—')+'</dd></div>').join('')+
+    (own&&person.uid?'<div><dt>'+tr("Mobile / WhatsApp","موبائل / واٹس ایپ")+'</dt><dd dir="ltr" data-own-profile-contact="mobile">—</dd></div><div><dt>'+tr("Email","ای میل")+'</dt><dd dir="ltr" data-own-profile-contact="email">—</dd></div>':'')+
+    '</dl>'+(admin&&!own&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">'+tr("Reload photo","تصویر دوبارہ لوڈ کریں")+'</button></div>'+feedback("member-photo-check"):'')+
+    '</section>' + (!admin||own||person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
       (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
@@ -2096,7 +2123,8 @@ function settings(person) {
   for (const [code,invite] of invites) {
     if (invite.by === person.id && !invite.used && !invite.revoked && code !== starterCode && code !== legacyStarterCode) activeCode = code;
   }
-  return heading(tr("Profile & Settings", 'پروفائل اور ترتیبات')) + themePicker(person) +
+  return heading(tr("Profile & Settings", 'پروفائل اور ترتیبات')) +
+    '<div class="form-actions section"><button class="button secondary" data-action="nav" data-value="my-profile">'+tr("View my profile","میری پروفائل دیکھیں")+'</button></div>'+themePicker(person) +
     (person.id === 1 ? tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Owner settings</h2>", '<section class="panel section"><div class="panel-head"><h2>مالک کی ترتیبات</h2>') +
       tr("<button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Manage users</button></div>", '<button class="button secondary" data-action="nav" data-value="directory">صارفین کا انتظام</button></div>') +
       ur(tr("Select a member to suspend, restore or delete their account.", 'ممبر منتخب کر کے اس کا اکاؤنٹ بند، بحال یا حذف کریں۔'),'p','muted') + '</section><div class="section"></div>' : '') +
@@ -4246,14 +4274,14 @@ function dashboardNavIcon(key){
 }
 function dashboard(person) {
   const owner = person.isOwner === true;
-  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['settings','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
+  const links = [['overview','⌂',tr("Dashboard", 'مرکز')],['tasbih','◉',tr("Tasbih", 'تسبیح')],['namaz','◷',tr("Prayer", 'نماز')],['tree','♧',tr("Tree", 'شجرہ')],['my-profile','♙',tr("Profile", 'پروفائل')],['members','▥',tr("Members", 'ارکان')],['messages','✉',tr('Messages','پیغامات')]];
   if (owner) links.push(['directory','☷',tr("Users", 'صارفین')]);
   links.push(['groups','◇',tr("Groups", 'گروپس')]);
   const women = ownerViewingWomen();
-  const personalTabs = ['tasbih','wazifa-reader','namaz','settings'];
-  const active = section === 'wazifa-reader' ? 'tasbih' : section === 'profile' ? 'directory' : section==='ranking'?'members':section;
+  const personalTabs = ['tasbih','wazifa-reader','namaz','settings','my-profile'];
+  const active = section === 'wazifa-reader' ? 'tasbih' : section === 'profile' ? 'directory' : section==='ranking'?'members':section==='settings'?'my-profile':section;
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
-  const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:treeMembersPage,ranking,groups,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
+  const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:treeMembersPage,ranking,groups,tree:() => tree(person),settings:() => settings(person),'my-profile':()=>profileDetails(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+prayerTickerMarkup(person)+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
@@ -4490,6 +4518,8 @@ function render({keepScroll = false} = {}) {
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
+  if(person&&section==='my-profile')window.duroodLoadOwnProfileContacts?.(person.uid);
+  if(person&&section==='profile'&&profileId===person.id)window.duroodLoadOwnProfileContacts?.(person.uid);
   if (person && section === 'tasbih') window.duroodWazaif?.render?.();
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();
@@ -5070,7 +5100,7 @@ window.duroodClassicBridge = {
       restoreReaderJournal(profile.uid,Number(profile.memberNumber)||1);
       signIn(users.find(m=>m.uid===profile.uid)?.id??Number(profile.memberNumber));
     }
-    else if(["overview","tree","profile","directory","groups","members"].includes(section))render({keepScroll:true});
+    else if(["overview","tree","profile","my-profile","directory","groups","members"].includes(section))render({keepScroll:true});
     else {
       const dateNode=document.querySelector(".profile-card .join-date bdi");
       const person=currentUser();
@@ -5246,6 +5276,16 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
+window.duroodLoadOwnProfileContacts=async uid=>{
+  if(!uid||auth.currentUser?.uid!==uid)return;
+  const fields=[...document.querySelectorAll("[data-own-profile-contact]")];
+  if(!fields.length)return;
+  try{
+    const snap=await getDoc(doc(db,"memberContacts",uid));
+    if(auth.currentUser?.uid!==uid)return;
+    for(const node of fields)if(node.isConnected)node.textContent=snap.data()?.[node.dataset.ownProfileContact]||"—";
+  }catch{for(const node of fields)if(node.isConnected)node.textContent="—";}
+};
 import "./wazaif.js?release=motor-bridge-20261125-visible-v7";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";

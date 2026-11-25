@@ -39,3 +39,12 @@ assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"}),"");viewer
 assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"admin",isOwner:true}),"");assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"deleted",deleted:true}),"");
 const reset=resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"});assert(reset.includes("member-uid")&&reset.includes("REPLACE_WITH_NEW_PASSWORD")&&reset.includes("docs.cloud.google.com"));
 console.log("Owner-only password recovery helper, no stored password, passed");
+
+const pa=src.indexOf("function canViewMemberProfile"),pb=src.indexOf("function profileDetails",pa);
+const pc={};vm.createContext(pc);vm.runInContext(src.slice(pa,pb),pc);
+assert.equal(pc.canViewMemberProfile({uid:"a",id:2},{uid:"a",id:2}),true);
+assert.equal(pc.canViewMemberProfile({uid:"a",id:2},{uid:"b",id:3}),false);
+assert.equal(pc.canViewMemberProfile({uid:"a",id:2},{uid:"b",id:2}),false);
+assert.equal(pc.canViewMemberProfile({uid:"owner",isOwner:true},{uid:"b",id:3}),true);
+assert(src.includes("'my-profile':()=>profileDetails(person)")&&src.includes("data-own-profile-contact"));
+console.log("Self profile view and owner-only other-member profile access passed");
