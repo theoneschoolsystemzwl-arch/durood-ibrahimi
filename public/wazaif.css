@@ -380,4 +380,4 @@
  .wz-history-row{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
-.wz-pdf-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.wz-pdf-tools input[hidden]{display:none!important}.wz-pdf-tools button{min-width:0;font-size:.92rem;padding:8px 5px}.wz-pdf-status{margin:0;color:#c6f4d8;font-size:.84rem;overflow-wrap:anywhere}.wz-pdf-status:empty{display:none}.wz-pdf-status.is-error{color:#ffb2ac}
+.wz-pdf-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.wz-pdf-tools input[hidden]{display:none!important}.wz-pdf-tools button{min-width:0;font-size:.92rem;padding:8px 5px}.wz-pdf-status{margin:0;color:#c6f4d8;font-size:.84rem;overflow-wrap:anywhere}.wz-pdf-status:empty{display:none}.wz-pdf-status.is-error{color:#ffb2ac}

@@ -178,10 +178,10 @@ assert(!/textarea name="arabic"[^>]*maxlength=/.test(editorSource),
 assert(source.includes("if(arabicWordCount(value)>25000)"));
 assert(rules.includes("d.arabic.toUtf8().size() <= 600000"));
 assert(rules.includes(".size() <= 25000"));
-assert(editorSource.includes('data-wazifa-action="pdf-upload"')&&editorSource.includes('data-wazifa-action="pdf-download"'));
+assert(editorSource.includes('data-wazifa-action="pdf-upload"')&&!editorSource.includes('data-wazifa-action="pdf-download"'));
 assert(editorSource.includes('accept="application/pdf,.pdf"'));
 const pdfModule=fs.readFileSync("public/wazifa-pdf.js","utf8");
-assert(pdfModule.includes("isEvalSupported:false")&&pdfModule.includes("pdf.attach("));
+assert(pdfModule.includes("isEvalSupported:false")&&!pdfModule.includes("downloadArabicPdf")&&!pdfModule.includes("makeArabicPdf"));
 const editorCss=fs.readFileSync("public/wazaif.css","utf8");
 assert(editorCss.includes('textarea[name="arabic"]'));
 assert(editorCss.includes("min-height:260px")&&editorCss.includes("resize:vertical"));
