@@ -323,6 +323,11 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const home=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
  assert(home.includes('data-action="open-target-audit"')&&!home.includes('id="member-target-audit"'));
  assert(home.indexOf('data-action="open-target-audit"')<home.indexOf('boxedHeading(ownerViewingWomen()'));
+ assert(home.includes('class="dashboard-quick-strip')&&home.includes('prayerTickerMarkup(currentUser())')&&home.includes('id="global-pkt-clock"'));
+ assert(home.indexOf('prayerTickerMarkup(currentUser())')<home.indexOf('id="global-pkt-clock"'));
+ assert(home.indexOf('id="global-pkt-clock"')<home.indexOf('data-action="open-target-audit"'));
+ assert(classic.includes('section==="overview"?"":prayerTickerMarkup(person)'));
+ assert(classic.includes('class="pkt-date"')&&classic.includes('class="pkt-time"'));
  assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
  assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
  const overview=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
