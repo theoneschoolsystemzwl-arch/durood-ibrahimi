@@ -636,8 +636,8 @@ function listMarkup(){
 function autoGroupGoalMarkup(){
  const goals=window.duroodAggregateGroupTargets?.();
  const labels=[["dailyGoal","روزانہ ہدف"],["weeklyGoal","ہفتہ وار ہدف"],["monthlyGoal","ماہانہ ہدف"],["yearlyGoal","سالانہ ہدف"]];
- return labels.map(([key,label])=>'<label class="wz-goal-field">'+label+'<input type="text" readonly value="'+(goals?fmt(goals[key]):"لوڈ ہو رہا ہے")+'"></label>').join("")+
- '<p class="wz-help">موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سالانہ ہدف منتخب مدت کے محفوظ اہداف اور باقی دنوں کے حساب سے۔</p>';
+ return labels.map(([key,label])=>'<label class="wz-goal-field">'+label+'<input type="text" readonly value="'+(goals?Number.isSafeInteger(goals[key])?fmt(goals[key]):"تاریخ دستیاب نہیں":"لوڈ ہو رہا ہے")+'"></label>').join("")+
+ '<p class="wz-help">موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سالانہ ہدف ہر ممبر کی رکنیت یا سیشن کے آغاز (جو بعد میں ہو) سے اختتام تک کے دنوں کے مطابق ہے۔</p>';
 }
 function formMarkup(){
  const g=state.formScope==="group";
@@ -665,7 +665,7 @@ function formMarkup(){
  '<label class="wz-goal-field" data-wz-goal="year">سالانہ کل ہدف<input name="yearlyGoal" type="number" min="1" max="1000000000" value="'+esc(original.yearlyGoal||1000000)+'"></label></div>'+
  '<div class="wz-form-goals" data-wz-auto-goals hidden>'+autoGroupGoalMarkup()+'</div>'+
  '<div class="wz-dates" data-wz-annual-dates hidden><label>سیشن کی آغاز تاریخ (Start Date)<input name="annualStartDate" type="date" value="'+esc(annual?.start||groupReadingDay())+'"></label>'+
- '<label>سیشن کی اختتامی تاریخ (End Date)<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">مدت چھ ماہ، ایک سال یا اس سے زیادہ ہو سکتی ہے۔ اختتامی تاریخ کے بعد سیشن مکمل ہوگا، نئی مدت صرف اونر مقرر کرے گا۔ مجموعی ہدف برقرار رہے گا۔</p></div>'+
+ '<label>سیشن کی اختتامی تاریخ (End Date)<input name="annualEndDate" type="date" value="'+esc(annual?.end||"")+'"></label><p class="wz-help">پہلے سیشن کی مدت مالک مقرر کرے گا۔ اختتام کے اگلے دن نیا ایک سالہ سیشن خود شروع ہوگا۔ ہر ممبر کا ہدف اس کی اصل رکنیت یا سیشن کے آغاز سے، جو بعد میں ہو، اختتام تک شمار ہوگا۔</p></div>'+
  '<div class="wz-dates"><label>آغاز کی تاریخ<input name="startDate" type="date" required '+(continued?'readonly ':'')+'value="'+esc(original.startDate||(g?groupReadingDay():readingDay()))+'"></label>'+
  '<label data-wz-end>اختتامی تاریخ (خودکار)<input name="endDate" type="date" readonly value="'+esc(original.endDate||'')+'"></label></div>'+
  '<label class="wz-fixed-days" data-wz-days>کتنے دن کا وظیفہ؟<input name="durationDays" type="number" min="1" max="3650" '+(continued?'readonly ':'')+'value="'+esc(original.kind==="fixed"&&spanDays(original.startDate,original.endDate)||41)+'"></label>'+
