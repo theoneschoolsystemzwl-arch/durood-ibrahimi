@@ -236,7 +236,8 @@ assert(holdContext.qazaActiveHold(),"A refresh continues the saved countdown");
 fakeClock+=1000;
 assert.equal(holdContext.qazaActiveHold(),null,"Next attendance is unlocked after 15 seconds");
 assert.equal(storedHold.size,0,"Expired wait is cleared from localStorage");
-assert(ui.includes("if (waiting) {")&&ui.includes("if(qazaMode==='made') qazaStartHold(value,day);"),
+const qazaHandler=ui.slice(ui.indexOf("function handleQazaAction("),ui.indexOf("function handleQazaAction(")+7000);
+assert(qazaHandler.includes("if (waiting) {")&&/if\(qazaMode==='made'\)\s*\{[^}]*qazaStartHold\(value,day\);/.test(qazaHandler),
   "Successful Qaza completion starts timer; subsequent entries check lock");
 assert(ui.includes("if (hold?.prayer===prayer && hold.day===day) open.push({day,held:true});"),
   "Completed date remains in original open slot until the countdown finishes");
