@@ -2034,7 +2034,11 @@ document.addEventListener("submit",event=>{
  if(event.target?.id==="wz-manual-form"){
   event.preventDefault();event.stopImmediatePropagation();
   const form=event.target,task=state.personal.find(w=>w.id===state.readerId);
-  if(!task||state.busy||state.tapBusy)return;
+  if(!task||state.busy||state.tapBusy){
+   const note=form.querySelector("#wz-edit-error");
+   if(note){note.hidden=false;note.textContent=!task?"وظیفہ دوبارہ کھولیں۔":"پچھلی گنتی محفوظ ہو رہی ہے؛ مکمل ہونے پر دوبارہ محفوظ کریں۔";}
+   return;
+  }
   const data=new FormData(form),day=form.dataset.day,raw=String(data.get("amount")||"").trim();
   if(form.dataset.ready!=="1"){void refreshManualEditForm(task,day,form);return;}
   const operation=raw.startsWith("-")?"remove":"add";
@@ -2070,10 +2074,14 @@ document.addEventListener("submit",event=>{
     if(feedback){feedback.hidden=false;feedback.textContent=error.message;}
     return;
   }
+  const savingUid=auth.currentUser?.uid;
+  let verifiedCount=null;
   state.busy=true;const submit=form.querySelector('[type="submit"]');
   if(submit)submit.disabled=true;
+  if(feedback){feedback.hidden=false;feedback.textContent="منتخب تاریخ کی گنتی Firebase میں محفوظ کی جا رہی ہے…";}
   (async()=>{
     while(op.saved<amount){
+      if(auth.currentUser?.uid!==savingUid)throw Error("اکاؤنٹ تبدیل ہو گیا؛ اصل اکاؤنٹ میں دوبارہ کوشش کریں۔");
       const step=Math.min(1000,amount-op.saved);
       const index=Math.floor(op.saved/1000);
       // The same receipt ID is replayed on retries, never counted twice.
@@ -2090,10 +2098,13 @@ document.addEventListener("submit",event=>{
     // Firebase so a delayed collection snapshot cannot leave the UI at zero.
     // A transient read error must not turn a successful Save into a retry.
     try{
-      const fresh=await getDocFromServer(doc(db,"memberWazaif",auth.currentUser.uid,"items",task.id));
-      if(fresh.exists()){
+      if(auth.currentUser?.uid!==savingUid)return;
+      const fresh=await getDocFromServer(doc(db,"memberWazaif",savingUid,"items",task.id));
+      if(fresh.exists()&&auth.currentUser?.uid===savingUid){
         const latest={id:fresh.id,...fresh.data()};
+        verifiedCount=Number(latest.dailyLedger?.[day]?.count??0);
         state.personal=state.personal.map(item=>item.id===task.id?latest:item);
+        const history=$("#wz-record-history");if(history)delete history.dataset.wzRenderStamp;
       }
     }catch(readError){
       // onSnapshot still provides eventual refresh; the durable receipt
@@ -2101,12 +2112,14 @@ document.addEventListener("submit",event=>{
       console.warn("Saved manual Wazifa, server refresh pending:",readError?.code||readError?.message);
     }
   })().then(()=>{
+    if(auth.currentUser?.uid!==savingUid||state.readerId!==task.id)return;
     state.error="";state.historyDay=null;
     const dialog=$("#wz-edit-dialog");
     if(dialog?.open&&typeof dialog.close==="function")dialog.close();
     else dialog?.removeAttribute("open");
-    state.shareNotice="دستی گنتی "+fmt(amount)+" محفوظ ہوگئی۔";
+    state.shareNotice=displayRecordDate(day)+" — دستی "+(signedAmount<0?"کمی ":"اضافہ ")+fmt(amount)+" محفوظ ہوگیا۔"+(verifiedCount===null?" ریکارڈ کی تازہ تصدیق باقی ہے۔":" اس تاریخ کا کل: "+fmt(verifiedCount));
     refreshHeroReader();
+    const note=$("#wz-session-note");if(note)note.textContent=state.shareNotice;
    })
    .catch(error=>{
     if(feedback){
