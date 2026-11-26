@@ -6227,10 +6227,13 @@ async function hydrate(){
     else window.location.replace("/");
     return;
   }
-  const profile=(window.parent!==window && window.parent.duroodVerifiedProfile?.(user.uid)) || await loadMemberProfile(user);
-  // Read the member document rather than relying on a parent-frame cache for
-  // the immutable registration timestamp. Never replace it with today's date.
-  try{
+  // Start the clock request while verifying the profile, rather than serially.
+  const clockReady=Promise.race([syncGlobalClock(),new Promise(resolve=>setTimeout(resolve,2500))]);
+  const verifiedParent=window.parent!==window && window.parent.duroodVerifiedProfile?.(user.uid);
+  const profile=verifiedParent?{...verifiedParent}:await loadMemberProfile(user);
+  // The parent has just loaded the same authenticated member document.
+  // Only refresh the registration date if the verified profile lacks it.
+  if(!profile.createdAt)try{
     const own=await getDoc(doc(db,"members",user.uid));
     if(own.exists()&&auth.currentUser?.uid===user.uid){
       profile.createdAt=own.data().createdAt??null;
@@ -6238,7 +6241,7 @@ async function hydrate(){
     }
   }catch(error){console.warn("Membership date refresh unavailable",error?.code||error);}
   if(classicLogoutBlocked()||auth.currentUser?.uid!==user.uid)return;
-  await Promise.race([syncGlobalClock(),new Promise(resolve=>setTimeout(resolve,2500))]);
+  await clockReady;
   if(classicLogoutBlocked()||auth.currentUser?.uid!==user.uid)return;
   window.duroodWazaif?.setMember?.(profile);
   const owner=profile.role==="owner";
@@ -6258,8 +6261,16 @@ async function hydrate(){
     if(window.parent!==window)window.parent.postMessage({type:"durood-classic-ready",uid:profile.uid},location.origin);
   }
   const docs=new Map([[profile.uid,profile]]);
+  let verifiedOwnerDirectory=null;
+  // Fetch independent data concurrently; keep the original validation and fallback.
+  const rankingFlight=getDocs(owner?query(collection(db,"memberCounts"),where("gender","==",side)):
+    query(collection(db,"memberCounts"),where("gender","==",side),limit(200))).then(value=>({value}),error=>({error}));
+  const countFlight=owner && side==='female' ? Promise.resolve(null) : getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
+    console.warn("Personal count unavailable",error.code);return null;
+  });
   if(owner){
     const snap=await getDocs(collection(db,"members"));
+    if(!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites)verifiedOwnerDirectory=snap.docs.map(x=>({...x.data(),uid:x.id}));
     window.duroodOwnerInviteTotal=0;
     for(const x of snap.docs){
       if(x.id===profile.uid)continue;
@@ -6281,8 +6292,9 @@ async function hydrate(){
   // Only fetch the selected side; the Firebase Rules also validate gender.
   const counts=new Map();
   try{
-    const ranked=await getDocs(owner?query(collection(db,"memberCounts"),where("gender","==",side)):
-      query(collection(db,"memberCounts"),where("gender","==",side),limit(200)));
+    const ranking=await rankingFlight;
+    if(ranking.error)throw ranking.error;
+    const ranked=ranking.value;
     for(const item of ranked.docs){
       counts.set(item.id,Number(item.get("total")||0));
     }
@@ -6295,15 +6307,13 @@ async function hydrate(){
       }
     }));
   }catch(e){console.warn("Side ranking unavailable",e.code||e);}
-  const count=owner && side==='female' ? null : await getDoc(doc(db,"memberCounts",profile.uid)).catch(error=>{
-      console.warn("Personal count unavailable",error.code);
-      return null;
-    });
+  const count=await countFlight;
   // Full same-side directory gives a stable rank even when direct invites are incomplete.
   let sideRanks=new Map(),directoryReady=false;
   try {
-    let last=null;const directory=[];
-    for(;;){const constraints=[where("gender","==",side),limit(200)];if(last)constraints.push(startAfter(last));
+    let last=null;const directory=verifiedOwnerDirectory?verifiedOwnerDirectory.filter(d=>d.gender===side):[];
+    // Reuse the complete server-confirmed owner snapshot for side ranks.
+    if(!verifiedOwnerDirectory)for(;;){const constraints=[where("gender","==",side),limit(200)];if(last)constraints.push(startAfter(last));
       const page=await getDocsFromServer(query(collection(db,"members"),...constraints));
       directory.push(...page.docs.map(x=>({uid:x.id,...x.data()})));
       if(page.size<200)break;last=page.docs.at(-1);
