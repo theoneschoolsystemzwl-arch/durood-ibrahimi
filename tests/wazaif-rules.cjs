@@ -541,13 +541,14 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
     continueDailyGoal:0,updatedAt:serverTimestamp()
   }));
   // Run the actual production Save implementation against the emulator rules.
-  const vm=require("node:vm");
   const prod=fs.readFileSync("public/wazaif-counter.js","utf8")
    .replace(/^import[\s\S]*?from ["'][^"']+["'];\s*/gm,"")
    .replace(/^export \{[^\n]+\}(?: from ["'][^"']+["'])?;\s*/gm,"")
    .replace(/\bexport (?=async function|function)/g,"");
-  const ctx=vm.createContext({auth:{currentUser:{uid:memberUid}},db:member,doc,runTransaction,serverTimestamp,globalDay:()=>"2026-11-26"});
-  vm.runInContext(prod,ctx);
+  // The Firestore SDK validates plain objects in its own JS realm.
+  const ctx=new Function("auth","db","doc","runTransaction","serverTimestamp","globalDay",prod+
+    "\nreturn {recordPersonalWazifa,recordGroupWazifaOnly};")(
+    {currentUser:{uid:memberUid}},member,doc,runTransaction,serverTimestamp,()=>"2026-11-26");
   const receipt1="11111111111111111111111111111111",receipt2="22222222222222222222222222222222";
   const priorPersonal=(await getDoc(privateRef)).data().total;
   await assertSucceeds(ctx.recordPersonalWazifa(privateRef.id,100,"2026-11-24",{durationMs:10000,intervals:100,syncId:receipt1}));
