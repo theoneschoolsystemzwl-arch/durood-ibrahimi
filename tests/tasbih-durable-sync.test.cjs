@@ -37,11 +37,11 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
   assert.match(op.id,/^[a-f0-9]{32}$/);
   if(!receipts.has(op.id)){receipts.add(op.id);backend.total+=op.count;}
  };
- // Manual-save contract: no automatic request on taps, startup, or reconnect.
+ // Manual-save contract: no automatic request on ordinary taps or startup.
  const draftStore=storage(), draft=client(draftStore,send);
  assert(draft.sync.enqueue(tap));
  assert(draft.sync.enqueue({...tap,taskId:"_group_"}));
- draft.sync.schedule(0);draft.events.online?.();draft.events.visibilitychange?.();
+ draft.sync.schedule(0);draft.events.visibilitychange?.();
  assert.equal(draft.timers.length,0,"No automatic Firebase flush timers");
  assert.equal(backend.total,0,"No Firebase write before explicit Save");
  draft.sync.stop();
@@ -140,5 +140,31 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  const noSpace=client(failedStorage,send);
  assert.equal(noSpace.sync.enqueue(tap),false,"Never show a successful count when offline storage fails");
  assert.equal(backend.total,15);
+ // Reconnect submits pending group and personal counts without a Save tap.
+ const reconnect=client(storage(),send);
+ reconnect.navigator.onLine=false;
+ assert(reconnect.sync.enqueue({...tap,count:4}));
+ assert(reconnect.sync.enqueue({...tap,taskId:"_group_",count:2}));
+ reconnect.events.offline?.();
+ assert.equal(backend.total,15);
+ assert.equal(reconnect.sync.pending(),6);
+ reconnect.navigator.onLine=true;
+ await reconnect.events.online();
+ assert.equal(backend.total,21);
+ assert.equal(reconnect.sync.pending(),0);
+ await reconnect.events.online();
+ assert.equal(backend.total,21,"Repeated online events must not duplicate counts");
+ // A reconnect arriving during an existing Save is handled after it finishes.
+ let release,attempt=0;
+ const race=client(storage(),async op=>{if(++attempt===1){await new Promise(resolve=>{release=resolve;});throw Error("connection lost");}await send(op);});
+ assert(race.sync.enqueue(tap));
+ const saving=race.sync.flush();
+ await Promise.resolve();
+ assert.equal(typeof release,"function");
+ await race.events.online();
+ release();
+ await saving;
+ assert.equal(race.sync.pending(),0);
+ assert.equal(backend.total,22);
  console.log("Durable tasbih: same-browser tabs, devices, offline, restart, lost-ACK, migration and storage errors passed.");
 })().catch(e=>{console.error(e);process.exitCode=1;});

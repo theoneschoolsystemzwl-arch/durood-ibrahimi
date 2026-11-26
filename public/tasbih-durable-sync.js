@@ -3,7 +3,7 @@
 // Distinct records avoid lost updates when two tabs share the same browser storage.
 // Firebase transactions use that record's stable id as a sync receipt to prevent double counting.
 export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
- let ownerUid=null,busy=false,timer=null,timerDue=0,lastError="",retryAfter=0,quotaFailures=0;
+ let ownerUid=null,busy=false,timer=null,timerDue=0,lastError="",retryAfter=0,quotaFailures=0,reconnectRequested=false;
  // A page owns its mutable draft under a browser-wide Web Lock. A different
  // page may recover it only after that lock is released. Without Web Locks,
  // preserve the original immutable per-tap journal rather than risk data.
@@ -106,7 +106,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  function start(uid){
   if(!uid||ownerUid===uid)return;
   clearTimeout(timer);timer=null;
-  ownerUid=uid;lastError="";retryAfter=0;quotaFailures=0;draftId=null;
+  ownerUid=uid;lastError="";retryAfter=0;quotaFailures=0;draftId=null;reconnectRequested=false;
   migrateLegacy(uid);
   notify();
  }
@@ -170,8 +170,14 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   const latest=JSON.parse(localStorage.getItem(recordPrefix(uid)+op.id)||"null");
   return latest?.schema===4&&valid(latest)?latest:null;
  }
- // Only explicit Save invokes flush; background events only refresh local status.
+ // Ordinary taps and background events stay local. Explicit Save or an online
+ // reconnect submits pending records using the same immutable receipt IDs.
  function schedule(){notify();}
+ async function resumeOnReconnect(){
+  if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false){notify();return;}
+  if(busy){reconnectRequested=true;return;}
+  if(pending()>0)await flush();else notify();
+ }
  async function flush(taskId=null){
   if(busy)return;
   if(!ownerUid||getUid()!==ownerUid){lastError="auth-required";notify();return;}
@@ -207,13 +213,15 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    if(uid===ownerUid&&pending(taskId)>0&&!lastError)lastError="pending-retry";
    if(uid===ownerUid&&pending()>0)schedule(20000);
    notify();
+   if(uid===ownerUid&&reconnectRequested){reconnectRequested=false;await resumeOnReconnect();}
   }
  }
- function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;lastError="";retryAfter=0;quotaFailures=0;notify();}
+ function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;reconnectRequested=false;lastError="";retryAfter=0;quotaFailures=0;notify();}
  window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}finally{draftLease=false;releaseLease?.();}});
  window.addEventListener("pageshow",()=>acquireLease());
  document.addEventListener("visibilitychange",()=>{if(document.hidden){try{sealOwnDraft();}catch{}}});
- window.addEventListener("online",()=>schedule(0));
+ window.addEventListener("offline",()=>{if(ownerUid&&pending()>0)lastError="offline";notify();});
+ window.addEventListener("online",()=>resumeOnReconnect());
  window.addEventListener("storage",event=>{
   if(!ownerUid||!event.key||(!event.key.startsWith(recordPrefix(ownerUid))&&event.key!==legacyKey(ownerUid)))return;
   if(event.key===legacyKey(ownerUid))migrateLegacy(ownerUid);

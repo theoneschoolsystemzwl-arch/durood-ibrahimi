@@ -1,4 +1,4 @@
-const RELEASE="large-reading-small-goal-20261126-v40";
+const RELEASE="reconnect-tasbih-sync-20261126-v41";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
