@@ -324,7 +324,8 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(aggregate([{...joiners[0],active:false}],"2028-01-01",janSession).yearlyGoal,0);
  const home=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
  assert(home.includes('data-action="open-target-audit"')&&!home.includes('id="member-target-audit"'));
- assert(home.indexOf('data-action="open-target-audit"')<home.indexOf('boxedHeading(ownerViewingWomen()'));
+ assert(home.includes('dashboard-group-summary'));
+ assert(home.indexOf('data-action="open-target-audit"')<home.indexOf('dashboard-group-summary'));
  assert(home.includes('class="dashboard-quick-strip')&&home.includes('prayerTickerMarkup(currentUser())')&&home.includes('id="global-pkt-clock"'));
  assert(home.indexOf('prayerTickerMarkup(currentUser())')<home.indexOf('id="global-pkt-clock"'));
  assert(home.indexOf('id="global-pkt-clock"')<home.indexOf('data-action="open-target-audit"'));

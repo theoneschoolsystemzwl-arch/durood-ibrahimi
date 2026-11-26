@@ -18,16 +18,17 @@ function storage(){
 }
 function client(store,send){
  const navigator={onLine:true};
+ const timers=[],events={};
  const context=vm.createContext({
   localStorage:store,navigator,Date,Math,Number,JSON,Array,Uint8Array,
   crypto:{getRandomValues(bytes){const seed=serial++;for(let i=0;i<bytes.length;i++)bytes[i]=(seed*17+i*13)&255;return bytes;}},
-  setTimeout(){return 1;},clearTimeout(){},
-  window:{addEventListener(){}},document:{hidden:false,addEventListener(){}}
+  setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){},
+  window:{addEventListener(name,fn){events[name]=fn;}},document:{hidden:false,addEventListener(name,fn){events[name]=fn;}}
  });
  vm.runInContext(source+"\nthis.createSync=createDurableTasbihSync;",context);
  const sync=context.createSync({prefix,getUid:()=>uid,send});
  sync.start(uid);
- return {sync,navigator};
+ return {sync,navigator,timers,events};
 }
 const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,intervals:1};
 (async()=>{
@@ -36,6 +37,21 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
   assert.match(op.id,/^[a-f0-9]{32}$/);
   if(!receipts.has(op.id)){receipts.add(op.id);backend.total+=op.count;}
  };
+ // Manual-save contract: no automatic request on taps, startup, or reconnect.
+ const draftStore=storage(), draft=client(draftStore,send);
+ assert(draft.sync.enqueue(tap));
+ assert(draft.sync.enqueue({...tap,taskId:"_group_"}));
+ draft.sync.schedule(0);draft.events.online?.();draft.events.visibilitychange?.();
+ assert.equal(draft.timers.length,0,"No automatic Firebase flush timers");
+ assert.equal(backend.total,0,"No Firebase write before explicit Save");
+ draft.sync.stop();
+ const restored=client(draftStore,async()=>{});
+ assert.equal(restored.sync.pending(),2);
+ await restored.sync.flush(tap.taskId);
+ assert.equal(restored.sync.pending(tap.taskId),0);
+ assert.equal(restored.sync.pending("_group_"),1,"Personal Save must not submit group draft");
+ await restored.sync.flush("_group_");
+ assert.equal(restored.sync.pending(),0);
  // Same browser, two live tabs: each immutable entry survives the other's save.
  const shared=storage();
  const tabA=client(shared,send),tabB=client(shared,send);
