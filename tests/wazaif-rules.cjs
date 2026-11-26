@@ -544,7 +544,7 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   const vm=require("node:vm");
   const prod=fs.readFileSync("public/wazaif-counter.js","utf8")
    .replace(/^import[\s\S]*?from ["'][^"']+["'];\s*/gm,"")
-   .replace(/^export \{[^\n]+\};\s*/gm,"")
+   .replace(/^export \{[^\n]+\}(?: from ["'][^"']+["'])?;\s*/gm,"")
    .replace(/\bexport (?=async function|function)/g,"");
   const ctx=vm.createContext({auth:{currentUser:{uid:memberUid}},db:member,doc,runTransaction,serverTimestamp,globalDay:()=>"2026-11-26"});
   vm.runInContext(prod,ctx);

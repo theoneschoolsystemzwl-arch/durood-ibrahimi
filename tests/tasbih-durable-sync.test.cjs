@@ -74,6 +74,12 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  await batched.sync.flush("_group_");
  assert.equal(sent.length,2);assert.equal(sent[1].count,100);
  assert.equal(batched.sync.pending(),0);
+ for(let i=0;i<2505;i++)assert(batched.sync.enqueue(tap));
+ assert.equal(batched.sync.pending(tap.taskId),2505,"No 100 or 1000 cap on the dial");
+ assert.equal(sent.length,2,"No automatic Firebase write even above 1000");
+ await batched.sync.flush(tap.taskId);
+ assert.deepEqual(sent.slice(2).map(op=>op.count),[1000,1000,505]);
+ assert.equal(batched.sync.pending(),0);
  batched.events.pagehide?.();
  // Same browser, two live tabs: each immutable entry survives the other's save.
  const shared=storage();
