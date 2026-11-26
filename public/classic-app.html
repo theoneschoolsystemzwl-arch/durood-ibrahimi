@@ -2619,8 +2619,10 @@ function periodCardComparison(count,goal,previous,partial){
  const knownPartial=Number.isSafeInteger(partial)&&partial>=0?partial:null;
  const displayed=verified??knownPartial;
  const quality=goal!==null&&verified!==null?"live":verified!==null?"cached":knownPartial!==null?"partial":"unknown";
- const status=periodGoalStatus(count,displayed);
- return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#f2fff8",celebrate:displayed>0};
+ // Do not flash completion while aggregate targets are still loading.
+ const ready=quality==="live"&&displayed>0;
+ const status=ready?periodGoalStatus(count,displayed):"unknown";
+ return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#f2fff8",celebrate:ready&&status==="complete"};
 }
 function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
@@ -2666,7 +2668,7 @@ function periodFireworkState(previous,complete,now){
 }
 function periodFireworkKey(uid,side,period,day){
  const start=period==='today'?day:period==='week'?targetAddDays(day,-((new Date(day+'T00:00:00Z').getUTCDay()+6)%7)):period==='month'?day.slice(0,7):annualTargetPeriod(dashboardGroupSettings,day)?.start||day.slice(0,4);
- return 'durood-period-fireworks-v3:'+uid+':'+side+':'+period+':'+start;
+ return 'durood-period-fireworks-v4:'+uid+':'+side+':'+period+':'+start;
 }
 function updatePeriodFirework(key,complete,now){
  let previous=periodFireworkMemory.get(key)||null;
@@ -2742,7 +2744,7 @@ function syncDashboardFireworks(){
  if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
   const side=window.duroodCurrentSide;
   if(!["male","female"].includes(side))continue;
-  const quality=card.dataset.goalQuality,eligible=quality==="live"||quality==="cached"||quality==="partial";
+  const quality=card.dataset.goalQuality,eligible=quality==="live";
   const complete=eligible&&card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1";
   const short=eligible&&card.classList.contains("period-short");
   const key=periodFireworkKey(String(person.uid||person.id),side,card.dataset.celebratePeriod,globalDateKey());
