@@ -462,3 +462,15 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(classic.includes('tasbihSync.flush("_durood_")'));
  assert(classic.includes('set(\'group-unsaved\',formatNumber(taps))'));
  }
+
+// A failed member goal listener must not suppress the other verified goals.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("const publishGoals=()=>{"),b=classic.indexOf("const isGoalOwner=",a);
+ const reports=[];
+ const ctx=vm.createContext({stillCurrent:()=>true,goalDirectoryReady:true,observedUid:"owner",goalMembers:new Map([["a",{daily:[{date:"2026-11-23",goal:100}],meta:{uid:"a"}}],["b",{daily:null,meta:{uid:"b"}}]]),bridge:{readerDirectoryGoals(){},aggregateGoalRows(...args){reports.push(args);}}});
+ vm.runInContext(classic.slice(a,b).trim().replace(/\{\s*$/,"")+"\npublishGoals();",ctx);
+ assert.equal(reports[0][1],null);assert.equal(reports[0][2].length,1);assert.equal(reports[0][2][0].daily[0].goal,100);
+ vm.runInContext('goalMembers.get("b").daily=[{date:"2026-11-23",goal:50}];publishGoals();',ctx);
+ assert.equal(reports[1][1].length,2);
+}

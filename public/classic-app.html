@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=dashboard-target-recovery-20261126-v33"></script>
+<script defer src="./pull-refresh.js?v=dashboard-partial-targets-20261126-v34"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-target-recovery-20261126-v33">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-partial-targets-20261126-v34">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2200,7 +2200,7 @@ function groupProgressValue(goal,count){
 }
 const groupTargetKeys=["dailyGoal","weeklyGoal","monthlyGoal","yearlyGoal"];
 const groupTargetLabels=["روزانہ ہدف","ہفتہ وار ہدف","ماہانہ ہدف","سالانہ ہدف"];
-let memberGoalRows=null,memberReaderGoalRows=null,memberGroupDays=null,memberGroupSummary=null,ownerGoalRows=null;
+let memberGoalRows=null,memberReaderGoalRows=null,memberGroupDays=null,memberGroupSummary=null,ownerGoalRows=null,dashboardPartialGoalRows=null;
 // The Tasbih daily target is the single source of truth; zero is a saved target.
 function latestReaderGoal(rows,day){
  return (rows||[]).filter(r=>typeof r.date==="string"&&r.date<=day&&Number.isSafeInteger(r.goal)&&r.goal>=0&&r.goal<=1000000).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
@@ -2618,7 +2618,7 @@ function periodGoalLabel(key){
 function metricPeriodCards(){
  const day=globalDateKey(),uid=currentUser()?.uid,side=window.duroodCurrentSide;
  const goals=runningDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
- const known=knownDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
+ const known=knownDashboardTargets(ownerGoalRows??dashboardPartialGoalRows,day,dashboardGroupSettings);
  // Cache only verified aggregate values, never another account/side or date.
  const key=uid&&["male","female"].includes(side)?"durood-period-goals-v1:"+uid+":"+side+":"+day:null;
  let previous={};
@@ -2632,9 +2632,9 @@ function metricPeriodCards(){
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
    const partial=goal===null?dashboardPeriodGoal(key,known):null;
-    const cached=goal===null&&partial===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
-    const badge=goal===null?(partial!==null?displayNumber(partial):cached?displayNumber(previous[key]):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
-    const badgeLabel=goal===null?(partial!==null?tr("Known goals (partial)","معلوم اہداف (نامکمل)"):cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
+    const cached=goal===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
+    const badge=goal===null?(cached?displayNumber(previous[key]):partial!==null?displayNumber(partial):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
+    const badgeLabel=goal===null?(cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):partial!==null?tr("Known goals (partial)","معلوم اہداف (نامکمل)"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
     return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><small>'+esc(badgeLabel)+'</small> <bdi dir="ltr">'+badge+'</bdi></span>'+
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
@@ -5188,7 +5188,7 @@ window.duroodClassicBridge = {
     window.duroodWazaif?.refreshGroupTargets?.();
     if(section==="wazifa-reader")updateReader();
   },
-  aggregateGoalRows(uid,rows){if(currentUser()?.uid!==uid)return;ownerGoalRows=rows;refreshDashboardTargetCards();window.duroodWazaif?.refreshGroupTargets?.();},
+  aggregateGoalRows(uid,rows,partial=null){if(currentUser()?.uid!==uid)return;ownerGoalRows=rows;dashboardPartialGoalRows=partial;refreshDashboardTargetCards();window.duroodWazaif?.refreshGroupTargets?.();},
   readerDirectoryGoals(uid,entries){
     if(currentUser()?.uid!==uid||!currentUser()?.isOwner)return;
     readerGoalsByUid=new Map(entries);
@@ -5338,7 +5338,7 @@ window.duroodClassicBridge = {
       liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
       savedMemberWirds=new Map();savedMemberWirdsComplete=false;ownGroupWirds=new Map();groupDirectoryReady=false;
       liveMemberPhotos=new Map();
-      periodCounts=null;periodDatedCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;periodDatedCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;dashboardPartialGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5557,7 +5557,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=dashboard-target-recovery-20261126-v33";
+import "./wazaif.js?release=dashboard-partial-targets-20261126-v34";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
@@ -5863,7 +5863,9 @@ function observeCounters(side){
     if(!stillCurrent())return;
     const rows=[...goalMembers.values()];
     bridge.readerDirectoryGoals(observedUid,[...goalMembers].map(([uid,r])=>[uid,r.daily]));
-    bridge.aggregateGoalRows(observedUid,goalDirectoryReady&&rows.every(r=>r.daily!==null)?rows.map(r=>({daily:r.daily,legacy:r.legacy,...r.meta})):null);
+    const verifiedRows=rows.filter(r=>Array.isArray(r.daily)).map(r=>({daily:r.daily,legacy:r.legacy,...r.meta}));
+     const complete=goalDirectoryReady&&verifiedRows.length===rows.length;
+     bridge.aggregateGoalRows(observedUid,complete?verifiedRows:null,verifiedRows.length?verifiedRows:null);
   };
   {
     const isGoalOwner=currentProfile?.role==="owner";
