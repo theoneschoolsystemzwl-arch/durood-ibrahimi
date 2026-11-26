@@ -1,4 +1,4 @@
-const RELEASE="clean-manual-save-20261126-v31";
+const RELEASE="group-manual-save-20261126-v32";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

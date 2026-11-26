@@ -314,7 +314,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=clean-manual-save-20261126-v31";
+  frame.src="./classic-app.html?release=group-manual-save-20261126-v32";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -538,7 +538,7 @@ $("#add-ten").addEventListener("click",()=>fallbackTap(10));
 $("#fallback-tasbih-save").addEventListener("click",async()=>{
  const uid=auth.currentUser?.uid;if(!uid||appState.busy)return;
  fallbackTasbih.start(uid);await fallbackTasbih.flush("_durood_");
- if(fallbackTasbih.pending())message("#reading-message","گنتی فون میں محفوظ ہے؛ دوبارہ Save دبائیں۔");
+ if(fallbackTasbih.pending())message("#reading-message","محفوظ نہیں ہوا؛ دوبارہ Save دبائیں۔ "+(fallbackTasbih.status().error||""));
  else{message("#reading-message","گنتی Firebase میں محفوظ ہو گئی۔",true);await refreshCounts().catch(()=>{});}
 });
 onAuthStateChanged(auth,user=>{if(user)fallbackTasbih.start(user.uid);else fallbackTasbih.stop();});

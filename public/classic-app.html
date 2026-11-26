@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=clean-manual-save-20261126-v31"></script>
+<script defer src="./pull-refresh.js?v=group-manual-save-20261126-v32"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=clean-manual-save-20261126-v31">
+<link rel="stylesheet" href="./dashboard-reference.css?v=group-manual-save-20261126-v32">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -3115,11 +3115,12 @@ function tasbih() {
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
+    '<div style="display:flex;justify-content:center;margin:5px 0"><button type="button" class="button primary" style="min-width:140px" data-action="save-durood" disabled>'+tr('Save','محفوظ کریں')+' <b id="group-unsaved">0</b></button></div><p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Unsaved tasbih','غیر محفوظ تسبیح') + '</small><strong id="session-count">0</strong>' +
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
-    '<button type="button" class="button" data-action="save-durood">'+tr('Save','محفوظ کریں')+'</button><p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
+
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
     tr("<button class=\"button\" data-action=\"manual-day\">Add offline Durood</button></div>", '<button class="button" data-action="manual-day">آف لائن درود شامل کریں</button></div>') +
     '<p class="group-record-caption" id="group-record-caption"></p><ul class="record-list" id="daily-records"></ul></section></div>' + readingDialogs() + '</section>';
@@ -3170,7 +3171,9 @@ function updateReader() {
   set('read-target',formatNumber(goal));
   set('read-global',formatNumber(globalTotal));
   const taps=Object.values(readerPendingTotals).reduce((n,v)=>n+(Number(v)||0),0);
-  set('session-count',formatNumber(taps));
+  set('session-count',formatNumber(taps));set('group-unsaved',formatNumber(taps));
+  const saveButton=document.querySelector('[data-action="save-durood"]');
+  if(saveButton)saveButton.disabled=taps===0||window.duroodGroupSaveBusy===true;
   const inCycle=taps>0 && taps%100===0 ? 100 : taps%100;
   const dial=document.querySelector('.reader .dial');
   if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/100)+'deg');
@@ -3222,7 +3225,7 @@ function tapDurood() {
   // Local journal owns unsaved taps; dashboard totals wait for Firebase.
   updateReader();
   const status=document.getElementById('read-status');
-  if(status)status.textContent=tr("Saved on phone • press Save","فون میں محفوظ • Save دبائیں");
+  if(status)status.textContent="";
   if (soundEnabled) playTapSound();
   if (prayerPrefs(person.id).readerVibrate) touchVibration(35);
 }
@@ -5393,9 +5396,8 @@ window.duroodClassicBridge = {
     if(section==="wazifa-reader"){
       const total=Object.values(pending||{}).reduce((n,v)=>n+(Number(v)||0),0);
       const status=document.getElementById("read-status");
-      if(status)status.textContent=total?
-        (navigator.onLine===false?"آف لائن • ":"")+total+" تسبیح فون میں محفوظ • Save دبائیں":
-        "تمام تسبیح Firebase پر محفوظ ہو گئی ہے";
+      if(status)status.textContent=window.duroodGroupSaveBusy?tr("Saving…","محفوظ ہو رہا ہے…"):"";
+      if(!total){readingSession={id:currentUser()?.id,key:globalDateKey(),count:0,ms:0,intervals:0,lastTap:null};updateClock();}
     }
   },
   rollbackTaps(amount,day){
@@ -5543,7 +5545,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=clean-manual-save-20261126-v31";
+import "./wazaif.js?release=group-manual-save-20261126-v32";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
@@ -6420,12 +6422,16 @@ ui.addEventListener("click",event=>{
   }
   if(action==="save-durood"){
      event.stopImmediatePropagation();event.preventDefault();
-     if(!tasbihSync.pending("_durood_"))return;
-     button.disabled=true;
+     if(window.duroodGroupSaveBusy||!tasbihSync.pending("_durood_"))return;
+     window.duroodGroupSaveBusy=true;button.disabled=true;
+     bridge.notice("محفوظ ہو رہا ہے…");
      tasbihSync.flush("_durood_").then(()=>{
-       if(tasbihSync.pending("_durood_"))bridge.notice("گنتی فون میں محفوظ ہے؛ Firebase کے لیے دوبارہ Save دبائیں۔");
+       if(tasbihSync.pending("_durood_"))bridge.notice("محفوظ نہیں ہوا؛ دوبارہ Save دبائیں۔ "+(tasbihSync.status().error||""));
        else bridge.notice("گنتی Firebase میں محفوظ ہو گئی۔");
-     }).catch(e=>bridge.notice(String(e?.message||e))).finally(()=>{if(button.isConnected)button.disabled=false;});
+     }).catch(e=>bridge.notice(String(e?.message||e))).finally(()=>{
+       window.duroodGroupSaveBusy=false;
+       const save=ui.querySelector('[data-action="save-durood"]');if(save)save.disabled=!tasbihSync.pending("_durood_");
+     });
      return;
    }
    if(action==="count-durood"){

@@ -444,3 +444,16 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(classic.includes("data-durood-refresh")&&refresh.includes("window.duroodRefreshPage=fetchLatest"));
  assert(refresh.includes("Promise.race")&&!refresh.includes("caches.delete"));
  }
+
+ // Both group reader variants and the existing personal Save submit only on click.
+ {
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const reader=source.slice(source.indexOf("function readerMarkup(group)"),source.indexOf("function refreshHeroReader()"));
+ assert(reader.includes('data-wazifa-action="save-taps"'));
+ assert(source.includes('if(action==="save-taps")return void drain()'));
+ const groupSave=classic.indexOf('data-action="save-durood" disabled');
+ const groupDial=classic.indexOf('data-action="count-durood"');
+ assert(groupSave>=0&&groupSave<groupDial,"group Save appears above the dial");
+ assert(classic.includes('tasbihSync.flush("_durood_")'));
+ assert(classic.includes('set(\'group-unsaved\',formatNumber(taps))'));
+ }
