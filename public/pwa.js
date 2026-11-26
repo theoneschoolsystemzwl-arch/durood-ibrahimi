@@ -1,4 +1,4 @@
-const RELEASE="dashboard-centered-total-green-dome-20261126-v16";
+const RELEASE="dashboard-flat-rollback-20261126-v17";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
