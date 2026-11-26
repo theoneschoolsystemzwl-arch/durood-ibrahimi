@@ -1,4 +1,4 @@
-const RELEASE="plain-period-goal-20261126-v44";
+const RELEASE="four-period-single-row-20261126-v45";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

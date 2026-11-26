@@ -420,3 +420,7 @@
 /* Fast dense bursts stay on the achieved period card, below readable numbers. */
 .dashboard-fireworks.period-fireworks i{width:8px;height:8px;animation-duration:1250ms;box-shadow:0 0 6px 2px var(--spark-color);}
 @media(prefers-reduced-motion:reduce){.dashboard-fireworks.period-fireworks i{animation:none;opacity:.35;}}
+
+/* Four equal columns on every screen; preserve existing typography and effects. */
+:root[data-theme] .dashboard-home #dashboard-period-cards{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px;min-width:0;width:100%;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{min-width:0;padding-inline:3px;}
