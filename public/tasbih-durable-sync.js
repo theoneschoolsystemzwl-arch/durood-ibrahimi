@@ -104,7 +104,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   clearTimeout(timer);timer=null;
   ownerUid=uid;lastError="";retryAfter=0;quotaFailures=0;draftId=null;
   migrateLegacy(uid);
-  schedule(40);notify();
+  notify();
  }
  function enqueue({taskId,day,source="tasbih",count=1,durationMs=0,intervals=0}){
   const uid=ownerUid,op={taskId,day,source,count,durationMs,intervals};
@@ -116,7 +116,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
     const k=recordPrefix(uid)+draftId;
     const old=JSON.parse(localStorage.getItem(k)||"null");
     if(old?.schema===5&&old.draftOwner===pageId&&old.taskId===taskId&&old.day===day&&old.source===source&&
-       old.count+count<=1000&&old.durationMs+durationMs<=86400000&&Date.now()-old.createdAt<15000){
+       old.count+count<=1000&&old.durationMs+durationMs<=86400000){
      const next={...old,count:old.count+count,durationMs:old.durationMs+durationMs,intervals:old.intervals+intervals};
      if(valid(next)){localStorage.setItem(k,JSON.stringify(next));merged=true;}
     }
@@ -133,7 +133,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    notify();return false;
   }
   if(Date.now()>=retryAfter)lastError="";
-  notify();schedule(10000);return true;
+  notify();return true;
  }
 
  function sealOwnDraft(uid=ownerUid){
@@ -160,21 +160,15 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   const latest=JSON.parse(localStorage.getItem(recordPrefix(uid)+op.id)||"null");
   return latest?.schema===4&&valid(latest)?latest:null;
  }
- function schedule(delay=10000){
-  if(!ownerUid||getUid()!==ownerUid)return;
-  if(delay===0){try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();}}
-  const due=Math.max(Date.now()+delay,retryAfter);
-  if(timer&&timerDue<=due)return;
-  clearTimeout(timer);timerDue=due;
-  timer=setTimeout(()=>{timer=null;timerDue=0;void flush();},Math.max(0,due-Date.now()));
- }
- async function flush(){
+ // Only explicit Save invokes flush; background events only refresh local status.
+ function schedule(){notify();}
+ async function flush(taskId=null){
   if(busy||!ownerUid||getUid()!==ownerUid||navigator.onLine===false)return;
-  if(Date.now()<retryAfter){schedule(10000);return;}
+  if(Date.now()<retryAfter){notify();return;}
   try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();schedule(20000);return;}
   const uid=ownerUid;busy=true;notify();
   try{
-   for(const candidate of listOps(uid)){
+   for(const candidate of listOps(uid).filter(op=>!taskId||op.taskId===taskId)){
     if(uid!==ownerUid||getUid()!==uid||navigator.onLine===false)break;
     try{
      const op=await sealRecoverable(candidate,uid);

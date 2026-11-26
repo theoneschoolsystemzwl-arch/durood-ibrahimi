@@ -1,4 +1,4 @@
-const RELEASE="goal-reconnect-manual-replay-20261126-v26";
+const RELEASE="manual-save-only-20261126-v27";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=goal-reconnect-manual-replay-20261126-v26">
+<link rel="stylesheet" href="./dashboard-reference.css?v=manual-save-only-20261126-v27">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1559,7 +1559,7 @@ function verifiedDuroodTaps(person,day){
   const scope=person.uid+"|"+String(window.duroodCurrentSide||"");
   const remote=readerServerScope===scope?readerServerTotals[day]:undefined;
   const pending=Math.max(0,Number(readerPendingTotals[day])||0);
-  return Math.max(local,Number.isSafeInteger(remote)&&remote>=0?remote+pending:0);
+  return Math.max(local,Number.isSafeInteger(remote)&&remote>=0?remote:0);
 }
 let soundEnabled = false;
 let soundContext;
@@ -2971,7 +2971,7 @@ function persistReaderJournal(pending={}){
     const ledger=readingFor(person.id),days={};
     for(const [day,item] of Object.entries(ledger.days)){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(day))continue;
-      days[day]={...item,taps:Math.max(0,(item.taps||0)-(pending[day]||0))};
+      days[day]={...item,taps:Math.max(0,item.taps||0)};
     }
     localStorage.setItem(readerJournalKey(person.uid),JSON.stringify({schema:2,goal:ledger.goal,goals:ledger.goals||{},days}));
   }catch(e){console.warn('Reader journal not saved',e);}
@@ -3119,7 +3119,7 @@ function tasbih() {
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
-    '<p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
+    '<button type="button" class="button" data-action="save-durood">'+tr('Save','محفوظ کریں')+'</button><p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     tr("<section class=\"reader-history\"><div class=\"panel-head\"><h3>Daily records</h3>", '<section class="reader-history"><div class="panel-head"><h3>روزانہ ریکارڈ</h3>') +
     tr("<button class=\"button\" data-action=\"manual-day\">Add offline Durood</button></div>", '<button class="button" data-action="manual-day">آف لائن درود شامل کریں</button></div>') +
     '<p class="group-record-caption" id="group-record-caption"></p><ul class="record-list" id="daily-records"></ul></section></div>' + readingDialogs() + '</section>';
@@ -3169,8 +3169,8 @@ function updateReader() {
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
   set('read-global',formatNumber(globalTotal));
-  set('session-count',formatNumber(verifiedDuroodTaps(person,key)));
-  const taps=verifiedDuroodTaps(person,key);
+  const taps=Object.values(readerPendingTotals).reduce((n,v)=>n+(Number(v)||0),0);
+  set('session-count',formatNumber(taps));
   const inCycle=taps>0 && taps%100===0 ? 100 : taps%100;
   const dial=document.querySelector('.reader .dial');
   if(dial)dial.style.setProperty('--ring-progress',String(360*inCycle/100)+'deg');
@@ -3219,11 +3219,10 @@ function tapDurood() {
   }
   live.lastTap = now;
   live.count++;
-  readingDay.taps++;
-  if(person.uid){person.added=(person.added||0)+1;globalTotal+=1;}
+  // Local journal owns unsaved taps; dashboard totals wait for Firebase.
   updateReader();
   const status=document.getElementById('read-status');
-  if(status)status.textContent=tr("Syncing count…","شمار محفوظ ہو رہا ہے…");
+  if(status)status.textContent=tr("Saved on phone • press Save","فون میں محفوظ • Save دبائیں");
   if (soundEnabled) playTapSound();
   if (prayerPrefs(person.id).readerVibrate) touchVibration(35);
 }
@@ -5385,17 +5384,7 @@ window.duroodClassicBridge = {
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
-  recoverPending(pending){
-    const person=currentUser();if(!person)return;
-    for(const [day,count] of Object.entries(pending||{})){
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isSafeInteger(count)||count<1)continue;
-      const row=getReadingDay(person.id,day);
-      row.taps+=count;
-      person.added=(person.added||0)+count;globalTotal+=count;
-    }
-    persistReaderJournal(pending);
-    if(section==="wazifa-reader")updateReader();
-  },
+  recoverPending(pending){this.pendingSaved(pending);},
   pendingSaved(pending){
     readerPendingTotals={...(pending||{})};
     persistReaderJournal(pending);
@@ -5404,7 +5393,7 @@ window.duroodClassicBridge = {
       const total=Object.values(pending||{}).reduce((n,v)=>n+(Number(v)||0),0);
       const status=document.getElementById("read-status");
       if(status)status.textContent=total?
-        (navigator.onLine===false?"آف لائن • ":"Firebase سنک جاری • ")+total+" تسبیح فون میں محفوظ":
+        (navigator.onLine===false?"آف لائن • ":"")+total+" تسبیح فون میں محفوظ • Save دبائیں":
         "تمام تسبیح Firebase پر محفوظ ہو گئی ہے";
     }
   },
@@ -5553,10 +5542,10 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=goal-reconnect-manual-replay-20261126-v26";
+import "./wazaif.js?release=manual-save-only-20261126-v27";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=quota-batch-20261126-v1";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";
 import {loadMemberProfile,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=foreground-presence-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
@@ -5744,8 +5733,8 @@ const tasbihSync=createDurableTasbihSync({
 });
 function queueTasbihTap(){
  const uid=auth.currentUser?.uid;
- if(!uid||uid!==currentProfile?.uid)return;
- if(!window.duroodEnsureMemberDailyGoal?.())return;
+ if(!uid||uid!==currentProfile?.uid||tasbihSync.status().busy)return;
+  if(!window.duroodEnsureMemberDailyGoal?.())return;
  const day=globalDay();
  if(!tasbihSync.enqueue({taskId:"_durood_",day,count:1,source:"tasbih",
    durationMs:0,intervals:0})){
@@ -6425,10 +6414,20 @@ ui.addEventListener("click",event=>{
       .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
     return;
   }
-  if(ownerViewingWomen() && ["count-durood","namaz-mark","qaza-record"].includes(action)){
+  if(ownerViewingWomen() && ["count-durood","save-durood","namaz-mark","qaza-record"].includes(action)){
     event.preventDefault();event.stopImmediatePropagation();return;
   }
-  if(action==="count-durood"){
+  if(action==="save-durood"){
+     event.stopImmediatePropagation();event.preventDefault();
+     if(!tasbihSync.pending("_durood_"))return;
+     button.disabled=true;
+     tasbihSync.flush("_durood_").then(()=>{
+       if(tasbihSync.pending("_durood_"))bridge.notice("گنتی فون میں محفوظ ہے؛ Firebase کے لیے دوبارہ Save دبائیں۔");
+       else bridge.notice("گنتی Firebase میں محفوظ ہو گئی۔");
+     }).catch(e=>bridge.notice(String(e?.message||e))).finally(()=>{if(button.isConnected)button.disabled=false;});
+     return;
+   }
+   if(action==="count-durood"){
     event.stopImmediatePropagation();event.preventDefault();
     queueTasbihTap();
     return;

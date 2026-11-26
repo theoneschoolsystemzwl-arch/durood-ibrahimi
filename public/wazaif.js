@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=quota-batch-20261126-v1";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";
 import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -189,27 +189,20 @@ const wzSync=createDurableTasbihSync({
 });
 function updateWzSyncStatus(){
  const el=$("#wz-sync-status");if(!el)return;
- const {pending,error,online}=wzSync.status();
+ const {error,online,busy}=wzSync.status();
+ const pending=wzSync.pending(state.mode==="group-reader"?"_group_":state.readerId);
  el.dataset.pending=String(pending>0);
- el.textContent=pending?(!online?
-  "آف لائن: "+fmt(pending)+" تسبیح فون میں محفوظ، انٹرنیٹ کا انتظار":
-  error?(/resource-exhausted|quota/i.test(error)?"Firebase کی مفت حد یا درخواستوں کی حد عارضی طور پر پوری ہے؛ "+fmt(pending)+" گنتیاں فون میں محفوظ، دوبارہ خود کوشش ہوگی":"سنک رکا ہوا ہے: "+error+" • "+fmt(pending)+" گنتیاں فون میں محفوظ"):
-  fmt(pending)+" تسبیح فون میں محفوظ، Firebase کو بھیجی جا رہی ہیں"):
-  "تمام تسبیح Firebase میں محفوظ ہے؛ Save صرف کاؤنٹر صفر کرے گا";
+ el.textContent=pending?(busy?"Firebase میں محفوظ کیا جا رہا ہے…":(error?"محفوظ نہیں ہوا؛ دوبارہ Save دبائیں۔ ":!online?"آف لائن • ":"")+fmt(pending)+" تسبیح فون میں محفوظ • Firebase کے لیے Save دبائیں"):"تمام گنتی محفوظ ہے۔";
 }
-function resetWzSession(auto=false){
- if(!state.tapQueue)return;
+function resetWzSession(){
  state.tapQueue=0;state.lastTapAt=0;state.clockMs=0;state.clockStart=null;
  state.clockLastTap=null;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
- persistDraft();wzSync.schedule(0);refreshHeroReader();
- const note=$("#wz-session-note");
- if(note)note.textContent=auto?
-  "پانچ منٹ کی خاموشی پر کاؤنٹر خود صفر ہوا؛ گنتی محفوظ ہے۔":
-  "Save: کاؤنٹر صفر ہوگیا؛ گنتی محفوظ رہے گی۔";
+ persistDraft();refreshHeroReader();
 }
 function checkWzIdle(){
- if(["personal-reader","group-reader"].includes(state.mode)&&state.tapQueue>0&&
-  state.lastTapAt&&Date.now()-state.lastTapAt>=300000)resetWzSession(true);
+ if(state.lastTapAt&&Date.now()-state.lastTapAt>=300000&&state.clockStart!==null){
+  state.clockMs=elapsedTime();state.clockStart=null;state.clockLastTap=null;persistDraft();
+ }
 }
 
 const owner=()=>state.profile?.role==="owner";
@@ -600,7 +593,6 @@ async function toggleDailyPause(id){
  if(!uid||!task||!isDailyPlan(task,today)||task.startDate>today)return;
  state.busy=true;
  try{
-  await wzSync.flush();
   if(wzSync.pending(id))throw Error("پہلے زیر التوا گنتی محفوظ کریں۔");
   const ref=doc(db,"memberWazaif",uid,"items",id);
   await runTransaction(db,async tx=>{
@@ -780,9 +772,9 @@ function selectedDayFigures(group,w,record,day=readingDay()){
  const previous=Math.max(0,Number(dated?.previousDue)||0);
  const credit=Math.max(0,Number(dated?.previousCredit)||0);
  const goal=Math.max(0,dailyGoal+previous-credit);
- const read=base+pending;
- const tasbih=(group?base:source.tasbih)+(isToday?pending:0);
- const manual=(group?0:source.manual)+(isToday?0:pending);
+ const read=base;
+ const tasbih=group?base:source.tasbih;
+ const manual=group?0:source.manual;
  return {goal,tasbih,manual,read,pending:Math.max(0,goal-read)};
 }
 function fiveFigureMarkup(group,w,record){
@@ -957,11 +949,11 @@ function groupHistoryMarkup(w){
  for(let day=today,i=0;day>=start&&i<Math.min(3660,state.historyLimit);i++,day=addDays(day,-1)){
   const goal=memberGroupDailyGoal(w,day);
   const saved=ownGroupDay(day),pending=wzSync.pending("_group_",day);
-  const count=saved+pending,left=Math.max(0,goal-count);
+  const count=saved,left=Math.max(0,goal-count);
   const cell=(label,n,klass="")=>'<div class="wz-ledger-slot"><span class="wz-ledger-label">'+label+'</span><span class="wz-ledger-item '+klass+'"><strong>'+fmt(n)+'</strong></span></div>';
   rows.push('<section class="wz-history-entry '+(left?"wz-day-due":"wz-day-ok")+'"><div class="wz-clear-heading"><time datetime="'+esc(day)+'">'+esc(displayRecordDate(day))+'</time><span class="wz-clear-state">'+(left?"بقایا "+fmt(left):"✓ ہدف مکمل")+'</span></div><div class="wz-ledger-lines"><div class="wz-ledger-line wz-ledger-five">'+cell("ہدف",goal,"wz-ledger-goal")+cell("تسبیح",count,"wz-ledger-green")+cell("محفوظ",saved)+cell("سنک باقی",pending,"wz-ledger-yellow")+cell("باقی",left,"wz-ledger-total")+'</div></div></section>');
  }
- return '<p class="wz-help">تاریخِ رکنیت: '+esc(displayRecordDate(start))+' • میری مجموعی تسبیح: '+fmt(Number(state.groupMember?.total||0)+wzSync.pending("_group_"))+(state.groupDaysReady?"":" • ریکارڈ لوڈ ہو رہا ہے")+'</p>'+rows.join("")+
+ return '<p class="wz-help">تاریخِ رکنیت: '+esc(displayRecordDate(start))+' • میری مجموعی تسبیح: '+fmt(Number(state.groupMember?.total||0))+(state.groupDaysReady?"":" • ریکارڈ لوڈ ہو رہا ہے")+'</p>'+rows.join("")+
  (spanDays(start,today)>state.historyLimit?'<button type="button" class="wz-button" data-wazifa-action="history-more">مزید پرانا ریکارڈ</button>':"");
 }
 function heroReadingState(group,w,record){
@@ -1127,7 +1119,7 @@ function readerMarkup(group){
   (group?'<button type="button" class="wz-button" data-group-daily-goal>روزانہ ہدف مقرر کریں</button>':"")+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
-  '<p class="wz-reader-advice">ہر دباؤ فوراً فون میں محفوظ اور Firebase پر منتقل ہوتا ہے۔ Save صرف کاؤنٹر صفر کرتا ہے؛ پانچ منٹ خاموشی پر خودکار Save ہوگا۔</p>'+
+  '<p class="wz-reader-advice">ہر دباؤ صرف فون میں محفوظ ہوتا ہے۔ Firebase کے لیے Save دبائیں؛ تصدیق کے بعد ہی ڈائل صفر ہوگا۔</p>'+
  '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite"></p>'+
  '<p id="wz-session-note" class="wz-help" role="status"></p>'+
  (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
@@ -1141,7 +1133,7 @@ function refreshHeroReader(){
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
  const taskId=group?"_group_":state.readerId;
- const todayCount=s.todayCount+wzSync.pending(taskId,group?groupReadingDay():readingDay()),total=s.total+wzSync.pending(taskId);
+ const todayCount=s.todayCount,total=s.total;
  const dayLeft=Math.max(0,s.dailyGoal-todayCount);
   const left=Math.max(0,s.totalGoal-total);
   const percent=s.totalGoal?Math.min(100,total*100/s.totalGoal):0;
@@ -1153,7 +1145,7 @@ function refreshHeroReader(){
  set("wz-hero-progress-label",percent.toFixed(2)+"%");
  set("wz-hero-today",fmt(todayCount));set("wz-hero-day-left",fmt(dayLeft));
   if(s.continuing)set("wz-hero-days-left",fmt(left));
- const ownToday=group?ownGroupDay(groupReadingDay())+wzSync.pending("_group_",groupReadingDay()):todayCount;
+ const ownToday=group?ownGroupDay(groupReadingDay()):todayCount;
  set("wz-mini-goal",fmt(s.dailyGoal));set("wz-mini-today",fmt(ownToday));set("wz-mini-left",fmt(group?Math.max(0,s.dailyGoal-ownToday):dayLeft));
  const d=selectedDayFigures(group,w,record,group?groupReadingDay():state.draftDay||readingDay());
  set("wz-today-read",fmt(d.read));
@@ -1564,7 +1556,8 @@ async function saveContinuationForm(form){
  finally{state.busy=false;if(button?.isConnected)button.disabled=false;}
 }
 function draftStorageKey(){
- return auth.currentUser&&state.readerId?"durood-wazifa-draft-v2-"+auth.currentUser.uid+"-"+state.readerId:null;
+ const id=state.mode==="group-reader"?"_group_":state.readerId;
+ return auth.currentUser&&id?"durood-wazifa-draft-v2-"+auth.currentUser.uid+"-"+id:null;
 }
 function elapsedTime(){
  return Math.max(0,Math.floor(state.clockMs+(state.clockStart===null?0:performance.now()-state.clockStart)));
@@ -1579,21 +1572,22 @@ function persistDraft(){
 }
 function restoreDraft(){
  state.tapQueue=0;state.tapMetaQueue=[];
+ const taskId=state.mode==="group-reader"?"_group_":state.readerId;
  const key=draftStorageKey();if(!key)return;
  try{
   const draft=JSON.parse(localStorage.getItem(key)||"null");
   const task=state.personal.find(w=>w.id===state.readerId);
-  if(draft&&task&&dayOk(draft.day)&&draft.day>=task.startDate&&draft.day<=readingDay()&&
+  if(draft&&dayOk(draft.day)&&(state.mode==="group-reader"||(task&&draft.day>=task.startDate&&draft.day<=readingDay()))&&
     Number.isSafeInteger(draft.count)&&draft.count>0&&draft.count<=1000000){
    state.draftDay=draft.day;state.tapQueue=draft.count;
    state.clockMs=Math.min(86400000,Math.max(0,Number(draft.ms)||0));
    state.lastTapAt=Math.max(0,Number(draft.lastTapAt)||Date.now());
    const marker=key+"-v3-imported";
    if(!localStorage.getItem(marker)){
-    let remaining=wzSync.pending(state.readerId,draft.day)?0:draft.count;
+    let remaining=wzSync.pending(taskId)?0:draft.count;
     while(remaining>0){
      const n=Math.min(1000,remaining);
-     if(!wzSync.enqueue({taskId:state.readerId,day:draft.day,
+     if(!wzSync.enqueue({taskId,day:draft.day,
        count:n,source:draft.day===readingDay()?"tasbih":"manual",durationMs:0,
        intervals:draft.day===readingDay()?n:0}))break;
      remaining-=n;
@@ -1602,6 +1596,7 @@ function restoreDraft(){
    }
   }
  }catch{}
+ state.tapQueue=wzSync.pending(taskId);
 }
 function startClock(){
  state.clockStart=null;state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
@@ -1635,7 +1630,7 @@ function tap(){
   setError("فون کی اسٹوریج میں محفوظ نہیں ہو سکا؛ گنتی نہیں بڑھائی گئی۔");return;
  }
  state.clockLastTap=pressedAt;
- state.tapQueue++;state.lastTapAt=Date.now();
+ state.tapQueue=wzSync.pending(state.mode==="group-reader"?"_group_":state.readerId);state.lastTapAt=Date.now();
  // Trigger the motor on the confirmed tap, before rendering or sound.
  // Even a very brief touch is sufficient; there is no minimum press duration.
  lastTapMotorOutcome="off";
@@ -1657,9 +1652,13 @@ function tap(){
  return true;
 }
 async function drain(){
- // Every tap was queued already. Save resets only the visible session.
- resetWzSession(false);
- await wzSync.flush();
+ if(state.tapBusy)return;
+ const id=state.mode==="group-reader"?"_group_":state.readerId;
+ if(!id||!wzSync.pending(id))return;
+ state.tapBusy=true;refreshHeroReader();
+ try{await wzSync.flush(id);state.tapQueue=wzSync.pending(id);
+  if(!state.tapQueue)resetWzSession();else persistDraft();
+ }finally{state.tapBusy=false;refreshHeroReader();if(state.pendingBack)back();}
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;
@@ -1679,7 +1678,7 @@ function tick(){
  checkWzIdle();
  if(state.seenGroupDay!==groupReadingDay()){
   state.seenGroupDay=groupReadingDay();
-  if(state.mode==="group-reader"){resetWzSession(true);state.draftDay=groupReadingDay();refreshHeroReader();}
+  if(state.mode==="group-reader"){state.draftDay=groupReadingDay();refreshHeroReader();}
  }
  if(state.seenDay!==readingDay()){
   state.seenDay=readingDay();
@@ -1757,7 +1756,7 @@ document.addEventListener("visibilitychange",()=>{
  if(document.hidden)wzSync.schedule(0);
 });
 window.addEventListener("pagehide",()=>{persistDraft();wzSync.schedule(0);});
-setInterval(()=>{checkWzIdle();if(wzSync.pending()&&navigator.onLine!==false)wzSync.schedule(0);},20000);
+setInterval(checkWzIdle,20000);
 // Dated records open only on the third tap of their own edit button.
 function advanceHistoryEditTap(tracker,day,now){
  if(tracker.day!==day||now-tracker.last>2200||now<tracker.last){
@@ -1954,7 +1953,7 @@ document.addEventListener("click",event=>{
      window.duroodClassicBridge?.openGroupReader?.();
      return;
    }
-   state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=groupReadingDay();
+   state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=groupReadingDay();restoreDraft();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});window.duroodEnsureMemberDailyGoal?.();return;
  }
  if(action==="read-personal"){
