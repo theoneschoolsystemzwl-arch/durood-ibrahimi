@@ -1,5 +1,5 @@
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=save-feedback-20261126-v4";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
 import {globalDay} from "./global-clock.js";
 import "./password-change.js";
 import {
@@ -314,7 +314,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=save-feedback-20261126-v30";
+  frame.src="./classic-app.html?release=clean-manual-save-20261126-v31";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.

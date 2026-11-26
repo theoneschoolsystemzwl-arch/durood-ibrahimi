@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=save-feedback-20261126-v4";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
 import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -199,7 +199,10 @@ function updateWzSyncStatus(){
  else if(error==="auth-required")why="اکاؤنٹ کی تصدیق درکار ہے۔";
  else if(error)why="Save ناکام: "+error;
  el.dataset.pending=String(pending>0);
- el.textContent=busy||state.tapBusy?"Firebase میں محفوظ کیا جا رہا ہے…":pending?(why?why+" • ":"")+fmt(pending)+" گنتی فون میں محفوظ ہے؛ Firebase کے لیے Save دبائیں۔":"تمام گنتی محفوظ ہے۔";
+ // Local journaling is invisible during ordinary reading; show only an active Save or a failure.
+ el.hidden=!(busy||state.tapBusy||pending&&why);
+ el.style.display=el.hidden?"none":"block";
+ el.textContent=busy||state.tapBusy?"محفوظ کیا جا رہا ہے…":pending&&why?why+" • "+fmt(pending)+" گنتی باقی ہے؛ دوبارہ محفوظ کریں۔":"";
 }
 function resetWzSession(){
  state.tapQueue=0;state.lastTapAt=0;state.clockMs=0;state.clockStart=null;
@@ -1127,10 +1130,10 @@ function readerMarkup(group){
   (group?'<button type="button" class="wz-button" data-group-daily-goal>روزانہ ہدف مقرر کریں</button>':"")+
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
-  '<p class="wz-reader-advice">ہر دباؤ صرف فون میں محفوظ ہوتا ہے۔ Firebase کے لیے Save دبائیں؛ تصدیق کے بعد ہی ڈائل صفر ہوگا۔</p>'+
+  
  
  '<p id="wz-session-note" class="wz-help" role="status"></p>'+
- (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
+ 
  '<p id="wz-hero-error" class="wz-error" '+(state.error?'':'hidden')+'>'+esc(state.error)+'</p>'+
  '</div></div>'+(group?"":'<dialog class="wz-edit-dialog" id="wz-edit-dialog" aria-labelledby="wz-edit-title"></dialog><dialog class="wz-date-dialog" id="wz-date-dialog" aria-labelledby="wz-calendar-title"></dialog>');
 }
@@ -1670,7 +1673,7 @@ async function drain(){
  try{
   try{updateWzSyncStatus();}catch{}
   await wzSync.flush(id);state.tapQueue=wzSync.pending(id);
-  if(!state.tapQueue)resetWzSession();else persistDraft();
+  if(!state.tapQueue){state.error="";resetWzSession();}else persistDraft();
  }catch(error){setError(error);persistDraft();}
  finally{
   state.tapBusy=false;

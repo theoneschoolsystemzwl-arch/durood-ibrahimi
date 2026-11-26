@@ -16,8 +16,8 @@ function storage(){
   removeItem(k){values.delete(k);}
  };
 }
-function client(store,send){
- const navigator={onLine:true};
+function client(store,send,locks=null){
+ const navigator={onLine:true,...(locks?{locks}:{})};
  const timers=[],events={};
  const context=vm.createContext({
   localStorage:store,navigator,Date,Math,Number,JSON,Array,Uint8Array,
@@ -52,6 +52,29 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  assert.equal(restored.sync.pending("_group_"),1,"Personal Save must not submit group draft");
  await restored.sync.flush("_group_");
  assert.equal(restored.sync.pending(),0);
+ // With a browser Web Lock, 100 taps share one locally durable batch.
+ const held=new Set();
+ const locks={request(name,opts,callback){
+  if(typeof opts==="function"){callback=opts;opts={};}
+  if(held.has(name))return Promise.resolve(callback(null));
+  held.add(name);return Promise.resolve(callback({name})).finally(()=>held.delete(name));
+ }};
+ const batchedStore=storage(),sent=[];
+ const batched=client(batchedStore,async op=>sent.push(op),locks);
+ for(let i=0;i<100;i++)assert(batched.sync.enqueue(tap));
+ assert.equal(batched.sync.pending(tap.taskId),100);
+ assert.equal(sent.length,0,"100 taps do not call Firebase");
+ await batched.sync.flush(tap.taskId);
+ assert.equal(sent.length,1,"100 taps are submitted in one batch");
+ assert.equal(sent[0].count,100);
+ assert.equal(batched.sync.pending(),0,"acknowledgement removes the local count");
+ assert.equal(batchedStore.length,0,"no acknowledged draft remains");
+ for(let i=0;i<100;i++)assert(batched.sync.enqueue({...tap,taskId:"_group_"}));
+ assert.equal(sent.length,1);
+ await batched.sync.flush("_group_");
+ assert.equal(sent.length,2);assert.equal(sent[1].count,100);
+ assert.equal(batched.sync.pending(),0);
+ batched.events.pagehide?.();
  // Same browser, two live tabs: each immutable entry survives the other's save.
  const shared=storage();
  const tabA=client(shared,send),tabB=client(shared,send);

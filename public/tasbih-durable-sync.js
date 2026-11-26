@@ -9,10 +9,14 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  // preserve the original immutable per-tap journal rather than risk data.
  const pageId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
  const lockName=id=>prefix+"-draft-"+id;
- let draftLease=false,draftId=null;
- if(navigator.locks?.request){
-  navigator.locks.request(lockName(pageId),()=>{draftLease=true;return new Promise(()=>{});}).catch(()=>{draftLease=false;});
+ let draftLease=false,draftId=null,releaseLease=null,leaseRequested=false;
+ function acquireLease(){
+  if(leaseRequested||!navigator.locks?.request)return;
+  leaseRequested=true;
+  navigator.locks.request(lockName(pageId),()=>{draftLease=true;return new Promise(resolve=>{releaseLease=resolve;});})
+   .catch(()=>{}).finally(()=>{draftLease=false;releaseLease=null;leaseRequested=false;});
  }
+ acquireLease();
  const legacyKey=uid=>prefix+"-"+uid;
  const recordPrefix=uid=>prefix+"-op-"+uid+"-";
  const validId=value=>typeof value==="string"&&/^[a-f0-9]{32}$/.test(value);
@@ -206,7 +210,8 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   }
  }
  function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;lastError="";retryAfter=0;quotaFailures=0;notify();}
- window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}});
+ window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}finally{draftLease=false;releaseLease?.();}});
+ window.addEventListener("pageshow",()=>acquireLease());
  document.addEventListener("visibilitychange",()=>{if(document.hidden){try{sealOwnDraft();}catch{}}});
  window.addEventListener("online",()=>schedule(0));
  window.addEventListener("storage",event=>{

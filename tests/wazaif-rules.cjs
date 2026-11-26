@@ -540,6 +540,25 @@ const {doc,collection,query,where,limit,getDoc,getDocs,setDoc,updateDoc,deleteDo
   await assertFails(updateDoc(privateRef,{
     continueDailyGoal:0,updatedAt:serverTimestamp()
   }));
+  // Run the actual production Save implementation against the emulator rules.
+  const vm=require("node:vm");
+  const prod=fs.readFileSync("public/wazaif-counter.js","utf8")
+   .replace(/^import[\s\S]*?from ["'][^"']+["'];\s*/gm,"")
+   .replace(/^export \{[^\n]+\};\s*/gm,"")
+   .replace(/\bexport (?=async function|function)/g,"");
+  const ctx=vm.createContext({auth:{currentUser:{uid:memberUid}},db:member,doc,runTransaction,serverTimestamp,globalDay:()=>"2026-11-26"});
+  vm.runInContext(prod,ctx);
+  const receipt1="11111111111111111111111111111111",receipt2="22222222222222222222222222222222";
+  const priorPersonal=(await getDoc(privateRef)).data().total;
+  await assertSucceeds(ctx.recordPersonalWazifa(privateRef.id,100,"2026-11-24",{durationMs:10000,intervals:100,syncId:receipt1}));
+  await assertSucceeds(ctx.recordPersonalWazifa(privateRef.id,100,"2026-11-24",{durationMs:10000,intervals:100,syncId:receipt1}));
+  if((await getDoc(privateRef)).data().total!==priorPersonal+100)throw Error("Personal Save must add exactly 100 once");
+  await assertSucceeds(updateDoc(group,{active:true,countAsDurood:false,updatedAt:serverTimestamp()}));
+  const priorGroup=(await getDoc(groupStats(member))).data().total;
+  await assertSucceeds(ctx.recordGroupWazifaOnly(100,day,receipt2));
+  await assertSucceeds(ctx.recordGroupWazifaOnly(100,day,receipt2));
+  if((await getDoc(groupStats(member))).data().total!==priorGroup+100)throw Error("Group Save must add exactly 100 once");
+  console.log("Production personal/group Save 100 and receipt retry passed.");
   console.log("Fixed-to-daily continuation tests passed: opt-in, next-day counting, immutable history, safe daily goal.");
   console.log("W serial and share tests passed: per-UID W-1, migration, same-gender DI lookup, inbox accept/reject, recycled vacant serials.");
   console.log("Qaza security tests passed: per-UID date retention, Owner isolation, valid goals and paid records.");
