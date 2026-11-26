@@ -3565,7 +3565,14 @@ function refreshAttendanceLockIcons(personId,now=Date.now()){
   }
 }
 
+function attendanceQazaStart(personId,today) {
+  const start = qazaPlans[personId]?.start;
+  return typeof start==='string' && /^\d{4}-\d{2}-\d{2}$/.test(start) && start<=today && Number.isFinite(dateNumber(start)) && qazaDate(dateNumber(start))===start ? start : '';
+}
+
 function prayerMode(personId,day,prayer,today,now=Date.now()) {
+  const start = attendanceQazaStart(personId,today);
+  if (start && day<start) return 'clear';
   const saved = knownPrayerStatus(personId,day,prayer);
   if (saved) return saved;
   const phase = attendancePhase(personId,day,prayer,now,today);
@@ -3597,7 +3604,8 @@ function prayerCell(personId,day,id,label,today,now) {
 }
 
 function namazRows(personId,month,today,now) {
-  return namazCalendarDates(month,today).map(date => {
+  const start = attendanceQazaStart(personId,today);
+  return namazCalendarDates(month,today).filter(date=>!start || dateKey(date)>=start).map(date => {
     const day = dateKey(date);
     return '<tr' + (day === today ? ' class="namaz-now"' : '') + '><th scope="row"><time datetime="' + day +
       '" aria-label="' + esc(namazDateFormat.format(date)) + '"><bdi class="namaz-date-number">' + date.getDate() +
@@ -3612,9 +3620,12 @@ function namaz(person) {
   renderedNamazDay = today;
   renderedNamazPhase = namazPhaseKey(person.id,today,now);
   const currentMonth = today.slice(0,7);
+  const qazaStart = attendanceQazaStart(person.id,today);
+  const firstMonth = qazaStart ? qazaStart.slice(0,7) : '0001-01';
+  if (selectedNamazMonth && (selectedNamazMonth<firstMonth || selectedNamazMonth>currentMonth)) selectedNamazMonth = '';
   const month = selectedNamazMonth || currentMonth;
-  const qazaStart = qazaPlan(person.id).start;
-  const canJump = Boolean(qazaStart && qazaStart<=today && Number.isFinite(dateNumber(qazaStart)));
+  const canJump = Boolean(qazaStart);
+  const returnToday = canJump && month===firstMonth && month!==currentMonth;
   return '<section class="panel namaz-card ur" aria-labelledby="namaz-title">' +
     tr("<header class=\"namaz-heading\"><h1 id=\"namaz-title\">Daily Prayer Attendance</h1>", '<header class="namaz-heading"><h1 id="namaz-title">روزانہ پانچ وقت نماز کی حاضری</h1>') +
     tr("<p class=\"namaz-today-label\">Today <time datetime=\"", '<p class="namaz-today-label">آج <time datetime="') + today + '">' + esc(namazDateFormat.format(parseDay(today))) + '</time></p></header>' +
@@ -3628,11 +3639,11 @@ function namaz(person) {
         (key === selectedNamazStatus) + '"><span class="namaz-icon" aria-hidden="true">' + mode.symbol +
         '</span><span>' + mode.label + '</span></button>';
     }).join('') + '</div>' +
-    tr("<div class=\"namaz-calendar-bar attendance-calendar-bar\" dir=\"ltr\"><button class=\"button secondary\" data-action=\"namaz-month\" data-value=\"-1\" aria-label=\"Previous month\">‹</button>", '<div class="namaz-calendar-bar attendance-calendar-bar" dir="ltr"><button class="button secondary" data-action="namaz-month" data-value="-1" aria-label="پچھلا مہینہ">‹</button>') +
+    tr("<div class=\"namaz-calendar-bar attendance-calendar-bar\" dir=\"ltr\"><button class=\"button secondary\" data-action=\"namaz-month\" data-value=\"-1\" aria-label=\"Previous month\"", '<div class="namaz-calendar-bar attendance-calendar-bar" dir="ltr"><button class="button secondary" data-action="namaz-month" data-value="-1" aria-label="پچھلا مہینہ"') + (month<=firstMonth?' disabled':'') + '>‹</button>' +
     '<output id="namaz-month-label" tabindex="-1">' + esc(namazMonthFormat.format(parseDay(month + '-01'))) + '</output>' +
     tr("<button class=\"button secondary\" data-action=\"namaz-month\" data-value=\"1\" aria-label=\"Next month\"", '<button class="button secondary" data-action="namaz-month" data-value="1" aria-label="اگلا مہینہ"') +
     (month === currentMonth ? ' disabled' : '') + '>›</button>' +
-    '<button type="button" class="button secondary qaza-start-jump" data-action="namaz-qaza-start"'+(canJump?'':' disabled')+'><span>'+tr('Qaza start','قضا کا آغاز')+'</span><bdi>'+(canJump?esc(qazaDateFormat.format(new Date(qazaStart+'T00:00:00Z'))):'—')+'</bdi></button></div>' +
+    '<button type="button" class="button secondary qaza-start-jump" data-action="namaz-qaza-start"'+(canJump?'':' disabled')+'><span>'+(returnToday?tr('Today','آج کی تاریخ'):tr('Qaza start','قضا کا آغاز'))+'</span><bdi>'+(canJump?esc(qazaDateFormat.format(new Date((returnToday?today:qazaStart)+'T00:00:00Z'))):'—')+'</bdi></button></div>' +
     '<p id="namaz-feedback" class="feedback namaz-feedback" role="status"></p>' +
     tr("<table class=\"namaz-table\"><caption class=\"visually-hidden\">Attendance</caption>", '<table class="namaz-table"><caption class="visually-hidden">روزانہ نماز کی حاضری</caption>') +
     tr("<colgroup><col class=\"namaz-date-col\"><col span=\"5\"></colgroup><thead><tr><th scope=\"col\">Date</th>", '<colgroup><col class="namaz-date-col"><col span="5"></colgroup><thead><tr><th scope="col">تاریخ</th>') +
@@ -3644,8 +3655,9 @@ function namaz(person) {
 function setPrayerAttendance(personId,day,prayer,status,today=prayerDate(personId),now=Date.now()) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today || dateKey(parseDay(day)) !== day ||
       !prayers.some(([id]) => id === prayer) || !modeButtons.includes(status)) return false;
+  const start = attendanceQazaStart(personId,today);
+  if (start && day<start) return false;
   // Attendance records what the member reports; no prayer-time gate.
-  // Only future/invalid dates remain disallowed.
   const paid=qazaPlans[personId]?.done?.[prayer];
   if ((status==='clear'||status==='jamat'||status==='solo')&&paid?.[day]){
     delete paid[day];
@@ -3675,21 +3687,25 @@ function handleNamazAction(action,button,value) {
     return true;
   }
   if (action === 'namaz-qaza-start' && namazView === 'attendance') {
-    const start = qazaPlan(currentUserId).start;
     const today = prayerDate(currentUserId);
-    if (!start || start>today || !Number.isFinite(dateNumber(start))) return true;
+    const start = attendanceQazaStart(currentUserId,today);
+    if (!start) return true;
     const target = start.slice(0,7);
-    selectedNamazMonth = target===today.slice(0,7) ? '' : target;
+    selectedNamazMonth = target===today.slice(0,7) || selectedNamazMonth===target ? '' : target;
     render({keepScroll:true});
     document.getElementById('namaz-month-label')?.focus({preventScroll:true});
     return true;
   }
   if (action === 'namaz-month') {
-    const current = prayerDate(currentUserId).slice(0,7);
+    if (!['-1','1'].includes(value)) return true;
+    const today = prayerDate(currentUserId);
+    const current = today.slice(0,7);
+    const start = attendanceQazaStart(currentUserId,today);
+    const first = start ? start.slice(0,7) : '0001-01';
     const date = parseDay((selectedNamazMonth || current) + '-01');
     date.setMonth(date.getMonth() + Number(value));
     const target = dateKey(date).slice(0,7);
-    if (target > current || target < '0001-01') return true;
+    if (target > current || target < first) return true;
     selectedNamazMonth = target === current ? '' : target;
     render({keepScroll:true});
     const arrow = app.querySelector('[data-action="namaz-month"][data-value="' + value + '"]');
