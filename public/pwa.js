@@ -1,4 +1,4 @@
-const RELEASE="dashboard-original-blue-cards-20261126-v19";
+const RELEASE="dashboard-centered-flat-total-20261126-v20";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

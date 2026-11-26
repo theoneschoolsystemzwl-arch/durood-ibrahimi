@@ -353,3 +353,15 @@
 
 /* Flat gold numeric total; retain the original separate banner and three blue cards. */
 :root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card #global-total{color:#ffda64!important;-webkit-text-fill-color:#ffda64!important;text-shadow:none!important;filter:none!important;box-shadow:none!important;background:none!important;font-size:clamp(3rem,13vw,6rem);line-height:1.1;direction:ltr;unicode-bidi:isolate;}
+
+/* Compact three-column summary; keep the original blue cards below untouched. */
+:root[data-theme] .dashboard-home .boxed-headline.dashboard-group-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:auto;direction:ltr;align-items:center;gap:4px;padding:8px;min-height:100px;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy{grid-column:3;grid-row:1;min-width:0;direction:rtl;text-align:right;display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy h1{box-sizing:border-box;min-width:0;max-width:100%;margin:0;padding:1px 4px;font-size:clamp(.78rem,3vw,1.4rem);line-height:1.5;text-align:right;overflow-wrap:anywhere;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy p{width:100%;margin:0;text-align:right;font-size:clamp(.69rem,2.5vw,1rem);overflow-wrap:anywhere;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy :is(h1,p,[data-dashboard-group-title]){color:#ffda64!important;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card{grid-column:2;grid-row:1;display:flex;flex-direction:column;align-items:center;justify-content:center;align-self:stretch;min-width:0;min-height:0;margin:0;padding:0;gap:3px;background:transparent;border:0;border-radius:0;box-shadow:none;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card h2{width:100%;max-width:100%;min-width:0;margin:0;padding:0;line-height:1.5;font-size:clamp(.66rem,2.5vw,1rem);color:#fff1bc!important;text-align:center;background:none;border:0;box-shadow:none;white-space:normal;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{font:800 clamp(2rem,12vw,5rem)/1.05 system-ui,sans-serif;max-width:100%;min-width:0;overflow-wrap:anywhere;text-align:center;direction:ltr;unicode-bidi:isolate;color:#ffda64!important;-webkit-text-fill-color:#ffda64!important;text-shadow:none!important;filter:none!important;box-shadow:none!important;transform:none!important;background:none!important;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda{grid-column:1;grid-row:1;min-width:0;width:100%;display:flex;align-items:center;justify-content:center;}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda-icon{display:block;width:100%;max-width:110px;height:auto;}
