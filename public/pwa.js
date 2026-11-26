@@ -10,7 +10,10 @@ function acceptRefresh(){
 window.addEventListener("durood:refresh-accepted",acceptRefresh);
 // A cache-busted navigation came from an explicit refresh. If a stale shell
 // survived it, do not block the dashboard with the same notice again.
-const refreshed=new URL(location.href).searchParams.has("_refresh");
+let refreshed=new URL(location.href).searchParams.has("_refresh");
+if(refreshed){
+ try{const clean=new URL(location.href);clean.searchParams.delete("_refresh");history.replaceState(history.state,"",clean.href);}catch{}
+}
 async function checkRelease(){
  if(checking||navigator.onLine===false)return;
  checking=true;
@@ -19,9 +22,9 @@ async function checkRelease(){
   if(!res.ok)return;
   const data=await res.json();
   if(typeof data.version!=="string"||!data.version)return;
-  if(data.version===RELEASE){hideUpdate();offeredVersion=null;prompted=false;return;}
+  if(data.version===RELEASE){refreshed=false;hideUpdate();offeredVersion=null;prompted=false;return;}
   if(attemptedRelease()===data.version||prompted)return;
-  if(refreshed){markAttempt(data.version);return;}
+  if(refreshed){refreshed=false;markAttempt(data.version);return;}
   prompted=true;offeredVersion=data.version;
   const button=document.createElement("button");updateButton=button;
   button.type="button";button.textContent="نئی اپڈیٹ دستیاب ہے — ریفریش کریں";
