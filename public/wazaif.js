@@ -529,14 +529,15 @@ function groupSessionInfo(g){
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
  const stats=state.groupMember||{},today=groupReadingDay();
- const todayCount=stats.day===today?Number(stats.today||0):0;
+ const todayCount=ownGroupDay(today);
  const all=Number(stats.total||0);
+ const remaining=Math.max(0,memberGroupDailyGoal(g,today)-todayCount);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(g.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
- compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا مجموعی شمار",all)+'</div>'+groupSessionInfo(g)+
+ compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا باقی ہدف",remaining)+compactCount("میرا مجموعی شمار",all)+'</div>'+groupSessionInfo(g)+
  arabicOrPdf(g.arabic,"group")+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  '<div class="wz-actions">'+
