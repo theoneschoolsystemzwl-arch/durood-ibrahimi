@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-flat-side-total-20261126-v12">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-merged-group-total-20261126-v13">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2709,11 +2709,12 @@ function overview() {
    '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
    '<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>'+'</div>'+
-   boxedHeading(ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"),
-     tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
-   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
+   '<header class="headline boxed-headline dashboard-group-summary"><div class="dashboard-group-copy"><h1>'+
+     (ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"))+'</h1>'+
+     ur(tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+'</div>'+
    '<section class="recitation-banner all-time-durood-card"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
-   '</h2><strong id="global-total" dir="ltr">'+dashboardTotalText()+'</strong></section>'+
+   '</h2><strong id="global-total" dir="ltr">'+dashboardTotalText()+'</strong></section></header>'+
+   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
    '<div class="recitation-periods" id="dashboard-period-cards">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Dashboard accounting from 1 November 2026; week starts Monday. Earlier records are preserved.","ڈیش بورڈ کا حساب یکم نومبر 2026 سے؛ ہفتہ پیر سے شروع۔ پرانا ریکارڈ محفوظ ہے۔")+'</p>'+

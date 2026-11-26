@@ -375,3 +375,31 @@
 @media(max-width:420px){
  :root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card{min-height:64px}
 }
+
+/* Dashboard group title and dated total share one card. */
+:root[data-theme] .dashboard-home .boxed-headline.dashboard-group-summary{
+ display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+ direction:ltr;align-items:center;gap:9px;padding:12px;min-height:103px;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy{
+ grid-column:2;grid-row:1;min-width:0;direction:rtl;text-align:right;
+ display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy h1{
+ box-sizing:border-box;min-width:0;max-width:100%;margin:0;
+ padding:1px 8px;font-size:clamp(1rem,4vw,1.7rem);text-align:right;align-self:flex-start;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy p{
+ width:100%;margin:0;text-align:right;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card{
+ grid-column:1;grid-row:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ align-self:stretch;min-height:0;min-width:0;margin:0;padding:4px;
+ background:transparent;border:0;border-radius:0;box-shadow:none;gap:3px;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card h2{
+ width:100%;font-size:clamp(.72rem,2.7vw,1rem);color:#fff1bc!important;text-align:center;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
+ font-size:clamp(2.7rem,10vw,4.4rem);line-height:1.08;text-shadow:none!important;
+}
