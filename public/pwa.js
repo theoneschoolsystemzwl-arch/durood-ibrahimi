@@ -1,4 +1,4 @@
-const RELEASE="period-count-layout-20261126-v39";
+const RELEASE="large-reading-small-goal-20261126-v40";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

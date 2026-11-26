@@ -407,7 +407,8 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-copy strong[data-period]{color:#ff777f!important;-webkit-text-fill-color:#ff777f!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-copy strong[data-period]{color:#6effa0!important;-webkit-text-fill-color:#6effa0!important;}
 
-/* Double the centered white target; keep the smaller actual count at the physical lower right. */
-:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{font-size:clamp(2rem,8.6vw,3.5rem);line-height:1.1;max-width:100%;overflow-wrap:anywhere;}
-:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy{align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr;}
-:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy strong[data-period]{text-align:right;}
+/* Large actual reading centered; small white goal at the physical lower right. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy{grid-row:1;grid-column:1;align-items:center;justify-content:center;align-self:center;text-align:center;direction:ltr;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy strong[data-period]{font:800 clamp(2rem,8.6vw,3.5rem)/1.1 system-ui,sans-serif;text-align:center;max-width:100%;overflow-wrap:anywhere;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal{grid-row:2;grid-column:1;align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{font:700 clamp(.72rem,3vw,1.15rem)/1.2 system-ui,sans-serif;color:#e0f5ec!important;-webkit-text-fill-color:#e0f5ec!important;}

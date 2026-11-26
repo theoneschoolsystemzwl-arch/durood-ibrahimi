@@ -535,6 +535,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(compare(221,goal(null,undefined)),"unknown");
  assert.equal(compare(222,goal(221,999)),"complete");
  const css=fs.readFileSync("public/dashboard-reference.css","utf8");
- assert(css.includes("font-size:clamp(2rem,8.6vw,3.5rem)"));
- assert(css.includes("align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr"));
+ assert(css.includes(".dashboard-period-copy strong[data-period]{font:800 clamp(2rem,8.6vw,3.5rem)"));
+ assert(css.includes(".dashboard-period-numbers .dashboard-period-goal{grid-row:2;grid-column:1;align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr"));
+ assert(css.includes(".dashboard-period-numbers .dashboard-period-goal bdi{font:700 clamp(.72rem,3vw,1.15rem)"));
 }
