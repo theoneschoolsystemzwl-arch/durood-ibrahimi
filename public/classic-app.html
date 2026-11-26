@@ -4116,7 +4116,9 @@ function handleTimingAction(action,value) {
 let qazaDateFormat = new Intl.DateTimeFormat(locale(),{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'});
 let qazaShortFormat = new Intl.DateTimeFormat(locale(),{timeZone:'UTC',day:'numeric',month:'short'});
 let qazaMonthFormat = new Intl.DateTimeFormat(locale(),{timeZone:'UTC',month:'long',year:'numeric'});
-let qazaMonth = '';
+let qazaMonth = ''; // explicit month navigation only
+let qazaDisplayedMonth = '';
+let qazaAdvanceMonth = '';
 let qazaMode = 'made';
 let qazaEditing = false;
 let qazaDateDraft = null;
@@ -4187,6 +4189,8 @@ function qazaStartHold(prayer,day) {
 
 function resetQazaView() {
   qazaMonth = '';
+  qazaDisplayedMonth = '';
+  qazaAdvanceMonth = '';
   qazaMode = 'made';
   qazaEditing = false;
   qazaDateDraft = null;
@@ -4427,13 +4431,41 @@ function qazaDayButton(prayer,label,day,completed,kind='month',early=false) {
     '</button>';
 }
 
-function qazaCalendar(id,plan,now,today) {
+function qazaMonthComplete(id,plan,month,today) {
+  // Only advance past a fully elapsed month, never into future dates.
+  if(month>=qazaMonthStart(today))return false;
+  const start=Math.max(dateNumber(plan.start),dateNumber(month));
+  const end=dateNumber(shiftQazaMonth(month,1))-1;
+  for(let n=start;n<=end;n++){
+    const day=qazaDate(n);
+    for(const [prayer] of prayers){
+      const status=knownPrayerStatus(id,day,prayer);
+      if(status!=='made'&&!alreadyOnTime(status))return false;
+    }
+  }
+  return true;
+}
+
+function qazaCalendar(id,plan,now,today,byPrayer) {
   const from = qazaMonthStart(plan.start);
   const to = qazaMonthStart(today);
-  const month = qazaMonth && qazaMonth>=from && qazaMonth<=to ? qazaMonth : from;
+  const hold = qazaActiveHold();
+  // Keep the just-completed prayer visible for its existing 15-second hold.
+  if(!hold&&qazaAdvanceMonth){
+    if(qazaMonth===qazaAdvanceMonth){
+      while(qazaMonth>=from&&qazaMonth<to&&qazaMonthComplete(id,plan,qazaMonth,today))
+        qazaMonth=shiftQazaMonth(qazaMonth,1);
+    }
+    qazaAdvanceMonth='';
+  }
+  const nextDays=Object.values(byPrayer).map(row=>row.next).filter(Boolean).sort();
+  const oldest=nextDays.length?qazaMonthStart(nextDays[0]):to;
+  const heldMonth=hold?qazaMonthStart(hold.day):'';
+  const automatic=heldMonth>=from&&heldMonth<=to?heldMonth:oldest;
+  const month = qazaMonth && qazaMonth>=from && qazaMonth<=to ? qazaMonth : automatic;
+  qazaDisplayedMonth=month;
   const start = Math.max(dateNumber(plan.start),dateNumber(month));
   const end = Math.min(dateNumber(today),dateNumber(shiftQazaMonth(month,1))-1);
-  const hold = qazaActiveHold();
   return tr("<section class=\"qaza-section qaza-calendar\"><h2>Make-up calendar</h2><div class=\"namaz-calendar-bar\" dir=\"ltr\">", '<section class="qaza-section qaza-calendar"><h2>قضا کیلنڈر</h2><div class="namaz-calendar-bar" dir="ltr">') +
     tr("<button class=\"button secondary\" data-action=\"qaza-month\" data-value=\"-1\" aria-label=\"Previous make-up month\"", '<button class="button secondary" data-action="qaza-month" data-value="-1" aria-label="پچھلا قضا مہینہ"')+(month===from?' disabled':'')+'>‹</button>' +
     '<output id="qaza-month-label" tabindex="-1">'+esc(qazaMonthFormat.format(new Date(month+'T00:00:00Z')))+'</output>'+
@@ -4493,7 +4525,7 @@ function qazaPage(person) {
         qazaDayButton(id,label,hold?.prayer===id && knownPrayerStatus(person.id,hold.day,id)==='made'?hold.day:byPrayer[id].next,
           hold?.prayer===id && knownPrayerStatus(person.id,hold.day,id)==='made','next') :
         tr("<p class=\"qaza-next-empty\">None remaining</p>", '<p class="qaza-next-empty">کوئی باقی نہیں</p>'))+'</div>').join('')+
-    '</div></section>'+qazaCalendar(person.id,plan,now,today)+'</section>';
+    '</div></section>'+qazaCalendar(person.id,plan,now,today,byPrayer)+'</section>';
 }
 
 function saveQazaStart(form,data) {
@@ -4510,7 +4542,9 @@ function saveQazaStart(form,data) {
   qazaLocalRevision++;
   qazaEditing = false;
   qazaDateDraft = null;
-  qazaMonth = qazaMonthStart(start);
+  qazaMonth = '';
+  qazaDisplayedMonth = '';
+  qazaAdvanceMonth = '';
   const saved = saveOfflineState();
   render({keepScroll:true});
   setFeedback('qaza-date-feedback',saved?tr("Date saved on device. Syncing to Firebase…", 'تاریخ موبائل پر محفوظ ہے؛ Firebase میں محفوظ ہو رہی ہے…'):tr("This session cannot persist your date.", 'اس نشست میں تاریخ محفوظ نہیں ہو سکی۔'),saved);
@@ -4565,9 +4599,10 @@ function handleQazaAction(action,button,value) {
     for (const choice of app.querySelectorAll('[data-action="qaza-mode"]')) choice.setAttribute('aria-pressed',String(choice===button));
   } else if (action==='qaza-month' && ['-1','1'].includes(value)) {
     const first = qazaMonthStart(plan.start);
-    const target = shiftQazaMonth(qazaMonth||first,Number(value));
+    const target = shiftQazaMonth(qazaDisplayedMonth||first,Number(value));
     if (target<first || target>qazaMonthStart(today)) return true;
     qazaMonth = target;
+    qazaAdvanceMonth = '';
     render({keepScroll:true});
     const arrow = app.querySelector('[data-action="qaza-month"][data-value="'+value+'"]');
     (arrow?.disabled?document.getElementById('qaza-month-label'):arrow)?.focus({preventScroll:true});
@@ -4595,7 +4630,10 @@ function handleQazaAction(action,button,value) {
     const saved = saveOfflineState();
     const label = prayers.find(([id])=>id===value)[1];
     // Only successfully marked make-up prayers start the 15-second hold.
-    if(qazaMode==='made') qazaStartHold(value,day);
+    if(qazaMode==='made'){
+      if(qazaMonth===qazaMonthStart(day))qazaAdvanceMonth=qazaMonth;
+      qazaStartHold(value,day);
+    }
     render({keepScroll:true});
     if(qazaMode==='made')app.querySelector('#qaza-wait-status')?.focus({preventScroll:true});
     else {
