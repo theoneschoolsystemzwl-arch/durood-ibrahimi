@@ -474,3 +474,21 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  vm.runInContext('goalMembers.get("b").daily=[{date:"2026-11-23",goal:50}];publishGoals();',ctx);
  assert.equal(reports[1][1].length,2);
 }
+
+ // Each card compares its own confirmed period count and accrued goal.
+ {
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const css=fs.readFileSync("public/dashboard-reference.css","utf8");
+ const a=classic.indexOf("function periodGoalStatus("),b=classic.indexOf("function periodGoalLabel(",a);
+ const ctx=vm.createContext({Number});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const compare=vm.runInContext("periodGoalStatus",ctx);
+ assert.equal(compare(99,100),"short");
+ assert.equal(compare(100,100),"complete");
+ assert.equal(compare(101,100),"complete");
+ assert.equal(compare(100,null),"unknown");
+ const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
+ assert(markup.includes("dashboard-period-numbers"));
+ assert(markup.indexOf('class="dashboard-period-copy"')<markup.indexOf('class="dashboard-period-goal"'));
+ assert(css.includes(".period-short strong[data-period]")&&css.includes(".period-complete strong[data-period]"));
+ }
