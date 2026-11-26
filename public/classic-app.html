@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-fast-rainbow-20261126-v5">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-continuous-goal-fireworks-20261126-v6">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2607,18 +2607,9 @@ function metricPeriodCards(){
 }
 // Local visual welcome on authenticated dashboard opening (including refresh).
 // No Firebase writes; routine data snapshots never restart the animation.
-let fireworkScope="",periodFireworkStates=new Map(),periodFireworkUntil=new Map(),profileFireworkUntil=0;
-let celebrationUid="",nextProfileGreeting=0,greetingUntil=0,loginCelebrateUntil=0,loginCelebrateSeen=new Set();
+let profileFireworkUntil=0;
+let celebrationUid="",nextProfileGreeting=0,greetingUntil=0;
 const fireworkDuration=60000,greetingDuration=30000,greetingInterval=3600000;
-function fireworkTransition(previous,current,positiveGoal){
- return previous==="short"&&current==="complete"&&positiveGoal;
-}
-function fireworkPeriodId(key,day){
- if(key==="today")return day;
- if(key==="week")return targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
- if(key==="month")return day.slice(0,7);
- const p=annualTargetPeriod(dashboardGroupSettings,day);return p?.start||"";
-}
 function mountFireworks(host,until,profile=false){
  if(!host||until<=Date.now())return;
  const existing=host.querySelector(":scope > .dashboard-fireworks");
@@ -2639,10 +2630,10 @@ function mountFireworks(host,until,profile=false){
    layer.append(spark);
   }
  }
- host.append(layer);setTimeout(()=>layer.remove(),Math.max(0,until-Date.now()));
+ host.append(layer);if(Number.isFinite(until))setTimeout(()=>layer.remove(),Math.max(0,until-Date.now()));
 }
 function resetProfileCelebration(){
- celebrationUid="";nextProfileGreeting=0;greetingUntil=0;profileFireworkUntil=0;loginCelebrateUntil=0;loginCelebrateSeen.clear();
+ celebrationUid="";nextProfileGreeting=0;greetingUntil=0;profileFireworkUntil=0;
 }
 function greetProfile(now,uid){
  profileFireworkUntil=now+fireworkDuration;greetingUntil=now+greetingDuration;nextProfileGreeting=now+greetingInterval;
@@ -2653,8 +2644,6 @@ function welcomeAuthenticatedDashboard(person,now){
  if(celebrationUid===uid)return false;
  resetProfileCelebration();
  celebrationUid=uid;
- // Dated counts can load after the profile; give the initial snapshots time.
- loginCelebrateUntil=now+5*60000;
  greetProfile(now,uid);
  return true;
 }
@@ -2680,25 +2669,13 @@ function syncProfileGreeting(person,now){
 }
 function syncDashboardFireworks(){
  const person=currentUser();if(!person)return;
- const scope=(person.uid||person.id)+":"+String(window.duroodCurrentSide||person.gender||"");
- if(scope!==fireworkScope){fireworkScope=scope;periodFireworkStates.clear();periodFireworkUntil.clear();}
- const day=globalDateKey(),now=Date.now();
+ const now=Date.now();
  syncProfileGreeting(person,now);
  const cards=document.getElementById("dashboard-period-cards");
  if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
-  const key=card.dataset.celebratePeriod,id=fireworkPeriodId(key,day);
-  const status=card.classList.contains("period-complete")?"complete":card.classList.contains("period-short")?"short":"unknown";
-  const prev=periodFireworkStates.get(key),positive=card.dataset.positiveGoal==="1";
-  if(id&&status!=="unknown"){
-   const loginKey=scope+":"+key+":"+id;
-   const atLogin=loginCelebrateUntil>now&&!loginCelebrateSeen.has(loginKey);
-   if(atLogin)loginCelebrateSeen.add(loginKey);
-   if((atLogin&&status==="complete"&&positive)||(prev?.id===id&&fireworkTransition(prev.status,status,positive)))periodFireworkUntil.set(key,{id,until:now+fireworkDuration});
-   periodFireworkStates.set(key,{id,status});
-  }
-  const running=periodFireworkUntil.get(key);
-  if(running?.id===id&&running.until>now&&status==="complete"&&positive)mountFireworks(card,running.until);
-  else if(running){periodFireworkUntil.delete(key);card.querySelector(":scope > .dashboard-fireworks")?.remove();}
+  // Celebrate continuously until the positive target is no longer reached.
+  if(card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1")mountFireworks(card,Infinity);
+  else card.querySelector(":scope > .dashboard-fireworks")?.remove();
  }
 }
 window.addEventListener("message",event=>{
@@ -4797,7 +4774,7 @@ function render({keepScroll = false} = {}) {
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
   if(person)syncDashboardFireworks();
-  else {fireworkScope="";periodFireworkStates.clear();periodFireworkUntil.clear();resetProfileCelebration();}
+  else {resetProfileCelebration();}
   if (person && section === 'tasbih') window.duroodWazaif?.render?.();
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();
