@@ -401,5 +401,5 @@
  width:100%;font-size:clamp(.72rem,2.7vw,1rem);color:#fff1bc!important;text-align:center;
 }
 :root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
- font-size:clamp(2.7rem,10vw,4.4rem);line-height:1.08;text-shadow:none!important;
+ font-size:clamp(5.4rem,20vw,8.8rem);line-height:1.08;text-shadow:none!important;
 }
