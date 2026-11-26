@@ -406,7 +406,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const a=classic.indexOf("function latestReaderGoal("),b=classic.indexOf("window.duroodMemberGroupTargets=",a);
  vm.runInContext(classic.slice(a,b),ctx);
  const c=classic.indexOf("function runningDashboardTargets("),d=classic.indexOf("function dashboardPeriodCount(",c);
- vm.runInContext(classic.slice(c,d),ctx);
+ vm.runInContext(classic.match(/const dashboardCountStart="[^"]+";/)[0]+classic.slice(c,d),ctx);
  const running=vm.runInContext("runningDashboardTargets",ctx);
  const row=(joined,goal=100)=>({joined,active:true,daily:[{date:joined,goal}]});
  const cfg={annualStartDate:"2026-11-23",annualEndDate:"2027-08-16"};

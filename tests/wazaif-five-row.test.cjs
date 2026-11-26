@@ -27,17 +27,17 @@ assert.equal(sandbox.compactTasbihClock(6259),"6.2");
 const record={day,today:3000,dailyLedger:{
  [day]:{count:3000,tasbihCount:2000,manualCount:1000,durationMs:100000,intervals:10}
 }};
-sandbox.datedProgress=()=>[{count:3000,previousDue:0,previousCredit:0}];
+sandbox.datedProgress=()=>[{day,count:3000,previousDue:0,previousCredit:0}];
 let d=sandbox.dailyFigures(false,{kind:"daily",goal:4000,startDate:day},record);
 assert.equal(d.goal,4000);assert.equal(d.tasbih,2000);
 assert.equal(d.manual,1000);assert.equal(d.read,3000);assert.equal(d.pending,1000);
 assert.equal((sandbox.fiveFigureMarkup(false,{goal:4000},record).match(/class="wz-five-cell /g)||[]).length,0);
 assert(!sandbox.fiveFigureMarkup(false,{goal:4000},record).includes("آج کا باقی ہدف پورا کریں"),"redundant today summary prompt is gone");
-sandbox.datedProgress=()=>[{count:4000,previousDue:0,previousCredit:0}];
+sandbox.datedProgress=()=>[{day,count:4000,previousDue:0,previousCredit:0}];
 record.today=4000;record.dailyLedger[day].count=4000;record.dailyLedger[day].tasbihCount=3000;
 d=sandbox.dailyFigures(false,{goal:4000},record);
 assert.equal(d.pending,0);
-sandbox.datedProgress=()=>[{count:3000,previousDue:2000,previousCredit:0}];
+sandbox.datedProgress=()=>[{day,count:3000,previousDue:2000,previousCredit:0}];
 record.today=3000;record.dailyLedger[day].count=3000;record.dailyLedger[day].tasbihCount=2000;
 d=sandbox.dailyFigures(false,{goal:4000},record);
 assert.equal(d.previous,2000);assert.equal(d.pending,3000);
@@ -55,7 +55,7 @@ assert(src.includes('wzSync.enqueue({taskId:state.mode'),"tap is queued in durab
 
 const todayEntry={count:587,tasbihCount:15,manualCount:572,durationMs:150000,intervals:14};
 const dayRecord={day,today:587,dailyLedger:{[day]:todayEntry}};
-sandbox.datedProgress=()=>[{count:587,previousDue:0,previousCredit:0}];
+sandbox.datedProgress=()=>[{day,count:587,previousDue:0,previousCredit:0}];
 const figures=sandbox.dailyFigures(false,{kind:"daily",goal:4000,startDate:day},dayRecord);
 assert.equal(figures.tasbih,15,"Tasbih for 23 November must stay distinct and green");
 assert.equal(figures.manual,572,"572 manually entered recitations should appear in yellow");
@@ -73,7 +73,7 @@ assert.equal(legacyFigures.read,587);
 assert.equal(sandbox.readingPace(dayRecord),10000,"15 recitations in 150 seconds = 10 sec/zikr");
 assert.equal(sandbox.readingTimes(dayRecord).manual,5720000);
 assert.equal(sandbox.readingPace({dailyLedger:{[day]:{count:1,tasbihCount:1,intervals:1,durationMs:10000}}}),10000);
-sandbox.datedProgress=()=>[{count:4000,previousDue:0,previousCredit:0}];
+sandbox.datedProgress=()=>[{day,count:4000,previousDue:0,previousCredit:0}];
 dayRecord.today=4000;
 dayRecord.dailyLedger[day].count=4000;dayRecord.dailyLedger[day].manualCount=3985;
 const complete=sandbox.fiveFigureMarkup(false,{kind:"daily",goal:4000,startDate:day},dayRecord);
@@ -86,7 +86,8 @@ assert(src.includes("<small>SEC</small>")&&!src.includes("<small>SEC سیکنڈ<
 assert(src.includes("value/(1000*state.tapQueue)"),"speed uses total elapsed divided by zikr count");
 assert(src.includes('durationMs,intervals:isToday?1:0'),"each tap records an interval and sync metadata");
 assert(src.includes('syncId:op.id'),"remote retries must use idempotent receipt");
-assert(src.includes('Date.now()-state.lastTapAt>=300000'),"five-minute inactivity triggers Save");
+assert(src.includes('Date.now()-state.lastTapAt>=300000'),"five-minute inactivity pauses the clock");
+assert(!src.includes("resetWzSession(true)"),"idle does not clear or save the dial");
 assert(css.includes("wz-ledger-green strong")&&css.includes("#10db78"));
 assert(css.includes("wz-ledger-yellow strong")&&css.includes("#ffde3c"));
 assert(css.includes("wz-ledger-pending strong")&&css.includes("#ff5b66"));
@@ -137,7 +138,7 @@ for(const file of ["android-online/src/app/duroodibrahimi/online/MainActivity.ja
  {
   const a=src.indexOf("function tap(){"),b=src.indexOf("async function drain",a);
   const tapSource=src.slice(a,b);
-  assert(tapSource.indexOf("state.tapQueue++")<tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()"));
+  assert(tapSource.indexOf("state.tapQueue=wzSync.pending")<tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()"));
   assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("playWazifaFeedback()"));
   assert(tapSource.indexOf("lastTapMotorOutcome=requestTapMotor()")<tapSource.indexOf("persistDraft()"));
   assert(css.includes("#wazaif-root #wz-dial{touch-action:pan-y"),"dial permits vertical scroll");
