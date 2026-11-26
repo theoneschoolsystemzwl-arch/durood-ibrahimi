@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=period-visible-goal-colors-20261126-v42"></script>
+<script defer src="./pull-refresh.js?v=one-hour-period-fireworks-20261126-v43"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=period-visible-goal-colors-20261126-v42">
+<link rel="stylesheet" href="./dashboard-reference.css?v=one-hour-period-fireworks-20261126-v43">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2658,23 +2658,42 @@ function metricPeriodCards(){
 let profileFireworkUntil=0;
 let celebrationUid="",nextProfileGreeting=0,greetingUntil=0;
 const fireworkDuration=60000,greetingDuration=30000,greetingInterval=3600000;
+const periodFireworkDuration=3600000,periodFireworkMemory=new Map();
+function periodFireworkState(previous,complete,now){
+ if(complete===false)return null;
+ if(complete!==true)return previous??null;
+ return previous??{until:now+periodFireworkDuration};
+}
+function periodFireworkKey(uid,side,period,day){
+ const start=period==='today'?day:period==='week'?targetAddDays(day,-((new Date(day+'T00:00:00Z').getUTCDay()+6)%7)):period==='month'?day.slice(0,7):annualTargetPeriod(dashboardGroupSettings,day)?.start||day.slice(0,4);
+ return 'durood-period-fireworks-v1:'+uid+':'+side+':'+period+':'+start;
+}
+function updatePeriodFirework(key,complete,now){
+ let previous=periodFireworkMemory.get(key)||null;
+ try{const saved=localStorage.getItem(key);if(saved){const parsed=JSON.parse(saved);if(Number.isFinite(parsed?.until))previous=parsed;}}catch{}
+ const state=periodFireworkState(previous,complete,now);
+ if(state){periodFireworkMemory.set(key,state);if(!previous){try{localStorage.setItem(key,JSON.stringify(state));}catch{}}}
+ else{periodFireworkMemory.delete(key);if(previous){try{localStorage.removeItem(key);}catch{}}}
+ return state?.until||0;
+}
 function mountFireworks(host,until,profile=false){
  if(!host||until<=Date.now())return;
  const existing=host.querySelector(":scope > .dashboard-fireworks");
  if(existing&&Number(existing.dataset.until)===until)return;
  if(existing)existing.remove();
- const layer=document.createElement("span");layer.className="dashboard-fireworks"+(profile?" profile-fireworks":"");layer.dataset.until=String(until);layer.setAttribute("aria-hidden","true");
+ const layer=document.createElement("span");layer.className="dashboard-fireworks"+(profile?" profile-fireworks":" period-fireworks");layer.dataset.until=String(until);layer.setAttribute("aria-hidden","true");
  const colors=["#ffc53d","#4bff89","#ff536f","#55bcff","#fff3b0","#d079ff"];
- const elapsed=Math.max(0,fireworkDuration-(until-Date.now()));
- for(let burst=0;burst<3;burst++){
-  for(let i=0;i<12;i++){
-   const spark=document.createElement("i"),angle=i*Math.PI/6+burst*.24,dist=(profile?45:27)+(i%3)*(profile?17:11);
+ const elapsed=Math.max(0,(profile?fireworkDuration:periodFireworkDuration)-(until-Date.now()));
+ const bursts=profile?3:5,particles=profile?12:18,cycle=profile?2450:1250;
+ for(let burst=0;burst<bursts;burst++){
+  for(let i=0;i<particles;i++){
+   const spark=document.createElement("i"),angle=i*2*Math.PI/particles+burst*.24,dist=(profile?45:24)+(i%3)*(profile?17:12);
    spark.style.setProperty("--spark-x",(Math.cos(angle)*dist).toFixed(1)+"px");
    spark.style.setProperty("--spark-y",(Math.sin(angle)*dist).toFixed(1)+"px");
    spark.style.setProperty("--spark-color",colors[(i+burst*2)%colors.length]);
-   spark.style.setProperty("--spark-left",["28%","72%","50%"][burst]);
-   spark.style.setProperty("--spark-top",profile?["38%","47%","58%"][burst]:["35%","63%","45%"][burst]);
-   spark.style.setProperty("--spark-delay",(burst*580-elapsed)+"ms");
+   spark.style.setProperty("--spark-left",(profile?["28%","72%","50%"]:["20%","80%","50%","24%","76%"])[burst]);
+   spark.style.setProperty("--spark-top",(profile?["38%","47%","58%"]:["24%","28%","48%","76%","72%"])[burst]);
+   spark.style.setProperty("--spark-delay",(burst*(profile?580:220)-elapsed%cycle)+"ms");
    layer.append(spark);
   }
  }
@@ -2721,8 +2740,14 @@ function syncDashboardFireworks(){
  syncProfileGreeting(person,now);
  const cards=document.getElementById("dashboard-period-cards");
  if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
-  // Celebrate continuously until the positive target is no longer reached.
-  if(card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1")mountFireworks(card,Infinity);
+  const side=window.duroodCurrentSide;
+  if(!["male","female"].includes(side))continue;
+  const quality=card.dataset.goalQuality,eligible=quality==="live"||quality==="cached";
+  const complete=eligible&&card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1";
+  const short=eligible&&card.classList.contains("period-short");
+  const key=periodFireworkKey(String(person.uid||person.id),side,card.dataset.celebratePeriod,globalDateKey());
+  const until=updatePeriodFirework(key,complete?true:short?false:null,now);
+  if(complete&&until>now)mountFireworks(card,until);
   else card.querySelector(":scope > .dashboard-fireworks")?.remove();
  }
 }
@@ -5570,7 +5595,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=period-visible-goal-colors-20261126-v42";
+import "./wazaif.js?release=one-hour-period-fireworks-20261126-v43";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";

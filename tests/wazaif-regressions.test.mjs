@@ -558,3 +558,20 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(markup.includes('quality==="partial"?"≥ ":""'));
  assert(markup.includes("style=\"color:")&&markup.includes("-webkit-text-fill-color:"));
  }
+
+// Achievement fireworks run one hour, do not restart on rendering or refresh.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function periodFireworkState("),b=classic.indexOf("function periodFireworkKey(",a);
+ const ctx=vm.createContext({periodFireworkDuration:3600000});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const state=vm.runInContext("periodFireworkState",ctx);
+ const first=state(null,true,1000);assert.equal(first.until,3601000);
+ assert.equal(state(first,true,2000).until,3601000);
+ assert.equal(state(first,true,4000000).until,3601000);
+ assert.equal(state(first,null,2000).until,3601000);
+ assert.equal(state(first,false,2000),null);
+ assert.equal(state(null,true,4000000).until,7600000);
+ assert(!classic.includes("mountFireworks(card,Infinity)"));
+ const css=fs.readFileSync("public/dashboard-reference.css","utf8");assert(css.includes("animation-duration:1250ms"));
+}

@@ -416,3 +416,7 @@
 /* Keep displayed count status authoritative across all theme styles. */
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-numbers .dashboard-period-copy strong[data-period]{color:#6effa0!important;-webkit-text-fill-color:#6effa0!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-numbers .dashboard-period-copy strong[data-period]{color:#ff777f!important;-webkit-text-fill-color:#ff777f!important;}
+
+/* Fast dense bursts stay on the achieved period card, below readable numbers. */
+.dashboard-fireworks.period-fireworks i{width:8px;height:8px;animation-duration:1250ms;box-shadow:0 0 6px 2px var(--spark-color);}
+@media(prefers-reduced-motion:reduce){.dashboard-fireworks.period-fireworks i{animation:none;opacity:.35;}}
