@@ -403,3 +403,16 @@
 :root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
  font-size:clamp(5.4rem,20vw,8.8rem);line-height:1.08;text-shadow:none!important;
 }
+
+/* Move both summary columns inward while keeping the existing flat gold count. */
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy{
+ padding-right:clamp(6px,3vw,18px);
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy h1,
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy p,
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy [data-dashboard-group-title]{
+ color:#ffda64!important;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
+ transform:translateX(clamp(4px,2vw,12px));
+}

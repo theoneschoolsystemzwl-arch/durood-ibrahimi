@@ -312,7 +312,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=dashboard-double-group-total-20261126-v14";
+  frame.src="./classic-app.html?release=dashboard-gold-group-and-android-host-20261126-v15";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.

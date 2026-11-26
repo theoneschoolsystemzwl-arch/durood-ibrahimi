@@ -1,4 +1,4 @@
-const RELEASE="dashboard-double-group-total-20261126-v14";
+const RELEASE="dashboard-gold-group-and-android-host-20261126-v15";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

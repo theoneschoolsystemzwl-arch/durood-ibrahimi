@@ -21,8 +21,8 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-  private static final String HOME="https://durood-e-ibrahimi-global-c74e0.web.app/";
-  private static final String HOST="durood-e-ibrahimi-global-c74e0.web.app";
+  private static final String HOME="https://durood-ibrahimi.pages.dev/";
+  private static final String HOST="durood-ibrahimi.pages.dev";
   private static final int FILE_PICK=4201;
   private WebView web;
   private ValueCallback<Uri[]> filePicker;
@@ -77,12 +77,13 @@ public class MainActivity extends Activity {
         return true;
       }
     });
-    // Network-first Firebase web content. Do not reload while counting tasbih.
+    // Network-first Cloudflare-hosted web content, with Firebase data unchanged. Do not reload while counting tasbih.
     if(saved==null)web.loadUrl(HOME);
     else if(web.restoreState(saved)==null)web.loadUrl(HOME);
     else {
       Uri restored=Uri.parse(web.getUrl()==null?"":web.getUrl());
       mainPageTrusted="https".equals(restored.getScheme())&&HOST.equals(restored.getHost());
+      if(!mainPageTrusted)web.loadUrl(HOME);
     }
   }
   @Override protected void onActivityResult(int request,int result,Intent data){
