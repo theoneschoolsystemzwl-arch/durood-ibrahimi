@@ -3079,9 +3079,25 @@ function priorPace(id) {
 }
 
 function registrationDate(profile){
-  const raw=profile?.createdAt??(profile&&Object.hasOwn(profile,'registrationDate')?profile.registrationDate:profile?.joined);
-  const date=raw?.toDate?.()??(Number.isFinite(raw?.seconds)?new Date(raw.seconds*1000):raw instanceof Date?raw:null);
-  return date instanceof Date&&Number.isFinite(date.getTime())?date:null;
+  // A verified parent frame can supply Dates and Firebase Timestamps from a
+  // different JS realm. instanceof Date rejects those genuine dates.
+  for(const raw of [profile?.createdAt,profile?.registrationDate,profile?.joined,profile?.pledgeAcceptedAt]){
+    if(raw==null)continue;
+    try{
+      let millis;
+      if(typeof raw.toMillis==="function")millis=raw.toMillis();
+      else if(typeof raw.toDate==="function")millis=raw.toDate()?.getTime?.();
+      else if(typeof raw.getTime==="function")millis=raw.getTime();
+      else if(Number.isFinite(raw.seconds))millis=raw.seconds*1000+(Number(raw.nanoseconds)||0)/1000000;
+      else if(typeof raw==="string"&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(raw)){
+        const day=raw.slice(0,10),parsed=new Date(day+"T00:00:00Z");
+        if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==day)continue;
+        millis=Date.parse(raw);
+      }
+      if(Number.isFinite(millis)&&millis>0&&millis<=Date.now())return new Date(millis);
+    }catch{ /* Invalid legacy field; try the next persisted date. */ }
+  }
+  return null;
 }
 function membershipDateLabel(person){
   const date=registrationDate(person);
@@ -4437,13 +4453,13 @@ function qazaTopSettings(plan,today) {
   const targetValue = qazaTargetDraft ?? (plan.target || '');
   const targetSaved = Boolean(plan.target) && Number(targetValue)===plan.target;
   return tr("<div class=\"qaza-settings\"><form id=\"qaza-date-form\"><label class=\"field\" for=\"qaza-start\">Start date</label><div class=\"qaza-save-row\">", '<div class="qaza-settings"><form id="qaza-date-form"><label class="field" for="qaza-start">قضا کی ابتدائی تاریخ</label><div class="qaza-save-row">') +
-    '<input type="date" id="qaza-start" name="start" dir="ltr" max="'+today+'" value="'+esc(dateValue)+'" required'+(locked?' disabled':'')+'>' +
+    '<input type="date" id="qaza-start" name="start" dir="ltr" min="1900-01-01" max="'+today+'" value="'+esc(dateValue)+'" required'+(locked?' disabled':'')+'>' +
     (locked?tr("<button type=\"button\" class=\"button qaza-save saved\" data-action=\"qaza-unlock\">✓ Saved</button>", '<button type="button" class="button qaza-save saved" data-action="qaza-unlock">✓ محفوظ</button>'):
     tr("<button class=\"button qaza-save editing\">Save</button>", '<button class="button qaza-save editing">محفوظ کریں</button>')) + '</div>' +
     (locked?tr("<p class=\"qaza-hint\">Tap ✓ Saved three times to change the date.</p>", '<p class="qaza-hint">تاریخ بدلنے کے لیے ✓ محفوظ پر مسلسل تین بار ٹیپ کریں۔</p>'):'') +
     '<p class="feedback" id="qaza-date-feedback" role="status"></p></form>' +
     tr("<form id=\"qaza-target-form\"><label class=\"field\" for=\"qaza-target\">Daily make-up goal</label><div class=\"qaza-save-row\">", '<form id="qaza-target-form"><label class="field" for="qaza-target">روزانہ قضا ادا کرنے کا ہدف</label><div class="qaza-save-row">') +
-    '<input type="number" id="qaza-target" name="target" dir="ltr" min="1" step="1" placeholder="50" value="'+esc(targetValue)+'" required>' +
+    '<input type="number" id="qaza-target" name="target" dir="ltr" min="1" max="1000000" step="1" placeholder="50" value="'+esc(targetValue)+'" required>' +
     '<button class="button qaza-save '+(targetSaved?'saved':'editing')+'">'+(targetSaved?tr("✓ Saved", '✓ محفوظ'):tr("Save", 'محفوظ کریں'))+'</button></div>' +
     '<p class="feedback" id="qaza-target-feedback" role="status"></p></form></div>';
 }
@@ -4567,7 +4583,7 @@ function saveQazaStart(form,data) {
   if (plan.start && !qazaEditing) return;
   const start = String(data.get('start') || '');
   const number = dateNumber(start);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isFinite(number) || qazaDate(number)!==start || start>prayerDate(currentUserId)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || start<'1900-01-01' || !Number.isFinite(number) || qazaDate(number)!==start || start>prayerDate(currentUserId)) {
     setFeedback('qaza-date-feedback',tr("Select today or an earlier date.", 'آج یا اس سے پہلے کی درست تاریخ منتخب کریں۔'));
     return;
   }
@@ -4586,7 +4602,7 @@ function saveQazaStart(form,data) {
 function saveQazaTarget(form,data) {
   if (!form.isConnected || section!=='namaz' || namazView!=='qaza' || !currentUser()) return;
   const target = Number(data.get('target'));
-  if (!Number.isSafeInteger(target) || target<1) {
+  if (!Number.isSafeInteger(target) || target<1 || target>1000000) {
     setFeedback('qaza-target-feedback',tr("Enter a positive daily target.", 'روزانہ ہدف کے لیے درست مثبت عدد درج کریں۔'));
     return;
   }
@@ -6304,11 +6320,13 @@ async function hydrate(){
   const profile=verifiedParent?{...verifiedParent}:await loadMemberProfile(user);
   // The parent has just loaded the same authenticated member document.
   // Only refresh the registration date if the verified profile lacks it.
-  if(!profile.createdAt)try{
+  if(!registrationDate(profile))try{
     const own=await getDoc(doc(db,"members",user.uid));
     if(own.exists()&&auth.currentUser?.uid===user.uid){
       profile.createdAt=own.data().createdAt??null;
       profile.pledgeAcceptedAt=own.data().pledgeAcceptedAt??null;
+      profile.registrationDate=own.data().registrationDate??profile.registrationDate;
+      profile.joined=own.data().joined??profile.joined;
     }
   }catch(error){console.warn("Membership date refresh unavailable",error?.code||error);}
   if(classicLogoutBlocked()||auth.currentUser?.uid!==user.uid)return;
