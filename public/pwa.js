@@ -1,4 +1,4 @@
-const RELEASE="dashboard-hourly-salam-fireworks-20261126-v1";
+const RELEASE="dashboard-welcome-on-open-20261126-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

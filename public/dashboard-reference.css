@@ -322,4 +322,9 @@
 .dashboard-salam{position:absolute;inset-inline:3px;top:50%;transform:translateY(-50%);z-index:8;pointer-events:none;padding:9px 10px;border:1px solid #f3d185;border-radius:13px;background:#004e3df2;color:#fff6cf;text-align:center;box-shadow:0 3px 18px #002a20a0;display:grid;gap:3px;font:700 clamp(.85rem,3.3vw,1.12rem)/1.9 var(--ur,system-ui,sans-serif);animation:durood-salam-appear 9s ease both}
 .dashboard-salam b,.dashboard-salam span{display:block;overflow-wrap:anywhere}
 @keyframes durood-salam-appear{0%{opacity:0;transform:translateY(-25%)}9%,86%{opacity:1;transform:translateY(-50%)}100%{opacity:0;transform:translateY(-65%)}}
-@media(prefers-reduced-motion:reduce){.dashboard-fireworks{display:none!important}.dashboard-salam{animation:none}}
+@media(prefers-reduced-motion:reduce){.dashboard-fireworks i{animation:none;opacity:.75;transform:translate(calc(-50% + var(--spark-x) * .75),calc(-50% + var(--spark-y) * .75))}.dashboard-salam{animation:none}}
+
+/* Only the all-time total is doubled; blue goal cards and period totals keep their sizes. */
+:root[data-theme] .dashboard-home .recitation-banner #global-total{font-size:clamp(5rem,16vw,7.1rem);line-height:1.08;max-width:100%;overflow-wrap:anywhere;text-align:center}
+:root[data-theme] .app-head .profile-card .profile-greeting{isolation:isolate;overflow:visible}
+:root[data-theme] .app-head .profile-card .dashboard-salam{z-index:12;inset-inline:0;top:50%;font-size:clamp(1rem,4vw,1.35rem);background:#004e3d;box-shadow:0 3px 18px #001b12c0}

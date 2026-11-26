@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-hourly-salam-fireworks-20261126-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-welcome-on-open-20261126-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2605,8 +2605,8 @@ function metricPeriodCards(){
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
  }).join('');
 }
-// Brief, local-only fireworks. No reads/writes to Firebase and no repeated
-// celebrations from initial loading, periodic snapshots or page refresh.
+// Local visual welcome on authenticated dashboard opening (including refresh).
+// No Firebase writes; routine data snapshots never restart the animation.
 let fireworkScope="",periodFireworkStates=new Map(),periodFireworkUntil=new Map(),profileFireworkUntil=0;
 let celebrationUid="",nextProfileGreeting=0,greetingUntil=0,loginCelebrateUntil=0,loginCelebrateSeen=new Set();
 const fireworkDuration=60000,greetingDuration=9000,greetingInterval=3600000;
@@ -2620,7 +2620,7 @@ function fireworkPeriodId(key,day){
  const p=annualTargetPeriod(dashboardGroupSettings,day);return p?.start||"";
 }
 function mountFireworks(host,until,profile=false){
- if(!host||until<=Date.now()||window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)return;
+ if(!host||until<=Date.now())return;
  const existing=host.querySelector(":scope > .dashboard-fireworks");
  if(existing&&Number(existing.dataset.until)===until)return;
  if(existing)existing.remove();
@@ -2648,20 +2648,30 @@ function greetProfile(now,uid){
  profileFireworkUntil=now+fireworkDuration;greetingUntil=now+greetingDuration;nextProfileGreeting=now+greetingInterval;
  try{sessionStorage.setItem("durood-next-greeting:"+uid,String(nextProfileGreeting));}catch{}
 }
-function syncProfileGreeting(person,now){
+function welcomeAuthenticatedDashboard(person,now){
  const uid=String(person.uid||person.id);
- if(celebrationUid!==uid){
-  resetProfileCelebration();celebrationUid=uid;nextProfileGreeting=now+greetingInterval;
-  try{const saved=Number(sessionStorage.getItem("durood-next-greeting:"+uid));if(saved>0)nextProfileGreeting=saved;else sessionStorage.setItem("durood-next-greeting:"+uid,String(nextProfileGreeting));}catch{}
- }
- if(!document.hidden&&section==="overview"&&now>=nextProfileGreeting)greetProfile(now,uid);
+ if(celebrationUid===uid)return false;
+ resetProfileCelebration();
+ celebrationUid=uid;
+ // Dated counts can load after the profile; give the initial snapshots time.
+ loginCelebrateUntil=now+5*60000;
+ greetProfile(now,uid);
+ return true;
+}
+function syncProfileGreeting(person,now){
+ const host=app.querySelector(".profile-card .profile-greeting");
+ // The owner can view a separate women's section without their own portrait.
+ // Never put the owner's name on another member's photo.
+ if(!host||section!=="overview"||document.hidden)return;
+ const uid=String(person.uid||person.id);
+ welcomeAuthenticatedDashboard(person,now);
+ if(now>=nextProfileGreeting)greetProfile(now,uid);
  const portrait=app.querySelector(".profile-card .profile-portrait-level");
  if(profileFireworkUntil>now)mountFireworks(portrait,profileFireworkUntil,true);
- const host=app.querySelector(".profile-card .profile-greeting");
  if(!host||greetingUntil<=now)return;
  if(host.querySelector(":scope > .dashboard-salam"))return;
  const greeting=document.createElement("span");greeting.className="dashboard-salam";greeting.dir="rtl";greeting.setAttribute("role","status");
- const honor=document.createElement("b");honor.textContent="جناب "+memberName(person)+" صاحب";
+ const honor=document.createElement("b");const name=String(memberName(person)||person.name||person.username||"").trim();const female=person.gender==="Female"||person.gender==="female";honor.textContent=(female?"محترمہ ":"جناب ")+name+(female?" صاحبہ":" صاحب");
  const salam=document.createElement("span");salam.textContent="السلام علیکم ورحمۃ اللہ وبرکاتہ";
  greeting.append(honor,salam);host.append(greeting);
  setTimeout(()=>greeting.remove(),Math.max(0,greetingUntil-Date.now()));
@@ -2692,8 +2702,9 @@ function syncDashboardFireworks(){
 window.addEventListener("message",event=>{
  if(window.parent===window||event.source!==window.parent||event.origin!==location.origin||event.data?.type!=="durood-login-fireworks")return;
  const person=currentUser();if(!person?.uid||event.data.uid!==person.uid)return;
- const now=Date.now();celebrationUid=String(person.uid);loginCelebrateSeen.clear();loginCelebrateUntil=now+fireworkDuration;
- greetProfile(now,celebrationUid);syncDashboardFireworks();
+ // The profile's own render also starts the welcome, so a dropped iframe
+ // message or restored login cannot suppress it. This is only a backup signal.
+ syncDashboardFireworks();
 });
 setInterval(()=>{if(!document.hidden&&currentUser()&&section==="overview")syncDashboardFireworks();},15000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&currentUser()&&section==="overview")syncDashboardFireworks();});
