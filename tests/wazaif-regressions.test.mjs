@@ -425,6 +425,11 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(running([{...row("2026-11-23"),joined:null}],"2026-11-25",cfg).year,null);
  assert.equal(running([{...row("2026-11-23"),active:false,inactiveDay:"2026-11-24"}],"2026-11-25",cfg).week,200);
  assert.equal(running(null,"2026-11-25",cfg),null);
+ const known=vm.runInContext("knownDashboardTargets",ctx);
+ const partial=known([row("2026-11-23",100),{joined:"2026-11-23",active:true,daily:[]}],"2026-11-26",cfg);
+ assert.equal(partial.today,100);assert.equal(partial.week,400);assert.equal(partial.month,400);assert.equal(partial.year,400);
+ const missingJoin=known([row("2026-11-23",100),{...row("2026-11-23",50),joined:null}],"2026-11-26",cfg);
+ assert.equal(missingJoin.today,150);assert.equal(missingJoin.week,400);
  const full=vm.runInContext("aggregateGroupTargets",ctx);
  assert(full(four,"2026-11-25",cfg).yearlyGoal>running(four,"2026-11-25",cfg).year);
 }

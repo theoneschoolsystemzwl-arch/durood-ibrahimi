@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=group-manual-save-20261126-v32"></script>
+<script defer src="./pull-refresh.js?v=dashboard-target-recovery-20261126-v33"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=group-manual-save-20261126-v32">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-target-recovery-20261126-v33">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2589,6 +2589,16 @@ function runningDashboardTargets(rows,day,cfg){
  }
  return result;
 }
+// A missing individual goal must not hide other verified member targets.
+function knownDashboardTargets(rows,day,cfg){
+ if(!Array.isArray(rows))return null;
+ const todayRows=rows.filter(r=>latestReaderGoal(r.daily,day));
+ const datedRows=todayRows.filter(r=>targetDateValid(r.joined)&&(r.active!==false||targetDateValid(r.inactiveDay)));
+ const today=runningDashboardTargets(todayRows,day,cfg);
+ const dated=runningDashboardTargets(datedRows,day,cfg);
+ return {today:todayRows.length?today?.today:null,week:datedRows.length?dated?.week:null,
+  month:datedRows.length?dated?.month:null,year:datedRows.length?dated?.year:null};
+}
 function dashboardPeriodGoal(key,goals){
  const value=goals?.[key];
  return Number.isSafeInteger(value)&&value>=0?value:null;
@@ -2608,22 +2618,24 @@ function periodGoalLabel(key){
 function metricPeriodCards(){
  const day=globalDateKey(),uid=currentUser()?.uid,side=window.duroodCurrentSide;
  const goals=runningDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
+ const known=knownDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
  // Cache only verified aggregate values, never another account/side or date.
  const key=uid&&["male","female"].includes(side)?"durood-period-goals-v1:"+uid+":"+side+":"+day:null;
  let previous={};
- if(key){try{previous=JSON.parse(sessionStorage.getItem(key)||"{}")||{};}catch{}}
+ if(key){try{previous=JSON.parse(localStorage.getItem(key)||sessionStorage.getItem(key)||"{}")||{};}catch{}}
  const live={...previous};
  for(const period of ["today","week","month","year"]){
   const value=dashboardPeriodGoal(period,goals);
   if(value!==null)live[period]=value;
  }
- if(key){try{sessionStorage.setItem(key,JSON.stringify(live));}catch{}}
+ if(key){try{localStorage.setItem(key,JSON.stringify(live));}catch{}}
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
-   const cached=goal===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
-   const badge=goal===null?(cached?displayNumber(previous[key]):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
-   const badgeLabel=goal===null?(cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
-   return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
+   const partial=goal===null?dashboardPeriodGoal(key,known):null;
+    const cached=goal===null&&partial===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
+    const badge=goal===null?(partial!==null?displayNumber(partial):cached?displayNumber(previous[key]):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
+    const badgeLabel=goal===null?(partial!==null?tr("Known goals (partial)","معلوم اہداف (نامکمل)"):cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
+    return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><small>'+esc(badgeLabel)+'</small> <bdi dir="ltr">'+badge+'</bdi></span>'+
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
  }).join('');
@@ -5545,7 +5557,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=group-manual-save-20261126-v32";
+import "./wazaif.js?release=dashboard-target-recovery-20261126-v33";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
@@ -5823,7 +5835,7 @@ function observeCounters(side){
       },err=>{
         if(stopped||!stillCurrent())return;
         onError(err);
-        if(!/resource-exhausted|unavailable|deadline-exceeded/i.test(String(err?.code||err)))return;
+        if(!/resource-exhausted|unavailable|deadline-exceeded|aborted|internal/i.test(String(err?.code||err)))return;
         const delay=Math.min(1800000,300000*2**Math.min(failures++,3));
         clearTimeout(timer);timer=setTimeout(start,delay);
       });
@@ -6072,7 +6084,7 @@ function observeCounters(side){
     const from=dashboardCountStart;
     bridge.periodTotals(null);
     const days=query(collection(sideRef,"days"),where("day",">=",from),where("day","<=",today));
-    stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
+    stopDays=retryGoalSnapshot(days,snap=>{
       if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache)return;
       const totals={today:0,week:0,month:0},dated={};
       snap.forEach(item=>{
