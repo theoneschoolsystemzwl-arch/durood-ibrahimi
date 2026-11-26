@@ -2619,7 +2619,7 @@ function periodCardComparison(count,goal,previous,partial){
  const knownPartial=Number.isSafeInteger(partial)&&partial>=0?partial:null;
  const displayed=verified??knownPartial;
  const quality=goal!==null&&verified!==null?"live":verified!==null?"cached":knownPartial!==null?"partial":"unknown";
- const status=periodGoalStatus(count,displayed);
+ const status=quality==='partial'&&periodGoalStatus(count,displayed)==='complete'?'unknown':periodGoalStatus(count,displayed);
  return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#f2fff8",celebrate:quality!=="partial"&&verified>0};
 }
 function periodGoalLabel(key){
@@ -2666,7 +2666,7 @@ function periodFireworkState(previous,complete,now){
 }
 function periodFireworkKey(uid,side,period,day){
  const start=period==='today'?day:period==='week'?targetAddDays(day,-((new Date(day+'T00:00:00Z').getUTCDay()+6)%7)):period==='month'?day.slice(0,7):annualTargetPeriod(dashboardGroupSettings,day)?.start||day.slice(0,4);
- return 'durood-period-fireworks-v1:'+uid+':'+side+':'+period+':'+start;
+ return 'durood-period-fireworks-v2:'+uid+':'+side+':'+period+':'+start;
 }
 function updatePeriodFirework(key,complete,now){
  let previous=periodFireworkMemory.get(key)||null;
