@@ -3,7 +3,16 @@
 // Distinct records avoid lost updates when two tabs share the same browser storage.
 // Firebase transactions use that record's stable id as a sync receipt to prevent double counting.
 export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
- let ownerUid=null,busy=false,timer=null,lastError="";
+ let ownerUid=null,busy=false,timer=null,timerDue=0,lastError="",retryAfter=0,quotaFailures=0;
+ // A page owns its mutable draft under a browser-wide Web Lock. A different
+ // page may recover it only after that lock is released. Without Web Locks,
+ // preserve the original immutable per-tap journal rather than risk data.
+ const pageId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
+ const lockName=id=>prefix+"-draft-"+id;
+ let draftLease=false,draftId=null;
+ if(navigator.locks?.request){
+  navigator.locks.request(lockName(pageId),()=>{draftLease=true;return new Promise(()=>{});}).catch(()=>{draftLease=false;});
+ }
  const legacyKey=uid=>prefix+"-"+uid;
  const recordPrefix=uid=>prefix+"-op-"+uid+"-";
  const validId=value=>typeof value==="string"&&/^[a-f0-9]{32}$/.test(value);
@@ -29,7 +38,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    return keys.flatMap(k=>{
     try{
      const op=JSON.parse(localStorage.getItem(k)||"null");
-     return op?.schema===4&&op.uid===uid&&validId(op.id)&&k===prefixKey+op.id&&valid(op)?[op]:[];
+     return (op?.schema===4||(op?.schema===5&&typeof op.draftOwner==="string"))&&op.uid===uid&&validId(op.id)&&k===prefixKey+op.id&&valid(op)?[op]:[];
     }catch{return [];}
    }).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||a.id.localeCompare(b.id));
   }catch(error){
@@ -93,7 +102,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  function start(uid){
   if(!uid||ownerUid===uid)return;
   clearTimeout(timer);timer=null;
-  ownerUid=uid;lastError="";
+  ownerUid=uid;lastError="";retryAfter=0;quotaFailures=0;draftId=null;
   migrateLegacy(uid);
   schedule(40);notify();
  }
@@ -101,36 +110,88 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   const uid=ownerUid,op={taskId,day,source,count,durationMs,intervals};
   if(!uid||getUid()!==uid||!valid(op))return false;
   try{
-   const id=newId();
-   const record={...op,id,uid,schema:4,createdAt:Date.now()};
-   localStorage.setItem(recordPrefix(uid)+id,JSON.stringify(record));
+
+   let merged=false;
+   if(draftLease&&draftId){
+    const k=recordPrefix(uid)+draftId;
+    const old=JSON.parse(localStorage.getItem(k)||"null");
+    if(old?.schema===5&&old.draftOwner===pageId&&old.taskId===taskId&&old.day===day&&old.source===source&&
+       old.count+count<=1000&&old.durationMs+durationMs<=86400000&&Date.now()-old.createdAt<15000){
+     const next={...old,count:old.count+count,durationMs:old.durationMs+durationMs,intervals:old.intervals+intervals};
+     if(valid(next)){localStorage.setItem(k,JSON.stringify(next));merged=true;}
+    }
+    if(!merged)sealOwnDraft(uid);
+   }
+   if(!merged){
+    const id=newId();
+    const record={...op,id,uid,schema:draftLease?5:4,createdAt:Date.now(),...(draftLease?{draftOwner:pageId}:{})};
+    localStorage.setItem(recordPrefix(uid)+id,JSON.stringify(record));
+    if(draftLease)draftId=id;
+   }
   }catch{
    lastError="فون کی اسٹوریج میں محفوظ نہیں ہو سکا۔";
    notify();return false;
   }
-  lastError="";notify();schedule(150);return true;
+  if(Date.now()>=retryAfter)lastError="";
+  notify();schedule(10000);return true;
  }
- function schedule(delay=150){
+
+ function sealOwnDraft(uid=ownerUid){
+  if(!uid||!draftId)return;
+  const k=recordPrefix(uid)+draftId,op=JSON.parse(localStorage.getItem(k)||"null");
+  if(op?.schema===5&&op.draftOwner===pageId){
+   const {draftOwner,...rest}=op;localStorage.setItem(k,JSON.stringify({...rest,schema:4}));
+  }
+  draftId=null;
+ }
+ async function sealRecoverable(op,uid){
+  if(op.schema===4)return op;
+  if(op.draftOwner===pageId){if(draftId===op.id)sealOwnDraft(uid);else return null;}
+  else{
+   if(!navigator.locks?.request)return null;
+   await navigator.locks.request(lockName(op.draftOwner),{ifAvailable:true},lock=>{
+    if(!lock)return;
+    const k=recordPrefix(uid)+op.id,current=JSON.parse(localStorage.getItem(k)||"null");
+    if(current?.schema===5&&current.draftOwner===op.draftOwner&&valid(current)){
+     const {draftOwner,...rest}=current;localStorage.setItem(k,JSON.stringify({...rest,schema:4}));
+    }
+   });
+  }
+  const latest=JSON.parse(localStorage.getItem(recordPrefix(uid)+op.id)||"null");
+  return latest?.schema===4&&valid(latest)?latest:null;
+ }
+ function schedule(delay=10000){
   if(!ownerUid||getUid()!==ownerUid)return;
-  clearTimeout(timer);
-  timer=setTimeout(()=>{timer=null;void flush();},delay);
+  if(delay===0){try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();}}
+  const due=Math.max(Date.now()+delay,retryAfter);
+  if(timer&&timerDue<=due)return;
+  clearTimeout(timer);timerDue=due;
+  timer=setTimeout(()=>{timer=null;timerDue=0;void flush();},Math.max(0,due-Date.now()));
  }
  async function flush(){
   if(busy||!ownerUid||getUid()!==ownerUid||navigator.onLine===false)return;
+  if(Date.now()<retryAfter){schedule(10000);return;}
+  try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();schedule(20000);return;}
   const uid=ownerUid;busy=true;notify();
   try{
-   for(const op of listOps(uid)){
+   for(const candidate of listOps(uid)){
     if(uid!==ownerUid||getUid()!==uid||navigator.onLine===false)break;
-    const k=recordPrefix(uid)+op.id;
-    if(!localStorage.getItem(k))continue; // A second tab may have sent it.
     try{
+     const op=await sealRecoverable(candidate,uid);
+     if(!op||uid!==ownerUid||getUid()!==uid)continue;
+     const k=recordPrefix(uid)+op.id;
+     if(!localStorage.getItem(k))continue;
      await send(op);
      if(uid!==ownerUid||getUid()!==uid)break;
      // Delete only the immutable record which was acknowledged by Firebase.
      if(localStorage.getItem(k))localStorage.removeItem(k);
-     lastError="";notify();
+     lastError="";retryAfter=0;quotaFailures=0;notify();
     }catch(error){
+
      lastError=String(error?.code||error?.message||error).slice(0,120);
+     if(/resource-exhausted|quota/i.test(lastError)){
+      quotaFailures++;retryAfter=Date.now()+Math.min(1800000,300000*2**Math.min(3,quotaFailures-1));
+     }
      notify();break; // The SAME receipt id is retried after an unknown acknowledgement.
     }
    }
@@ -140,12 +201,14 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    notify();
   }
  }
- function stop(){clearTimeout(timer);timer=null;ownerUid=null;lastError="";notify();}
+ function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;lastError="";retryAfter=0;quotaFailures=0;notify();}
+ window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}});
+ document.addEventListener("visibilitychange",()=>{if(document.hidden){try{sealOwnDraft();}catch{}}});
  window.addEventListener("online",()=>schedule(0));
  window.addEventListener("storage",event=>{
   if(!ownerUid||!event.key||(!event.key.startsWith(recordPrefix(ownerUid))&&event.key!==legacyKey(ownerUid)))return;
   if(event.key===legacyKey(ownerUid))migrateLegacy(ownerUid);
-  notify();if(navigator.onLine!==false)schedule(300);
+  notify();if(navigator.onLine!==false)schedule(10000);
  });
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)schedule(0);});
  return {start,stop,enqueue,pending,byDay,status,schedule,flush};

@@ -1,4 +1,4 @@
-const RELEASE="dated-manual-save-feedback-20261126-v24";
+const RELEASE="quota-batch-dashboard-goals-20261126-v25";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

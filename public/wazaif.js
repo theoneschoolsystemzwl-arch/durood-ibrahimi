@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=quota-batch-20261126-v1";
 import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -193,7 +193,7 @@ function updateWzSyncStatus(){
  el.dataset.pending=String(pending>0);
  el.textContent=pending?(!online?
   "آف لائن: "+fmt(pending)+" تسبیح فون میں محفوظ، انٹرنیٹ کا انتظار":
-  error?"سنک رکا ہوا ہے: "+error+" • "+fmt(pending)+" گنتیاں فون میں محفوظ":
+  error?(/resource-exhausted|quota/i.test(error)?"Firebase کی مفت حد یا درخواستوں کی حد عارضی طور پر پوری ہے؛ "+fmt(pending)+" گنتیاں فون میں محفوظ، دوبارہ خود کوشش ہوگی":"سنک رکا ہوا ہے: "+error+" • "+fmt(pending)+" گنتیاں فون میں محفوظ"):
   fmt(pending)+" تسبیح فون میں محفوظ، Firebase کو بھیجی جا رہی ہیں"):
   "تمام تسبیح Firebase میں محفوظ ہے؛ Save صرف کاؤنٹر صفر کرے گا";
 }
@@ -2126,7 +2126,7 @@ document.addEventListener("submit",event=>{
       feedback.hidden=false;
       feedback.textContent=(op.saved?"محفوظ "+fmt(op.saved)+"؛ باقی "+fmt(amount-op.saved)+
         " ہیں۔ اسی تعداد سے دوبارہ کوشش کریں۔ ":"محفوظ نہیں ہوا: ")+
-        String(error?.code||error?.message||error);
+        (/resource-exhausted|quota/i.test(String(error?.code||error?.message||error))?"Firebase کی حد عارضی طور پر پوری ہے؛ درخواست فون میں محفوظ ہے۔ حد بحال ہونے پر اسی تاریخ پر وہی تعداد دوبارہ محفوظ کریں۔":String(error?.code||error?.message||error));
     }
    }).finally(()=>{state.busy=false;if(submit?.isConnected)submit.disabled=false;});
   return;

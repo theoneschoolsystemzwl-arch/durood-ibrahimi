@@ -373,3 +373,5 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal bdi{display:inline!important;visibility:visible!important;opacity:1!important;font:700 clamp(.8rem,3.1vw,1rem)/1.25 system-ui,sans-serif;color:inherit;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-goal{color:#ffb0b5;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-goal{color:#a6ffd0;}
+
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal small{display:inline!important;visibility:visible!important;opacity:1!important;color:inherit;font:600 clamp(.67rem,2.6vw,.85rem)/1.5 var(--ur,system-ui,sans-serif);}

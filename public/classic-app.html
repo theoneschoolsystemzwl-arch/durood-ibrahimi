@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dated-manual-save-feedback-20261126-v24">
+<link rel="stylesheet" href="./dashboard-reference.css?v=quota-batch-dashboard-goals-20261126-v25">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2610,8 +2610,9 @@ function metricPeriodCards(){
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
    const badge=goal===null?"—":displayNumber(goal),read=count===null?"—":displayNumber(count);
+   const badgeLabel=goal===null?tr("Goal data unavailable","ہدف دستیاب نہیں"):tr("Goal","ہدف");
    return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
-   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
+   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><small>'+esc(badgeLabel)+'</small> <bdi dir="ltr">'+badge+'</bdi></span>'+
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
  }).join('');
 }
@@ -5540,10 +5541,10 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=dated-manual-save-feedback-20261126-v24";
+import "./wazaif.js?release=quota-batch-20261126-v25";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=20261123-6";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=quota-batch-20261126-v1";
 import {loadMemberProfile,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=foreground-presence-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
