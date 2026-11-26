@@ -371,3 +371,17 @@
  color:#ffda64!important;
  text-shadow:0 -1px 0 #fff0af,0 1px 0 #e5b64c,0 2px 0 #c38b28,0 3px 0 #a87019,0 4px 0 #815011,0 5px 0 #5c360a,0 7px 8px #001b16,0 0 16px #ffcf5540!important;
 }
+
+/* Compact royal total: top-aligned title, 80% number size and shorter card. */
+:root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card{
+ min-height:96px;padding:5px 10px 4px;gap:0;justify-content:flex-start;
+}
+:root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card h2{
+ margin:0 auto 1px;flex:none;
+}
+:root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card #global-total{
+ font-size:clamp(4rem,12.8vw,5.68rem);line-height:1.04;direction:ltr;unicode-bidi:isolate;
+}
+@media(max-width:420px){
+ :root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card{min-height:85px}
+}

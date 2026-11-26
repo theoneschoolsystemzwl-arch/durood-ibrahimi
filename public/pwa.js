@@ -1,4 +1,4 @@
-const RELEASE="dashboard-november-number-fix-20261126-v10";
+const RELEASE="dashboard-compact-safe-total-20261126-v11";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
