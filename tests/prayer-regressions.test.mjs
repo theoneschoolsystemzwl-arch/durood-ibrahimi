@@ -90,6 +90,19 @@ function addPureSource(from,to){
 }
 addPureSource("function alreadyOnTime(status) {","function qazaEligible(id,day,prayer");
 addPureSource("function prayerLedgerTotals(person,now,today) {","function qazaTopSettings(plan,today)");
+// Reproduce the parent-frame Date/Timestamp bug without touching real data.
+{
+ const dateCtx=vm.createContext({});
+ const a=ui.indexOf("function registrationDate(profile){"),b=ui.indexOf("function membershipDateLabel(person){",a);
+ assert(a>=0&&b>a);
+ vm.runInContext(ui.slice(a,b),dateCtx);
+ const expected="2026-11-23T00:00:00.000Z",foreignDate=new Date(expected);
+ assert.equal(dateCtx.registrationDate({createdAt:{toDate:()=>foreignDate}}).toISOString(),expected);
+ assert.equal(dateCtx.registrationDate({registrationDate:foreignDate}).toISOString(),expected);
+ assert.equal(dateCtx.registrationDate({joined:"2026-11-23"}).toISOString(),expected);
+ assert.equal(dateCtx.registrationDate({createdAt:"2026-02-30"}),null);
+ assert.equal(dateCtx.registrationDate({}),null);
+}
 const sampleMember={id:1,joined:new Date("2026-11-23T00:00:00Z")};
 const historyTotals=ledgerCtx.prayerLedgerTotals(sampleMember,0,dayToday);
 assert.equal(historyTotals.start,"2026-11-21","Qaza start, not membership date, determines the baseline");
@@ -153,7 +166,9 @@ assert(markStart>=0&&markEnd>markStart);
 const markSource=ui.slice(markStart,markEnd);
 assert(!markSource.includes("phase !== 'on-time'")&&!markSource.includes("phase !== 'missed'"),"No prayer-time restriction on user attendance");
 assert(markSource.includes("day > today"),"Future dates still disallowed");
+addPureSource("function attendanceQazaStart(personId,today) {","function prayerMode(personId,day,prayer");
 vm.runInContext(markSource,ledgerCtx);
+assert.equal(ledgerCtx.setPrayerAttendance(1,"2026-11-20","fajr","made",dayToday,0),false,"Dates before Qaza start cannot be marked");
 assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","jamat",dayToday,0),true,"Congregation can be recorded before its scheduled window");
 assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","solo",dayToday,0),true,"Solo can be recorded at any time");
 assert.equal(ledgerCtx.setPrayerAttendance(1,dayToday,"maghrib","made",dayToday,0),true,"Qaza paid can be recorded at any time");
