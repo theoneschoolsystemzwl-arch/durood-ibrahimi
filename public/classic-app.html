@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=unified-dashboard-20261126-v48"></script>
+<script defer src="./pull-refresh.js?v=unified-dashboard-20261126-v49"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=unified-dashboard-20261126-v48">
+<link rel="stylesheet" href="./dashboard-reference.css?v=unified-dashboard-20261126-v49">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2630,13 +2630,15 @@ function periodGoalStatus(count,goal){
 function periodDisplayedVerifiedGoal(goal,previous){
  return Number.isSafeInteger(goal)&&goal>=0?goal:Number.isSafeInteger(previous)&&previous>=0?previous:null;
 }
-function periodCardComparison(count,goal,previous,partial){
+function periodCardComparison(count,goal,previous,partial,allGoalsLoaded=false){
  const verified=periodDisplayedVerifiedGoal(goal,previous);
  const knownPartial=Number.isSafeInteger(partial)&&partial>=0?partial:null;
- const displayed=verified??knownPartial;
- const quality=goal!==null&&verified!==null?"live":verified!==null?"cached":knownPartial!==null?"partial":"unknown";
- // Only server-confirmed complete targets may change the initial white color.
- const ready=quality==="live"&&Number.isSafeInteger(goal)&&goal>0;
+ // All member goal snapshots have arrived: compare the sum of actually set goals,
+ // even when another member has not set a goal. Never treat loading as no goal.
+ const configured=allGoalsLoaded&&goal===null&&knownPartial!==null;
+ const displayed=configured?knownPartial:verified??knownPartial;
+ const quality=goal!==null&&verified!==null?"live":configured?"configured":verified!==null?"cached":knownPartial!==null?"partial":"unknown";
+ const ready=(quality==="live"||quality==="configured")&&Number.isSafeInteger(displayed)&&displayed>0;
  const status=ready?periodGoalStatus(count,displayed):"unknown";
  return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#ffffff",celebrate:ready&&status==="complete"};
 }
@@ -2660,9 +2662,9 @@ function metricPeriodCards(){
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key);
    const partial=goal===null?dashboardPeriodGoal(key,known):null;
-   const {displayed,quality,status,color,celebrate}=periodCardComparison(count,goal,previous[key],partial);
+   const {displayed,quality,status,color,celebrate}=periodCardComparison(count,goal,previous[key],partial,Array.isArray(ownerGoalRows));
    const badge=displayed===null?"—":displayNumber(displayed),read=count===null?"—":displayNumber(count);
-   const badgeLabel=quality==="cached"?tr("Last verified goal","آخری تصدیق شدہ ہدف"):quality==="partial"?tr("Known goals only; full target not confirmed","معلوم اہداف؛ مکمل ہدف کی تصدیق باقی"):quality==="unknown"?tr("Goal sync pending","ہدف سنک باقی"):tr("Goal","ہدف");
+   const badgeLabel=quality==="configured"?tr("Confirmed set goals; members without targets excluded","تصدیق شدہ مقررہ اہداف؛ بغیر ہدف والے ممبرز شامل نہیں"):quality==="cached"?tr("Last verified goal","آخری تصدیق شدہ ہدف"):quality==="partial"?tr("Known goals only; full target not confirmed","معلوم اہداف؛ مکمل ہدف کی تصدیق باقی"):quality==="unknown"?tr("Goal sync pending","ہدف سنک باقی"):tr("Goal","ہدف");
     return '<section class="recitation-period period-'+status+'" data-goal-quality="'+quality+'" data-celebrate-period="'+key+'" data-positive-goal="'+(celebrate?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
    '<div class="dashboard-period-numbers" dir="ltr">'+
@@ -2760,7 +2762,7 @@ function syncDashboardFireworks(){
  if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
   const side=window.duroodCurrentSide;
   if(!["male","female"].includes(side))continue;
-  const quality=card.dataset.goalQuality,eligible=quality==="live";
+  const quality=card.dataset.goalQuality,eligible=quality==="live"||quality==="configured";
   const complete=eligible&&card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1";
   const short=eligible&&card.classList.contains("period-short");
   const key=periodFireworkKey(String(person.uid||person.id),side,card.dataset.celebratePeriod,globalDateKey());
@@ -5616,7 +5618,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=unified-dashboard-20261126-v48";
+import "./wazaif.js?release=unified-dashboard-20261126-v49";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
@@ -5930,7 +5932,7 @@ function observeCounters(side){
     const isGoalOwner=currentProfile?.role==="owner";
     const goalQuery=isGoalOwner?collection(db,"members"):query(collection(db,"members"),where("gender","==",side),limit(200));
     stopGoalDirectory=retryGoalSnapshot(goalQuery,snap=>{
-      if(!stillCurrent()||snap.metadata.fromCache)return;
+      if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
       if(isGoalOwner){
         refreshOnDirectoryChange(directoryRows);

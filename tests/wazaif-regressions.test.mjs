@@ -554,7 +554,13 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const partial=compare(200,null,undefined,200);
  assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
- assert(markup.includes('periodCardComparison(count,goal,previous[key],partial)'));
+ assert(markup.includes('periodCardComparison(count,goal,previous[key],partial,Array.isArray(ownerGoalRows))'));
+ const daily=compare(284,null,999,221,true);
+ assert.equal(daily.displayed,221);assert.equal(daily.status,'complete');assert.equal(daily.celebrate,true);assert.equal(daily.quality,'configured');
+ assert.equal(compare(528,null,undefined,623,true).status,'short');
+ assert.equal(compare(527,null,undefined,623,true).status,'short');
+ assert.equal(compare(284,null,undefined,221,false).status,'unknown');
+ assert.equal(compare(null,null,undefined,221,true).status,'unknown');
  assert(!markup.includes("≥ "));
  assert(markup.includes("style=\"color:")&&markup.includes("-webkit-text-fill-color:"));
  }
