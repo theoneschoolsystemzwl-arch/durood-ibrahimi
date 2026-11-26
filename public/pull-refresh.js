@@ -56,6 +56,8 @@
    return;
   }
   refreshing=true;
+  // Only acknowledge the update after all save guards and connectivity checks pass.
+  try{window.top.dispatchEvent(new window.top.Event("durood:refresh-accepted"));}catch{window.dispatchEvent(new Event("durood:refresh-accepted"));}
   show("اپ ڈیٹ چیک ہو رہی ہے…",90);
   // Network-first service worker and cache-busted navigation fetch the new shell.
   // Never wait indefinitely on a worker update, or remove offline fallback assets.

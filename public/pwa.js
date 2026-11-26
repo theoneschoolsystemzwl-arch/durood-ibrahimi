@@ -1,33 +1,45 @@
-const RELEASE="unified-dashboard-20261126-v49";
+const RELEASE="latest-device-20261127-v2";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
-let checking=false,prompted=false;
+let checking=false,prompted=false,updateButton=null,offeredVersion=null,hideTimer=null;
+function hideUpdate(){clearTimeout(hideTimer);updateButton?.remove();updateButton=null;}
+function acceptRefresh(){
+ if(offeredVersion){markAttempt(offeredVersion);hideUpdate();}
+}
+window.addEventListener("durood:refresh-accepted",acceptRefresh);
+// A cache-busted navigation came from an explicit refresh. If a stale shell
+// survived it, do not block the dashboard with the same notice again.
+const refreshed=new URL(location.href).searchParams.has("_refresh");
 async function checkRelease(){
- if(checking||prompted||navigator.onLine===false)return;
+ if(checking||navigator.onLine===false)return;
  checking=true;
  try{
   const res=await fetch("/release.json?t="+Date.now(),{cache:"no-store"});
   if(!res.ok)return;
   const data=await res.json();
-  if(typeof data.version!=="string"||!data.version||data.version===RELEASE||attemptedRelease()===data.version)return;
-  prompted=true;
-  const button=document.createElement("button");
+  if(typeof data.version!=="string"||!data.version)return;
+  if(data.version===RELEASE){hideUpdate();offeredVersion=null;prompted=false;return;}
+  if(attemptedRelease()===data.version||prompted)return;
+  if(refreshed){markAttempt(data.version);return;}
+  prompted=true;offeredVersion=data.version;
+  const button=document.createElement("button");updateButton=button;
   button.type="button";button.textContent="نئی اپڈیٹ دستیاب ہے — ریفریش کریں";
-  button.style.cssText="position:fixed;z-index:2147483647;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:12px 18px;border:1px solid #8de1ac;border-radius:10px;background:#064d39;color:white;font-weight:bold;max-width:95%;cursor:pointer";
+  button.style.cssText="position:fixed;z-index:2147483647;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:8px 12px;border:1px solid #8de1ac;border-radius:10px;background:#064d39;color:white;font-size:12px;font-weight:bold;max-width:90%;cursor:pointer";
   button.onclick=async()=>{
    const frame=document.getElementById("classic-frame");
    try{
     if(typeof window.duroodRefreshPage==="function"){await window.duroodRefreshPage();return;}
     if(frame?.contentDocument&&!frame.contentDocument.dispatchEvent(new frame.contentWindow.CustomEvent("durood:before-refresh",{cancelable:true})))return;
     if(!document.dispatchEvent(new CustomEvent("durood:before-refresh",{cancelable:true})))return;
-    markAttempt(data.version);button.disabled=true;button.textContent="اپ ڈیٹ ہو رہی ہے…";
-    if("caches" in window){const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith("durood-global-shell-")).map(k=>caches.delete(k)));}
+    acceptRefresh();
     if("serviceWorker" in navigator)await navigator.serviceWorker.getRegistration().then(r=>r?.update()).catch(()=>{});
    }catch(e){console.debug("Update refresh",e);}
    const url=new URL(location.href);url.searchParams.set("_refresh",String(Date.now()));location.replace(url.href);
   };
   document.body.appendChild(button);
+  // A notice must never remain over the bottom navigation indefinitely.
+  hideTimer=setTimeout(hideUpdate,12000);
  }catch(e){console.debug("Release check unavailable",e);}
  finally{checking=false;}
 }

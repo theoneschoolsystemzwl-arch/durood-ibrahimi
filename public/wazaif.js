@@ -1062,6 +1062,8 @@ function readerMarkup(group){
  const showDates=!!s.plan;
  const today=group?groupReadingDay():readingDay();
  const history=group?groupHistoryMarkup(w):wazifaHistoryMarkup(record);
+ const saveControl='<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
+ 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>';
  const progress=s.percent;
  return '<div class="wz-hero-reader" dir="rtl">'+
  '<div class="wz-hero-ornament" aria-hidden="true"></div>'+
@@ -1116,12 +1118,11 @@ function readerMarkup(group){
  fiveFigureMarkup(group,w,record)+
  '</div>'+
  '<div class="wz-reader-controls-row">'+
- '<div class="wz-hero-speed'+(group?' wz-group-speed':'')+'" aria-label="تسبیح کی رفتار">'+
+ (group?'<div class="wz-hero-speed wz-group-speed" aria-label="تسبیح کی رفتار">':'<div class="wz-hero-speed" aria-label="تسبیح کی رفتار">')+
  '<div><small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
  '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div><small>SEC</small><strong id="wz-speed-sec">—</strong></div>'+
- (group?'<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
- 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>':"")+
+ (group?saveControl:"")+
  '</div>'+
  (group?'<span class="wz-current-date">'+esc(displayRecordDate(today))+'<small style="display:block">'+esc(window.duroodHijri?.format(today,w)||"—")+'</small></span>':
  '<div class="wz-date-select"><input id="wz-save-date" type="hidden" value="'+esc(state.draftDay||today)+'">'+
@@ -1129,8 +1130,7 @@ function readerMarkup(group){
  '<button type="button" class="wz-date-button" data-wazifa-action="open-date-picker" aria-label="تسبیح کی تاریخ منتخب کریں">'+
  '<span id="wz-selected-date">'+esc(displayRecordDate(state.draftDay||today))+'</span></button>'+
  '<button type="button" class="wz-day-step" data-wazifa-action="day-next" aria-label="اگلا دن">+</button></div>')+
- (!group?'<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
- 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>':"")+
+ (!group?saveControl:"")+
  '</div>'+
 
  '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite" style="margin:3px 0;padding:4px;font-size:12px;text-align:center;overflow-wrap:anywhere"></p>'+
