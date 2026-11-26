@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-royal-gold-total-20261126-v8">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-november-accounting-20261126-v9">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2532,7 +2532,15 @@ function readerList(){
  }).join('')+'</ol>';
 }
 
+const dashboardCountStart="2026-11-01";
 let periodCounts=null,periodDatedCounts=null;
+function dashboardDatedTotal(){
+ if(!periodDatedCounts)return null;
+ const today=globalDateKey();
+ return Object.entries(periodDatedCounts).filter(([day])=>day>=dashboardCountStart&&day<=today).reduce((sum,[,n])=>sum+n,0);
+}
+function dashboardTotalText(){const total=dashboardDatedTotal();return total===null?"—":displayNumber(total);}
+function refreshDashboardDatedTotal(){const el=document.getElementById("global-total");if(el)el.textContent=dashboardTotalText();}
 let dashboardGroupTitle='';
 function groupTitleLabel(){
   return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
@@ -2547,13 +2555,15 @@ function runningDashboardTargets(rows,day,cfg){
  if(!Array.isArray(rows)||!targetDateValid(day))return null;
  const monday=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
  const period=annualTargetPeriod(cfg,day);
- const starts={week:monday,month:day.slice(0,7)+"-01",year:period?(period.countStart||period.start):null};
+ const clampStart=start=>start&&start<dashboardCountStart?dashboardCountStart:start;
+ const starts={week:clampStart(monday),month:clampStart(day.slice(0,7)+"-01"),year:period?clampStart(period.countStart||period.start):null};
  const result={today:0,week:0,month:0,year:0};
  for(const key of Object.keys(starts))if(!starts[key])result[key]=null;
  for(const row of rows){
   if(targetDateValid(row.joined)&&row.joined>day)continue;
   const current=latestReaderGoal(row.daily,day);
   if(row.active!==false){
+   if(day<dashboardCountStart)continue;
    if(!current)result.today=null;
    else if(result.today!==null)result.today+=current.goal;
   }
@@ -2587,7 +2597,7 @@ function dashboardPeriodCount(key){
  if(key!=="year")return periodCounts?.[key]??null;
  const today=globalDateKey(),p=annualTargetPeriod(dashboardGroupSettings,today);
  if(!p||!periodDatedCounts)return null;
- return Object.entries(periodDatedCounts).filter(([day])=>day>=(p.countStart||p.start)&&day<=p.end&&day<=today).reduce((sum,[,n])=>sum+n,0);
+ return Object.entries(periodDatedCounts).filter(([day])=>day>=dashboardCountStart&&day>=(p.countStart||p.start)&&day<=p.end&&day<=today).reduce((sum,[,n])=>sum+n,0);
 }
 function periodGoalStatus(count,goal){
  return !Number.isSafeInteger(count)||!Number.isSafeInteger(goal)?"unknown":count<goal?"short":"complete";
@@ -2688,6 +2698,7 @@ window.addEventListener("message",event=>{
 setInterval(()=>{if(!document.hidden&&currentUser()&&section==="overview")syncDashboardFireworks();},15000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&currentUser()&&section==="overview")syncDashboardFireworks();});
 function refreshPeriodCards(){
+ refreshDashboardDatedTotal();
  const container=document.getElementById("dashboard-period-cards");if(!container)return;
  const html=metricPeriodCards();if(container._periodMarkup!==html){container.innerHTML=html;container._periodMarkup=html;}
  syncDashboardFireworks();
@@ -2702,10 +2713,10 @@ function overview() {
      tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+
    (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
    '<section class="recitation-banner all-time-durood-card"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
-   '</h2><strong id="global-total">'+displayNumber(globalTotal)+'</strong></section>'+
+   '</h2><strong id="global-total">'+dashboardTotalText()+'</strong></section>'+
    '<div class="recitation-periods" id="dashboard-period-cards">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
-   tr("Dated totals and targets through today; future days are excluded.","تاریخ وار محفوظ شمار اور آج تک کا ہدف؛ آئندہ دن شامل نہیں۔")+'</p>'+
+   tr("Dashboard accounting from 1 November 2026; week starts Monday. Earlier records are preserved.","ڈیش بورڈ کا حساب یکم نومبر 2026 سے؛ ہفتہ پیر سے شروع۔ پرانا ریکارڈ محفوظ ہے۔")+'</p>'+
    '<section class="panel section readers-section"><div class="reader-card-heading"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
    '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'">−</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'</div><div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
@@ -2723,7 +2734,7 @@ function simulateSave() {
   liveAdded += amount;
   recentSaves.unshift({amount,at:new Date()});
   if (recentSaves.length > 4) recentSaves.pop();
-  document.getElementById('global-total').textContent = formatNumber(globalTotal);
+  refreshDashboardDatedTotal();
   document.getElementById('live-saved').textContent = formatNumber(liveAdded);
   refreshDashboardGroupProgress();
   document.getElementById('live-feed').innerHTML = liveFeed();
@@ -5288,8 +5299,7 @@ window.duroodClassicBridge = {
   },
   allTime(value){
     globalTotal=value;
-    const el=document.getElementById("global-total");
-    if(el)el.textContent=formatNumber(value);
+    refreshDashboardDatedTotal();
     const readGlobal=document.getElementById("read-global");
     if(readGlobal)readGlobal.textContent=formatNumber(value);
     // The side's historical Durood total is independent of the Wazifa goal bars.
@@ -6031,9 +6041,8 @@ function observeCounters(side){
       bridge.groupProgressDays(values);
     },err=>{if(stillCurrent())bridge.groupProgressDays(null);console.warn("Group dated totals unavailable",err.code);});
     }
-    // One rolling window covers the whole Hijri session, including the previous
-    // Gregorian year. Keep dated values so owner corrections update immediately.
-    const from=targetAddDays(today,-370);
+    // Fixed accounting epoch; preserve all older Firestore data and use only dated records for the dashboard.
+    const from=dashboardCountStart;
     bridge.periodTotals(null);
     const days=query(collection(sideRef,"days"),where("day",">=",from),where("day","<=",today));
     stopDays=onSnapshot(days,{includeMetadataChanges:true},snap=>{
@@ -6041,7 +6050,7 @@ function observeCounters(side){
       const totals={today:0,week:0,month:0},dated={};
       snap.forEach(item=>{
         const {day,total}=item.data();
-        if(!targetDateValid(day)||!Number.isSafeInteger(total)||total<0)return;
+        if(!targetDateValid(day)||day<dashboardCountStart||day>today||!Number.isSafeInteger(total)||total<0)return;
         dated[day]=total;
         if(day===today)totals.today+=total;
         if(day>=week)totals.week+=total;
