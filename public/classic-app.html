@@ -2186,7 +2186,7 @@ function profileCard(person) {
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
-    '<small class="muted direct-invites">'+tr('My group Wazifa total: ','میرا مجموعی گروپ وظیفہ: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
+    '<small class="muted direct-invites">'+tr('Group total Wird: ','گروپ کا مجموعی ورد: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
     '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
@@ -2386,8 +2386,9 @@ window.duroodGroupReaderFigures=()=>{
  return {total:verifiedOwnDuroodTotal(),today:dayCount(person,globalDateKey())};
 };
 function ownGroupTotalText(){
- const n=memberGroupSummary?.total??(memberGroupSummary===null?null:0);
- return Number.isSafeInteger(n)&&n>=0?displayNumber(n):"—";
+ const person=currentUser();
+ // Same verified direct-group total as the invitation tree; always plain text.
+ return person&&!ownerViewingWomen()?groupWirdText(person):"—";
 }
 function refreshMemberGroupProgress(){
  document.querySelectorAll("[data-own-group-total]").forEach(node=>{node.textContent=ownGroupTotalText();});
@@ -5326,7 +5327,7 @@ window.duroodClassicBridge = {
   ownGroupWird(uid,memberUid,total,side){
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
     if(Number.isSafeInteger(total)&&total>=0)ownGroupWirds.set(memberUid,total);else ownGroupWirds.delete(memberUid);
-    refreshMemberWirds();
+    refreshMemberWirds();refreshMemberGroupProgress();
   },
   savedWirdTotals(uid,rows,complete,side){
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
