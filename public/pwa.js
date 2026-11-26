@@ -1,4 +1,4 @@
-const RELEASE="center-period-targets-20261126-v37";
+const RELEASE="urdu-period-conditional-20261126-v38";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

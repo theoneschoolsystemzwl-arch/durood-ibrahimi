@@ -499,8 +499,25 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const css=fs.readFileSync("public/dashboard-reference.css","utf8");
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
  assert(markup.includes('<h2 class="dashboard-period-heading"')&&!markup.includes("<small"),"only the period headings, no extra number labels");
- assert(classic.includes("['year','Annually']"));
+ assert(classic.includes("['today','روزانہ'],['week','ہفتہ وار'],['month','ماہانہ'],['year','سالانہ']"));
+ assert(markup.includes('lang="ur" dir="rtl"'));
  assert(css.includes("grid-row:1;grid-column:1;align-items:center;justify-content:center;align-self:center;text-align:center"));
- assert(markup.includes('aria-label="Read"')&&markup.includes('aria-label="'+ "'"));
+ assert(markup.includes('aria-label="پڑھی گئی تعداد"')&&markup.includes('aria-label="'+ "'"));
  assert(css.includes("font:700 clamp(.72rem,3vw,1.15rem)")&&css.includes("font:800 clamp(1rem,4.3vw,1.75rem)"));
+}
+
+// Independently compare every period with its own accrued target.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function periodGoalStatus("),b=classic.indexOf("function periodGoalLabel(",a);
+ const ctx=vm.createContext({Number});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const compare=vm.runInContext("periodGoalStatus",ctx);
+ for(const goal of [221,623,10000,58525]){
+   assert.equal(compare(goal-1,goal),"short");
+   assert.equal(compare(goal,goal),"complete");
+   assert.equal(compare(goal+1,goal),"complete");
+ }
+ assert.equal(compare(null,221),"unknown");
+ assert.equal(compare(270,null),"unknown");
 }

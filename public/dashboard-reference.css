@@ -401,3 +401,8 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto;align-items:center;gap:0;grid-row:2;grid-column:1;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal{grid-row:1;grid-column:1;align-items:center;justify-content:center;align-self:center;text-align:center;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy{grid-row:2;grid-column:1;align-items:flex-start;align-self:end;text-align:left;}
+
+/* Urdu period headings only. Each saved count independently follows its confirmed accrued target. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-heading{font:700 clamp(.86rem,3.5vw,1.1rem)/1.55 var(--ur,"Noto Naskh Arabic",system-ui,sans-serif);color:#fff!important;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-copy strong[data-period]{color:#ff777f!important;-webkit-text-fill-color:#ff777f!important;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-copy strong[data-period]{color:#6effa0!important;-webkit-text-fill-color:#6effa0!important;}

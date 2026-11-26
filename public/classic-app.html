@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=center-period-targets-20261126-v37"></script>
+<script defer src="./pull-refresh.js?v=urdu-period-conditional-20261126-v38"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=center-period-targets-20261126-v37">
+<link rel="stylesheet" href="./dashboard-reference.css?v=urdu-period-conditional-20261126-v38">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2546,7 +2546,7 @@ function groupTitleLabel(){
   return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
 }
 function periodLabels(){
-  return [['today','Daily'],['week','Weekly'],['month','Monthly'],['year','Annually']];
+  return [['today','روزانہ'],['week','ہفتہ وار'],['month','ماہانہ'],['year','سالانہ']];
 }
 // Dashboard targets are accrued through the current Pakistan day, not the
 // full future period. Keep the blue annual projection independent.
@@ -2635,9 +2635,9 @@ function metricPeriodCards(){
     const badge=goal===null?(cached?displayNumber(previous[key]):partial!==null?displayNumber(partial):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
     const badgeLabel=goal===null?(cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):partial!==null?tr("Known goals (partial)","معلوم اہداف (نامکمل)"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
     return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
-   '<h2 class="dashboard-period-heading" lang="en" dir="ltr">'+label+'</h2>'+
+   '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
    '<div class="dashboard-period-numbers" dir="ltr">'+
-   '<div class="dashboard-period-copy"><strong aria-label="Read" data-period="'+key+'" dir="ltr">'+read+'</strong></div>'+
+   '<div class="dashboard-period-copy"><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr">'+read+'</strong></div>'+
    '<span class="dashboard-period-goal" title="'+esc(badgeLabel+' · '+periodGoalLabel(key)+': '+badge)+'" aria-label="'+esc(badgeLabel+': '+badge)+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
    '</div></section>';
  }).join('');
@@ -5559,7 +5559,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=center-period-targets-20261126-v37";
+import "./wazaif.js?release=urdu-period-conditional-20261126-v38";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";
