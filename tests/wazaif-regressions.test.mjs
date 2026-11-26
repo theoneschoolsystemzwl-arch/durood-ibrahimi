@@ -377,7 +377,9 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const context=vm.createContext({Date,Number,window:{duroodMemberLoginStatus:{presence:new Map([["a",100000]])}}});
  vm.runInContext(classic.slice(begin,end),context);
  const online=vm.runInContext("presenceOnline",context);
- assert.equal(online("a",159999),true);assert.equal(online("a",160000),false);assert.equal(online("b",110000),false);
+ // Foreground heartbeat is throttled to 120 seconds to protect Spark quota; expire at 180 seconds.
+ assert(classic.includes("presenceTimer=setInterval(()=>void pulse(),120000)"));
+ assert.equal(online("a",159999),true);assert.equal(online("a",220000),true);assert.equal(online("a",279999),true);assert.equal(online("a",280000),false);assert.equal(online("b",110000),false);
  assert(classic.includes("document.hidden||navigator.onLine===false"));
  assert(classic.includes("directoryGroupName(person.id)"));
  assert(rules.includes("match /memberPresence/{presenceId}"));
