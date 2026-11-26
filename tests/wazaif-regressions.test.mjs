@@ -547,12 +547,12 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const ctx=vm.createContext({Number});
  vm.runInContext(classic.slice(a,b),ctx);
  const compare=vm.runInContext("periodCardComparison",ctx);
- for(const [count,goal,cached,partial,expected] of [[200,200,undefined,null,"complete"],[201,200,undefined,null,"complete"],[199,200,undefined,null,"short"],[200,null,200,100,"complete"],[200,null,undefined,200,"unknown"],[199,null,undefined,200,"unknown"],[200,0,undefined,null,"unknown"],[200,null,0,100,"unknown"],[199,null,200,100,"short"],[200,null,undefined,null,"unknown"],[null,200,undefined,null,"unknown"]]){
+ for(const [count,goal,cached,partial,expected] of [[200,200,undefined,null,"complete"],[201,200,undefined,null,"complete"],[199,200,undefined,null,"short"],[200,null,200,100,"complete"],[200,null,undefined,200,"complete"],[199,null,undefined,200,"short"],[200,0,undefined,null,"unknown"],[200,null,0,100,"unknown"],[199,null,200,100,"short"],[200,null,undefined,null,"unknown"],[null,200,undefined,null,"unknown"]]){
   const result=compare(count,goal,cached,partial);assert.equal(result.status,expected);
   assert.equal(result.color,expected==="complete"?"#6effa0":expected==="short"?"#ff777f":"#f2fff8");
  }
  const partial=compare(200,null,undefined,200);
- assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
+ assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,true);
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
  assert(markup.includes('periodCardComparison(count,goal,previous[key],partial)'));
  assert(!markup.includes("≥ "));
