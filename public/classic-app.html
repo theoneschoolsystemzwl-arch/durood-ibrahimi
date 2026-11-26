@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=urdu-period-conditional-20261126-v38"></script>
+<script defer src="./pull-refresh.js?v=period-count-layout-20261126-v39"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=urdu-period-conditional-20261126-v38">
+<link rel="stylesheet" href="./dashboard-reference.css?v=period-count-layout-20261126-v39">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2611,6 +2611,9 @@ function dashboardPeriodCount(key){
 function periodGoalStatus(count,goal){
  return !Number.isSafeInteger(count)||!Number.isSafeInteger(goal)?"unknown":count<goal?"short":"complete";
 }
+function periodDisplayedVerifiedGoal(goal,previous){
+ return Number.isSafeInteger(goal)&&goal>=0?goal:Number.isSafeInteger(previous)&&previous>=0?previous:null;
+}
 function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
 }
@@ -2629,12 +2632,13 @@ function metricPeriodCards(){
  }
  if(key){try{localStorage.setItem(key,JSON.stringify(live));}catch{}}
  return periodLabels().map(([key,label])=>{
-   const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
+   const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key);
+   const verifiedGoal=periodDisplayedVerifiedGoal(goal,previous[key]),status=periodGoalStatus(count,verifiedGoal);
    const partial=goal===null?dashboardPeriodGoal(key,known):null;
     const cached=goal===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
     const badge=goal===null?(cached?displayNumber(previous[key]):partial!==null?displayNumber(partial):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
     const badgeLabel=goal===null?(cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):partial!==null?tr("Known goals (partial)","معلوم اہداف (نامکمل)"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
-    return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
+    return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(verifiedGoal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
    '<div class="dashboard-period-numbers" dir="ltr">'+
    '<div class="dashboard-period-copy"><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr">'+read+'</strong></div>'+
@@ -5559,7 +5563,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=urdu-period-conditional-20261126-v38";
+import "./wazaif.js?release=period-count-layout-20261126-v39";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=clean-manual-save-20261126-v5";

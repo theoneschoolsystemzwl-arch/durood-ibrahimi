@@ -521,3 +521,20 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(compare(null,221),"unknown");
  assert.equal(compare(270,null),"unknown");
 }
+
+// Compare with the verified goal actually displayed, not an incomplete subtotal.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function periodGoalStatus("),b=classic.indexOf("function periodGoalLabel(",a);
+ const ctx=vm.createContext({Number});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const goal=vm.runInContext("periodDisplayedVerifiedGoal",ctx),compare=vm.runInContext("periodGoalStatus",ctx);
+ assert.equal(compare(221,goal(null,221)),"complete");
+ assert.equal(compare(220,goal(null,221)),"short");
+ assert.equal(compare(221,goal(222,221)),"short");
+ assert.equal(compare(221,goal(null,undefined)),"unknown");
+ assert.equal(compare(222,goal(221,999)),"complete");
+ const css=fs.readFileSync("public/dashboard-reference.css","utf8");
+ assert(css.includes("font-size:clamp(2rem,8.6vw,3.5rem)"));
+ assert(css.includes("align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr"));
+}

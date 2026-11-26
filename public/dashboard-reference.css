@@ -406,3 +406,8 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-heading{font:700 clamp(.86rem,3.5vw,1.1rem)/1.55 var(--ur,"Noto Naskh Arabic",system-ui,sans-serif);color:#fff!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-copy strong[data-period]{color:#ff777f!important;-webkit-text-fill-color:#ff777f!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-copy strong[data-period]{color:#6effa0!important;-webkit-text-fill-color:#6effa0!important;}
+
+/* Double the centered white target; keep the smaller actual count at the physical lower right. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{font-size:clamp(2rem,8.6vw,3.5rem);line-height:1.1;max-width:100%;overflow-wrap:anywhere;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy{align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy strong[data-period]{text-align:right;}
