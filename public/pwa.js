@@ -1,4 +1,4 @@
-const RELEASE="unified-dashboard-20261126-v46";
+const RELEASE="unified-dashboard-20261126-v47";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

@@ -459,7 +459,7 @@ function subscribe(){
   const ownGroup=doc(db,"wazaifGroupStats","main","members",uid);
   state.subscriptions.push(onSnapshot(ownGroup,safe(snap=>{
     state.groupMember=snap.exists()?snap.data():null;
-    if(state.mode==="group-reader")refreshHeroReader();
+    if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();
   }),err));
   state.subscriptions.push(onSnapshot(collection(ownGroup,"days"),safe(snap=>{
     state.groupDays=Object.fromEntries(snap.docs.map(d=>[d.id,d.data()]));
@@ -761,8 +761,8 @@ function readingTimes(record,live=false){
 function dailyFigures(group,w,record,queued=0){
  const today=group?groupReadingDay():readingDay(),rows=group?[]:datedProgress(record);
  const r=rows.find(row=>row.day===today),entry=record?.dailyLedger?.[today]||{};
- const goal=group?Number(w.dailyGoal||0):targetForDay(w,today);
- const saved=group?(record?.day===today?Number(record.today||0):0):
+ const goal=group?memberGroupDailyGoal(w,today):targetForDay(w,today);
+ const saved=group?ownGroupDay(today):
   Number(r?.count??(record?.day===today?record.today:0))||0;
  const queuedToday=state.draftDay===today?queued:0;
  const previous=Math.max(0,Number(r?.previousDue||0)),credit=Math.max(0,Number(r?.previousCredit||0));
@@ -968,7 +968,7 @@ function groupHistoryMarkup(w){
  (spanDays(start,today)>state.historyLimit?'<button type="button" class="wz-button" data-wazifa-action="history-more">مزید پرانا ریکارڈ</button>':"");
 }
 function heroReadingState(group,w,record){
- const today=group?groupReadingDay():readingDay(),todayCount=record.day===today?Math.max(0,Number(record.today)||0):0;
+ const today=group?groupReadingDay():readingDay(),todayCount=group?ownGroupDay(today):(record.day===today?Math.max(0,Number(record.today)||0):0);
  const total=Math.max(0,Number(record.total)||0);
  const plan=!group?fixedPlan(w):null;
  const continuing=!group&&continuationActive(w,today);
@@ -2205,7 +2205,7 @@ window.duroodWazaif={
  setMember,render,back,
  groupData:currentGroup,
  groupArabicMarkup:()=>pdfMark(currentGroup().arabic)?pdfViewerMarkup(currentGroup().arabic,"group"):null,
- refreshGroupTargets:()=>{if(state.mode==="group-reader")refreshHeroReader();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
+ refreshGroupTargets:()=>{if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
  activeGroup:()=>state.groupExists&&currentGroup().active===true,
  groupCountsAsDurood:()=>currentGroup().countAsDurood!==false
 };

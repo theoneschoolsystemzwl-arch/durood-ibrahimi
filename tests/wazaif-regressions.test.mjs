@@ -575,3 +575,19 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(!classic.includes("mountFireworks(card,Infinity)"));
  const css=fs.readFileSync("public/dashboard-reference.css","utf8");assert(css.includes("animation-duration:1250ms"));
 }
+
+// Group card and reader must use the same dated ledger; summary may lag.
+{
+ const a=source.indexOf("function memberGroupDailyGoal("),b=source.indexOf("function groupHistoryMarkup(",a);
+ const h=source.indexOf("function heroReadingState("),e=source.indexOf("// Reader-only Arabic ticker",h);
+ assert(a>=0&&b>a&&h>=0&&e>h);
+ const state={groupDays:{"2026-11-26":{count:110}},groupMember:{day:"2026-11-26",today:90,total:350}};
+ const ctx=vm.createContext({state,groupReadingDay:()=>"2026-11-26",window:{duroodMemberGroupTargets:()=>({dailyGoal:100}),duroodAggregateGroupTargets:()=>({yearlyGoal:1000})}});
+ vm.runInContext(source.slice(a,b)+source.slice(h,e),ctx);
+ const read=vm.runInContext("heroReadingState",ctx);
+ assert.equal(read(true,{},state.groupMember).todayCount,110);
+ assert.equal(read(true,{},state.groupMember).dayLeft,0);
+ assert.equal(read(true,{},state.groupMember).total,350);
+ state.groupDays={};assert.equal(read(true,{},state.groupMember).todayCount,90);
+ assert(source.includes('if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();'));
+}
