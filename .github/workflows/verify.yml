@@ -2,6 +2,12 @@ name: Verify web app and Firebase backend
 on:
   push:
     branches: [main]
+    paths:
+      - 'functions/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'firebase.json'
+      - '.firebaserc'
   pull_request:
   workflow_dispatch:
 jobs:

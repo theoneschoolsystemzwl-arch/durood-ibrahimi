@@ -1,8 +1,6 @@
 name: Read-only daily target and side audit
+# Run only when explicitly requested; normal production deploy is firebase-hosting-spark.yml.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/daily-target-audit.yml']
   workflow_dispatch:
 permissions:
   contents: read

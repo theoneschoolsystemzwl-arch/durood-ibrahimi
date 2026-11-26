@@ -1,9 +1,6 @@
 name: Read-only production Firestore preflight
+# Run only when explicitly requested; normal production deploy is firebase-hosting-spark.yml.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/firestore-safe-audit.yml'
   workflow_dispatch:
 permissions:
   contents: read

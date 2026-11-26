@@ -1,10 +1,6 @@
 name: Build Android Online Test APK v4.5
+# Run only when explicitly requested; normal production deploy is firebase-hosting-spark.yml.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'android-online/**'
-      - '.github/workflows/android-online-apk.yml'
   workflow_dispatch:
 permissions:
   contents: read
