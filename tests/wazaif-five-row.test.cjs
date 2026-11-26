@@ -214,7 +214,10 @@ assert(hMarkup.includes(">2,500</strong>"),"4000 today - 1500 previous excess = 
 
 const modalStart=src.indexOf("function historyEditMarkup(record,day){"),modalEnd=src.indexOf("function wazifaHistoryMarkup(record){");
 const modalContext={fmt:sandbox.fmt,esc:x=>String(x),displayRecordDate:()=>day,hasContinuation:()=>false};
-vm.createContext(modalContext);vm.runInContext(src.slice(modalStart,modalEnd),modalContext);
+Object.assign(modalContext,{readingDay:()=>day});
+vm.createContext(modalContext);
+vm.runInContext(src.slice(pstart,pend)+src.slice(src.indexOf("function canEnterDay("),src.indexOf("function wazifaCalendarMarkup(")),modalContext);
+vm.runInContext(src.slice(modalStart,modalEnd),modalContext);
 const mMarkup=modalContext.historyEditMarkup(hRecord,day);
 assert(!mMarkup.includes('wz-edit-signs')&&!mMarkup.includes('name="operation"'),"no plus/minus tabs or hidden operation");
 assert(mMarkup.includes('name="amount"')&&mMarkup.includes('pattern="[+-]?[0-9]+"'),"one field accepts +/- input");

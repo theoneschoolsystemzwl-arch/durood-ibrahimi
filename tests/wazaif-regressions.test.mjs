@@ -390,7 +390,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  vm.runInContext(fs.readFileSync("public/hijri-session.js","utf8"),ctx);
  vm.runInContext('window.duroodHijri=globalThis.duroodHijri;let today="2026-11-26";const globalDateKey=()=>today;let dashboardGroupSettings={annualStartDate:"2026-11-24",annualEndDate:"2027-08-16"};let periodCounts={month:244};let periodDatedCounts={"2026-08-01":1000,"2026-11-22":1,"2026-11-23":29,"2026-11-24":214};const annualTargetPeriod=(cfg,day)=>window.duroodHijri.period(cfg,day);',ctx);
  const a=classic.indexOf("function dashboardPeriodCount("),b=classic.indexOf("function periodGoalStatus(",a);
- vm.runInContext(classic.slice(a,b),ctx);
+ vm.runInContext(classic.match(/const dashboardCountStart="[^"]+";/)[0]+classic.slice(a,b),ctx);
  assert.equal(vm.runInContext('dashboardPeriodCount("year")',ctx),244);
  assert.equal(vm.runInContext('dashboardPeriodCount("month")',ctx),244);
  vm.runInContext('today="2027-08-17";periodDatedCounts["2027-08-16"]=7;periodDatedCounts["2027-08-17"]=3;',ctx);
