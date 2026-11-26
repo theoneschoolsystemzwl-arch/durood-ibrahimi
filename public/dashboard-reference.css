@@ -416,3 +416,30 @@
 :root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
  transform:translateX(clamp(4px,2vw,12px));
 }
+
+/* Three balanced columns: Rawda motif, centered live total, gold group text. */
+:root[data-theme] .dashboard-home .boxed-headline.dashboard-group-summary{
+ grid-template-columns:minmax(0,1fr) minmax(0,1.55fr) minmax(0,1fr);
+ gap:4px;padding:8px;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy{
+ grid-column:3;grid-row:1;padding-right:0;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy h1{
+ font-size:clamp(.78rem,3vw,1.4rem);padding:1px 5px;overflow-wrap:anywhere;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-group-copy p{
+ font-size:clamp(.69rem,2.5vw,1rem);overflow-wrap:anywhere;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card{
+ grid-column:2;grid-row:1;padding:0;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{
+ transform:none;font-size:clamp(2.7rem,17vw,8.8rem);max-width:100%;line-height:1.03;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda{
+ grid-column:1;grid-row:1;min-width:0;width:100%;display:flex;align-items:center;justify-content:center;
+}
+:root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda-icon{
+ display:block;width:100%;max-width:125px;height:auto;
+}
