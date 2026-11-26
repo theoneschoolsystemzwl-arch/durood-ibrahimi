@@ -272,7 +272,7 @@ export async function rankingSpark(){
   const [profiles,directory]=await Promise.all([Promise.all(top.map(d=>getDoc(memberRef(d.id)))),readSideDirectory(gender)]);
   return {leaders:top.flatMap((item,i)=>{
     const profile=profiles[i];
-    if(!profile.exists()||profile.data().disabled===true||memberGender(profile.data())!==gender)return [];
+    if(!profile.exists()||profile.data().disabled===true||profile.data().deleted===true||memberGender(profile.data())!==gender)return [];
     return [{name:profile.data().name||"Member",serial:directory.get(profile.id)?.label||"—",total:item.data().total||0}];
   })};
 }
@@ -284,7 +284,7 @@ export async function referralsSpark(){
   const rows=await getDocs(query(collection(db,"members"),
     where("inviterUid","==",uid),where("gender","==",gender),limit(200)));
   const directory=await readSideDirectory(gender);
-  return {referrals:rows.docs.map(d=>({
+  return {referrals:rows.docs.filter(d=>profile.data().role==="owner"||(!d.data().disabled&&!d.data().deleted)).map(d=>({
     name:d.data().name,serial:directory.get(d.id)?.label||"—",disabled:d.data().disabled===true
   }))};
 }

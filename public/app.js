@@ -7,7 +7,7 @@ import {
   claimDeviceSession, watchDeviceSession, signOut, onAuthStateChanged
 } from "./member-auth.js?release=latest-device-v1";
 import "./profile-contacts.js";
-import {generatedUsername,readingsSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
+import {generatedUsername,readingsSpark} from "./spark-data.js?release=member-visibility-20261127-v1";
 import {sendPasswordResetEmail,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {doc,getDoc,getDocs,collection,query,where,limit,startAfter,getDocsFromServer} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 
@@ -329,7 +329,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=latest-device-20261127-v2";
+  frame.src="./classic-app.html?release=member-visibility-20261127-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.

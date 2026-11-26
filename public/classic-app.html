@@ -1239,7 +1239,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=latest-device-20261127-v2"></script>
+<script defer src="./pull-refresh.js?v=member-visibility-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1348,7 +1348,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=latest-device-20261127-v2">
+<link rel="stylesheet" href="./dashboard-reference.css?v=member-visibility-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1656,7 +1656,11 @@ function buildGroupIdentity(rows){
 }
 let groupDirectoryReady=false,groupIdentityCache=new Map();
 const ownerViewingWomen = () => currentUser()?.isOwner === true && window.duroodCurrentSide === 'female';
-const visibleMembers = () => ownerViewingWomen() ? users.filter(person => person.gender === 'Female' && !person.isOwner) : users;
+const visibleMembers = () => {
+ const viewer=currentUser();
+ const side=ownerViewingWomen()?users.filter(person=>person.gender==='Female'&&!person.isOwner):users;
+ return viewer?.isOwner?side:side.filter(person=>!person.disabled&&!person.deleted);
+};
 function groupIdentity(person){return person&&groupDirectoryReady?groupIdentityCache.get(person.id):null;}
 function groupName(id){return groupIdentity(getUser(id))?.owned||'—';}
 function hasGroup(id){const p=getUser(id);return !!p&&!p.deleted&&directMembers(id).some(m=>!m.deleted);}
@@ -1934,8 +1938,9 @@ function branchMemberCount(person){
   }).length;
 }
 function canViewTreeBranch(viewer,target){
-  if(!viewer||!target||target.deleted)return false;
+  if(!viewer||!target)return false;
   if(viewer.isOwner)return ownerViewingWomen()?target.gender==='Female'&&!target.isOwner:target.gender!=='Female';
+  if(target.deleted||target.disabled)return false;
   return (viewer.gender==='Female')===(target.gender==='Female')&&
     (viewer.id===target.id||(groupDirectoryReady&&descendants(viewer.id).has(target.id)));
 }
@@ -1943,14 +1948,14 @@ function accessibleTreeMembers(viewer){
   if(!viewer)return [];
   const side=viewer.isOwner&&ownerViewingWomen()?'Female':viewer.gender;
   const descendantsSet=viewer.isOwner?null:descendants(viewer.id);
-  return users.filter(p=>!p.deleted&&p.gender===side&&
-    (viewer.isOwner||p.id===viewer.id||(groupDirectoryReady&&descendantsSet.has(p.id))));
+  return users.filter(p=>p.gender===side&&
+    (viewer.isOwner||(!p.deleted&&!p.disabled&&(p.id===viewer.id||(groupDirectoryReady&&descendantsSet.has(p.id))))));
 }
 function treeMembersPage(){
   const viewer=currentUser(),members=accessibleTreeMembers(viewer);
   const ready=groupDirectoryReady||!viewer?.uid;
   const side=viewer?.isOwner&&ownerViewingWomen()?'Female':viewer?.gender;
-  const sideTotal=users.filter(p=>!p.deleted&&p.gender===side).length;
+  const sideTotal=users.filter(p=>!p.deleted&&!p.disabled&&p.gender===side).length;
   const owned=members.filter(p=>hasGroup(p.id)).length;
   return heading(tr("Members","ارکان"),tr("Select a member to view their group and branch, not their private profile.","رکن پر ٹیپ کریں، اس کا گروپ اور شجرہ دیکھیں۔ نجی پروفائل نہیں۔"))+
     '<div class="stats">'+stat(tr("Total members in community","کمیونٹی کے کل ارکان"),ready?displayNumber(sideTotal):'—')+
@@ -1972,12 +1977,13 @@ function treeActivityMarkup(p){
     '</span>';
 }
 function treeNode(person, isRoot = false) {
+ const archived=currentUser()?.isOwner&&(person.disabled||person.deleted);
  const level=memberLevel(person),clickable=!isRoot&&canViewTreeBranch(currentUser(),person),tag=clickable?'button':'div';
  return '<'+tag+' class="tree-node compact-tree-node '+(person.isOwner||person.isFoundingSpouse?'founder-node':'branch-node')+'"'+
- (clickable?' data-action="branch" data-value="'+person.id+'" aria-label="'+esc(tr("Open branch، ","شاخ کھولیں، ")+memberName(person))+'"':'')+'>'+
+ (clickable?' data-action="'+(archived?'profile':'branch')+'" data-value="'+person.id+'" aria-label="'+esc((archived?tr("Open profile، ","پروفائل کھولیں، "):tr("Open branch، ","شاخ کھولیں، "))+memberName(person))+'"':'')+'>'+
  '<span class="tree-portrait"><span class="node-ring">'+avatar(person)+'<span class="node-dot level-'+level+'" data-tree-member-level="'+person.id+'" aria-label="'+tr("Level ","لیول ")+level+'">'+displayNumber(level)+'</span></span></span>'+
  '<span class="tree-identity"><strong class="tree-name-line"><bdi dir="ltr">'+esc(serial(person.id))+'</bdi> '+groupCodeMarkup(person)+' <span dir="auto">'+esc(memberName(person))+'</span></strong>'+memberWirdMarkup(person)+
- (person.disabled&&currentUserId===1?'<small class="account-status disabled">'+tr("Suspended","معطل")+'</small>':'')+
+ (archived?'<small class="account-status disabled">'+(person.deleted?tr("Deleted","حذف شدہ"):tr("Suspended","معطل"))+'</small>':'')+
  '</span>'+treeActivityMarkup(person)+'</'+tag+'>';
 }
 
@@ -1991,7 +1997,7 @@ function tree(person) {
     ? visibleMembers().find(member => member.id === groupFilter && !member.deleted) || visibleMembers().find(member => member.isFoundingSpouse && !member.deleted)
     : (canViewTreeBranch(person,getUser(groupFilter)) ? getUser(groupFilter) : null) || person;
   if(!root) return groups();
-  const children = directMembers(root.id).filter(m=>!m.deleted&&!m.isFoundingSpouse);
+  const children = directMembers(root.id).filter(m=>!m.isFoundingSpouse&&(person.isOwner||(!m.deleted&&!m.disabled)));
   const back = women
     ? '<div class="branch-nav"><button class="button secondary" data-action="nav" data-value="groups">' + tr('Back to groups','گروپس پر واپس') + '</button></div>'
     : root.id !== person.id
@@ -2083,7 +2089,7 @@ function directory() {
       '</span>' + avatar(person) + '<span class="member-content"><strong dir="auto">' + esc(memberName(person)) +
       tr("</strong><small>Login ID: <bdi>", '</strong><small>لاگ اِن آئی ڈی: <bdi>') + esc(person.username) + tr("</bdi></small><small>Group ", '</bdi></small><small>گروپ ') + '<bdi>' + esc(directoryGroupName(person.id)) + '</bdi>' +
       '</small>' + memberWirdMarkup(person) +
-      (person.disabled ? tr("<small class=\"account-status disabled\">Suspended</small>", '<small class="account-status disabled">معطل</small>') : '') + '</span><span class="chevron" aria-hidden="true">‹</span></button>'
+      (person.deleted?'<small class="account-status disabled">'+tr("Deleted","حذف شدہ")+'</small>':person.disabled?tr("<small class=\"account-status disabled\">Suspended</small>", '<small class="account-status disabled">معطل</small>'):'') + '</span><span class="chevron" aria-hidden="true">‹</span></button>'
     ).join('') + '</div>';
 }
 
@@ -2112,7 +2118,7 @@ function profileDetails(person) {
     '</dl>'+(currentUser()?.isOwner&&person.uid?'<div class="form-actions"><button type="button" class="button secondary" data-action="check-member-photo" data-value="'+person.id+'">Firebase سے تصویر لوڈ کریں</button></div>'+feedback("member-photo-check")+
       "":"")+'</section>' + (person.isOwner ? '' :
       tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Manage account</h2><span class=\"account-status", '<section class="panel section"><div class="panel-head"><h2>اکاؤنٹ کا انتظام</h2><span class="account-status') +
-      (person.disabled ? tr(" disabled\">Suspended", ' disabled">معطل') : tr("\">Active", '">فعال')) + '</span></div>' +
+      (person.deleted?tr(" disabled\">Deleted", ' disabled">حذف شدہ'):person.disabled?tr(" disabled\">Suspended", ' disabled">معطل'):tr("\">Active", '">فعال')) + '</span></div>' +
       ur(tr("Removal is reversible; saved Durood and DI number are preserved.", 'حذف عارضی ہے؛ ریکارڈ اور DI نمبر محفوظ رہیں گے، دوبارہ بحال ہوسکیں گے۔'),'p','muted') +
       (person.gender===''?'<div class="form-actions"><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="male">Male منتخب کریں</button><button class="button secondary" data-action="classify-gender" data-value="'+person.id+'" data-gender="female">Female منتخب کریں</button></div>':'') +
       '<div class="form-actions manage-actions"><button class="button secondary" data-action="toggle-user" data-value="' +
@@ -2538,7 +2544,8 @@ function readerCountAndTarget(row,day,goalRows,canViewTarget){
 }
 function readerList(){
  const historical=readerListDay!==null&&currentUser()?.isOwner;
- const selected=historical?previousDayReaders:todayReaders;
+ const raw=historical?previousDayReaders:todayReaders;
+ const selected=currentUser()?.isOwner?raw:raw?.filter(row=>users.some(p=>p.uid===row.uid&&!p.disabled&&!p.deleted));
  if(historical&&readerListError)return tr("Could not load this date. Try again.","اس تاریخ کا ریکارڈ لوڈ نہیں ہوا۔ دوبارہ کوشش کریں۔");
  if(!selected)return tr("Loading selected date…","منتخب تاریخ کا ریکارڈ لوڈ ہو رہا ہے…");
  if(!selected.length)return tr("No saved Durood found for this date.","اس تاریخ کے لیے درود شریف کا محفوظ ریکارڈ نہیں ملا۔");
@@ -2549,7 +2556,7 @@ function readerList(){
    const seconds=Math.max(0,Math.floor((now-lastReading)/1000));
    const status=window.duroodMemberLoginStatus?.presenceReady!==true?tr("Status unknown","اسٹیٹس نامعلوم"):active?tr("Online · reading","آن لائن · تسبیح جاری"):online?tr("Online","آن لائن"):tr("Offline","آف لائن");
    // Join the reader UID to the authenticated member directory, never guess an ID or level.
-   const person=users.find(member=>member.uid===row.uid && !member.deleted);
+   const person=users.find(member=>member.uid===row.uid);
    const picture=avatar(person||{name:row.name||'',photo:''});
    const memberId=person?displayId(person.id):'—';
    const level=person?String(memberLevel(person)):'—';
@@ -5629,7 +5636,7 @@ window.duroodClassicBridge = {
   userUid(memberNo){return getUser(Number(memberNo))?.uid||null;},
   changeMember(memberNo,disabled){
     const p=getUser(Number(memberNo));if(!p)return;
-    p.disabled=disabled;render({keepScroll:true});
+    p.disabled=disabled;if(!disabled)p.deleted=false;render({keepScroll:true});
   },
   userForCurrent(){return currentUser()?.uid||null;},
   photoSelection:currentPhotoSelection,
@@ -5750,13 +5757,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=latest-device-20261127-v2";
+import "./wazaif.js?release=member-visibility-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-visibility-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6038,7 +6045,7 @@ function observeCounters(side){
   }
   let previousGroupDirectoryKey=null,groupRefreshTimer=null;
   function refreshOnDirectoryChange(rows){
-    const key=JSON.stringify(rows.map(m=>[m.uid,m.inviterUid||null,m.memberNumber,m.gender,m.deleted===true]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+    const key=JSON.stringify(rows.map(m=>[m.uid,m.inviterUid||null,m.memberNumber,m.gender,m.deleted===true,m.disabled===true]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
     if(previousGroupDirectoryKey!==null&&key!==previousGroupDirectoryKey){
       clearTimeout(groupRefreshTimer);
       groupRefreshTimer=setTimeout(()=>{if(stillCurrent())hydrate().catch(e=>console.warn("Group directory refresh",e.code||e));},250);
@@ -6066,10 +6073,8 @@ function observeCounters(side){
     stopGoalDirectory=retryGoalSnapshot(goalQuery,snap=>{
       if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
-      if(isGoalOwner){
-        refreshOnDirectoryChange(directoryRows);
-        bridge.liveMemberCounts(observedUid,directoryRows,true,side);
-      }
+      refreshOnDirectoryChange(directoryRows);
+      if(isGoalOwner)bridge.liveMemberCounts(observedUid,directoryRows,true,side);
       goalDirectoryReady=isGoalOwner||snap.size<200;
       const directory=new Map(snap.docs.filter(d=>{
         // Match the member directory's legacy-gender handling and never
@@ -6635,7 +6640,7 @@ ui.addEventListener("click",event=>{
     button.disabled=true;
     const member=window.duroodClassicBridge;
     // Read the currently visible suspension state from this user's action label.
-    const activating=/restore|enable|بحال|فعال/i.test(button.textContent||"");
+    const activating=/restore|enable|بحال|رکن کو فعال کریں/i.test(button.textContent||"");
     memberActiveSpark(uid,activating).then(()=>bridge.changeMember(n,!activating))
       .catch(e=>bridge.notice(errorText(e))).finally(()=>{if(button.isConnected)button.disabled=false;});
     return;

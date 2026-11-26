@@ -28,7 +28,13 @@ const empty=ac.treeActivityMarkup(branchRows[2]);assert(empty.includes("Group me
 console.log("Tree activity for empty groups and scoped descendant navigation passed");
 
 assert.equal(ac.accessibleTreeMembers(branchRows[1]).map(p=>p.id).join(","),"3,6");
-assert.equal(ac.accessibleTreeMembers(branchRows[0]).map(p=>p.id).join(","),"1,3,4,6");
+assert.equal(ac.accessibleTreeMembers(branchRows[0]).map(p=>p.id).join(","),"1,3,4,5,6");
+branchRows[4].disabled=true;
+assert.equal(ac.accessibleTreeMembers(branchRows[1]).map(p=>p.id).join(","),"3");
+assert.equal(ac.accessibleTreeMembers(branchRows[0]).map(p=>p.id).join(","),"1,3,4,5,6");
+assert.equal(ac.canViewTreeBranch(branchRows[1],branchRows[4]),false);
+assert.equal(ac.canViewTreeBranch(branchRows[0],branchRows[4]),true);
+assert.equal(ac.canViewTreeBranch(branchRows[0],branchRows[3]),true);
 assert(src.includes("members:treeMembersPage,ranking,groups")&&src.includes("if(currentUser()?.isOwner!==true)return treeMembersPage()"));
 console.log("Member group and directory scope, no private profile access, passed");
 
