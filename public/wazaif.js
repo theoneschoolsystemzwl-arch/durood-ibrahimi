@@ -970,6 +970,17 @@ function groupHistoryMarkup(w){
  return '<p class="wz-help">تاریخِ رکنیت: '+esc(displayRecordDate(start))+' • میری مجموعی تسبیح: '+fmt(Number(state.groupMember?.total||0))+(state.groupDaysReady?"":" • ریکارڈ لوڈ ہو رہا ہے")+'</p>'+rows.join("")+
  (spanDays(start,today)>state.historyLimit?'<button type="button" class="wz-button" data-wazifa-action="history-more">مزید پرانا ریکارڈ</button>':"");
 }
+function groupCounterSummaryMarkup(){
+ const s=window.duroodGroupCounterSummary?.(false)||{};
+ const f=n=>Number.isSafeInteger(n)&&n>=0?fmt(n):"—";
+ const sub=(label,value)=>'<small>'+label+' <bdi>'+value+'</bdi></small>';
+ const box=(label,value,extra="")=>'<div><small>'+label+'</small><strong><bdi>'+value+'</bdi></strong>'+extra+'</div>';
+ return box("تاریخِ رکنیت",esc(s.joined||"—"),sub("پڑھے گئے دن",f(s.readDays)))+
+ box("گروپ کا مجموعی ورد",f(s.groupTotal))+
+ box("میرا مجموعی ورد",f(s.total),sub("میرا سالانہ ورد",f(s.annual)))+
+ box("روزانہ ہدف",f(s.goal),sub("آج پڑھا",f(s.today))+
+ '<small>باقی <bdi style="color:'+(s.remaining==null?"inherit":s.remaining===0?"#6effa0":"#ff777f")+'">'+f(s.remaining)+'</bdi></small>');
+}
 function heroReadingState(group,w,record){
  const today=group?groupReadingDay():readingDay(),todayCount=group?ownGroupDay(today):(record.day===today?Math.max(0,Number(record.today)||0):0);
  const total=Math.max(0,Number(record.total)||0);
@@ -1062,7 +1073,7 @@ function readerMarkup(group){
  '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+esc(w.instructions||"ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔")+'</p>'+
  '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+esc(w.purpose||"مقصد درج نہیں کیا گیا۔")+'</p></section>'+
  '<section class="wz-session-card" aria-label="تسبیح کاؤنٹر اور روزانہ کا حساب">'+
- (showDates?'<div class="wz-hero-six">'+
+ (group?'<div class="wz-group-counter-grid" id="wz-group-counter-summary">'+groupCounterSummaryMarkup()+'</div>':showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+
  heroTile("کل دن",visible.mode==="daily"?"روزانہ":fmt(days),"date")+
  heroTile("مکمل دن",fmt(s.continuing?s.plan.currentDay:elapsed),"check")+
@@ -1072,11 +1083,11 @@ function readerMarkup(group){
  '</div>':'<div class="wz-hero-six wz-hero-six-basic">'+
  heroTile(group?"میرا روزانہ ہدف":"روزانہ ہدف",fmt(s.dailyGoal),"target","wz-mini-goal")+heroTile(group?"میرا آج پڑھا":"آج پڑھا",fmt(group?ownGroupDay(today):s.todayCount),"book","wz-mini-today")+
  heroTile("آج باقی",fmt(group?Math.max(0,s.dailyGoal-ownGroupDay(today)):s.dayLeft),"hourglass","wz-mini-left")+'</div>')+
- '<div class="wz-hero-topstats">'+
- heroStat(group?"میرا مجموعی شمار":"کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
+ (group?"":'<div class="wz-hero-topstats">'+
+ heroStat("کل پڑھی گئی تعداد",fmt(s.total),"book","wz-hero-total")+
  (group?"":heroStat(s.continuing?"مجموعی باقی":"باقی",fmt(s.left),"hourglass","wz-hero-left")+
  heroStat(s.continuing?"کل ہدف":"مجموعی ہدف",fmt(s.totalGoal),"target","wz-hero-goal"))+
- '</div>'+
+ '</div>')+
  '<div class="wz-progress-trio" role="group" aria-label="مجموعی تکمیل، باقی اور روزانہ ہدف">'+
  (group?"":'<div class="wz-hero-progress wz-progress-line">'+
  '<progress id="wz-hero-progress-bar" max="100" value="'+progress+'" aria-label="مجموعی تکمیل"></progress>'+
@@ -1105,10 +1116,12 @@ function readerMarkup(group){
  fiveFigureMarkup(group,w,record)+
  '</div>'+
  '<div class="wz-reader-controls-row">'+
- '<div class="wz-hero-speed" aria-label="تسبیح کی رفتار">'+
+ '<div class="wz-hero-speed'+(group?' wz-group-speed':'')+'" aria-label="تسبیح کی رفتار">'+
  '<div><small>فی گھنٹہ</small><strong id="wz-speed-hour">—</strong></div>'+
  '<div><small>فی منٹ</small><strong id="wz-speed-min">—</strong></div>'+
  '<div><small>SEC</small><strong id="wz-speed-sec">—</strong></div>'+
+ (group?'<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
+ 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>':"")+
  '</div>'+
  (group?'<span class="wz-current-date">'+esc(displayRecordDate(today))+'<small style="display:block">'+esc(window.duroodHijri?.format(today,w)||"—")+'</small></span>':
  '<div class="wz-date-select"><input id="wz-save-date" type="hidden" value="'+esc(state.draftDay||today)+'">'+
@@ -1116,8 +1129,8 @@ function readerMarkup(group){
  '<button type="button" class="wz-date-button" data-wazifa-action="open-date-picker" aria-label="تسبیح کی تاریخ منتخب کریں">'+
  '<span id="wz-selected-date">'+esc(displayRecordDate(state.draftDay||today))+'</span></button>'+
  '<button type="button" class="wz-day-step" data-wazifa-action="day-next" aria-label="اگلا دن">+</button></div>')+
- '<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
- 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
+ (!group?'<button type="button" class="wz-button wz-primary wz-reader-save" data-wazifa-action="save-taps" '+(state.tapQueue?'':'disabled')+'>'+
+ 'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>':"")+
  '</div>'+
 
  '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite" style="margin:3px 0;padding:4px;font-size:12px;text-align:center;overflow-wrap:anywhere"></p>'+
@@ -1147,6 +1160,8 @@ function refreshHeroReader(){
  const record=group?(state.groupMember||{}):w;
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
+ const summary=root.querySelector("#wz-group-counter-summary");
+ if(summary){const html=groupCounterSummaryMarkup();if(summary.innerHTML!==html)summary.innerHTML=html;}
  const taskId=group?"_group_":state.readerId;
  state.tapQueue=wzSync.pending(taskId);
  const todayCount=s.todayCount,total=s.total;
