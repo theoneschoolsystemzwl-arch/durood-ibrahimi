@@ -555,7 +555,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
  assert(markup.includes('periodCardComparison(count,goal,previous[key],partial)'));
- assert(markup.includes('quality==="partial"?"≥ ":""'));
+ assert(!markup.includes("≥ "));
  assert(markup.includes("style=\"color:")&&markup.includes("-webkit-text-fill-color:"));
  }
 

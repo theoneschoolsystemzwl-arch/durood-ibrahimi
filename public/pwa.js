@@ -1,4 +1,4 @@
-const RELEASE="one-hour-period-fireworks-20261126-v43";
+const RELEASE="plain-period-goal-20261126-v44";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
