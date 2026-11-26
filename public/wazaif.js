@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=refresh-safe-drafts-20261126-v3";
 import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -2172,9 +2172,10 @@ document.addEventListener("input",event=>{
  }
  if(event.target?.closest("#wazifa-form")&&["durationDays","startDate","goal"].includes(event.target.name))syncForm();
 },true);
-// Do not discard Firestore taps or settings that have not finished saving.
+// Unsubmitted taps already live in the durable journal. Reload is safe.
 document.addEventListener("durood:before-refresh",event=>{
- if(state.tapBusy||state.tapQueue>0||state.busy)event.preventDefault();
+ if(state.tapBusy||state.busy||wzSync.status().busy){event.preventDefault();return;}
+ persistDraft();
 });
 window.duroodWazaif={
  setMember,render,back,

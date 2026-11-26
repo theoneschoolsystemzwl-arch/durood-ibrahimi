@@ -1,5 +1,5 @@
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=refresh-safe-drafts-20261126-v3";
 import {globalDay} from "./global-clock.js";
 import "./password-change.js";
 import {
@@ -314,7 +314,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=manual-save-only-20261126-v28";
+  frame.src="./classic-app.html?release=refresh-safe-drafts-20261126-v29";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -416,7 +416,7 @@ async function refreshMembers(){
   }
 }
 document.addEventListener("durood:before-refresh",event=>{
-  if(appState.busy)event.preventDefault();
+  if(appState.busy||fallbackTasbih.status().busy)event.preventDefault();
 });
 onAuthStateChanged(auth,async user=>{
   const current=++authGeneration;

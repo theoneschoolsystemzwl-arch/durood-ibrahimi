@@ -1,7 +1,7 @@
 // Pull down from the top to fetch the newest live Firebase website.
 (()=>{
  "use strict";
- if(!("ontouchstart" in window) && navigator.maxTouchPoints<1)return;
+ // Explicit refresh works on any device, including Android WebViews.
  const LIMIT=88;
  let touch=null, refreshing=false, indicator=null, hideTimer=null;
  const isControl=el=>el?.closest?.("button,a,input,select,textarea,label,summary,[contenteditable],[role=button],[data-no-pull],.dial,.wz-dial");
@@ -38,7 +38,14 @@
  async function fetchLatest(){
   if(refreshing)return;
   const before=new CustomEvent("durood:before-refresh",{cancelable:true});
-  if(!document.dispatchEvent(before)){
+  let allowed=document.dispatchEvent(before);
+  try{
+   if(window.top!==window&&window.top.location.origin===location.origin)
+    allowed=window.top.document.dispatchEvent(new window.top.CustomEvent("durood:before-refresh",{cancelable:true}))&&allowed;
+   else {const frame=document.getElementById("classic-frame");if(frame?.contentDocument&&frame.contentWindow)
+    allowed=frame.contentDocument.dispatchEvent(new frame.contentWindow.CustomEvent("durood:before-refresh",{cancelable:true}))&&allowed;}
+  }catch(error){console.debug("Refresh guard unavailable",error);}
+  if(!allowed){
    show("گنتی محفوظ ہو رہی ہے، دوبارہ کوشش کریں");
    hide(1800);
    return;
@@ -50,19 +57,14 @@
   }
   refreshing=true;
   show("اپ ڈیٹ چیک ہو رہی ہے…",90);
-  try{
-   // Clear ONLY website shell cache, not login, Firestore data, or saved prayers.
-   if("caches" in window){
-    const names=await caches.keys();
-    await Promise.all(names.filter(name=>name.startsWith("durood-global-shell-"))
-      .map(name=>caches.delete(name)));
-   }
-   if("serviceWorker" in navigator){
-    try{const reg=await navigator.serviceWorker.getRegistration();
-      if(reg)await reg.update();
-    }catch(error){console.debug("Refresh SW update skipped",error);}
-   }
-  }catch(error){console.debug("Refresh cache cleanup skipped",error);}
+  // Network-first service worker and cache-busted navigation fetch the new shell.
+  // Never wait indefinitely on a worker update, or remove offline fallback assets.
+  if("serviceWorker" in navigator){
+   try{await Promise.race([
+     navigator.serviceWorker.getRegistration().then(reg=>reg?.update()).catch(()=>{}),
+     new Promise(resolve=>setTimeout(resolve,1200))
+   ]);}catch(error){console.debug("Refresh SW update skipped",error);}
+  }
   // The dashboard runs in a same-origin iframe: reload its parent too so the
   // login portal, embedded dashboard, styles and scripts are all refreshed.
   try{
@@ -78,13 +80,17 @@
   latest.searchParams.set("_refresh",String(Date.now()));
   location.replace(latest.href);
  }
+ window.duroodRefreshPage=fetchLatest;
+ document.addEventListener("click",event=>{
+  if(event.target?.closest?.("[data-durood-refresh]")){event.preventDefault();event.stopImmediatePropagation();void fetchLatest();}
+ },true);
  document.addEventListener("touchstart",event=>{
   touch=null;
   if(refreshing||event.touches.length!==1||!document.body)return;
   const origin=event.target instanceof Element?event.target:null;
   if(!origin||isControl(origin)||scrollableAbove(origin))return;
   touch={x:event.touches[0].clientX,y:event.touches[0].clientY,dy:0,cancelled:false};
- },{passive:true});
+ },{passive:true,capture:true});
  document.addEventListener("touchmove",event=>{
   if(!touch||refreshing)return;
   if(event.touches.length!==1){touch=null;hide();return;}
@@ -98,7 +104,7 @@
   touch.dy=dy;
   if(event.cancelable)event.preventDefault();
   show(dy>=LIMIT?"چھوڑیں تو ایپ ریفریش ہوگی":"نیچے کھینچیں، اپ ڈیٹ کریں",dy);
- },{passive:false});
+ },{passive:false,capture:true});
  document.addEventListener("touchend",()=>{
   if(!touch)return;
   const pulled=!touch.cancelled&&touch.dy>=LIMIT;

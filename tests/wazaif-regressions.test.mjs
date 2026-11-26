@@ -428,3 +428,19 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const full=vm.runInContext("aggregateGroupTargets",ctx);
  assert(full(four,"2026-11-25",cfg).yearlyGoal>running(four,"2026-11-25",cfg).year);
 }
+
+ // Refresh must preserve locally queued recitations and block only active writes.
+ {
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const refresh=fs.readFileSync("public/pull-refresh.js","utf8");
+ const guard=source.slice(source.indexOf('document.addEventListener("durood:before-refresh"'),source.indexOf("window.duroodWazaif="));
+ let handler, persisted=0, blocked=0;
+ const state={tapQueue:500,tapBusy:false,busy:false};
+ const ctx=vm.createContext({state,wzSync:{status:()=>({busy:false})},persistDraft:()=>persisted++,document:{addEventListener:(n,fn)=>handler=fn}});
+ vm.runInContext(guard,ctx);
+ const event={preventDefault:()=>blocked++};
+ handler(event);assert.equal(persisted,1);assert.equal(blocked,0);assert.equal(state.tapQueue,500);
+ state.tapBusy=true;handler(event);assert.equal(blocked,1);assert.equal(persisted,1);
+ assert(classic.includes("data-durood-refresh")&&refresh.includes("window.duroodRefreshPage=fetchLatest"));
+ assert(refresh.includes("Promise.race")&&!refresh.includes("caches.delete"));
+ }

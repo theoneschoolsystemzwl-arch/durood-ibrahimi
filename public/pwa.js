@@ -1,4 +1,4 @@
-const RELEASE="manual-save-only-20261126-v28";
+const RELEASE="refresh-safe-drafts-20261126-v29";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
@@ -18,6 +18,7 @@ async function checkRelease(){
   button.onclick=async()=>{
    const frame=document.getElementById("classic-frame");
    try{
+    if(typeof window.duroodRefreshPage==="function"){await window.duroodRefreshPage();return;}
     if(frame?.contentDocument&&!frame.contentDocument.dispatchEvent(new frame.contentWindow.CustomEvent("durood:before-refresh",{cancelable:true})))return;
     if(!document.dispatchEvent(new CustomEvent("durood:before-refresh",{cancelable:true})))return;
     markAttempt(data.version);button.disabled=true;button.textContent="اپ ڈیٹ ہو رہی ہے…";
