@@ -1322,6 +1322,24 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .dial .session-clock{font-size:clamp(.85rem,3.7vw,1.2rem);font-weight:850;line-height:1.42}
 .reader .dial.is-floating .session-clock{font-size:clamp(.67rem,2.55vw,.88rem)}
 /* Group reader: the counter is the focus; the daily ledger appears once below. */
+.reader .group-counter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;direction:rtl}
+.reader .group-counter-grid .reader-metric{min-width:0;padding:6px;overflow-wrap:anywhere}
+.reader .group-counter-grid #read-joined{font-size:clamp(.85rem,3.5vw,1.12rem)}
+.reader .group-counter-sub{display:block;font-size:.68rem;line-height:1.5}
+.reader .pace-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;align-items:stretch}
+.reader .pace-grid .reader-metric{padding:3px;min-width:0}
+.reader .pace-grid .reader-metric small{font-size:clamp(.48rem,1.7vw,.65rem)}
+.reader .pace-grid .reader-metric strong{font-size:clamp(.8rem,3.5vw,1.15rem)}
+.reader .group-save-inline{min-width:0;padding:3px;font-size:clamp(.65rem,2.7vw,.85rem);display:grid;place-content:center;gap:2px;white-space:normal}
+.reader .group-save-inline b{font-size:1.1rem}
+.wz-group-counter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;direction:rtl}
+.wz-group-counter-grid>div{border:1px solid #35b995;border-radius:8px;padding:6px;min-width:0;text-align:center}
+.wz-group-counter-grid small,.wz-group-counter-grid strong{display:block;overflow-wrap:anywhere}
+.wz-group-counter-grid small{font-size:.7rem}
+.wz-group-counter-grid strong{font-size:1.05rem}
+.wz-hero-reader .wz-hero-speed.wz-group-speed{grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:3px}
+.wz-group-speed .wz-reader-save{min-width:0!important;padding:3px!important;font-size:.72rem;white-space:normal}
+.wz-group-speed .wz-reader-save b{display:block}
 .reader .reader-grid{margin-top:8px}
 .reader .dial:not(.is-floating){width:min(69vw,272px);margin:12px auto 5px;touch-action:manipulation}
 .reader .group-tap-help,.reader .group-record-caption{font-size:.73rem;text-align:center;margin:4px 0;color:var(--read-text,#c0dfd2);line-height:1.6}
@@ -3177,6 +3195,40 @@ const duroodIbrahimi = '<p>اللَّهُمَّ صَلِّ عَلَىٰ مُحَ
 function wazaifLanding(){
   return '<section id="wazaif-root" class="wazifa-host"><p>وظائف کی فہرست لوڈ ہو رہی ہے…</p></section>';
 }
+// Group reader summary uses saved records, not unsaved taps or mixed-gender aggregates.
+window.duroodGroupCounterSummary=(asDurood=true)=>{
+ const person=currentUser();
+ if(!person?.uid||ownerViewingWomen())return {};
+ const today=globalDateKey(),joined=registrationDate(person),period=annualTargetPeriod(dashboardGroupSettings,today);
+ const valid=n=>Number.isSafeInteger(n)&&n>=0?n:null;
+ const entries=memberGroupDays===null?null:Object.entries(memberGroupDays).filter(([d,n])=>targetDateValid(d)&&d<=today&&valid(n)!==null);
+ const annual=entries&&period?entries.filter(([d])=>d>=(period.countStart||period.start)&&d<=period.end).reduce((s,[,n])=>s+n,0):null;
+ const readDays=entries?entries.filter(([,n])=>n>0).length:null;
+ const total=asDurood?verifiedOwnDuroodTotal():memberGroupSummary===null?null:valid(memberGroupSummary.total??0);
+ const goal=hasMemberDailyGoal(today)?memberGroupTargets(today).dailyGoal:null;
+ const ownToday=asDurood?dayCount(person,today):entries?valid(memberGroupDays[today]??0):null;
+ return {joined:joined?joinDate.format(joined):null,readDays,annual,total,goal,today:ownToday,
+ remaining:goal!==null&&ownToday!==null?Math.max(0,goal-ownToday):null,
+ groupTotal:person.isOwner?valid(dashboardGroupStats?.total):null};
+};
+function groupCounterBoxes(){
+ const box=(label,id,extra="")=>'<div class="reader-metric"><small>'+label+'</small><strong id="'+id+'">—</strong>'+extra+'</div>';
+ const sub=(label,id)=>'<small class="group-counter-sub">'+label+' <bdi id="'+id+'">—</bdi></small>';
+ return '<div class="reader-grid group-counter-grid">'+
+ box(tr("Membership date","تاریخِ رکنیت"),"read-joined",sub(tr("Days read (group)","گروپ میں پڑھے گئے دن"),"read-days"))+
+ box(tr("Group total","گروپ کا مجموعی ورد"),"read-global")+
+ box(tr("My total Durood","میرا مجموعی درود"),"read-all",sub(tr("My annual group count","میرا سالانہ گروپ ورد"),"read-annual"))+
+ box(tr("Daily goal","روزانہ ہدف"),"read-target",sub(tr("Today read","آج پڑھا"),"read-today")+sub(tr("Remaining","باقی"),"read-remaining"))+'</div>';
+}
+function refreshGroupCounterBoxes(){
+ if(!document.getElementById("read-joined"))return;
+ const s=window.duroodGroupCounterSummary();
+ const fmt=n=>Number.isSafeInteger(n)&&n>=0?formatNumber(n):"—";
+ for(const [id,value] of [["read-joined",s.joined||"—"],["read-days",fmt(s.readDays)],["read-global",fmt(s.groupTotal)],["read-all",fmt(s.total)],["read-annual",fmt(s.annual)],["read-target",fmt(s.goal)],["read-today",fmt(s.today)],["read-remaining",fmt(s.remaining)]]){
+  const node=document.getElementById(id);if(node)node.textContent=value;
+ }
+ const node=document.getElementById("read-remaining");if(node)node.style.color=s.remaining==null?"":s.remaining===0?"#6effa0":"#ff777f";
+}
 function tasbih() {
   const group=window.duroodWazaif?.groupData?.();
   const headingTitle=group?.title||groupTitleLabel();
@@ -3195,17 +3247,14 @@ function tasbih() {
     '</button><button class="button" data-action="reader-vibrate" aria-pressed="' + Boolean(prayerPrefs(currentUserId).readerVibrate) +
     tr("\">Vibrate ", '">وائبریشن ') + (prayerPrefs(currentUserId).readerVibrate ? tr("On", 'چالو') : tr("Off", 'بند')) +
     tr("</button><button class=\"button\" data-action=\"reader-fullscreen\">Full screen</button></div></div>", '</button><button class="button" data-action="reader-fullscreen">پوری اسکرین</button></div></div>') +
-    tr("<div class=\"reader-grid\"><div class=\"reader-metric\"><small>My total</small><strong id=\"read-all\">0</strong></div>", '<div class="reader-grid"><div class="reader-metric"><small>میرا مجموعی درود</small><strong id="read-all">0</strong></div>') +
-    tr("<div class=\"reader-metric\"><small>Today</small><strong id=\"read-today\">0</strong></div>", '<div class="reader-metric"><small>آج کا درود</small><strong id="read-today">0</strong></div>') +
-    tr("<div class=\"reader-metric\"><small>Daily goal</small><strong id=\"read-target\">100</strong></div>", '<div class="reader-metric"><small>روزانہ ہدف</small><strong id="read-target">100</strong></div>') +
-    tr("<div class=\"reader-metric\"><small>Community</small><strong id=\"read-global\">0</strong></div></div>", '<div class="reader-metric"><small>اجتماعی شمار</small><strong id="read-global">0</strong></div></div>') +
+    groupCounterBoxes() +
     '<div class="reader-progress"><div class="reader-goal-note"><strong id="read-goal-note"></strong>' +
     tr("<button class=\"button secondary\" data-group-daily-goal>Goal settings</button></div>", '<button class="button secondary" data-group-daily-goal>روزانہ ہدف مقرر کریں</button></div>') +
     tr("<progress id=\"read-progress\" aria-label=\"Daily goal progress\" max=\"100\" value=\"0\"></progress></div>", '<progress id="read-progress" aria-label="روزانہ ہدف کی پیش رفت" max="100" value="0"></progress></div>') +
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
-    tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
-    '<div style="display:flex;justify-content:center;margin:5px 0"><button type="button" class="button primary" style="min-width:140px" data-action="save-durood" disabled>'+tr('Save','محفوظ کریں')+' <b id="group-unsaved">0</b></button></div><p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
+    tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div>') +
+    '<button type="button" class="button primary group-save-inline" data-action="save-durood" disabled>'+tr('Save','محفوظ کریں')+' <b id="group-unsaved">0</b></button></div><p class="read-status ur" id="read-status" role="status" aria-live="polite"></p>' +
     '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Unsaved tasbih','غیر محفوظ تسبیح') + '</small><strong id="session-count">0</strong>' +
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
@@ -3257,10 +3306,7 @@ function updateReader() {
   // Count every completed recitation as on the Wazaif reader.
   const rate = live.count>0 && live.ms>0 ? live.ms/live.count : priorPace(person.id);
   const verifiedTotal=verifiedOwnDuroodTotal();
-  set('read-all',verifiedTotal===null?'—':formatNumber(verifiedTotal));
-  set('read-today',formatNumber(count));
-  set('read-target',formatNumber(goal));
-  set('read-global',formatNumber(globalTotal));
+  refreshGroupCounterBoxes();
   const taps=Object.values(readerPendingTotals).reduce((n,v)=>n+(Number(v)||0),0);
   set('session-count',formatNumber(taps));set('group-unsaved',formatNumber(taps));
   const saveButton=document.querySelector('[data-action="save-durood"]');
@@ -5372,9 +5418,9 @@ window.duroodClassicBridge = {
     if(currentUser()?.uid!==uid)return;
     if(days!==undefined)memberGroupDays=days;
     if(summary!==undefined)memberGroupSummary=summary;
-    refreshMemberGroupProgress();
+    refreshMemberGroupProgress();refreshGroupCounterBoxes();
   },
-  groupProgressStats(value){dashboardGroupStats=value;refreshDashboardGroupProgress();},
+  groupProgressStats(value){dashboardGroupStats=value;refreshDashboardGroupProgress();refreshGroupCounterBoxes();window.duroodWazaif?.refreshGroupTargets?.();},
   groupProgressYear(value){dashboardGroupYear=value;refreshDashboardGroupProgress();},
   groupProgressDays(value){dashboardGroupDays=value;refreshDashboardGroupProgress();},
   groupTitle(value){
@@ -5477,8 +5523,7 @@ window.duroodClassicBridge = {
   allTime(value){
     globalTotal=value;
     refreshDashboardDatedTotal();
-    const readGlobal=document.getElementById("read-global");
-    if(readGlobal)readGlobal.textContent=formatNumber(value);
+    refreshGroupCounterBoxes();
     // The side's historical Durood total is independent of the Wazifa goal bars.
   },
   enter(profile,rows,totals,refresh=false){
