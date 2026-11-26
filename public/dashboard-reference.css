@@ -394,3 +394,10 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers{align-items:end;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers strong[data-period]{font:700 clamp(.72rem,3vw,1.15rem)/1.2 system-ui,sans-serif;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{font:800 clamp(1rem,4.3vw,1.75rem)/1.15 system-ui,sans-serif;color:#e0f5ec!important;-webkit-text-fill-color:#e0f5ec!important;}
+
+/* Period name above, large white target centered, small colored reading lower left. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;align-items:stretch;justify-items:stretch;gap:2px;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-heading{grid-row:1;grid-column:1;align-self:start;text-align:center;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto;align-items:center;gap:0;grid-row:2;grid-column:1;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal{grid-row:1;grid-column:1;align-items:center;justify-content:center;align-self:center;text-align:center;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-copy{grid-row:2;grid-column:1;align-items:flex-start;align-self:end;text-align:left;}
