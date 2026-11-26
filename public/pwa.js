@@ -1,4 +1,4 @@
-const RELEASE="dashboard-large-salam-20261126-v3";
+const RELEASE="dashboard-rainbow-salam-20261126-v4";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
