@@ -350,3 +350,24 @@
   animation:durood-salam-appear 30s linear var(--salam-elapsed,0ms) both,durood-salam-spectrum 2.6666667s linear var(--salam-elapsed,0ms) infinite;
  }
 }
+
+/* Royal embossed gold treatment for the all-time total only. */
+:root[data-theme] .dashboard-home .recitation-banner.all-time-durood-card{
+ border:3px solid #e8bd59;
+ background-image:radial-gradient(ellipse at 50% 5%,#138a6c80,transparent 65%),linear-gradient(150deg,#08705a,#034c3d 53%,#012b24),url("./dashboard-arch.svg");
+ background-size:cover,cover,100% 155px;
+ background-position:center,center,center 18px;
+ background-repeat:no-repeat;
+ box-shadow:inset 0 0 0 2px #68440e,inset 0 0 0 4px #ffe29a,inset 0 7px 15px #ffffff1c,inset 0 -9px 20px #001d18a0,0 4px 0 #77501a,0 8px 15px #001a15a3,0 0 12px #e8bd5950;
+}
+:root[data-theme] .dashboard-home .all-time-durood-card h2{
+ color:#fff1bc!important;
+ border:1px solid #d6aa4b;
+ background:linear-gradient(155deg,#146b51,#023b30);
+ box-shadow:inset 0 1px 2px #ffdb8550,0 2px 3px #001e18;
+ text-shadow:0 1px 1px #50330b,0 2px 3px #001a14;
+}
+:root[data-theme] .dashboard-home .all-time-durood-card #global-total{
+ color:#ffda64!important;
+ text-shadow:0 -1px 0 #fff0af,0 1px 0 #e5b64c,0 2px 0 #c38b28,0 3px 0 #a87019,0 4px 0 #815011,0 5px 0 #5c360a,0 7px 8px #001b16,0 0 16px #ffcf5540!important;
+}

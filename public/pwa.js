@@ -1,4 +1,4 @@
-const RELEASE="dashboard-double-reader-photos-20261126-v7";
+const RELEASE="dashboard-royal-gold-total-20261126-v8";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
