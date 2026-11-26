@@ -188,7 +188,9 @@ const beforePresence=historicalRules('e8cafa41c1199c02fa7d3d377c9672622a29b62b')
 // 98bab3ec6fa075c9, matching the intact PDF-sharing rules commit exactly.
 // The complete normalized source must still match; no hash-only bypass.
 const beforePauseResume=historicalRules('58a6f8981cccef13e3ea03c014ab787bc3270ed2');
+const beforeLatestDevice=historicalRules('21d6787bb129b099ff61fe28a826f90fb4bef309');
 const baselines=[
+  beforeLatestDevice,
   beforePauseResume,beforePresence,  afterReaderRepair,afterGroupLedgerRelease,afterDailyGoalFix,lastVerifiedLive,expected,beforeQaza,beforeSharing,beforeFemaleSerial,beforeHeroRedesign,
   beforeFixedDaily,beforeDatedSave,beforeRuleRepair,beforeDatedDispatchFix,
   beforeFastCount,beforeSignedLedger,beforeDurableTasbih,beforeLatestPublished,

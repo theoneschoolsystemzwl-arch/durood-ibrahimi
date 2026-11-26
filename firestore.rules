@@ -102,8 +102,8 @@ service cloud.firestore {
     function owner() {
       return signed() && (request.auth.token.get('owner', false) == true || legacyIsOwner()) && active(request.auth.uid);
     }
-    // The first active sign-in has an auth-time-bound lease; later sign-ins
-    // are rejected, never allowed to replace it. The Owner is exempt.
+    // Only the newest signed authentication time holds the active lease.
+    // Older tokens lose protected access. The Owner is exempt.
     function activeLogin() {
       return signed() && (owner() ||
         (exists(activeLoginPath(request.auth.uid)) &&
@@ -339,13 +339,14 @@ service cloud.firestore {
     match /activeLogins/{uid} {
       allow get: if self(uid) || owner();
       allow list: if owner();
-      // Never let a second sign-in replace an active lease.
-      // Only the explicit logout of the original session may delete it.
-      allow create: if validActiveLogin(uid);
-      allow update: if false;
-      // A member can release only their own lease on explicit logout.
-      // An authenticated Owner may recover a member's lost or broken phone
-      // only through an explicit admin action; never automatic takeover.
+      function newerThanLoginHistory() {
+        let history = /databases/$(database)/documents/memberLastLogins/$(uid);
+        return !exists(history) || request.auth.token.auth_time > get(history).data.authTime;
+      }
+      allow create: if validActiveLogin(uid) && newerThanLoginHistory();
+      allow update: if validActiveLogin(uid) && newerThanLoginHistory() &&
+        request.auth.token.auth_time > resource.data.authTime;
+      // Only the current signed auth time or Owner recovery can delete.
       allow delete: if (self(uid) &&
         resource.data.authTime == request.auth.token.auth_time) ||
         (owner() && uid != request.auth.uid);

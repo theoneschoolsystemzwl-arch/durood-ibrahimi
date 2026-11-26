@@ -2,7 +2,7 @@
 // DI member serials are profile metadata, never login credentials.
 import {auth,db} from "./firebase-client.js";
 import {signInWithEmailAndPassword,signOut as firebaseSignOut,onAuthStateChanged,getIdTokenResult,setPersistence,browserLocalPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
-import {doc,getDoc,runTransaction,serverTimestamp,deleteDoc} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import {doc,getDoc,getDocFromServer,onSnapshot,runTransaction,serverTimestamp,deleteDoc} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import {
   aliasEmail,registerSpark,invitationSpark,memberActiveSpark,profileNameSpark
 } from "./spark-data.js?release=fast-login-reader-v4";
@@ -48,26 +48,46 @@ async function rememberLastLogin(user,timestamp){
     });
   }catch(error){console.warn("Last login record unavailable",error?.code||error);}
 }
-// Called only after Firebase Auth accepts the password and member profile.
-export async function claimDeviceSession(user,profile){
-  const timestamp=await authTime(user);
-  if(isOwner(profile)){void rememberLastLogin(user,timestamp);return;}
-  const id=sessionId();
-  const ref=doc(db,"activeLogins",user.uid);
-  await runTransaction(db,async tx=>{
-    const old=await tx.get(ref);
-    if(old.exists()){
-      if(old.data().sessionId === id &&
-         old.data().authTime === timestamp)return;
-      // The first active login ALWAYS wins. A second login never forces out
-      // the original session, even if the password is correct.
-      const error=new Error("User already logged in");
-      error.code="member/already-online";
-      throw error;
-    }
-    tx.set(ref,{authTime:timestamp,sessionId:id,claimedAt:serverTimestamp()});
-  });
-  void rememberLastLogin(user,timestamp);
+// Fresh credentials may replace an older lease; restoration never takes over.
+function replacedSession(code="member/session-replaced"){
+ const error=new Error("Session no longer current");error.code=code;return error;
+}
+export async function claimDeviceSession(user,profile,{fresh=false}={}){
+ const timestamp=await authTime(user);
+ if(isOwner(profile)){void rememberLastLogin(user,timestamp);return;}
+ const id=sessionId(),ref=doc(db,"activeLogins",user.uid);
+ const same=old=>old.exists()&&old.data().sessionId===id&&old.data().authTime===timestamp;
+ if(!fresh){
+  const old=await getDocFromServer(ref);
+  if(!same(old))throw replacedSession();
+  return;
+ }
+ await runTransaction(db,async tx=>{
+  const old=await tx.get(ref);
+  if(same(old))return;
+  if(old.exists()&&old.data().authTime>=timestamp)
+    throw replacedSession(old.data().authTime===timestamp?"member/same-second":"member/session-replaced");
+  const history=await tx.get(doc(db,"memberLastLogins",user.uid));
+  if(history.exists()&&Number(history.data().authTime)>=timestamp)
+    throw replacedSession(Number(history.data().authTime)===timestamp?"member/same-second":"member/session-replaced");
+  tx.set(ref,{authTime:timestamp,sessionId:id,claimedAt:serverTimestamp()});
+ });
+ await rememberLastLogin(user,timestamp);
+}
+export function watchDeviceSession(user,profile,onReplaced){
+ if(isOwner(profile))return ()=>{};
+ let stopped=false,unsubscribe=()=>{};
+ const id=sessionId();
+ void authTime(user).then(timestamp=>{
+  if(stopped||auth.currentUser?.uid!==user.uid)return;
+  unsubscribe=onSnapshot(doc(db,"activeLogins",user.uid),{includeMetadataChanges:true},snap=>{
+   if(stopped||auth.currentUser?.uid!==user.uid||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+   if(!snap.exists()||snap.data().authTime!==timestamp||snap.data().sessionId!==id){
+    stopped=true;unsubscribe();onReplaced();
+   }
+  },error=>console.warn("Device session watch unavailable",error?.code||error));
+ }).catch(error=>console.warn("Device session identity unavailable",error?.code||error));
+ return ()=>{stopped=true;unsubscribe();};
 }
 export async function signOut(currentAuth=auth){
   const user=currentAuth.currentUser;
@@ -191,12 +211,18 @@ export async function login(usernameOrEmail,password,{remember=true}={}){
   }
   try {
     const profile=await loadMemberProfile(credential.user);
-    await claimDeviceSession(credential.user,profile);
+    try{await claimDeviceSession(credential.user,profile,{fresh:true});}
+    catch(error){
+      if(error.code!=="member/same-second")throw error;
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      credential=await signInWithEmailAndPassword(auth,email,password);
+      await claimDeviceSession(credential.user,profile,{fresh:true});
+    }
     return profile;
   } catch(error) {
     if(!error.loginStage)error.loginStage="firestore-profile";
     // Keep a valid credential while the profile service is unavailable.
-    if(error.loginStage==="missing-member-profile" || error.code==="member/already-online"){
+    if(error.loginStage==="missing-member-profile" || ["member/session-replaced","member/same-second"].includes(error.code)){
       if(auth.currentUser?.uid===credential.user.uid)await firebaseSignOut(auth);
     }
     throw error;

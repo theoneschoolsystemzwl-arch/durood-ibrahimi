@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Authenticate using configured GitHub secret
         if: env.FIREBASE_CREDENTIALS != ''
         uses: google-github-actions/auth@v2
@@ -51,6 +53,22 @@ jobs:
           node tests/founder-group-code.test.cjs
           node tests/tasbih-durable-sync.test.cjs
           node tests/prayer-regressions.test.mjs
+      - name: Detect Firestore rule changes
+        id: rules_changed
+        run: |
+          if git diff --quiet HEAD^ HEAD -- firestore.rules; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Set up Java for changed rules
+        if: steps.rules_changed.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test changed security rules before production deployment
+        if: steps.rules_changed.outputs.changed == 'true'
+        run: |
+          npm install --no-save --no-audit --no-fund firebase@13.4.0 @firebase/rules-unit-testing@6
+          npm install --global firebase-tools@15.22.1
+          firebase emulators:exec --project demo-durood --only firestore --non-interactive "node tests/firestore-rules.cjs && node tests/wazaif-rules.cjs"
       - name: Set up Google Cloud SDK for Firebase rules comparison
         uses: google-github-actions/setup-gcloud@v2
       - name: Verify production Firestore rules are unchanged before update

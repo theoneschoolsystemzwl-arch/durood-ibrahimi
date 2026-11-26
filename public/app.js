@@ -4,8 +4,8 @@ import {globalDay} from "./global-clock.js";
 import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
-  claimDeviceSession, signOut, onAuthStateChanged
-} from "./member-auth.js?release=foreground-presence-v1";
+  claimDeviceSession, watchDeviceSession, signOut, onAuthStateChanged
+} from "./member-auth.js?release=latest-device-v1";
 import "./profile-contacts.js";
 import {generatedUsername,readingsSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {sendPasswordResetEmail,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -83,7 +83,7 @@ function message(selector,text,ok=false) {
 }
 function errorText(err) {
   const code=err?.code||"";
-  if(code==="member/already-online")return "User already logged in۔ پہلے والی ڈیوائس سے Log out کریں۔";
+  if(code==="member/session-replaced"||code==="member/same-second")return "";
   if(err?.loginStage==="missing-member-profile")return "یوزر موجود نہیں یا اکاؤنٹ غیر فعال ہے۔";
   if(err?.loginStage==="owner-sequence-conflict")return "پرانے ممبر نمبرز اور Owner اکاؤنٹ میں تضاد ہے۔ ریکارڈ کی حفاظت کے لیے کوئی نمبر تبدیل نہیں کیا گیا۔";
   if(err?.loginStage==="firestore-profile") {
@@ -233,7 +233,7 @@ $("#access-form").addEventListener("submit",async event=>{
       // Firebase Auth signs in immediately on account creation. Suppress the
       // auth-state listener until the same transaction creates the member record.
       const profile=await loadProfile(auth.currentUser);
-      await claimDeviceSession(auth.currentUser,profile);
+      await claimDeviceSession(auth.currentUser,profile,{fresh:true});
       pendingLoginFireworkUid=profile.uid;
       showSignedIn(profile);
     }
@@ -241,7 +241,8 @@ $("#access-form").addEventListener("submit",async event=>{
     message("#auth-message","اکاؤنٹ کامیابی سے کھل گیا۔",true);
   }catch(err){
     if(appState.tab==="login")rememberLoginFailure(err);
-    if(err.loginStage==="firestore-profile" && auth.currentUser){
+    if(["member/session-replaced","member/same-second"].includes(err.code)){showSignedOut();message("#auth-message","");}
+    else if(err.loginStage==="firestore-profile" && auth.currentUser){
       showProfileRetry(err);
     }else{
       message("#auth-message",errorText(err));
@@ -260,7 +261,17 @@ function showProfileRetry(err){
   $("#loading-copy").textContent=errorText(err);
   $("#loading-retry").hidden=false;
 }
+let stopDeviceWatch=()=>{},deviceWatchUid=null;
+function clearDeviceWatch(){stopDeviceWatch();stopDeviceWatch=()=>{};deviceWatchUid=null;}
+async function silentlyReplacedSession(uid){
+ if(auth.currentUser?.uid!==uid||signingOut)return;
+ signingOut=true;markLogout(true);++authGeneration;clearDeviceWatch();
+ try{showSignedOut();switchTab("login");$("#access-form").reset();message("#auth-message","");await firebaseSignOut(auth);}
+ catch(error){console.warn("Local session sign-out",error?.code||error);}
+ finally{signingOut=false;}
+}
 function showSignedOut() {
+  clearDeviceWatch();
   pendingLoginFireworkUid=null;
   clearTimeout(nullAuthTimer);
   clearTimeout(dashboardTimer);
@@ -284,6 +295,10 @@ function showSignedIn(profile){
   const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
   lastAuthenticatedUid=profile.uid;
   appState.profile=profile;
+  if(deviceWatchUid!==profile.uid){
+    clearDeviceWatch();deviceWatchUid=profile.uid;
+    stopDeviceWatch=watchDeviceSession(auth.currentUser,profile,()=>void silentlyReplacedSession(profile.uid));
+  }
   view("#loading",false);
   view("#access",false);
   view("#portal",true);
@@ -314,7 +329,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=unified-dashboard-20261126-v46";
+  frame.src="./classic-app.html?release=latest-device-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -461,6 +476,7 @@ onAuthStateChanged(auth,async user=>{
     await claimDeviceSession(user,profile);
   } catch(err) {
     if(auth.currentUser?.uid!==user.uid || current!==authGeneration)return;
+    if(err?.code==="member/session-replaced"){await silentlyReplacedSession(user.uid);return;}
     $("#loading-copy").textContent="آپ کا لاگ اِن محفوظ ہے؛ انٹرنیٹ سے دوبارہ رابطہ کیا جا رہا ہے۔";
     $("#loading-retry").hidden=false;
     console.warn("Session restoration delayed:",err?.code||err?.message);
@@ -482,7 +498,7 @@ $("#loading-retry").addEventListener("click",async()=>{
     classicFrameRequested=false;
     classicReadyUid=null;
     showSignedIn(profile);
-  }catch(error){showProfileRetry(error);}
+  }catch(error){if(error?.code==="member/session-replaced"&&auth.currentUser)await silentlyReplacedSession(auth.currentUser.uid);else showProfileRetry(error);}
 });
 async function explicitLogout(){
   if(signingOut)return;

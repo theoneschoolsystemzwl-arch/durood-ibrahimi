@@ -5754,7 +5754,7 @@ import "./wazaif.js?release=unified-dashboard-20261126-v49";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
-import {loadMemberProfile,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=foreground-presence-v1";
+import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
 import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pkt-global-20261125-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
@@ -6515,8 +6515,22 @@ onAuthStateChanged(auth,async user=>{
     }else window.location.replace("/");
     return;
   }
-  try{await hydrate();}
+  try{
+    if(window.parent===window){
+      const profile=await loadMemberProfile(user);
+      await claimDeviceSession(user,profile);
+      if(auth.currentUser?.uid!==user.uid)return;
+      if(!window.duroodStandaloneSessionWatch)window.duroodStandaloneSessionWatch=watchDeviceSession(user,profile,async()=>{
+        classicSigningOut=true;
+        try{await firebaseSignOut(auth);}finally{window.location.replace("/");}
+      });
+    }
+    await hydrate();
+  }
   catch(err){
+    if(err?.code==="member/session-replaced"&&window.parent===window){
+      classicSigningOut=true;try{await firebaseSignOut(auth);}finally{window.location.replace("/");}return;
+    }
     console.error("Classic Firebase dashboard",err);
     if(currentProfile && auth.currentUser?.uid===currentProfile.uid){bridge.notice(errorText(err));return;}
     if(window.parent!==window){

@@ -135,14 +135,12 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
 
   console.log("Owner female first member signup passed: DI-3, role=member, own referrals=0.");
   await assertFails(updateDoc(doc(newDb,"members",newId),{role:"owner"}));
-  // Another valid password sign-in must NOT replace the first active session.
-  // Once the first device explicitly logs out, the second may claim it.
+  // Fresh password authentication replaces an older lease, never the reverse.
   const newPhone=env.authenticatedContext(newId,{auth_time:1700000001}).firestore();
+  const sameSecond=env.authenticatedContext(newId,{auth_time:1700000000}).firestore();
+  const lease=db=>doc(db,"activeLogins",newId);
   await assertFails(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
-  await assertFails(setDoc(doc(newPhone,"activeLogins",newId),{
-    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
-  }));
-  // Login history is owner-only for directory reads, signed-time-only for writes.
+  await assertFails(setDoc(lease(sameSecond),{authTime:1700000000,sessionId:"same-second-phone",claimedAt:serverTimestamp()}));
   await assertSucceeds(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000000}));
   await assertSucceeds(getDocs(collection(ownerDb,"activeLogins")));
   await assertSucceeds(getDocs(collection(ownerDb,"memberLastLogins")));
@@ -151,31 +149,23 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertFails(getDoc(doc(wifeDb,"memberLastLogins",newId)));
   await assertFails(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000001}));
   await assertFails(setDoc(doc(newPhone,"memberLastLogins",newId),{authTime:1700000001}));
-  // Original device retains full access after the rejected attempt.
-  await assertSucceeds(getDoc(doc(newDb,"members",newId)));
-  await assertSucceeds(getDoc(doc(newDb,"activeLogins",newId)));
-  await assertSucceeds(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
-  await assertSucceeds((async()=>{
-    const r=doc(newDb,"activeLogins",newId);
-    const {deleteDoc}=require("firebase/firestore");
-    return deleteDoc(r);
-  })());
-  await assertSucceeds(setDoc(doc(newPhone,"activeLogins",newId),{
-    authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()
-  }));
+  await assertSucceeds(setDoc(lease(newPhone),{authTime:1700000001,sessionId:"different-browser-session",claimedAt:serverTimestamp()}));
   await assertFails(getDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertSucceeds(getDoc(doc(newPhone,"memberPrivate",newId,"prayers","2026-11-22")));
+  await assertFails(setDoc(lease(newDb),{authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()}));
+  const {deleteDoc:deleteLease}=require("firebase/firestore");
+  await assertFails(deleteLease(lease(newDb)));
   await assertSucceeds(setDoc(doc(newPhone,"memberLastLogins",newId),{authTime:1700000001}));
-  // Restore original lease for the rest of the historic tests.
-  await assertSucceeds((async()=>{
-    const {deleteDoc}=require("firebase/firestore");
-    return deleteDoc(doc(newPhone,"activeLogins",newId));
-  })());
-  await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
-    authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
-  }));
-  await assertFails(setDoc(doc(newDb,"memberLastLogins",newId),{authTime:1700000000}));
   const lastLogin=await assertSucceeds(getDoc(doc(ownerDb,"memberLastLogins",newId)));
   if(lastLogin.data().authTime!==1700000001)throw Error("Last login timestamp was lost or rolled back");
+  await assertSucceeds(deleteLease(lease(newPhone)));
+  await assertFails(setDoc(lease(newDb),{authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()}));
+  // Reset only the emulator fixture for unrelated historical tests.
+  await env.withSecurityRulesDisabled(async ctx=>{
+    const admin=ctx.firestore();
+    await deleteLease(doc(admin,"memberLastLogins",newId));
+    await setDoc(doc(admin,"activeLogins",newId),{authTime:1700000000,sessionId:"test-device-member-two",claimedAt:new Date()});
+  });
   await assertFails(updateDoc(doc(newDb,"system","membership"),{lastNumber:999}));
   await assertFails(updateDoc(doc(newDb,"invitations","abc123"),{used:false}));
   await assertSucceeds(setDoc(doc(newDb,"memberPrivate",newId,"prayers","2026-11-22"),{
@@ -262,8 +252,7 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   }));
   await assertSucceeds(updateDoc(doc(ownerDb,"members",newId),{disabled:true,updatedAt:serverTimestamp()}));
   await assertFails(getDoc(doc(newDb,"memberCounts",newId)));
-  // Explicit Owner recovery is the only alternative when a member loses
-  // their first phone; ordinary second-device login still cannot take over.
+  // Owner may also clear an inactive member's lease.
   await assertSucceeds((async()=>{
     const {deleteDoc}=require("firebase/firestore");
     return deleteDoc(doc(ownerDb,"activeLogins",newId));
