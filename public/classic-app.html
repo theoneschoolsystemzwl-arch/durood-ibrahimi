@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-welcome-on-open-20261126-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-golden-salam-20261126-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2609,7 +2609,7 @@ function metricPeriodCards(){
 // No Firebase writes; routine data snapshots never restart the animation.
 let fireworkScope="",periodFireworkStates=new Map(),periodFireworkUntil=new Map(),profileFireworkUntil=0;
 let celebrationUid="",nextProfileGreeting=0,greetingUntil=0,loginCelebrateUntil=0,loginCelebrateSeen=new Set();
-const fireworkDuration=60000,greetingDuration=9000,greetingInterval=3600000;
+const fireworkDuration=60000,greetingDuration=30000,greetingInterval=3600000;
 function fireworkTransition(previous,current,positiveGoal){
  return previous==="short"&&current==="complete"&&positiveGoal;
 }
@@ -2671,6 +2671,8 @@ function syncProfileGreeting(person,now){
  if(!host||greetingUntil<=now)return;
  if(host.querySelector(":scope > .dashboard-salam"))return;
  const greeting=document.createElement("span");greeting.className="dashboard-salam";greeting.dir="rtl";greeting.setAttribute("role","status");
+ // Keep the final ten-second pulse synchronized even when live data rerenders.
+ greeting.style.setProperty("--salam-elapsed",(-Math.max(0,greetingDuration-(greetingUntil-now)))+"ms");
  const honor=document.createElement("b");const name=String(memberName(person)||person.name||person.username||"").trim();const female=person.gender==="Female"||person.gender==="female";honor.textContent=(female?"محترمہ ":"جناب ")+name+(female?" صاحبہ":" صاحب");
  const salam=document.createElement("span");salam.textContent="السلام علیکم ورحمۃ اللہ وبرکاتہ";
  greeting.append(honor,salam);host.append(greeting);

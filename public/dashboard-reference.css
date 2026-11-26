@@ -319,12 +319,12 @@
 .dashboard-fireworks i{position:absolute;left:var(--spark-left);top:var(--spark-top);width:7px;height:7px;background:var(--spark-color);border-radius:50%;box-shadow:0 0 7px 2px var(--spark-color);opacity:0;transform:translate(-50%,-50%);animation:durood-firework-spark 2450ms cubic-bezier(.16,.7,.35,1) var(--spark-delay) infinite}
 .dashboard-fireworks.profile-fireworks i{width:9px;height:9px}
 @keyframes durood-firework-spark{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}9%{opacity:1}44%{opacity:.95}70%,100%{opacity:0;transform:translate(calc(-50% + var(--spark-x)),calc(-50% + var(--spark-y))) scale(.22)}}
-.dashboard-salam{position:absolute;inset-inline:3px;top:50%;transform:translateY(-50%);z-index:8;pointer-events:none;padding:9px 10px;border:1px solid #f3d185;border-radius:13px;background:#004e3df2;color:#fff6cf;text-align:center;box-shadow:0 3px 18px #002a20a0;display:grid;gap:3px;font:700 clamp(.85rem,3.3vw,1.12rem)/1.9 var(--ur,system-ui,sans-serif);animation:durood-salam-appear 9s ease both}
+.dashboard-salam{position:absolute;inset-inline:4px;top:50%;transform:translateY(-50%);z-index:12;pointer-events:none;padding:0;border:0;border-radius:0;background:none;color:#ffdc73;text-align:center;box-shadow:none;text-shadow:0 1px 2px #001b13,0 0 9px #003529,0 0 2px #001b13;display:grid;gap:3px;font:800 clamp(1rem,4vw,1.35rem)/1.9 var(--ur,system-ui,sans-serif);animation:durood-salam-appear 30s linear var(--salam-elapsed,0ms) both;transform-origin:center}
 .dashboard-salam b,.dashboard-salam span{display:block;overflow-wrap:anywhere}
-@keyframes durood-salam-appear{0%{opacity:0;transform:translateY(-25%)}9%,86%{opacity:1;transform:translateY(-50%)}100%{opacity:0;transform:translateY(-65%)}}
+@keyframes durood-salam-appear{0%{opacity:0;transform:translateY(-42%) scale(.98)}3%,66.6667%{opacity:1;transform:translateY(-50%) scale(1)}70%,76.6667%,83.3333%,90%,96.6667%{opacity:1;transform:translateY(-50%) scale(1.13)}73.3333%,80%,86.6667%,93.3333%{opacity:.28;transform:translateY(-50%) scale(.9)}100%{opacity:0;transform:translateY(-50%) scale(.9)}}
 @media(prefers-reduced-motion:reduce){.dashboard-fireworks i{animation:none;opacity:.75;transform:translate(calc(-50% + var(--spark-x) * .75),calc(-50% + var(--spark-y) * .75))}.dashboard-salam{animation:none}}
 
 /* Only the all-time total is doubled; blue goal cards and period totals keep their sizes. */
 :root[data-theme] .dashboard-home .recitation-banner #global-total{font-size:clamp(5rem,16vw,7.1rem);line-height:1.08;max-width:100%;overflow-wrap:anywhere;text-align:center}
 :root[data-theme] .app-head .profile-card .profile-greeting{isolation:isolate;overflow:visible}
-:root[data-theme] .app-head .profile-card .dashboard-salam{z-index:12;inset-inline:0;top:50%;font-size:clamp(1rem,4vw,1.35rem);background:#004e3d;box-shadow:0 3px 18px #001b12c0}
+:root[data-theme] .app-head .profile-card .dashboard-salam{z-index:12;inset-inline:4px;top:50%;font-size:clamp(1rem,4vw,1.35rem);background:none;border:0;box-shadow:none;color:#ffdc73}
