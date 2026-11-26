@@ -327,4 +327,14 @@
 /* Only the all-time total is doubled; blue goal cards and period totals keep their sizes. */
 :root[data-theme] .dashboard-home .recitation-banner #global-total{font-size:clamp(5rem,16vw,7.1rem);line-height:1.08;max-width:100%;overflow-wrap:anywhere;text-align:center}
 :root[data-theme] .app-head .profile-card .profile-greeting{isolation:isolate;overflow:visible}
-:root[data-theme] .app-head .profile-card .dashboard-salam{z-index:12;inset-inline:4px;top:50%;font-size:clamp(1rem,4vw,1.35rem);background:none;border:0;box-shadow:none;color:#ffdc73}
+:root[data-theme] .app-head .profile-card .dashboard-salam{z-index:12;inset-inline:4px;top:50%;font-size:clamp(1rem,4vw,1.35rem)}
+/* The welcome overlay is text only, including both child lines in every theme. */
+.dashboard-salam,.dashboard-salam > b,.dashboard-salam > span{
+ background:none!important;background-color:transparent!important;border:0!important;
+ outline:0!important;box-shadow:none!important;border-radius:0!important;
+ color:#ffda64!important;text-shadow:0 1px 2px #001b13,0 0 8px #785218!important;
+}
+.dashboard-salam::before,.dashboard-salam::after,.dashboard-salam > b::before,.dashboard-salam > b::after,.dashboard-salam > span::before,.dashboard-salam > span::after{content:none!important;display:none!important}
+:root[data-theme] .dashboard-home .recitation-banner #global-total{
+ color:#ffda64!important;text-shadow:0 2px 3px #003326,0 0 10px #c38b2940!important;
+}
