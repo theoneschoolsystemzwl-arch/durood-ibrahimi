@@ -365,3 +365,11 @@
 :root[data-theme] .dashboard-home .dashboard-group-summary .all-time-durood-card #global-total{font:800 clamp(2rem,12vw,5rem)/1.05 system-ui,sans-serif;max-width:100%;min-width:0;overflow-wrap:anywhere;text-align:center;direction:ltr;unicode-bidi:isolate;color:#ffda64!important;-webkit-text-fill-color:#ffda64!important;text-shadow:none!important;filter:none!important;box-shadow:none!important;transform:none!important;background:none!important;}
 :root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda{grid-column:1;grid-row:1;min-width:0;width:100%;display:flex;align-items:center;justify-content:center;}
 :root[data-theme] .dashboard-home .dashboard-group-summary .dashboard-rawda-icon{display:block;width:100%;max-width:110px;height:auto;}
+
+/* Keep each of the four accrued targets in its own visible bottom row. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;align-items:center;justify-items:stretch;gap:4px;padding:6px 7px 7px;min-height:110px;height:auto;isolation:isolate;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-copy{grid-row:1;grid-column:1;width:100%;min-width:0;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal{grid-row:2;grid-column:1;position:relative;inset:auto;justify-self:end;align-self:end;z-index:6;display:block!important;visibility:visible!important;opacity:1!important;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.25;direction:ltr;text-align:right;padding:0 2px;color:#e0f5ec;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal bdi{display:inline!important;visibility:visible!important;opacity:1!important;font:700 clamp(.8rem,3.1vw,1rem)/1.25 system-ui,sans-serif;color:inherit;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .period-short .dashboard-period-goal{color:#ffb0b5;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .period-complete .dashboard-period-goal{color:#a6ffd0;}

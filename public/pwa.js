@@ -1,4 +1,4 @@
-const RELEASE="pwa-install-button-20261126-v22";
+const RELEASE="dashboard-period-goals-visible-20261126-v23";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
