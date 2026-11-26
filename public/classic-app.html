@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=quota-batch-dashboard-goals-20261126-v25">
+<link rel="stylesheet" href="./dashboard-reference.css?v=goal-reconnect-manual-replay-20261126-v26">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2606,11 +2606,23 @@ function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
 }
 function metricPeriodCards(){
- const goals=runningDashboardTargets(ownerGoalRows,globalDateKey(),dashboardGroupSettings);
+ const day=globalDateKey(),uid=currentUser()?.uid,side=window.duroodCurrentSide;
+ const goals=runningDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
+ // Cache only verified aggregate values, never another account/side or date.
+ const key=uid&&["male","female"].includes(side)?"durood-period-goals-v1:"+uid+":"+side+":"+day:null;
+ let previous={};
+ if(key){try{previous=JSON.parse(sessionStorage.getItem(key)||"{}")||{};}catch{}}
+ const live={...previous};
+ for(const period of ["today","week","month","year"]){
+  const value=dashboardPeriodGoal(period,goals);
+  if(value!==null)live[period]=value;
+ }
+ if(key){try{sessionStorage.setItem(key,JSON.stringify(live));}catch{}}
  return periodLabels().map(([key,label])=>{
    const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key),status=periodGoalStatus(count,goal);
-   const badge=goal===null?"—":displayNumber(goal),read=count===null?"—":displayNumber(count);
-   const badgeLabel=goal===null?tr("Goal data unavailable","ہدف دستیاب نہیں"):tr("Goal","ہدف");
+   const cached=goal===null&&Number.isSafeInteger(previous[key])&&previous[key]>=0;
+   const badge=goal===null?(cached?displayNumber(previous[key]):"—"):displayNumber(goal),read=count===null?"—":displayNumber(count);
+   const badgeLabel=goal===null?(cached?tr("Last verified goal","آخری تصدیق شدہ ہدف"):tr("Goal sync pending","ہدف سنک باقی")):tr("Goal","ہدف");
    return '<section class="recitation-period period-'+status+'" data-celebrate-period="'+key+'" data-positive-goal="'+(goal>0?'1':'0')+'" aria-label="'+esc(label)+'">'+
    '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+': '+badge)+'"><small>'+esc(badgeLabel)+'</small> <bdi dir="ltr">'+badge+'</bdi></span>'+
    '<div class="dashboard-period-copy"><h2>'+label+'</h2><strong data-period="'+key+'" dir="ltr">'+read+'</strong></div></section>';
@@ -5541,7 +5553,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=quota-batch-20261126-v25";
+import "./wazaif.js?release=goal-reconnect-manual-replay-20261126-v26";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=quota-batch-20261126-v1";
@@ -5806,6 +5818,27 @@ function observeCounters(side){
   bridge.aggregateGoalRows(observedUid,null);
   stopGoalWatch();goalWatchUid="";window.duroodLoadReaderGoals();
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
+  // Firestore snapshot errors are terminal. Retry only these goal listeners
+  // after quota backoff; do not reload the entire dashboard or invent targets.
+  function retryGoalSnapshot(ref,onValue,onError){
+    let stopped=false,unsub=()=>{},timer=null,failures=0;
+    const start=()=>{
+      if(stopped||!stillCurrent())return;
+      unsub=onSnapshot(ref,{includeMetadataChanges:true},snap=>{
+        if(stopped||!stillCurrent())return;
+        if(!snap.metadata.fromCache)failures=0;
+        onValue(snap);
+      },err=>{
+        if(stopped||!stillCurrent())return;
+        onError(err);
+        if(!/resource-exhausted|unavailable|deadline-exceeded/i.test(String(err?.code||err)))return;
+        const delay=Math.min(1800000,300000*2**Math.min(failures++,3));
+        clearTimeout(timer);timer=setTimeout(start,delay);
+      });
+    };
+    start();
+    return ()=>{stopped=true;clearTimeout(timer);unsub();};
+  }
   let previousGroupDirectoryKey=null,groupRefreshTimer=null;
   function refreshOnDirectoryChange(rows){
     const key=JSON.stringify(rows.map(m=>[m.uid,m.inviterUid||null,m.memberNumber,m.gender,m.deleted===true]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
@@ -5831,7 +5864,7 @@ function observeCounters(side){
   {
     const isGoalOwner=currentProfile?.role==="owner";
     const goalQuery=isGoalOwner?collection(db,"members"):query(collection(db,"members"),where("gender","==",side),limit(200));
-    stopGoalDirectory=onSnapshot(goalQuery,{includeMetadataChanges:true},snap=>{
+    stopGoalDirectory=retryGoalSnapshot(goalQuery,snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
       if(isGoalOwner){
@@ -5861,7 +5894,7 @@ function observeCounters(side){
         r.stops.push(onSnapshot(collection(memberRef,"days"),{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupDays=Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count]));publishSideGroup();},err=>{r.groupDays=null;publishSideGroup();console.warn("Side group member dates",err.code);}));
         }
         for(const [key,name] of (isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]])){
-          r.stops.push(onSnapshot(collection(db,"memberPrivate",uid,name),{includeMetadataChanges:true},goals=>{
+          r.stops.push(retryGoalSnapshot(collection(db,"memberPrivate",uid,name),goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();
           },err=>{r[key]=null;publishGoals();console.warn("Group goal unavailable",err.code);}));

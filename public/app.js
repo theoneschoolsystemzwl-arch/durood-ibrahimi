@@ -312,7 +312,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=quota-batch-dashboard-goals-20261126-v25";
+  frame.src="./classic-app.html?release=goal-reconnect-manual-replay-20261126-v26";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.

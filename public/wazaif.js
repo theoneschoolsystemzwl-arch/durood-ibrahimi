@@ -1827,7 +1827,12 @@ async function refreshManualEditForm(task,day,form){
    const input=next.querySelector('[name="amount"]');
    if(input)input.value=String(prior.amount);
    const note=next.querySelector("#wz-edit-error");
-   if(note){note.hidden=false;note.textContent="پچھلی نامکمل تبدیلی محفوظ کرنے کے لیے دوبارہ محفوظ کریں دبائیں۔";}
+   if(note){note.hidden=false;note.textContent="پچھلی نامکمل درخواست فون میں محفوظ ہے؛ اسی تعداد کو دوبارہ بھیجا جا رہا ہے۔";}
+   // Replay only an existing, user-submitted operation with its original receipt.
+   // No new count is generated from the UI or an assumed amount.
+   if(navigator.onLine!==false&&input&&next.querySelector('[type="submit"]')){
+     setTimeout(()=>{if(next.isConnected&&modal.open&&auth.currentUser?.uid===uid&&state.readerId===task.id&&state.historyDay===day&&!state.busy&&!state.tapBusy&&input.value===String(prior.amount))next.requestSubmit();},250);
+   }
   }
   refreshHeroReader();
  }catch(error){
