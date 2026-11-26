@@ -540,19 +540,19 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(css.includes(".dashboard-period-numbers .dashboard-period-goal bdi{font:700 clamp(.72rem,3vw,1.15rem)"));
 }
 
- // Render the same values used for color, even when only a partial goal has loaded.
+ // Cached and partial targets may be displayed, but must remain white until verified.
  {
  const classic=fs.readFileSync("public/classic-app.html","utf8");
  const a=classic.indexOf("function periodGoalStatus("),b=classic.indexOf("function periodGoalLabel(",a);
  const ctx=vm.createContext({Number});
  vm.runInContext(classic.slice(a,b),ctx);
  const compare=vm.runInContext("periodCardComparison",ctx);
- for(const [count,goal,cached,partial,expected] of [[200,200,undefined,null,"complete"],[201,200,undefined,null,"complete"],[199,200,undefined,null,"short"],[200,null,200,100,"complete"],[200,null,undefined,200,"complete"],[199,null,undefined,200,"short"],[200,0,undefined,null,"unknown"],[200,null,0,100,"unknown"],[199,null,200,100,"short"],[200,null,undefined,null,"unknown"],[null,200,undefined,null,"unknown"]]){
+ for(const [count,goal,cached,partial,expected] of [[200,200,undefined,null,"complete"],[201,200,undefined,null,"complete"],[199,200,undefined,null,"short"],[200,null,200,100,"unknown"],[200,null,undefined,200,"unknown"],[199,null,undefined,200,"unknown"],[200,0,undefined,null,"unknown"],[200,null,0,100,"unknown"],[199,null,200,100,"unknown"],[200,null,undefined,null,"unknown"],[null,200,undefined,null,"unknown"]]){
   const result=compare(count,goal,cached,partial);assert.equal(result.status,expected);
-  assert.equal(result.color,expected==="complete"?"#6effa0":expected==="short"?"#ff777f":"#f2fff8");
+  assert.equal(result.color,expected==="complete"?"#6effa0":expected==="short"?"#ff777f":"#ffffff");
  }
  const partial=compare(200,null,undefined,200);
- assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,true);
+ assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
  assert(markup.includes('periodCardComparison(count,goal,previous[key],partial)'));
  assert(!markup.includes("≥ "));
@@ -590,4 +590,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(read(true,{},state.groupMember).total,350);
  state.groupDays={};assert.equal(read(true,{},state.groupMember).todayCount,90);
  assert(source.includes('if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();'));
+}
+
+// The Durood reader and its outside group card share the confirmed total, not a narrower ledger.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function verifiedOwnDuroodTotal("),b=classic.indexOf("function ownGroupTotalText(",a);
+ const ctx=vm.createContext({window:{},currentUser:()=>({uid:"member"}),ownerViewingWomen:()=>false,savedMemberWirds:new Map([["member",324]]),savedMemberWirdsComplete:true,dayCount:()=>100,globalDateKey:()=>"2026-11-26"});
+ vm.runInContext(classic.slice(a,b),ctx);
+ assert.equal(ctx.window.duroodGroupReaderFigures().total,324);
+ assert.equal(ctx.window.duroodGroupReaderFigures().today,100);
+ assert(classic.includes("const verifiedTotal=verifiedOwnDuroodTotal();"));
+ assert(groupCardMarkup.includes("figures?.total??null"));
+ assert(groupCardMarkup.includes("صرف گروپ وظیفے میں درج شمار"));
 }

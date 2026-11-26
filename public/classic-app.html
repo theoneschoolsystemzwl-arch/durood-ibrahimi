@@ -1236,7 +1236,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <link rel="stylesheet" href="./emerald.css?v=3">
 <link rel="stylesheet" href="./wazaif.css?v=pdf-scroll-share-20261126-v5">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=unified-dashboard-20261126-v47"></script>
+<script defer src="./pull-refresh.js?v=unified-dashboard-20261126-v48"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=unified-dashboard-20261126-v47">
+<link rel="stylesheet" href="./dashboard-reference.css?v=unified-dashboard-20261126-v48">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2372,6 +2372,16 @@ function refreshDashboardTargetCards(){
  if(node)node.innerHTML=dashboardTargetCards();
  const audit=document.getElementById("member-target-audit");if(audit)audit.innerHTML=targetAuditMarkup();
 }
+function verifiedOwnDuroodTotal(){
+ const person=currentUser();
+ if(!person?.uid||ownerViewingWomen())return null;
+ const n=savedMemberWirds.get(person.uid);
+ return Number.isSafeInteger(n)&&n>=0?n:savedMemberWirdsComplete?0:null;
+}
+window.duroodGroupReaderFigures=()=>{
+ const person=currentUser();if(!person?.uid||ownerViewingWomen())return null;
+ return {total:verifiedOwnDuroodTotal(),today:dayCount(person,globalDateKey())};
+};
 function ownGroupTotalText(){
  const n=memberGroupSummary?.total??(memberGroupSummary===null?null:0);
  return Number.isSafeInteger(n)&&n>=0?displayNumber(n):"—";
@@ -2625,10 +2635,10 @@ function periodCardComparison(count,goal,previous,partial){
  const knownPartial=Number.isSafeInteger(partial)&&partial>=0?partial:null;
  const displayed=verified??knownPartial;
  const quality=goal!==null&&verified!==null?"live":verified!==null?"cached":knownPartial!==null?"partial":"unknown";
- // Compare the positive target actually displayed; unknown and zero stay neutral.
- const ready=Number.isSafeInteger(displayed)&&displayed>0;
+ // Only server-confirmed complete targets may change the initial white color.
+ const ready=quality==="live"&&Number.isSafeInteger(goal)&&goal>0;
  const status=ready?periodGoalStatus(count,displayed):"unknown";
- return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#f2fff8",celebrate:ready&&status==="complete"};
+ return {displayed,quality,status,color:status==="complete"?"#6effa0":status==="short"?"#ff777f":"#ffffff",celebrate:ready&&status==="complete"};
 }
 function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
@@ -2750,7 +2760,7 @@ function syncDashboardFireworks(){
  if(cards)for(const card of cards.querySelectorAll("[data-celebrate-period]")){
   const side=window.duroodCurrentSide;
   if(!["male","female"].includes(side))continue;
-  const quality=card.dataset.goalQuality,eligible=quality==="live"||quality==="cached"||quality==="partial";
+  const quality=card.dataset.goalQuality,eligible=quality==="live";
   const complete=eligible&&card.classList.contains("period-complete")&&card.dataset.positiveGoal==="1";
   const short=eligible&&card.classList.contains("period-short");
   const key=periodFireworkKey(String(person.uid||person.id),side,card.dataset.celebratePeriod,globalDateKey());
@@ -3224,7 +3234,8 @@ function updateReader() {
   const count = dayCount(person,key);
   // Count every completed recitation as on the Wazaif reader.
   const rate = live.count>0 && live.ms>0 ? live.ms/live.count : priorPace(person.id);
-  set('read-all',formatNumber(score(person,'all','current')));
+  const verifiedTotal=verifiedOwnDuroodTotal();
+  set('read-all',verifiedTotal===null?'—':formatNumber(verifiedTotal));
   set('read-today',formatNumber(count));
   set('read-target',formatNumber(goal));
   set('read-global',formatNumber(globalTotal));
@@ -5249,7 +5260,8 @@ window.duroodClassicBridge = {
     if(currentUser()?.uid!==uid||window.duroodCurrentSide!==side)return;
     savedMemberWirds=new Map(rows.filter(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0).map(r=>[r.uid,r.total]));
     savedMemberWirdsComplete=complete===true&&rows.every(r=>r.uid&&Number.isSafeInteger(r.total)&&r.total>=0);
-    refreshMemberWirds();
+    refreshMemberWirds();refreshMemberGroupProgress();
+    if(section==="wazifa-reader")updateReader();
     const audit=document.getElementById("member-target-audit");
     if(audit)audit.innerHTML=targetAuditMarkup();
   },
@@ -5341,6 +5353,7 @@ window.duroodClassicBridge = {
       if(Number.isSafeInteger(row.manualTotal)&&row.manualTotal>=0)readerServerManual[row.day]=row.manualTotal;
     }
     if(section==='wazifa-reader')updateReader();
+    window.duroodWazaif?.refreshGroupTargets?.();
   },
   openWazaifList(){section='tasbih';render();},
   readers(rows){
@@ -5442,7 +5455,7 @@ window.duroodClassicBridge = {
       if(dateNode&&person)dateNode.textContent=membershipDateLabel(person);
       if(section==="wazifa-reader")updateReader();
     }
-    refreshMemberCountLabels();refreshMemberWirds();
+    refreshMemberCountLabels();refreshMemberWirds();refreshMemberGroupProgress();
     app.style.visibility="visible";
   },
   tap(){if(currentUser())tapDurood();},
@@ -5603,7 +5616,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=unified-dashboard-20261126-v47";
+import "./wazaif.js?release=unified-dashboard-20261126-v48";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
@@ -5947,7 +5960,7 @@ function observeCounters(side){
         }
         for(const [key,name] of (isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]])){
           r.stops.push(retryGoalSnapshot(collection(db,"memberPrivate",uid,name),goals=>{
-            if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache)return;
+            if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache||goals.metadata.hasPendingWrites)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();
           },err=>{r[key]=null;publishGoals();console.warn("Group goal unavailable",err.code);}));
         }
@@ -6002,7 +6015,7 @@ function observeCounters(side){
     },err=>{if(stillCurrent())bridge.ownGroupWird(observedUid,uid,null,side);console.warn("Direct group count unavailable",err.code);}));
   };
   const stopWirdTotals=onSnapshot(wirdQuery,{includeMetadataChanges:true},snap=>{
-    if(!stillCurrent()||snap.metadata.fromCache)return;
+    if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner"||snap.size<200,side);
   },err=>{if(stillCurrent())bridge.savedWirdTotals(observedUid,[],false,side);console.warn("Saved member Wird totals unavailable",err.code);});
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
@@ -6133,7 +6146,7 @@ function observeCounters(side){
     bridge.periodTotals(null);
     const days=query(collection(sideRef,"days"),where("day",">=",from),where("day","<=",today));
     stopDays=retryGoalSnapshot(days,snap=>{
-      if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache)return;
+      if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
       const totals={today:0,week:0,month:0},dated={};
       snap.forEach(item=>{
         const {day,total}=item.data();

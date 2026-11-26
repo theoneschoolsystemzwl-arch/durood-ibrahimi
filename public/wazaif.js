@@ -482,7 +482,7 @@ function metric(label,value,extra=""){
  return '<div class="wz-metric"><small>'+esc(label)+'</small><strong>'+fmt(value)+'</strong>'+(extra?'<small>'+esc(extra)+'</small>':'')+'</div>';
 }
 function compactCount(label,number){
- return '<div class="wz-inline-count"><small>'+esc(label)+'</small><strong>'+fmt(number)+'</strong></div>';
+ return '<div class="wz-inline-count"><small>'+esc(label)+'</small><strong>'+(number===null?'—':fmt(number))+'</strong></div>';
 }
 // Long Arabic passages get a deliberate scroll switch. In the default
 // state the *page* keeps scrolling when the reader swipes on Arabic text.
@@ -529,15 +529,18 @@ function groupSessionInfo(g){
 function groupCard(){
  const g=currentGroup(),enabled=g.active===true,ready=state.groupExists;
  const stats=state.groupMember||{},today=groupReadingDay();
- const todayCount=ownGroupDay(today);
- const all=Number(stats.total||0);
- const remaining=Math.max(0,memberGroupDailyGoal(g,today)-todayCount);
+ const asDurood=g.countAsDurood!==false;
+ const figures=asDurood?window.duroodGroupReaderFigures?.():null;
+ const todayCount=asDurood?(figures?.today??null):ownGroupDay(today);
+ const all=asDurood?(figures?.total??null):(state.groupMember===null?null:Number(stats.total||0));
+ const remaining=todayCount===null?null:Math.max(0,memberGroupDailyGoal(g,today)-todayCount);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(g.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
- compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا باقی ہدف",remaining)+compactCount("میرا مجموعی شمار",all)+'</div>'+groupSessionInfo(g)+
+ compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا باقی ہدف",remaining)+compactCount(asDurood?"میرا مجموعی درود":"میرا مجموعی شمار",all)+'</div>'+
+ (asDurood&&state.groupMember!==null?'<p class="wz-help">صرف گروپ وظیفے میں درج شمار: '+fmt(Number(stats.total||0))+'</p>':"")+groupSessionInfo(g)+
  arabicOrPdf(g.arabic,"group")+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
  '<div class="wz-actions">'+
