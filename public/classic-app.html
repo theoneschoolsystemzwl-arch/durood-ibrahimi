@@ -2032,7 +2032,7 @@ function groupMessagesPage() {
 function presenceOnline(uid,now=Date.now()){
  const data=window.duroodMemberLoginStatus;
  const seen=Number(data?.presence?.get(uid)||0);
- return seen>0&&now-seen<60000;
+ return seen>0&&now-seen<180000;
 }
 function memberLoginMarkup(uid,disabled=false) {
   const data=window.duroodMemberLoginStatus;
@@ -4728,7 +4728,7 @@ function prayerTickerMarkup(person){
 }
 function updateNextPrayerTicker(now=Date.now()){
  const el=document.getElementById("next-prayer-countdown");
- if(el)el.innerHTML=compactPrayerMarkup(currentUser(),now);
+ if(el){const markup=compactPrayerMarkup(currentUser(),now);if(el.innerHTML!==markup)el.innerHTML=markup;}
 }
 function appFooter(person) {
   if(person)return '';
@@ -5587,16 +5587,16 @@ window.duroodClassicBridge = {
 
 render();
 // No fabricated live recitations: only Firebase-backed totals are shown.
-setInterval(updateClock, 125);
-setInterval(updateNamazDate, 5000);
+setInterval(updateClock, 250);
+setInterval(()=>{if(!document.hidden)updateNamazDate();},5000);
 setInterval(monitorPrayerTime, 5000);
-setInterval(updateNextPrayerTicker, 1000);
+setInterval(()=>{if(!document.hidden)updateNextPrayerTicker();},1000);
 let lastGroupSessionDay=globalDateKey();
 setInterval(()=>{
  const day=globalDateKey();
  if(day!==lastGroupSessionDay){lastGroupSessionDay=day;refreshDashboardTargetCards();refreshDashboardGroupProgress();refreshMemberGroupProgress();window.duroodWazaif?.refreshGroupTargets?.();}
  const clock=document.getElementById("global-pkt-clock");
- if(clock&&!document.hidden)clock.innerHTML=globalClockMarkup();
+ if(clock&&!document.hidden){const markup=globalClockMarkup();if(clock.innerHTML!==markup)clock.innerHTML=markup;}
  const node=document.querySelector("[data-group-session-countdown]");
  if(!node||document.hidden)return;
  const content=groupSessionCountdown(annualTargetPeriod(dashboardGroupSettings,globalDateKey()));
@@ -6109,7 +6109,7 @@ function observeCounters(side){
     if(globalDay()!==observedDay){observedDay=globalDay();clearTimeout(timer);watchDays();refreshDashboardTargetCards();if(section==='wazifa-reader')updateReader();}
     if(Date.now()-lastClockSync>300000){lastClockSync=Date.now();void syncGlobalClock();}
     if(rows)bridge.readers(rows);
-    publishGoals();if(currentProfile?.role==="owner"&&side==="male"&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();
+    publishGoals(); // Historical repair remains available on explicit date selection and initial owner hydration; never retry every 15 seconds.
   },15000);
   function decodeReaderRows(snap){
     return snap.docs.map(item=>{
@@ -6174,7 +6174,7 @@ function startPresence(profile){
  const generation=presenceGeneration,uid=profile.uid;
  const ref=doc(db,"memberPresence",uid+"_"+sessionId());
  const pulse=async(force=false)=>{
-  if(generation!==presenceGeneration||auth.currentUser?.uid!==uid||classicLogoutBlocked()||document.hidden||navigator.onLine===false||presenceBusy||(!force&&Date.now()-presenceLast<25000))return;
+  if(generation!==presenceGeneration||auth.currentUser?.uid!==uid||classicLogoutBlocked()||document.hidden||navigator.onLine===false||presenceBusy||(Date.now()-presenceLast<(force?15000:110000)))return;
   presenceBusy=true;presenceLast=Date.now();
   try{await setDoc(ref,{uid,device:sessionId(),gender:profile.gender==="female"?"female":"male",seen:serverTimestamp()});}
   catch(error){console.warn("Foreground presence unavailable",error?.code||error);}
@@ -6183,7 +6183,7 @@ function startPresence(profile){
  const wake=()=>{if(!document.hidden)void pulse(true);};
  document.addEventListener("visibilitychange",wake);
  window.addEventListener("focus",wake);window.addEventListener("pageshow",wake);window.addEventListener("online",wake);
- presenceTimer=setInterval(()=>void pulse(),30000);
+ presenceTimer=setInterval(()=>void pulse(),120000);
  presenceCleanup=()=>{document.removeEventListener("visibilitychange",wake);window.removeEventListener("focus",wake);window.removeEventListener("pageshow",wake);window.removeEventListener("online",wake);};
  void pulse(true);
 }
@@ -6208,7 +6208,7 @@ function watchMemberLogins(uid,isOwner,side){
     const map=new Map();for(const d of snap.docs){const row=d.data();const seen=row.seen?.toMillis?.()||0;map.set(row.uid,Math.max(map.get(row.uid)||0,seen));}
     state.presence=map;state.presenceReady=true;publish();
   },error=>{state.presenceReady=false;publish();console.warn("Presence unavailable",error?.code||error);}));
-  const expiry=setInterval(publish,2000);loginWatchStops.push(()=>clearInterval(expiry));
+  const expiry=setInterval(()=>{if(!document.hidden)publish();},15000);loginWatchStops.push(()=>clearInterval(expiry));
   if(!isOwner)return;
   loginWatchStops.push(onSnapshot(collection(db,"activeLogins"),{includeMetadataChanges:true},snap=>{
     state.leases=new Map(snap.docs.map(d=>[d.id,d.data()]));
