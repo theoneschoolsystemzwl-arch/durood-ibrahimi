@@ -492,3 +492,13 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(markup.indexOf('class="dashboard-period-copy"')<markup.indexOf('class="dashboard-period-goal"'));
  assert(css.includes(".period-short strong[data-period]")&&css.includes(".period-complete strong[data-period]"));
  }
+
+// The four visible cards contain numbers only; retain accessibility labels and white target size.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const css=fs.readFileSync("public/dashboard-reference.css","utf8");
+ const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
+ assert(!markup.includes("<h2")&&!markup.includes("<small"),"no visible period or number labels");
+ assert(markup.includes('aria-label="Read"')&&markup.includes('aria-label="'+ "'"));
+ assert(css.includes("font:700 clamp(.72rem,3vw,1.15rem)")&&css.includes("font:800 clamp(1rem,4.3vw,1.75rem)"));
+}

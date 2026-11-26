@@ -388,3 +388,9 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-complete strong[data-period]{color:#6effa0!important;-webkit-text-fill-color:#6effa0!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .period-unknown strong[data-period]{color:#f2fff8!important;-webkit-text-fill-color:#f2fff8!important;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{color:#e0f5ec!important;-webkit-text-fill-color:#e0f5ec!important;}
+
+/* Numbers only. Retain the white target size and make the read count smaller. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{justify-content:flex-end;gap:0;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers{align-items:end;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers strong[data-period]{font:700 clamp(.72rem,3vw,1.15rem)/1.2 system-ui,sans-serif;}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .dashboard-period-goal bdi{font:800 clamp(1rem,4.3vw,1.75rem)/1.15 system-ui,sans-serif;color:#e0f5ec!important;-webkit-text-fill-color:#e0f5ec!important;}
