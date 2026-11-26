@@ -1,4 +1,4 @@
-const RELEASE="dashboard-blue-cards-first-20261126-v21";
+const RELEASE="pwa-install-button-20261126-v22";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
@@ -51,3 +51,43 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
     }catch(error){console.debug("PWA update check skipped:",error?.message);}
   });
 }
+
+ // Install the current website as a standalone PWA; never download an obsolete APK.
+ let pendingInstallPrompt=null;
+ const standaloneQuery=window.matchMedia("(display-mode: standalone)");
+ function isInstalledPwa(){return standaloneQuery.matches||window.navigator.standalone===true;}
+ function syncInstallButton(){
+  const area=document.getElementById("pwa-install-area");
+  if(area)area.hidden=isInstalledPwa();
+ }
+ window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();pendingInstallPrompt=event;
+  syncInstallButton();
+ });
+ window.addEventListener("appinstalled",()=>{
+  pendingInstallPrompt=null;
+  const area=document.getElementById("pwa-install-area");if(area)area.hidden=true;
+ });
+ standaloneQuery.addEventListener?.("change",syncInstallButton);
+ function bindInstallButton(){
+  const button=document.getElementById("pwa-install-button");
+  const help=document.getElementById("pwa-install-help");
+  if(!button||!help)return;
+  syncInstallButton();
+  button.addEventListener("click",async()=>{
+   if(isInstalledPwa()){syncInstallButton();return;}
+   if(pendingInstallPrompt){
+    const prompt=pendingInstallPrompt;pendingInstallPrompt=null;
+    try{
+     await prompt.prompt();
+     const choice=await prompt.userChoice;
+     if(choice?.outcome==="accepted"){help.hidden=true;return;}
+    }catch(error){console.debug("Install prompt unavailable",error);}
+   }
+   help.textContent=/iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ?"Safari میں Share دبائیں، پھر Add to Home Screen منتخب کریں۔"
+    :"Chrome میں ⋮ دبائیں، پھر Install app یا Add to Home screen منتخب کریں۔ اگر کسی دوسری ایپ میں ہیں تو یہ ویب سائٹ Chrome میں کھولیں۔";
+   help.hidden=false;
+  });
+ }
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindInstallButton,{once:true});else bindInstallButton();

@@ -12,8 +12,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="./styles.css">
   <script defer src="./pull-refresh.js?v=refresh-photos-20261124-v1"></script>
-  <script type="module" src="./pwa.js?v=dashboard-blue-cards-first-20261126-v21"></script>
-  <script type="module" src="./app.js?release=dashboard-blue-cards-first-20261126-v21"></script>
+  <script type="module" src="./pwa.js?v=pwa-install-button-20261126-v22"></script>
+  <script type="module" src="./app.js?release=pwa-install-button-20261126-v22"></script>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
 
@@ -48,6 +48,12 @@
 </head>
 <body>
   <header class="brand-head">
+    <div id="pwa-install-area" style="position:relative;z-index:2;text-align:center;margin:2px auto 8px">
+      <button id="pwa-install-button" type="button" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #f5d37a;background:#f5d37a;color:#063d2e;border-radius:10px;padding:9px 18px;font:700 1rem/1.5 system-ui,sans-serif;cursor:pointer" aria-controls="pwa-install-help">
+        <span aria-hidden="true">⬇</span> Install App — ایپ انسٹال کریں
+      </button>
+      <p id="pwa-install-help" hidden role="status" style="margin:5px auto 0;max-width:420px;font-size:.85rem;line-height:1.7;color:#fff3c7"></p>
+    </div>
     <div class="header-scripture" style="max-width:950px;margin:0 auto 12px;text-align:center">
       <p lang="ar" dir="rtl" class="salawat" style="margin:0 auto">إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ ۚ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا</p>
       <p lang="ur" dir="rtl" style="font-size:.9rem;line-height:1.8;margin:4px 0">بے شک اللہ اور اس کے فرشتے نبی ﷺ پر درود بھیجتے ہیں۔ اے ایمان والو! تم بھی آپ ﷺ پر درود اور خوب سلام بھیجو۔</p>
