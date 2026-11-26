@@ -1,7 +1,7 @@
 // Authenticated Wazaif: one owner-controlled group task and private member tasks.
 // No personal task is ever stored in another member's browser or Firestore path.
 import {auth,db} from "./firebase-client.js";
-import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=refresh-safe-drafts-20261126-v3";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=save-feedback-20261126-v4";
 import {readingDay,groupReadingDay,recordPersonalWazifa,recordGroupWazifaOnly} from "./wazaif-counter.js?v=share-pause-20261126-v1";
 import {collection,doc,onSnapshot,query,limit,serverTimestamp,setDoc,updateDoc,deleteDoc,runTransaction,getDocFromServer}
   from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -191,8 +191,15 @@ function updateWzSyncStatus(){
  const el=$("#wz-sync-status");if(!el)return;
  const {error,online,busy}=wzSync.status();
  const pending=wzSync.pending(state.mode==="group-reader"?"_group_":state.readerId);
+ let why="";
+ if(!online||error==="offline")why="انٹرنیٹ بند ہے۔";
+ else if(/resource-exhausted|quota/i.test(error))why="Firebase کی حد پوری ہے۔ "+error;
+ else if(/permission-denied/i.test(error))why="Firebase نے اجازت نہیں دی۔ "+error;
+ else if(error==="draft-in-other-tab")why="دوسرے کھلے ٹیب کی گنتی ہے؛ اسے بند کرکے Save دبائیں۔";
+ else if(error==="auth-required")why="اکاؤنٹ کی تصدیق درکار ہے۔";
+ else if(error)why="Save ناکام: "+error;
  el.dataset.pending=String(pending>0);
- el.textContent=pending?(busy?"Firebase میں محفوظ کیا جا رہا ہے…":(error?"محفوظ نہیں ہوا؛ دوبارہ Save دبائیں۔ ":!online?"آف لائن • ":"")+fmt(pending)+" تسبیح فون میں محفوظ • Firebase کے لیے Save دبائیں"):"تمام گنتی محفوظ ہے۔";
+ el.textContent=busy||state.tapBusy?"Firebase میں محفوظ کیا جا رہا ہے…":pending?(why?why+" • ":"")+fmt(pending)+" گنتی فون میں محفوظ ہے؛ Firebase کے لیے Save دبائیں۔":"تمام گنتی محفوظ ہے۔";
 }
 function resetWzSession(){
  state.tapQueue=0;state.lastTapAt=0;state.clockMs=0;state.clockStart=null;
@@ -1106,6 +1113,7 @@ function readerMarkup(group){
  'محفوظ کریں <b id="wz-unsaved">'+fmt(state.tapQueue)+'</b></button>'+
  '</div>'+
 
+ '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite" style="margin:3px 0;padding:4px;font-size:12px;text-align:center;overflow-wrap:anywhere"></p>'+
  '<p id="wz-motor-status" role="status" aria-live="polite" style="margin:2px 0;padding:4px 6px;text-align:center;line-height:1.4;font-size:12px;color:inherit;border:1px solid #35b995;border-radius:6px"></p>'+ 
  (pdfMark(w.arabic)?"":arabicTickerMarkup(w.arabic))+
  '<button type="button" id="wz-dial" class="wz-dial wz-hero-dial'+(state.dialFloating?' is-floating':'')+'" style="--wz-ring:'+(state.tapQueue>0?(state.tapQueue%100||100):0)+'%" data-wazifa-action="tap">'+
@@ -1120,7 +1128,7 @@ function readerMarkup(group){
   '<h3 class="wz-record-title">روزانہ محفوظ ریکارڈ</h3>'+
  '<div id="wz-record-history">'+history+'</div>'+
   '<p class="wz-reader-advice">ہر دباؤ صرف فون میں محفوظ ہوتا ہے۔ Firebase کے لیے Save دبائیں؛ تصدیق کے بعد ہی ڈائل صفر ہوگا۔</p>'+
- '<p id="wz-sync-status" class="wz-sync-status" role="status" aria-live="polite"></p>'+
+ 
  '<p id="wz-session-note" class="wz-help" role="status"></p>'+
  (state.tapQueue?'<p class="wz-help">ابھی غیر محفوظ گنتی: '+fmt(state.tapQueue)+'</p>':'')+
  '<p id="wz-hero-error" class="wz-error" '+(state.error?'':'hidden')+'>'+esc(state.error)+'</p>'+
@@ -1657,10 +1665,22 @@ async function drain(){
  if(state.tapBusy)return;
  const id=state.mode==="group-reader"?"_group_":state.readerId;
  if(!id||!wzSync.pending(id))return;
- state.tapBusy=true;refreshHeroReader();
- try{await wzSync.flush(id);state.tapQueue=wzSync.pending(id);
+ state.tapBusy=true;
+ const save=$('[data-wazifa-action="save-taps"]');if(save)save.disabled=true;
+ try{
+  try{updateWzSyncStatus();}catch{}
+  await wzSync.flush(id);state.tapQueue=wzSync.pending(id);
   if(!state.tapQueue)resetWzSession();else persistDraft();
- }finally{state.tapBusy=false;refreshHeroReader();if(state.pendingBack)back();}
+ }catch(error){setError(error);persistDraft();}
+ finally{
+  state.tapBusy=false;
+  const remaining=wzSync.pending(id);state.tapQueue=remaining;
+  const button=$('[data-wazifa-action="save-taps"]');if(button)button.disabled=!remaining;
+  const dial=$("#wz-dial-number"),unsaved=$("#wz-unsaved");if(dial)dial.textContent=fmt(remaining);if(unsaved)unsaved.textContent=fmt(remaining);
+  updateWzSyncStatus();
+  try{refreshHeroReader();}catch(error){console.debug("Saved count redraw",error);}
+  if(state.pendingBack)back();
+ }
 }
 function tick(){
  if(!["personal-reader","group-reader"].includes(state.mode)||document.hidden)return;

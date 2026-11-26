@@ -1,4 +1,4 @@
-const RELEASE="refresh-safe-drafts-20261126-v29";
+const RELEASE="save-feedback-20261126-v30";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

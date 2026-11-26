@@ -61,6 +61,8 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  tabA.navigator.onLine=false;
  await tabA.sync.flush();
  assert.equal(backend.total,0,"Offline taps must not be sent");
+ assert.equal(tabA.sync.status().error,"offline");
+ assert.equal(tabA.sync.pending(),2,"Offline save must retain every tap");
  tabA.navigator.onLine=true;
  await Promise.all([tabA.sync.flush(),tabB.sync.flush()]);
  assert.equal(backend.total,2,"Parallel tabs must never duplicate or overwrite");
@@ -76,6 +78,7 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  assert(broken.sync.enqueue(tap));
  await broken.sync.flush();
  assert.equal(broken.sync.pending(),1);
+ assert.match(broken.sync.status().error,/ACK lost/);
  assert.equal(backend.total,3);
  broken.sync.stop();
  const restarted=client(crashStorage,send);

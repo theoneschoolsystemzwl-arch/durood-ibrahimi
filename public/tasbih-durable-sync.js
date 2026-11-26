@@ -146,7 +146,13 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  }
  async function sealRecoverable(op,uid){
   if(op.schema===4)return op;
-  if(op.draftOwner===pageId){if(draftId===op.id)sealOwnDraft(uid);else return null;}
+  if(op.draftOwner===pageId){
+   const k=recordPrefix(uid)+op.id,current=JSON.parse(localStorage.getItem(k)||"null");
+   if(current?.schema===5&&current.draftOwner===pageId&&valid(current)){
+    const {draftOwner,...rest}=current;localStorage.setItem(k,JSON.stringify({...rest,schema:4}));
+   }
+   if(draftId===op.id)draftId=null;
+  }
   else{
    if(!navigator.locks?.request)return null;
    await navigator.locks.request(lockName(op.draftOwner),{ifAvailable:true},lock=>{
@@ -163,16 +169,19 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  // Only explicit Save invokes flush; background events only refresh local status.
  function schedule(){notify();}
  async function flush(taskId=null){
-  if(busy||!ownerUid||getUid()!==ownerUid||navigator.onLine===false)return;
-  if(Date.now()<retryAfter){notify();return;}
+  if(busy)return;
+  if(!ownerUid||getUid()!==ownerUid){lastError="auth-required";notify();return;}
+  if(navigator.onLine===false){lastError="offline";notify();return;}
+  if(Date.now()<retryAfter){lastError="resource-exhausted: "+Math.ceil((retryAfter-Date.now())/1000)+"s";notify();return;}
   try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();schedule(20000);return;}
-  const uid=ownerUid;busy=true;notify();
+  const uid=ownerUid;busy=true;lastError="";notify();
   try{
    for(const candidate of listOps(uid).filter(op=>!taskId||op.taskId===taskId)){
     if(uid!==ownerUid||getUid()!==uid||navigator.onLine===false)break;
     try{
      const op=await sealRecoverable(candidate,uid);
-     if(!op||uid!==ownerUid||getUid()!==uid)continue;
+     if(uid!==ownerUid||getUid()!==uid)break;
+     if(!op){lastError="draft-in-other-tab";continue;}
      const k=recordPrefix(uid)+op.id;
      if(!localStorage.getItem(k))continue;
      await send(op);
@@ -182,7 +191,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
      lastError="";retryAfter=0;quotaFailures=0;notify();
     }catch(error){
 
-     lastError=String(error?.code||error?.message||error).slice(0,120);
+     lastError=String([error?.code,error?.message].filter(Boolean).join(": ")||error).slice(0,220);
      if(/resource-exhausted|quota/i.test(lastError)){
       quotaFailures++;retryAfter=Date.now()+Math.min(1800000,300000*2**Math.min(3,quotaFailures-1));
      }
@@ -191,6 +200,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
    }
   }finally{
    busy=false;
+   if(uid===ownerUid&&pending(taskId)>0&&!lastError)lastError="pending-retry";
    if(uid===ownerUid&&pending()>0)schedule(20000);
    notify();
   }
