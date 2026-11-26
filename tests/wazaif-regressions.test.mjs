@@ -539,3 +539,22 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(css.includes(".dashboard-period-numbers .dashboard-period-goal{grid-row:2;grid-column:1;align-items:flex-end;justify-content:flex-end;align-self:end;text-align:right;direction:ltr"));
  assert(css.includes(".dashboard-period-numbers .dashboard-period-goal bdi{font:700 clamp(.72rem,3vw,1.15rem)"));
 }
+
+ // Render the same values used for color, even when only a partial goal has loaded.
+ {
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function periodGoalStatus("),b=classic.indexOf("function periodGoalLabel(",a);
+ const ctx=vm.createContext({Number});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const compare=vm.runInContext("periodCardComparison",ctx);
+ for(const [count,goal,cached,partial,expected] of [[200,200,undefined,null,"complete"],[201,200,undefined,null,"complete"],[199,200,undefined,null,"short"],[200,null,200,100,"complete"],[200,null,undefined,200,"complete"],[199,null,undefined,200,"short"],[200,null,undefined,null,"unknown"],[null,200,undefined,null,"unknown"]]){
+  const result=compare(count,goal,cached,partial);assert.equal(result.status,expected);
+  assert.equal(result.color,expected==="complete"?"#6effa0":expected==="short"?"#ff777f":"#f2fff8");
+ }
+ const partial=compare(200,null,undefined,200);
+ assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
+ const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
+ assert(markup.includes('periodCardComparison(count,goal,previous[key],partial)'));
+ assert(markup.includes('quality==="partial"?"≥ ":""'));
+ assert(markup.includes("style=\"color:")&&markup.includes("-webkit-text-fill-color:"));
+ }

@@ -1,4 +1,4 @@
-const RELEASE="reconnect-tasbih-sync-20261126-v41";
+const RELEASE="period-visible-goal-colors-20261126-v42";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
