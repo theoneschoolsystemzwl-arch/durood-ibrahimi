@@ -1,4 +1,6 @@
 import {auth,db} from "./firebase-client.js";
+import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";
+import {globalDay} from "./global-clock.js";
 import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
@@ -312,7 +314,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=manual-save-only-20261126-v27";
+  frame.src="./classic-app.html?release=manual-save-only-20261126-v28";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -519,8 +521,27 @@ async function addRecitations(amount,tasbih=false){
   }catch(err){message("#reading-message",errorText(err));}
   finally{updateBusy(false);}
 }
-$("#add-one").addEventListener("click",()=>addRecitations(1,true));
-$("#add-ten").addEventListener("click",()=>addRecitations(10,true));
+const fallbackTasbih=createDurableTasbihSync({
+ prefix:"durood-classic-counts-v3",getUid:()=>auth.currentUser?.uid,
+ send:op=>readingsSpark(op.count,op.day,true,true,op.id),
+ onChange:({pending,busy})=>{const n=$("#fallback-tasbih-count");if(n)n.textContent=number.format(pending);const b=$("#fallback-tasbih-save");if(b)b.disabled=busy||!pending;}
+});
+function fallbackTap(count){
+ const uid=auth.currentUser?.uid;if(!uid||appState.busy||fallbackTasbih.status().busy)return;
+ fallbackTasbih.start(uid);
+ if(fallbackTasbih.enqueue({taskId:"_durood_",day:globalDay(),count,source:"tasbih"}))
+   message("#reading-message","گنتی فون میں محفوظ ہے؛ Firebase کے لیے Save دبائیں۔",true);
+ else message("#reading-message","فون میں گنتی محفوظ نہیں ہو سکی۔");
+}
+$("#add-one").addEventListener("click",()=>fallbackTap(1));
+$("#add-ten").addEventListener("click",()=>fallbackTap(10));
+$("#fallback-tasbih-save").addEventListener("click",async()=>{
+ const uid=auth.currentUser?.uid;if(!uid||appState.busy)return;
+ fallbackTasbih.start(uid);await fallbackTasbih.flush("_durood_");
+ if(fallbackTasbih.pending())message("#reading-message","گنتی فون میں محفوظ ہے؛ دوبارہ Save دبائیں۔");
+ else{message("#reading-message","گنتی Firebase میں محفوظ ہو گئی۔",true);await refreshCounts().catch(()=>{});}
+});
+onAuthStateChanged(auth,user=>{if(user)fallbackTasbih.start(user.uid);else fallbackTasbih.stop();});
 $("#manual-form").addEventListener("submit",async event=>{
   event.preventDefault();
   const amount=Number($("#manual-amount").value);

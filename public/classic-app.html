@@ -1327,7 +1327,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=manual-save-only-20261126-v27">
+<link rel="stylesheet" href="./dashboard-reference.css?v=manual-save-only-20261126-v28">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -3115,7 +3115,7 @@ function tasbih() {
     tr("<div class=\"pace-grid\"><div class=\"reader-metric\"><small>Sec / Durood</small><strong id=\"pace-sec\">—</strong></div>", '<div class="pace-grid"><div class="reader-metric"><small>سیکنڈ فی درود</small><strong id="pace-sec">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / min</small><strong id=\"pace-minute\">—</strong></div>", '<div class="reader-metric"><small>درود فی منٹ</small><strong id="pace-minute">—</strong></div>') +
     tr("<div class=\"reader-metric\"><small>Durood / hr</small><strong id=\"pace-hour\">—</strong></div></div>", '<div class="reader-metric"><small>درود فی گھنٹہ</small><strong id="pace-hour">—</strong></div></div>') +
-    '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Today’s tasbih','آج کی تسبیح') + '</small><strong id="session-count">0</strong>' +
+    '<button class="dial' + (dialFloating ? ' is-floating' : '') + '" data-action="count-durood" aria-label="' + tr('Count one Durood','ایک درود شمار کریں') + '"><small>' + tr('Unsaved tasbih','غیر محفوظ تسبیح') + '</small><strong id="session-count">0</strong>' +
     tr("<span class=\"session-clock\">Elapsed <span id=\"read-clock\" dir=\"ltr\">0</span></span><span class=\"dial-plus\" aria-hidden=\"true\">+</span>", '<span class="session-clock">نشست کا وقت <span id="read-clock" dir="ltr">0</span></span><span class="dial-plus" aria-hidden="true">+</span>') +
     tr("<span class=\"visually-hidden\">Tap after each recitation</span></button>", '<span class="visually-hidden">ایک مرتبہ پڑھ کر ٹیپ کریں</span></button>') +
     '<p class="group-tap-help">'+tr("Tap once after each complete recitation.","ہر مکمل درود پڑھ کر ایک مرتبہ دبائیں۔")+'</p>'+
@@ -5542,7 +5542,7 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=manual-save-only-20261126-v27";
+import "./wazaif.js?release=manual-save-only-20261126-v28";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=manual-save-only-20261126-v2";

@@ -1133,6 +1133,7 @@ function refreshHeroReader(){
  if(!w||!record)return;
  const s=heroReadingState(group,w,record);
  const taskId=group?"_group_":state.readerId;
+ state.tapQueue=wzSync.pending(taskId);
  const todayCount=s.todayCount,total=s.total;
  const dayLeft=Math.max(0,s.dailyGoal-todayCount);
   const left=Math.max(0,s.totalGoal-total);
@@ -1597,6 +1598,7 @@ function restoreDraft(){
   }
  }catch{}
  state.tapQueue=wzSync.pending(taskId);
+ if(state.mode==="personal-reader"&&state.tapQueue&&!wzSync.pending(taskId,state.draftDay))state.draftDay=Object.keys(wzSync.byDay(taskId)).sort()[0]||readingDay();
 }
 function startClock(){
  state.clockStart=null;state.clockLastTap=null;state.clockMs=0;state.clockIntervals=0;state.tapGapMs=0;state.tapGapTotalMs=0;
