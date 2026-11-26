@@ -558,17 +558,28 @@ function taskStatus(task){
  if(fixedExpired(task,now))return "مدت مکمل";
  return "جاری";
 }
+function personalCardSummary(task){
+ const today=readingDay();
+ const entry=task.dailyLedger?.[today];
+ const read=Math.max(0,Number(entry?.count??(task.day===today?task.today:0))||0);
+ const figures=selectedDayFigures(false,task,task,today);
+ const goal=Math.max(0,Number(figures.goal)||0);
+ const remaining=Math.max(0,goal-read);
+ const total=Math.max(0,Number(task.total)||0);
+ return '<section aria-label="میرے وظیفے کا خلاصہ" dir="rtl">'+
+ '<p class="wz-help">شروع کرنے کی تاریخ: <bdi dir="ltr">'+esc(task.startDate||"—")+'</bdi></p>'+
+ '<div class="wz-inline-counts" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px" aria-label="روزانہ اور مجموعی شمار">'+
+ compactCount("آج کا ہدف",goal)+compactCount("آج پڑھا",read)+
+ compactCount("آج باقی",remaining)+compactCount("کل پڑھا",total)+'</div></section>';
+}
 function personalCard(task){
  const stateText=taskStatus(task);
  return '<article class="wz-card wz-personal">'+
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
+ personalCardSummary(task)+
  arabicOrPdf(task.arabic,"personal")+'<p class="wz-help">'+esc(task.instructions)+'</p>'+
- (task.kind==="fixed"?fixedPlanMarkup(task):
-  '<div class="wz-inline-counts" aria-label="روزانہ وظیفے کا شمار">'+
-  compactCount("آج پڑھا",task.day===readingDay()?task.today:0)+
-  compactCount("آج ہدف",targetForDay(task,readingDay()))+
-  compactCount("مجموعی شمار",task.total||0)+'</div><p class="wz-help">آغاز '+esc(task.startDate)+'</p>')+
+ (task.kind==="fixed"?fixedPlanMarkup(task):"")+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
