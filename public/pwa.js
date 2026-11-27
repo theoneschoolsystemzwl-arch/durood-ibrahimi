@@ -1,4 +1,4 @@
-const RELEASE="personal-wazifa-summary-20261127-v3";
+const RELEASE="personal-wazifa-summary-20261127-v4";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
