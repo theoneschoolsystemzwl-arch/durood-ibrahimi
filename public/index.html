@@ -15,7 +15,7 @@
   <script src="./static-locale.js?v=20261127-v3"></script>
   <script defer src="./pull-refresh.js?v=dashboard-owner-sync-recovery-20261127-v1"></script>
   <script type="module" src="./pwa.js?v=dashboard-owner-sync-recovery-20261127-v1"></script>
-  <script type="module" src="./app.js?release=dashboard-owner-sync-recovery-20261127-v1"></script>
+  <script type="module" src="./app.js?release=single-login-screen-20261127-v1"></script>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
 
@@ -85,6 +85,7 @@
     <section id="loading" class="panel" role="status" aria-live="polite">
       <p id="loading-copy">اکاؤنٹ چیک کیا جا رہا ہے…</p>
       <button type="button" id="loading-retry" class="secondary" hidden>دوبارہ لوڈ کریں / Retry</button>
+      <button type="button" id="loading-signin" class="secondary" hidden>لاگ اِن کریں</button>
     </section>
 
     <section id="access" class="panel account-card" hidden aria-labelledby="welcome-title">
@@ -296,10 +297,10 @@
     duroodLocale.bindMenu(langButton,value=>{try{localStorage.setItem("durood-language",value);}catch{}syncLanguage();langButton.querySelector("summary")?.focus();});
     window.addEventListener("storage",event=>{if(event.key==="durood-language")syncLanguage();});syncLanguage();
     const retry=document.getElementById("loading-retry");
-    retry.addEventListener("click",()=>location.reload());
+    retry.addEventListener("click",()=>{if(!window.duroodPortalRetryReady)location.reload();});
     setTimeout(()=>{
       const section=document.getElementById("loading");
-      if(section&&!section.hidden){
+      if(!window.duroodPortalRetryReady&&section&&!section.hidden){
         document.getElementById("loading-copy").textContent=
           "لوڈنگ میں دیر ہو رہی ہے۔ انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں۔";
         retry.hidden=false;

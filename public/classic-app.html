@@ -5170,6 +5170,12 @@ function render({keepScroll = false} = {}) {
   const person = currentUser();
   applyMemberTheme(person?.id);
   const navScroll = app.querySelector('.nav-inner')?.scrollLeft || 0;
+  // The parent owns authentication. An embedded dashboard must never render a second login form.
+  if(!person&&window.parent!==window){
+    app.style.visibility="hidden";
+    app.innerHTML='<main class="main" role="status">'+tr('Loading dashboard…','ڈیش بورڈ کھل رہا ہے…')+'</main>';
+    return;
+  }
   const content = person ? dashboard(person) : screen === 'about'
     ? '<main class="main about-public">' + about() + '<p class="section"><button type="button" class="button secondary" data-action="screen" data-value="login">' +
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'

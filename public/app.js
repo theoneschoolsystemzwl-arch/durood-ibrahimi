@@ -35,6 +35,20 @@ let dashboardTimer;
 let authGeneration=0;
 let nullAuthTimer=null;
 let lastAuthenticatedUid=null;
+const SESSION_RECOVERY_MS=15000;
+function sessionText(ur,en,id){return window.duroodLocale?.message(window.duroodStaticLocale?.selection()||'ur',{ur,en,id})||ur;}
+function recoveryText(){return sessionText('محفوظ لاگ اِن بحال کیا جا رہا ہے…','Restoring your saved login…','Memulihkan login tersimpan…');}
+function recoverVerifiedSession(){
+  clearTimeout(nullAuthTimer);clearTimeout(dashboardTimer);
+  view('#access',false);view('#portal',false);view('#loading',true);
+  $('#loading-copy').textContent=recoveryText();$('#loading-retry').hidden=true;$('#loading-signin').hidden=true;
+  const expected=lastAuthenticatedUid,generation=authGeneration;
+  nullAuthTimer=setTimeout(()=>{
+    if(logoutBlocked()||auth.currentUser||appState.signingIn||appState.registering||authGeneration!==generation||lastAuthenticatedUid!==expected)return;
+    $('#loading-copy').textContent=sessionText('محفوظ سیشن بحال نہیں ہو سکا۔ دوبارہ کوشش کریں یا ضرورت ہو تو لاگ اِن کریں۔','Your saved session could not be restored. Retry or sign in if needed.','Sesi tersimpan belum dapat dipulihkan. Coba lagi atau masuk jika perlu.');
+    $('#loading-retry').hidden=false;$('#loading-signin').hidden=false;
+  },SESSION_RECOVERY_MS);
+}
 
 // This local courtesy pause reduces accidental repeat attempts.
 // It does not override Firebase's server-side rate limiting.
@@ -277,6 +291,7 @@ function showSignedOut() {
   clearTimeout(dashboardTimer);
   document.body.classList.remove("classic-pending");
   $("#loading-retry").hidden=true;
+  $("#loading-signin").hidden=true;
   appState.profile=null;
   lastAuthenticatedUid=null;
   classicFrameRequested=false;
@@ -292,6 +307,7 @@ function showSignedOut() {
 function showSignedIn(profile){
   if(logoutBlocked()||!profile?.uid || auth.currentUser?.uid!==profile.uid)return;
   clearTimeout(nullAuthTimer);
+  $("#loading-signin").hidden=true;
   const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
   lastAuthenticatedUid=profile.uid;
   appState.profile=profile;
@@ -312,6 +328,7 @@ function showSignedIn(profile){
   $("#profile-name").value=profile.name||"";
   view("#admin-panel",profile.role==="owner");
   if(!alreadyOpening)showOriginalDashboardIfReady();
+  else if(classicReadyUid!==profile.uid){view("#loading",true);view("#access",false);}
   if(classicReadyUid===profile.uid)revealOriginalDashboard();
 }
 function showOriginalDashboardIfReady(){
@@ -329,7 +346,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=member-visibility-20261127-v1";
+  frame.src="./classic-app.html?release=single-login-screen-20261127-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -447,15 +464,8 @@ onAuthStateChanged(auth,async user=>{
     // briefly emit null while sharing the freshly persisted first login.
     // Never show the login form over a verified session during that handoff.
     if(auth.currentUser)return;
-    if(appState.profile){
-      clearTimeout(nullAuthTimer);
-      view("#access",false);
-      view("#portal",false);
-      view("#loading",true);
-      $("#loading-copy").textContent="محفوظ لاگ اِن بحال کیا جا رہا ہے…";
-      nullAuthTimer=setTimeout(()=>{
-        if(!auth.currentUser && !appState.signingIn && !appState.registering)showSignedOut();
-      },2500);
+    if(appState.profile||lastAuthenticatedUid){
+      recoverVerifiedSession();
       return;
     }
     showSignedOut();return;
@@ -487,8 +497,12 @@ onAuthStateChanged(auth,async user=>{
 });
 $("#loading-retry").addEventListener("click",async()=>{
   if(logoutBlocked()||appState.busy)return;
-  if(!auth.currentUser){showSignedOut();return;}
+  if(!auth.currentUser){
+    if(appState.profile||lastAuthenticatedUid){recoverVerifiedSession();return;}
+    showSignedOut();return;
+  }
   $("#loading-retry").hidden=true;
+  $("#loading-signin").hidden=true;
   try{
     const profile=appState.profile?.uid===auth.currentUser.uid?appState.profile:await loadProfile(auth.currentUser);
     if(!appState.profile)await claimDeviceSession(auth.currentUser,profile);
@@ -500,6 +514,12 @@ $("#loading-retry").addEventListener("click",async()=>{
     showSignedIn(profile);
   }catch(error){if(error?.code==="member/session-replaced"&&auth.currentUser)await silentlyReplacedSession(auth.currentUser.uid);else showProfileRetry(error);}
 });
+$("#loading-signin").addEventListener("click",()=>{
+  if(auth.currentUser||appState.signingIn||appState.registering||signingOut)return;
+  ++authGeneration;showSignedOut();switchTab("login");
+});
+window.duroodPortalRetryReady=true;
+window.addEventListener("online",()=>{if(!logoutBlocked()&&!auth.currentUser&&lastAuthenticatedUid)recoverVerifiedSession();});
 async function explicitLogout(){
   if(signingOut)return;
   signingOut=true;
