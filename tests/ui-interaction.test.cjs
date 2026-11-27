@@ -3,7 +3,9 @@
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const {JSDOM,VirtualConsole}=require("jsdom");
-const html=fs.readFileSync("public/classic-app.html","utf8");
+// jsdom does not fetch external scripts by default. Inline only the local
+// UI helpers that the browser loads before the classic script; never use network.
+const html=fs.readFileSync("public/classic-app.html","utf8").replace(/<script src="\.\/(hijri-session|ui-locale|static-locale)\.js\?[^"]*"><\/script>/g,(_,name)=>"<script>"+fs.readFileSync("public/"+name+".js","utf8").replace(/<\/script/gi,"<\\/script")+"</script>");
 
 function build(storage={}){
  const errors=[],virtualConsole=new VirtualConsole();
@@ -47,7 +49,7 @@ function nav(app,section){
  const app=build();
  try {
    enter(app);
-   for(const tab of ["overview","tasbih","namaz","tree","settings","members","messages","directory","groups"]){
+   for(const tab of ["overview","tasbih","namaz","tree","settings","ranking","messages","directory","groups"]){
      nav(app,tab);
    }
    nav(app,"namaz");

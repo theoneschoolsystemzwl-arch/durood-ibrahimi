@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=dashboard-blue-shared-sync-20261127-v2">
+<link rel="stylesheet" href="./wazaif.css?v=dashboard-owner-sync-recovery-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=dashboard-blue-shared-sync-20261127-v2"></script>
+<script defer src="./pull-refresh.js?v=dashboard-owner-sync-recovery-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1361,7 +1361,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-blue-shared-sync-20261127-v2">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-owner-sync-recovery-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2455,6 +2455,11 @@ function combinedLiveTargets(){
  const live={male:null,female:null};
  for(const g of ["male","female"]){
    if(Array.isArray(combinedGoalRows?.[g]))live[g]=combinedSideTargets(combinedGoalRows[g],day);
+ }
+ // The confirmed selected-side directory is also a valid owner source.
+ const side=window.duroodCurrentSide;
+ if(["male","female"].includes(side)&&!live[side]&&Array.isArray(ownerGoalRows)){
+   live[side]=combinedSideTargets(ownerGoalRows,day);
  }
  if(!live.male&&!live.female)return null;
  const previous=combinedPublishedTargets?.day===day?combinedPublishedTargets:null;
@@ -5915,13 +5920,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=dashboard-blue-shared-sync-20261127-v2";
+import "./wazaif.js?release=dashboard-owner-sync-recovery-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=dashboard-blue-shared-sync-20261127-v2";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=dashboard-owner-sync-recovery-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6149,12 +6154,29 @@ function observeCounters(side){
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
   // Only the verified owner publishes a compact aggregate, never member data.
   const combinedRef=doc(db,"dashboardAggregates","duroodTargets");
-  let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false,publishFailures=0;
+  let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false,publishFailures=0,combinedReadFlight=false;
+  // A server read also recovers a listener that previously failed under old rules.
+  const acceptCombinedSnapshot=snap=>{
+    if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+    const data=snap.exists()?snap.data():null;
+    combinedPublishedTargets=data;
+    remoteCombinedReady=true;
+    remoteCombinedKey=data?JSON.stringify({day:data.day,male:normalizeCombinedSide(data.male),female:normalizeCombinedSide(data.female)}):null;
+    refreshDashboardTargetCards();scheduleCombinedPublish();
+  };
+  const recoverCombinedRead=async()=>{
+    if(!stillCurrent()||combinedReadFlight)return;
+    combinedReadFlight=true;
+    try{acceptCombinedSnapshot(await getDocFromServer(combinedRef));}
+    catch(err){console.warn("Shared dashboard refresh unavailable",err?.code);}
+    finally{combinedReadFlight=false;}
+  };
   scheduleCombinedPublish=(delay=500)=>{
     if(currentProfile?.role!=="owner"||!stillCurrent())return;
     clearTimeout(publishTimer);
     publishTimer=setTimeout(async()=>{
-      if(!stillCurrent()||publishInFlight||!remoteCombinedReady)return;
+      if(!stillCurrent()||publishInFlight)return;
+      if(!remoteCombinedReady){void recoverCombinedRead();return;}
       const payload=combinedLiveTargets();if(!payload)return;
       const key=JSON.stringify(payload);
       if(key===remoteCombinedKey)return;
@@ -6162,7 +6184,11 @@ function observeCounters(side){
       let failed=false;
       try{
         await setDoc(combinedRef,{...payload,updatedAt:serverTimestamp()});
-        if(stillCurrent()){remoteCombinedKey=key;publishFailures=0;}
+        if(stillCurrent()){
+          remoteCombinedKey=key;publishFailures=0;
+          combinedPublishedTargets=payload;
+          refreshDashboardTargetCards();
+        }
       }catch(err){
         failed=true;publishFailures++;
         console.warn("Combined dashboard targets publish unavailable",err?.code);
@@ -6175,20 +6201,13 @@ function observeCounters(side){
       }
     },delay);
   };
-  const retryCombinedOnFocus=()=>{if(stillCurrent())scheduleCombinedPublish(0);};
+  const retryCombinedOnFocus=()=>{if(stillCurrent()){if(!remoteCombinedReady)void recoverCombinedRead();else scheduleCombinedPublish(0);}};
   window.addEventListener("focus",retryCombinedOnFocus);
   window.addEventListener("online",retryCombinedOnFocus);
-  const stopCombinedTargets=retryGoalSnapshot(combinedRef,snap=>{
-    if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
-    const data=snap.exists()?snap.data():null;
-    combinedPublishedTargets=data;
-    remoteCombinedReady=true;
-    remoteCombinedKey=data?JSON.stringify({day:data.day,male:normalizeCombinedSide(data.male),female:normalizeCombinedSide(data.female)}):null;
-    refreshDashboardTargetCards();scheduleCombinedPublish();
-  },err=>{
-    if(stillCurrent()){remoteCombinedReady=false;combinedPublishedTargets=null;refreshDashboardTargetCards();}
+  const stopCombinedTargets=retryGoalSnapshot(combinedRef,acceptCombinedSnapshot,err=>{
+    if(stillCurrent()){remoteCombinedReady=false;refreshDashboardTargetCards();}
     console.warn("Combined target summary unavailable",err?.code);
-  });
+  },15000);
   const photoStops=new Map();
   let photoDirectory=[];
   function watchPhotos(uids){
@@ -6225,7 +6244,7 @@ function observeCounters(side){
   let stopGoalDirectory=()=>{},stopInviteDirectory=()=>{},goalMembers=new Map(),goalDirectoryReady=false;
   // Firestore snapshot errors are terminal. Retry only these goal listeners
   // after quota backoff; do not reload the entire dashboard or invent targets.
-  function retryGoalSnapshot(ref,onValue,onError){
+  function retryGoalSnapshot(ref,onValue,onError,baseDelay=300000){
     let stopped=false,unsub=()=>{},timer=null,failures=0;
     const start=()=>{
       if(stopped||!stillCurrent())return;
@@ -6237,7 +6256,7 @@ function observeCounters(side){
         if(stopped||!stillCurrent())return;
         onError(err);
         if(!/resource-exhausted|unavailable|deadline-exceeded|aborted|internal|permission-denied/i.test(String(err?.code||err)))return;
-        const delay=Math.min(1800000,300000*2**Math.min(failures++,3));
+        const delay=Math.min(1800000,baseDelay*2**Math.min(failures++,3));
         clearTimeout(timer);timer=setTimeout(start,delay);
       });
     };

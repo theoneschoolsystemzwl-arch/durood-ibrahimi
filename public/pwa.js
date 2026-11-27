@@ -1,4 +1,4 @@
-const RELEASE="dashboard-blue-shared-sync-20261127-v2";
+const RELEASE="dashboard-owner-sync-recovery-20261127-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
