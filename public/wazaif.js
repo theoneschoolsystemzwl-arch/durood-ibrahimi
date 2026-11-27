@@ -563,14 +563,15 @@ function personalCardSummary(task){
  const entry=task.dailyLedger?.[today];
  const read=Math.max(0,Number(entry?.count??(task.day===today?task.today:0))||0);
  const figures=selectedDayFigures(false,task,task,today);
- const goal=Math.max(0,Number(figures.goal)||0);
- const remaining=Math.max(0,goal-read);
+ const goal=Math.max(0,Number(targetForDay(task,today))||0);
  const total=Math.max(0,Number(task.total)||0);
+ const remaining=task.kind==="fixed"?(fixedPlan(task)?.remainingCount??Math.max(0,Number(figures.goal||0)-read)):
+   Math.max(0,Number(figures.goal||0)-read);
  return '<section aria-label="میرے وظیفے کا خلاصہ" dir="rtl">'+
  '<p class="wz-help">شروع کرنے کی تاریخ: <bdi dir="ltr">'+esc(task.startDate||"—")+'</bdi> · کل دن: <bdi dir="ltr">'+fmt(spanDays(task.startDate,today))+'</bdi></p>'+
  '<div class="wz-inline-counts" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px" aria-label="روزانہ اور مجموعی شمار">'+
  compactCount("آج کا ہدف",goal)+compactCount("آج پڑھا",read)+
- compactCount("آج باقی",remaining)+compactCount("کل پڑھا",total)+'</div></section>';
+ compactCount("ٹوٹل باقی",remaining)+compactCount("کل پڑھا",total)+'</div></section>';
 }
 function personalCard(task){
  const stateText=taskStatus(task);

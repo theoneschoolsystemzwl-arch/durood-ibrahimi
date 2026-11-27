@@ -386,3 +386,12 @@
 
 /* Continuous PDF images; render nearby pages only to protect mobile memory. */
 .wz-pdf-scroll{height:72dvh;max-height:72dvh;overflow:auto;touch-action:pan-x pan-y;overflow-anchor:none}.wz-pdf-scroll.is-scroll-off{overflow:hidden;touch-action:pan-y;overscroll-behavior:auto}.wz-pdf-page{width:100%;position:relative;background:#fff;border-bottom:6px solid #d4e5df;box-sizing:border-box}.wz-pdf-page canvas{width:100%!important;height:auto;display:block}.is-zoomed .wz-pdf-page{width:160%;max-width:none}.wz-pdf-nav button[aria-pressed="false"]{background:#6a3232}.wz-pdf-nav strong{font-size:.83rem}
+
+/* Blue personal Wazifa launch tabs; preserve the existing title and tap action. */
+.wz-card.wz-personal .wz-tasbih-top .wz-tasbih-cta{
+ background:linear-gradient(155deg,#2685ef 0%,#155ac2 55%,#123d91 100%);color:#fff;
+ border:1px solid #83c9ff;border-bottom:3px solid #b6deff;border-radius:15px;
+ box-shadow:0 4px 12px #082d7266,inset 0 1px 0 #ffffff40;
+}
+.wz-card.wz-personal .wz-tasbih-cta:disabled{opacity:.58}
+.wz-card.wz-personal .wz-tasbih-cta:focus-visible{outline:3px solid #9bddff;outline-offset:3px}
