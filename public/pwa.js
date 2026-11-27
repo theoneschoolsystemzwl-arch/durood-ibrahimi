@@ -1,4 +1,4 @@
-const RELEASE="combined-dashboard-mf-zero-fallback-20261127-v2";
+const RELEASE="combined-dashboard-rules-vertical-20261127-v3";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

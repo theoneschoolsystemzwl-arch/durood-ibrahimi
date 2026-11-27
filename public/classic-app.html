@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=combined-dashboard-mf-zero-fallback-20261127-v2">
+<link rel="stylesheet" href="./wazaif.css?v=combined-dashboard-rules-vertical-20261127-v3">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=combined-dashboard-mf-zero-fallback-20261127-v2"></script>
+<script defer src="./pull-refresh.js?v=combined-dashboard-rules-vertical-20261127-v3"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=combined-dashboard-mf-zero-fallback-20261127-v2">
+<link rel="stylesheet" href="./dashboard-reference.css?v=combined-dashboard-rules-vertical-20261127-v3">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2447,7 +2447,7 @@ function combinedDashboardTargets(){
  }
  // The already verified same-side goal directory remains usable even when
  // the new shared document or opposite-side permissions have not synced.
- if(["male","female"].includes(side)&&Array.isArray(ownerGoalRows)){
+ if(["male","female"].includes(side)&&!result[side]&&Array.isArray(ownerGoalRows)){
    result[side]=combinedSideTargets(ownerGoalRows,day);
  }else if(["male","female"].includes(side)&&!result[side]&&Array.isArray(dashboardPartialGoalRows)&&dashboardPartialGoalRows.length){
    const known=knownDashboardTargets(dashboardPartialGoalRows,day,dashboardGroupSettings);
@@ -2686,7 +2686,7 @@ function readerCountAndTarget(row,day,goalRows,canViewTarget){
 function readerList(){
  const historical=readerListDay!==null&&currentUser()?.isOwner;
  const raw=historical?previousDayReaders:todayReaders;
- const selected=currentUser()?.isOwner?raw:raw?.filter(row=>users.some(p=>p.uid===row.uid&&!p.disabled&&!p.deleted));
+ const selected=raw?.filter(row=>users.some(p=>p.uid===row.uid&&(currentUser()?.isOwner||(!p.disabled&&!p.deleted))&&(p.gender==="Female")===(window.duroodCurrentSide==="female")));
  if(historical&&readerListError)return tr("Could not load this date. Try again.","اس تاریخ کا ریکارڈ لوڈ نہیں ہوا۔ دوبارہ کوشش کریں۔");
  if(!selected)return tr("Loading selected date…","منتخب تاریخ کا ریکارڈ لوڈ ہو رہا ہے…");
  if(!selected.length)return tr("No saved Durood found for this date.","اس تاریخ کے لیے درود شریف کا محفوظ ریکارڈ نہیں ملا۔");
@@ -2738,7 +2738,7 @@ function groupTitleLabel(){
   return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
 }
 function periodLabels(){
-  return [['today','روزانہ'],['week','ہفتہ وار'],['month','ماہانہ'],['year','سالانہ']];
+  return [['year','سالانہ'],['month','ماہانہ'],['week','ہفتہ وار'],['today','روزانہ']];
 }
 // Dashboard targets are accrued through the current Pakistan day, not the
 // full future period. Keep the blue annual projection independent.
@@ -5891,13 +5891,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=combined-dashboard-mf-zero-fallback-20261127-v2";
+import "./wazaif.js?release=combined-dashboard-rules-vertical-20261127-v3";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=combined-dashboard-mf-zero-fallback-20261127-v2";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=combined-dashboard-rules-vertical-20261127-v3";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6140,7 +6140,7 @@ function observeCounters(side){
       finally{publishInFlight=false;if(stillCurrent()&&JSON.stringify(combinedLiveTargets())!==key)scheduleCombinedPublish();}
     },500);
   };
-  const stopCombinedTargets=onSnapshot(combinedRef,{includeMetadataChanges:true},snap=>{
+  const stopCombinedTargets=retryGoalSnapshot(combinedRef,snap=>{
     if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
     const data=snap.exists()?snap.data():null;
     combinedPublishedTargets=data;
@@ -6197,7 +6197,7 @@ function observeCounters(side){
       },err=>{
         if(stopped||!stillCurrent())return;
         onError(err);
-        if(!/resource-exhausted|unavailable|deadline-exceeded|aborted|internal/i.test(String(err?.code||err)))return;
+        if(!/resource-exhausted|unavailable|deadline-exceeded|aborted|internal|permission-denied/i.test(String(err?.code||err)))return;
         const delay=Math.min(1800000,300000*2**Math.min(failures++,3));
         clearTimeout(timer);timer=setTimeout(start,delay);
       });
