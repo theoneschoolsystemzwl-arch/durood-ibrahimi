@@ -617,7 +617,6 @@ function personalCard(task){
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
- (isDailyPlan(task)&&task.startDate<=readingDay()?'<div class="wz-actions"><button type="button" class="wz-button '+(pausedOn(task,readingDay())?'wz-primary':'')+'" data-wazifa-action="pause-personal" data-wazifa-id="'+esc(task.id)+'">'+(pausedOn(task,readingDay())?'▶ وظیفہ دوبارہ جاری کریں (Resume)':'⏸ وظیفہ روکیں (Pause)')+'</button></div>':'')+
  (state.shareFor===task.id?'<div class="wz-share-form" role="group"><label for="wz-share-target">صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)</label>'+
  '<div class="wz-share-row"><input id="wz-share-target" placeholder="'+(state.profile?.gender==="female"?"F-2":"M-2")+'" dir="ltr" autocomplete="off" maxlength="16" aria-label="وصول کنندہ ممبر آئی ڈی">'+
  '<button type="button" class="wz-button wz-primary" data-wazifa-action="send-personal" data-wazifa-id="'+esc(task.id)+'">وظیفہ بھیجیں</button></div>'+
@@ -667,7 +666,16 @@ async function toggleDailyPause(id){
    }
   });
   const fresh=await getDocFromServer(ref);if(fresh.exists())state.personal=state.personal.map(item=>item.id===id?{id,...fresh.data()}:item);
-  state.error="";render();
+  state.error="";
+  const control=$("#wazifa-form [data-wazifa-action='pause-personal']");
+  const updated=state.personal.find(item=>item.id===id);
+  if(control&&updated&&state.editId===id&&state.mode==="form"){
+   const paused=pausedOn(updated,readingDay());
+   control.textContent=paused?"▶ وظیفہ دوبارہ جاری کریں (Resume)":"⏸ وظیفہ روکیں (Pause)";
+   control.classList.toggle("wz-primary",paused);
+   control.setAttribute("aria-pressed",String(paused));
+  }
+  render();
  }catch(e){setError(e);}finally{state.busy=false;}
 }
 function inboxMarkup(){
@@ -733,6 +741,7 @@ function formMarkup(){
  '<label class="wz-toggle" data-wz-group><input type="checkbox" name="countAsDurood" '+(!g||original.countAsDurood!==false?'checked':'')+'> یہ درود شریف ہے (مجموعی درود میں بھی شمار کریں)</label>'+
  '<p class="wz-help">گروپ سیٹنگ صرف Owner کو نظر آئے گی؛ ذاتی وظیفہ صرف اپنے اکاؤنٹ میں محفوظ ہوگا۔</p>'+
  '<button type="submit" class="wz-button wz-primary" '+(state.busy?'disabled':'')+'>محفوظ کریں</button>'+
+ (!g&&state.editId&&isDailyPlan(original)&&original.startDate<=readingDay()?'<div class="wz-actions"><button type="button" class="wz-button '+(pausedOn(original,readingDay())?'wz-primary':'')+'" data-wazifa-action="pause-personal" data-wazifa-id="'+esc(state.editId)+'">'+(pausedOn(original,readingDay())?'▶ وظیفہ دوبارہ جاری کریں (Resume)':'⏸ وظیفہ روکیں (Pause)')+'</button></div>':'')+
  (state.editId&&!g?'<button type="button" class="wz-button wz-delete" data-wazifa-action="delete-personal" data-wazifa-id="'+esc(state.editId)+'">وظیفہ حذف کریں</button>':'')+
  '</form>';
 }
