@@ -273,6 +273,7 @@ const id=Object.freeze({
   "Total missed": "Total terlewat",
   "Still missed": "Masih terlewat",
   "Total prayers due": "Total kewajiban salat",
+  "Your group": "Grup Anda",
   "Total completed": "Total salat yang telah ditunaikan",
   "Daily Prayer Ledger": "Catatan salat harian",
   "Still pending": "Masih tertunda",

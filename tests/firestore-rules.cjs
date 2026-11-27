@@ -75,6 +75,10 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
+  // Signed-in same-side members can see profile portraits, not edit them.
+  await assertSucceeds(getDoc(doc(newDb,"memberPhotos",ownerId)));
+  await assertFails(getDoc(doc(guestDb,"memberPhotos",ownerId)));
+  await assertFails(setDoc(doc(newDb,"memberPhotos",ownerId),{image:ownerImage}));
 
   // DI-3: Owner invite must work on the female side, and the first woman
   // is an ordinary member with ZERO direct invitations of her own.
@@ -118,6 +122,10 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   if(wifeReferrals.size!==0)throw Error("New wife should start with zero referrals");
   await assertSucceeds(getDoc(doc(wifeDb,"genderMembers","female")));
   await assertFails(getDoc(doc(newDb,"members",wifeId)));
+  await assertSucceeds(setDoc(doc(wifeDb,"memberPhotos",wifeId),{image:ownerImage}));
+  await assertFails(getDoc(doc(newDb,"memberPhotos",wifeId)));
+  await assertFails(getDoc(doc(wifeDb,"memberPhotos",ownerId)));
+  await assertSucceeds(getDoc(doc(ownerDb,"memberPhotos",wifeId)));
   // Shared targets are readable within the same gender only, never writable by peers.
   const goalDate="2026-11-26";
   const goalRef=(db,uid)=>doc(db,"memberPrivate",uid,"duroodGoals",goalDate);

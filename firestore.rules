@@ -17,9 +17,10 @@ service cloud.firestore {
         request.resource.data.email is string && request.resource.data.email.size() <= 254;
     }
     match /memberPhotos/{uid} {
-      // The member and verified Owner may read a saved profile photo.
-      // Ordinary users cannot retrieve other members' private photos.
-      allow get: if (self(uid) && currentMember()) || (owner() && exists(memberPath(uid)));
+      // Profile portraits are visible to active members of the same gender only.
+      // Private member records and photo writes remain restricted.
+      allow get: if (self(uid) && currentMember()) || (owner() && exists(memberPath(uid))) ||
+        (currentMember() && active(uid) && matchingGender(get(memberPath(uid)).data));
       allow create, update: if self(uid) && currentMember() &&
         request.resource.data.keys().hasOnly(['image']) &&
         request.resource.data.image is string && request.resource.data.image.size() <= 180000 &&

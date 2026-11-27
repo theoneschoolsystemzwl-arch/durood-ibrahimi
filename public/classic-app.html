@@ -2302,6 +2302,8 @@ function profileCard(person) {
     '<small class="muted direct-invites">'+tr('Group total Wird: ','گروپ کا مجموعی ورد: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
     '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
+    (!person.isOwner?'<small class="muted member-community-line">'+tr("Total members in community","کمیونٹی کے کل ارکان")+' · <bdi>'+(groupDirectoryReady?displayNumber(visibleMembers().filter(p=>p.gender===person.gender).length):'—')+'</bdi></small>'+
+    '<small class="muted member-community-line">'+tr("Your group","آپ کا گروپ")+' · <bdi dir="ltr">'+esc(joinedGroupName(person.id))+'</bdi></small>':'')+
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><span class=\"profile-logout-controls\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><span class="profile-logout-controls"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') + pendingBellMarkup() + '</span>' +
@@ -4990,7 +4992,7 @@ function dashboard(person) {
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
   const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:treeMembersPage,ranking,groups,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
-  return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
+  return '<div class="shell'+(owner?'':' member-shell')+'">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+(section==="overview"?"":prayerTickerMarkup(person))+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women?'<dialog id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" data-auto="'+(section==="overview")+'" aria-labelledby="wz-pending-title" hidden></dialog>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
@@ -6444,7 +6446,7 @@ function observeCounters(side){
         return [d.id,{uid:d.id,gender:m.role==="owner"?"male":(m.gender==="female"?"female":"male"),name:m.name||"",memberNumber:Number(m.memberNumber)||0,active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
       }));
       const active=new Set(directory.keys());
-      if(isGoalOwner)watchPhotos([...active].filter(uid=>directory.get(uid).gender===side));
+      watchPhotos([...active].filter(uid=>directory.get(uid).gender===side&&(isGoalOwner||directory.get(uid).active)));
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
@@ -6468,7 +6470,8 @@ function observeCounters(side){
     stopInviteDirectory=onSnapshot(query(collection(db,"members"),where("inviterUid","==",observedUid),where("gender","==",side),limit(200)),{includeMetadataChanges:true},snap=>{
       if(!stillCurrent()||snap.metadata.fromCache)return;
       const directoryRows=snap.docs.map(d=>({...d.data(),uid:d.id}));
-      refreshOnDirectoryChange(directoryRows);
+      // The full directory watcher owns its own change key; comparing a
+      // direct-invite subset against it caused unnecessary dashboard rehydration.
       bridge.liveMemberCounts(observedUid,directoryRows,false,side);
     },err=>console.warn("Direct members unavailable",err.code));
   }
