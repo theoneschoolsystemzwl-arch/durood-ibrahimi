@@ -665,3 +665,15 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(carry(300,null,100,0),null);
  assert.equal(carry(300,200,100,0),null);
 }
+
+// Admin welcome configuration keeps valid settings and defaults invalid values.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("const defaultDashboardWelcome="),b=classic.indexOf("function applyDashboardWelcome(",a);
+ const ctx=vm.createContext({});vm.runInContext(classic.slice(a,b),ctx);
+ const normalize=vm.runInContext("normalizeDashboardWelcome",ctx);
+ assert.equal(normalize(null).duration,30);assert.equal(normalize({duration:10,repeat:0,enabled:false,message:"Welcome",showName:false}).repeat,0);
+ assert.equal(normalize({duration:999,message:""}).duration,30);assert.equal(normalize({enabled:false}).enabled,false);
+ assert(classic.includes("person.isOwner?welcomeSettingsMarkup()"));assert(classic.includes('currentProfile.role!=="owner"'));
+ const themes=fs.readFileSync("public/app-theme.js","utf8");assert(themes.includes('white:')&&themes.includes('blue:')&&themes.includes('pink:')&&themes.includes('red:')&&themes.includes('emerald:'));
+}

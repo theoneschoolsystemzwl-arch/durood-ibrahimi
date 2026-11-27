@@ -572,6 +572,19 @@ service cloud.firestore {
         validDashboardAggregateNumber(s.month) && validDashboardAggregateNumber(s.year) &&
         validDashboardAggregateNumber(s.get('all',null));
     }
+    // A single shared welcome setting; authenticated members read, only the owner writes.
+    match /appSettings/dashboardWelcome {
+      allow get: if currentMember() || owner();
+      allow list, delete: if false;
+      allow create, update: if owner() &&
+        request.resource.data.keys().hasOnly(['enabled','message','showName','duration','repeat','updatedAt']) &&
+        request.resource.data.keys().hasAll(['enabled','message','showName','duration','repeat','updatedAt']) &&
+        request.resource.data.enabled is bool && request.resource.data.showName is bool &&
+        request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 300 &&
+        request.resource.data.duration is int && request.resource.data.duration >= 5 && request.resource.data.duration <= 120 &&
+        request.resource.data.repeat is int && request.resource.data.repeat >= 0 && request.resource.data.repeat <= 1440 &&
+        request.resource.data.updatedAt == request.time;
+    }
     match /dashboardAggregates/duroodTargets {
       allow get: if currentMember() || owner();
       allow list, delete: if false;

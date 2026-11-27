@@ -1361,7 +1361,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=daily-carry-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=five-themes-welcome-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1569,12 +1569,13 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .profile-card .wz-profile-bell [data-wz-notice-count][hidden]{display:none!important}
 #wz-dashboard-pending .wz-pending-empty{margin:6px 0;text-align:center;font-size:.83rem;color:#cde8d9}
 </style>
+<script src="./app-theme.js?v=five-themes-welcome-20261127-v1"></script>
 </head>
 <body>
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
 <script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
-<script src="./ui-locale.js?v=daily-carry-20261127-v1"></script>
+<script src="./ui-locale.js?v=five-themes-welcome-20261127-v1"></script>
 <script src="./static-locale.js?v=20261127-v3"></script>
 <script>
 'use strict';
@@ -2214,22 +2215,21 @@ function genderField(value) {
 }
 
 let appThemes = {
-  'emerald': {name:tr("Dark emerald", 'گہرا زمردی'),primary:'#005642',accent:'#baf6d9'},
-    'green-gold': {name:tr("Green & gold", 'سبز اور سنہری'),primary:'#0b624b',accent:'#dfb84e'},
-  'navy-silver': {name:tr("Navy & silver", 'نیلا اور نقرئی'),primary:'#254470',accent:'#c2cad4'},
-  'maroon-gold': {name:tr("Maroon & gold", 'عنابی اور سنہری'),primary:'#802644',accent:'#d9b456'},
-  'plum-lavender': {name:tr("Plum & lavender", 'جامنی اور بنفشی'),primary:'#543580',accent:'#b7a5dd'},
-  'teal-copper': {name:tr("Teal & copper", 'فیروزی اور تانبئی'),primary:'#177175',accent:'#c48660'},
-  'charcoal-amber': {name:tr("Charcoal & amber", 'سیاہی مائل اور عنبری'),primary:'#393e4c',accent:'#deaa51'}
-};
+   'white': {name:tr("White – Pearl","سفید"),primary:'#ffffff',accent:'#a27b28'},
+   'blue': {name:tr("Blue – Royal","نیلا"),primary:'#102e57',accent:'#f5d486'},
+   'pink': {name:tr("Pink – Rose","گلابی"),primary:'#ffe0eb',accent:'#ad346a'},
+   'red': {name:tr("Red – Ruby","سرخ"),primary:'#591521',accent:'#ffd18a'},
+   'emerald': {name:tr("Green – Emerald","سبز"),primary:'#005043',accent:'#f7d571'}
+ };
 
 function selectedTheme(id) {
-  const key = memberThemes[id];
-  return Object.hasOwn(appThemes,key) ? key : 'emerald';
+  const key = memberThemes[id]||window.duroodTheme?.stored();
+  return window.duroodTheme?.normalize(key)||(Object.hasOwn(appThemes,key)?key:'emerald');
 }
 
 function applyMemberTheme(id) {
-  document.documentElement.dataset.theme = selectedTheme(id);
+  const theme=selectedTheme(id);
+  if(window.duroodTheme)window.duroodTheme.apply(theme,false);else document.documentElement.dataset.theme=theme;
 }
 
 function themePicker(person) {
@@ -2243,17 +2243,29 @@ function themePicker(person) {
 function saveMemberTheme(theme) {
   if (!currentUser() || !Object.hasOwn(appThemes,theme)) return;
   memberThemes[currentUserId] = theme;
+  window.duroodTheme?.apply(theme,true);
   applyMemberTheme(currentUserId);
   const saved = saveOfflineState();
   setFeedback('theme-feedback',saved?tr("Theme saved for this member.", 'اس رکن کی تھیم محفوظ ہو گئی۔'):tr("Theme changed for this session. Your browser could not save it.", 'رنگ اس نشست کے لیے بدل گئے۔ مستقل سیو دستیاب نہیں۔'),saved);
 }
 
+function welcomeSettingsMarkup(){
+ const w=dashboardWelcome;
+ const txt=(en,ur)=>esc(tr(en,ur));
+ return '<section class="panel section"><h2>'+txt("Dashboard welcome","ڈیش بورڈ ویلکم پیغام")+'</h2><form id="dashboard-welcome-form" class="form">'+
+ '<label class="field"><span>'+txt("Enable welcome message","ویلکم پیغام فعال کریں")+'</span><input type="checkbox" name="enabled" '+(w.enabled?'checked':'')+'></label>'+
+ '<label class="field">'+txt("Welcome message","خوش آمدید کی عبارت")+'<textarea name="message" dir="auto" maxlength="300" rows="3" required>'+esc(w.message)+'</textarea></label>'+
+ '<label class="field"><span>'+txt("Show member name","رکن کا نام دکھائیں")+'</span><input type="checkbox" name="showName" '+(w.showName?'checked':'')+'></label>'+
+ '<div class="form-grid"><label class="field">'+txt("Duration (seconds)","دورانیہ (سیکنڈ)")+'<input type="number" name="duration" min="5" max="120" required value="'+w.duration+'"></label>'+
+ '<label class="field">'+txt("Repeat (minutes; 0 = login only)","دوبارہ (منٹ؛ 0 صرف لاگ اِن پر)")+'<input type="number" name="repeat" min="0" max="1440" required value="'+w.repeat+'"></label></div>'+
+ feedback("dashboard-welcome-feedback")+'<button class="button" type="submit" '+(welcomeSettingsReady?'':'disabled')+'>'+txt("Save welcome settings","ویلکم سیٹنگ محفوظ کریں")+'</button></form></section>';
+}
 function settings(person) {
   let activeCode = '';
   for (const [code,invite] of invites) {
     if (invite.by === person.id && !invite.used && !invite.revoked && code !== starterCode && code !== legacyStarterCode) activeCode = code;
   }
-  return heading(tr("Profile & Settings", 'پروفائل اور ترتیبات')) + themePicker(person) +
+  return heading(tr("Profile & Settings", 'پروفائل اور ترتیبات')) + themePicker(person) + (person.isOwner?welcomeSettingsMarkup():'') +
     (person.id === 1 ? tr("<section class=\"panel section\"><div class=\"panel-head\"><h2>Owner settings</h2>", '<section class="panel section"><div class="panel-head"><h2>مالک کی ترتیبات</h2>') +
       tr("<button class=\"button secondary\" data-action=\"nav\" data-value=\"directory\">Manage users</button></div>", '<button class="button secondary" data-action="nav" data-value="directory">صارفین کا انتظام</button></div>') +
       ur(tr("Select a member to suspend, restore or delete their account.", 'ممبر منتخب کر کے اس کا اکاؤنٹ بند، بحال یا حذف کریں۔'),'p','muted') + '</section><div class="section"></div>' : '') +
@@ -2886,7 +2898,30 @@ function metricPeriodCards(){
 // No Firebase writes; routine data snapshots never restart the animation.
 let profileFireworkUntil=0;
 let celebrationUid="",nextProfileGreeting=0,greetingUntil=0;
-const fireworkDuration=60000,greetingDuration=30000,greetingInterval=3600000;
+const fireworkDuration=60000;
+const defaultDashboardWelcome=Object.freeze({enabled:true,message:"السلام علیکم ورحمۃ اللہ وبرکاتہ",showName:true,duration:30,repeat:60});
+let dashboardWelcome={...defaultDashboardWelcome},welcomeSettingsReady=false;
+function normalizeDashboardWelcome(value){
+ const v=value||{},d=defaultDashboardWelcome;
+ return {enabled:typeof v.enabled==="boolean"?v.enabled:d.enabled,message:typeof v.message==="string"&&v.message.trim()&&v.message.length<=300?v.message:d.message,
+ showName:typeof v.showName==="boolean"?v.showName:d.showName,duration:Number.isInteger(v.duration)&&v.duration>=5&&v.duration<=120?v.duration:d.duration,
+ repeat:Number.isInteger(v.repeat)&&v.repeat>=0&&v.repeat<=1440?v.repeat:d.repeat};
+}
+function applyDashboardWelcome(value){
+ const next=normalizeDashboardWelcome(value),changed=JSON.stringify(next)!==JSON.stringify(dashboardWelcome);
+ dashboardWelcome=next;welcomeSettingsReady=true;
+ const form=document.getElementById("dashboard-welcome-form");
+ if(form){
+  if(!form.dataset.dirty){for(const k of ["enabled","showName"])form.elements[k].checked=next[k];for(const k of ["message","duration","repeat"])form.elements[k].value=next[k];}
+  form.querySelector('button[type="submit"]').disabled=false;
+ }
+ if(changed){
+  const now=Date.now();document.querySelector(".dashboard-salam")?.remove();
+  greetingUntil=next.enabled&&celebrationUid?now+next.duration*1000:0;
+  nextProfileGreeting=next.repeat?now+Math.max(next.repeat*60000,next.duration*1000):Infinity;
+  if(currentUser()&&section==="overview")syncProfileGreeting(currentUser(),now);
+ }
+}
 const periodFireworkDuration=3600000,periodFireworkMemory=new Map();
 function periodFireworkState(previous,complete,now){
  if(complete===false)return null;
@@ -2932,7 +2967,7 @@ function resetProfileCelebration(){
  celebrationUid="";nextProfileGreeting=0;greetingUntil=0;profileFireworkUntil=0;
 }
 function greetProfile(now,uid){
- profileFireworkUntil=now+fireworkDuration;greetingUntil=now+greetingDuration;nextProfileGreeting=now+greetingInterval;
+ profileFireworkUntil=now+fireworkDuration;greetingUntil=dashboardWelcome.enabled?now+dashboardWelcome.duration*1000:0;nextProfileGreeting=dashboardWelcome.repeat?now+Math.max(dashboardWelcome.repeat*60000,dashboardWelcome.duration*1000):Infinity;
  try{sessionStorage.setItem("durood-next-greeting:"+uid,String(nextProfileGreeting));}catch{}
 }
 function welcomeAuthenticatedDashboard(person,now){
@@ -2953,14 +2988,15 @@ function syncProfileGreeting(person,now){
  if(now>=nextProfileGreeting)greetProfile(now,uid);
  const portrait=app.querySelector(".profile-card .profile-portrait-level");
  if(profileFireworkUntil>now)mountFireworks(portrait,profileFireworkUntil,true);
- if(!host||greetingUntil<=now)return;
+ if(!host||!dashboardWelcome.enabled||greetingUntil<=now||ownerViewingWomen())return;
  if(host.querySelector(":scope > .dashboard-salam"))return;
  const greeting=document.createElement("span");greeting.className="dashboard-salam";greeting.dir="rtl";greeting.setAttribute("role","status");
  // Keep the final ten-second pulse synchronized even when live data rerenders.
- greeting.style.setProperty("--salam-elapsed",(-Math.max(0,greetingDuration-(greetingUntil-now)))+"ms");
+ greeting.style.setProperty("--salam-duration",dashboardWelcome.duration+"s");
+ greeting.style.setProperty("--salam-elapsed",(-Math.max(0,dashboardWelcome.duration*1000-(greetingUntil-now)))+"ms");
  const honor=document.createElement("b");const name=String(memberName(person)||person.name||person.username||"").trim();const female=person.gender==="Female"||person.gender==="female";honor.textContent=(female?"محترمہ ":"جناب ")+name+(female?" صاحبہ":" صاحب");
- const salam=document.createElement("span");salam.textContent="السلام علیکم ورحمۃ اللہ وبرکاتہ";
- greeting.append(honor,salam);host.append(greeting);
+ const salam=document.createElement("span");salam.textContent=dashboardWelcome.message;
+ if(dashboardWelcome.showName)greeting.append(honor);greeting.append(salam);host.append(greeting);
  setTimeout(()=>greeting.remove(),Math.max(0,greetingUntil-Date.now()));
 }
 function syncDashboardFireworks(){
@@ -3057,7 +3093,7 @@ function restoreMemberPrivateSettings(uid,id) {
   try { saved=JSON.parse(localStorage.getItem(memberPrivateStorageKey(uid))||'null'); } catch {}
   const legacy=loadOfflineState();
   const theme=saved?.theme ?? legacy?.themes?.[id];
-  if(typeof theme==='string' && Object.hasOwn(appThemes,theme))memberThemes[id]=theme;
+  if(typeof theme==='string')memberThemes[id]=window.duroodTheme?.normalize(theme)||'emerald';
   const prefs=saved?.prayerPrefs ?? legacy?.prayerSettings?.[id];
   if(prefs && typeof prefs==='object' && !Array.isArray(prefs) &&
       Number.isFinite(Number(prefs.lat)) && Number.isFinite(Number(prefs.lon)) &&
@@ -4967,14 +5003,12 @@ function refreshLocale() {
   ];
   genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
   appThemes = {
-    'emerald': {name:tr("Dark emerald", 'گہرا زمردی'),primary:'#005642',accent:'#baf6d9'},
-    'green-gold': {name:tr("Green & gold", 'سبز اور سنہری'),primary:'#0b624b',accent:'#dfb84e'},
-    'navy-silver': {name:tr("Navy & silver", 'نیلا اور نقرئی'),primary:'#254470',accent:'#c2cad4'},
-    'maroon-gold': {name:tr("Maroon & gold", 'عنابی اور سنہری'),primary:'#802644',accent:'#d9b456'},
-    'plum-lavender': {name:tr("Plum & lavender", 'جامنی اور بنفشی'),primary:'#543580',accent:'#b7a5dd'},
-    'teal-copper': {name:tr("Teal & copper", 'فیروزی اور تانبئی'),primary:'#177175',accent:'#c48660'},
-    'charcoal-amber': {name:tr("Charcoal & amber", 'سیاہی مائل اور عنبری'),primary:'#393e4c',accent:'#deaa51'}
-  };
+   'white': {name:tr("White – Pearl","سفید"),primary:'#ffffff',accent:'#a27b28'},
+   'blue': {name:tr("Blue – Royal","نیلا"),primary:'#102e57',accent:'#f5d486'},
+   'pink': {name:tr("Pink – Rose","گلابی"),primary:'#ffe0eb',accent:'#ad346a'},
+   'red': {name:tr("Red – Ruby","سرخ"),primary:'#591521',accent:'#ffd18a'},
+   'emerald': {name:tr("Green – Emerald","سبز"),primary:'#005043',accent:'#f7d571'}
+ };
   prayers = [
     ['fajr',tr("Fajr", 'فجر')], ['dhuhr',tr("Dhuhr", 'ظہر')], ['asr',tr("Asr", 'عصر')], ['maghrib',tr("Maghrib", 'مغرب')], ['isha',tr("Isha", 'عشاء')]
   ];
@@ -5450,6 +5484,7 @@ app.addEventListener('click', event => {
 });
 
 app.addEventListener('input',event => {
+  if(event.target.form?.id==="dashboard-welcome-form")event.target.form.dataset.dirty="1";
   if (section === 'namaz' && namazView === 'qaza' && currentUser()) handleQazaInput(event.target);
 });
 
@@ -5560,6 +5595,7 @@ window.duroodClassicBridge = {
     });
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
   },
+  welcomeSettings(value){applyDashboardWelcome(value);},
   groupSettings(value){
     dashboardGroupSettings=value||null;
     this.groupTitle(value?.title);
@@ -6175,6 +6211,10 @@ function observeCounters(side){
       {bridge.groupSettings(snap.exists()?snap.data():null);scheduleCombinedPublish();}
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
+  welcomeSettingsReady=false;
+  const stopWelcome=onSnapshot(doc(db,"appSettings","dashboardWelcome"),{includeMetadataChanges:true},snap=>{
+    if(stillCurrent()&&!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites)bridge.welcomeSettings(snap.exists()?snap.data():null);
+  },err=>console.warn("Welcome settings unavailable",err?.code));
   // Only the verified owner publishes a compact aggregate, never member data.
   const combinedRef=doc(db,"dashboardAggregates","duroodTargets");
   let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false,publishFailures=0,combinedReadFlight=false;
@@ -6561,7 +6601,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopCombinedTargets();window.removeEventListener("focus",retryCombinedOnFocus);window.removeEventListener("online",retryCombinedOnFocus);clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopWelcome();stopCombinedTargets();window.removeEventListener("focus",retryCombinedOnFocus);window.removeEventListener("online",retryCombinedOnFocus);clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let presenceUid="",presenceTimer=null,presenceLast=0,presenceBusy=false,presenceGeneration=0;
 function startPresence(profile){
@@ -6965,6 +7005,17 @@ ui.addEventListener("click",event=>{
 ui.addEventListener("submit",event=>{
   const form=event.target;
   if(!currentProfile)return;
+  if(form.id==="dashboard-welcome-form"){
+    event.preventDefault();event.stopImmediatePropagation();
+    if(currentProfile.role!=="owner"||auth.currentUser?.uid!==currentProfile.uid||!welcomeSettingsReady)return;
+    const d=new FormData(form),value={enabled:d.has("enabled"),showName:d.has("showName"),message:String(d.get("message")||"").trim(),duration:Number(d.get("duration")),repeat:Number(d.get("repeat"))};
+    if(!value.message||value.message.length>300||!Number.isInteger(value.duration)||value.duration<5||value.duration>120||!Number.isInteger(value.repeat)||value.repeat<0||value.repeat>1440){bridge.status("dashboard-welcome-feedback","Invalid welcome settings",false);return;}
+    const button=form.querySelector('button[type="submit"]');button.disabled=true;
+    setDoc(doc(db,"appSettings","dashboardWelcome"),{...value,updatedAt:serverTimestamp()}).then(()=>{
+      delete form.dataset.dirty;bridge.welcomeSettings(value);bridge.status("dashboard-welcome-feedback","ویلکم سیٹنگ محفوظ ہو گئی۔",true);
+    }).catch(e=>bridge.status("dashboard-welcome-feedback",errorText(e),false)).finally(()=>{if(button.isConnected)button.disabled=false;});
+    return;
+  }
   if(form.id==="group-message-form"){
     event.preventDefault();event.stopImmediatePropagation();
     const value=String(new FormData(form).get("message")||"").trim();
