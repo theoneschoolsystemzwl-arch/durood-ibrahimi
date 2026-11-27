@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=member-ranking-list-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=member-identity-rank-contrast-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=member-ranking-list-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=member-identity-rank-contrast-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=member-ranking-list-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=member-identity-rank-contrast-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1521,6 +1521,17 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .member-ranking .rank-total strong{font-size:clamp(1.05rem,4.3vw,1.5rem);font-variant-numeric:tabular-nums;color:#ffe3a1;overflow-wrap:anywhere;max-width:100%}
 .member-ranking .rank-total small{font-size:.72rem;color:#c3ead9}
 @media(max-width:340px){.member-ranking .rank-card{gap:5px;padding:7px 5px;grid-template-columns:24px auto minmax(0,1fr) minmax(55px,auto)}.member-ranking .rank-total{padding-inline-start:4px}}
+
+/* High contrast rank markers; override the global theme's inherited ink. */
+:root[data-theme] .member-ranking .rank-card{grid-template-columns:34px auto minmax(0,1fr) minmax(65px,auto)}
+:root[data-theme] .member-ranking .rank-number{min-width:34px;width:34px;height:34px;font:900 1.15rem/1 system-ui,sans-serif;color:#fff!important;background:#08765b;border:1px solid #8cebd1;box-shadow:0 2px 5px #001e19aa}
+:root[data-theme] .member-ranking .first .rank-number{background:#ffdc78;color:#362200!important;border-color:#fff0b0}
+:root[data-theme] .member-ranking .second .rank-number{background:#e1edf0;color:#16333c!important;border-color:#fff}
+:root[data-theme] .member-ranking .third .rank-number{background:#dfad7b;color:#3d210c!important;border-color:#ffd5af}
+:root[data-theme] .member-identity-code{display:inline-flex;align-items:center;gap:5px;direction:ltr;unicode-bidi:isolate;flex-wrap:wrap}
+:root[data-theme] .member-ranking .rank-person .muted{font-size:.87rem;font-weight:800;color:#f2fff8}
+:root[data-theme] .member-ranking .rank-total strong{color:#ffe2a0!important}
+@media(max-width:340px){:root[data-theme] .member-ranking .rank-card{grid-template-columns:30px auto minmax(0,1fr) minmax(55px,auto);gap:5px}:root[data-theme] .member-ranking .rank-number{width:30px;min-width:30px;height:30px}}
 </style>
 </head>
 <body>
@@ -1640,7 +1651,8 @@ const directMembers = id => {
     (parent.uid&&person.inviterUid ? person.inviterUid===parent.uid : person.inviter===id));
 };
 const displayNumber = value => '<bdi>' + formatNumber(value) + '</bdi>';
-const displayId = id => '<bdi dir="ltr">' + serial(id) + '</bdi>';
+const memberIdentityText = id => [serial(id),groupCode(getUser(id))].filter(Boolean).join(' ');
+const displayId = id => '<span class="member-identity-code" dir="ltr"><bdi dir="ltr">' + esc(serial(id)) + '</bdi>' + (getUser(id)?groupCodeMarkup(getUser(id)):'') + '</span>';
 
 function descendants(id) {
   const collected = new Set();
@@ -1707,7 +1719,7 @@ function groupCode(person){
 function groupCodeMarkup(person){
   return '<bdi class="founder-group-code" data-founder-group-code="'+person.id+'" dir="ltr">'+esc(groupCode(person))+'</bdi>';
 }
-function treeMemberLabel(person){return '<span class="pill tree-member-label" dir="ltr">'+displayId(person.id)+groupCodeMarkup(person)+'</span>';}
+function treeMemberLabel(person){return '<span class="pill tree-member-label" dir="ltr">'+displayId(person.id)+'</span>';}
 
 let liveGroupMemberCounts=new Map();
 let savedMemberWirds=new Map(),savedMemberWirdsComplete=false,ownGroupWirds=new Map();
@@ -2051,7 +2063,7 @@ function groups() {
     (branches.length ? '' : ur(tr('No groups yet.','ابھی کوئی گروپ موجود نہیں۔'),'p','panel empty')) +
     '<div class="groups">' + branches.map(person =>
       '<article class="panel group-card"><div class="identity">' + photoWithWird(person) + '<div><strong dir="auto">' + esc(memberName(person)) +
-      '</strong><small class="muted">' + displayId(person.id) + groupCodeMarkup(person) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
+      '</strong><small class="muted">' + displayId(person.id) + '</small></div></div><div class="data"><strong><bdi>' + groupName(person.id) +
       tr("</bdi></strong><small class=\"muted\">Group ID ", '</bdi></strong><small class="muted">گروپ آئی ڈی ') + '<bdi>' + groupId(person.id) + tr("</bdi></small><span>Group members · ", '</bdi></small><span>گروپ کے ارکان · ') + displayNumber(groupMemberCount(person)) + tr("</span><span>Total in branch · ", '</span><span>شاخ کے کل ارکان · ') +
       displayNumber(branchMemberCount(person)) + '</span>'+groupWirdMarkup(person)+'</div><button class="button secondary" data-action="group" data-value="' + person.id +
       tr("\">View branch</button></article>", '">شاخ دیکھیں</button></article>')).join('') + '</div>';
@@ -2131,7 +2143,7 @@ function ownerPasswordRecoveryMarkup(person){
 }
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
-  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),serial(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Joined group", 'شمولیت والا گروپ'),joinedGroupName(person.id)],[tr("Own group", 'اپنا گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
+  const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),memberIdentityText(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Joined group", 'شمولیت والا گروپ'),joinedGroupName(person.id)],[tr("Own group", 'اپنا گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
     [tr("Membership date", 'تاریخِ رکنیت'),membershipDateLabel(person)],
     [tr("Gender", 'جنس'),genderLabels[person.gender] || person.gender],[tr("Mobile / WhatsApp", 'موبائل / واٹس ایپ'),person.phone],[tr("Address", 'پتہ'),person.address],
     [tr("Invited directly by", 'براہِ راست دعوت دینے والا'),person.inviter ? memberName(getUser(person.inviter)) : '—'],[tr("Total Durood", 'درود کا کل شمار'),formatNumber(score(person,'all','current'))]];
@@ -2210,7 +2222,7 @@ function settings(person) {
     '<section class="panel"><div class="profile-title"><span id="photo-view">' + avatar(photoDraft && currentPhotoSelection()?{...person,photo:photoDraft}:person,true) + tr("</span><div><strong>Profile photo</strong>", '</span><div><strong>پروفائل کی تصویر</strong>') +
     tr("<small class=\"muted\">Shown on your profile</small><br><label class=\"button secondary\">Upload photo<input class=\"visually-hidden\" type=\"file\" id=\"photo\" accept=\"image/*\"></label></div></div>", '<small class="muted">آپ کے پروفائل پر دکھائی جائے گی</small><br><label class="button secondary">تصویر اپ لوڈ کریں<input class="visually-hidden" type="file" id="photo" accept="image/*"></label></div></div>') +
     tr("<form id=\"profile-form\" class=\"form\"><label class=\"field\">Full name<input name=\"name\" dir=\"auto\" value=\"", '<form id="profile-form" class="form"><label class="field">پورا نام<input name="name" dir="auto" value="') + esc(memberName(person)) +
-    tr("\" maxlength=\"60\" required></label><label class=\"field\">Member ID and Login ID<input readonly value=\"", '" maxlength="60" required></label><label class="field">رکنیت نمبر اور لاگ اِن آئی ڈی<input readonly value="') + serial(person.id) + ' | ' +
+    tr("\" maxlength=\"60\" required></label><label class=\"field\">Member ID and Login ID<input readonly value=\"", '" maxlength="60" required></label><label class="field">رکنیت نمبر اور لاگ اِن آئی ڈی<input readonly value="') + esc(memberIdentityText(person.id)) + ' | ' +
     esc(person.username) + '"></label><div class="form-grid">' +
     tr("<label class=\"field\">Date of birth<input name=\"birthDate\" type=\"date\" value=\"", '<label class="field">تاریخِ پیدائش<input name="birthDate" type="date" value="') + esc(person.birthDate) + '"></label>' +
     tr("<label class=\"field\">Age<input name=\"age\" type=\"number\" min=\"1\" max=\"120\" value=\"", '<label class="field">عمر<input name="age" type="number" min="1" max="120" value="') + esc(person.age) + '"></label>' +
@@ -2242,7 +2254,7 @@ function profileCard(person) {
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
     tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
-    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + groupCodeMarkup(person) + '<span aria-hidden="true">·</span>' + role +
+    sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' <bdi data-profile-member-level>' + formatNumber(memberLevel(person)) + '</bdi>' +
     '</span></div></section></header>';
 }
@@ -2394,7 +2406,7 @@ function targetAuditMarkup(){
  '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Read / target to date","پڑھا / آج تک ہدف")+'</span><span>'+tr("Annual","سالانہ")+'</span></div>'+
  rows.map(row=>{
   const member=users.find(p=>p.uid===row.uid);
-  const name=member?.name||row.name||tr("Member","ممبر"),label=member?serial(member.id):"";
+  const name=member?.name||row.name||tr("Member","ممبر"),label=member?memberIdentityText(member.id):"";
   const goal=row.goal===null?tr("Not set","مقرر نہیں"):value(row.goal);
   const actual=savedMemberWirdsComplete?(savedMemberWirds.has(row.uid)?savedMemberWirds.get(row.uid):0):null;
   const progress=memberToDateProgress(row,day,actual);
@@ -4914,7 +4926,7 @@ function womenSectionCard(person) {
     '<small class="muted direct-invites">' + tr('Members (including founder): ', 'بانی سمیت گروپ کے ارکان: ') +
     '<bdi data-profile-member-count>'+(founder?formatNumber(groupMemberCount(founder)):"—")+'</bdi></small>'+
     '<small class="muted">'+tr("Level ","لیول ")+'<bdi data-profile-member-level>'+(founder?formatNumber(memberLevel(founder)):"—")+'</bdi></small></div></div>' +
-    '<div class="profile-card-foot">' + sectionSwitch(person) + (founder?'<span class="pill account-id">'+displayId(founder.id)+groupCodeMarkup(founder)+'</span>':'') + '</div></section></header>';
+    '<div class="profile-card-foot">' + sectionSwitch(person) + (founder?'<span class="pill account-id">'+displayId(founder.id)+'</span>':'') + '</div></section></header>';
 }
 
 function changeLanguage(value) {
@@ -5782,13 +5794,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=member-ranking-list-20261127-v1";
+import "./wazaif.js?release=member-identity-rank-contrast-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-ranking-list-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-identity-rank-contrast-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
