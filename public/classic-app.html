@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=combined-dashboard-mf-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=combined-dashboard-mf-zero-fallback-20261127-v2">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=combined-dashboard-mf-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=combined-dashboard-mf-zero-fallback-20261127-v2"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=combined-dashboard-mf-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=combined-dashboard-mf-zero-fallback-20261127-v2">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2407,26 +2407,53 @@ function groupSessionCountdown(period,now=new Date()){
 let combinedGoalRows=null,combinedPublishedTargets=null;
 let combinedDatedCounts={male:null,female:null};
 const combinedValid=n=>Number.isSafeInteger(n)&&n>=0;
-const combinedSum=(m,f)=>combinedValid(m)&&combinedValid(f)?m+f:null;
+// Keep confirmed zero distinct from unavailable data. Show the known subtotal
+// while one side loads, rather than blanking all four cards.
+const combinedSum=(m,f)=>combinedValid(m)||combinedValid(f)?(combinedValid(m)?m:0)+(combinedValid(f)?f:0):null;
+function combinedPeriodComparison(mg,fg,mc,fc){
+ const goal=combinedSum(mg,fg),count=combinedSum(mc,fc);
+ const completeData=[mg,fg,mc,fc].every(combinedValid);
+ const pairs=[[mg,mc],[fg,fc]].filter(([g,c])=>combinedValid(g)&&combinedValid(c));
+ const comparableGoal=pairs.reduce((n,[g])=>n+g,0),comparableCount=pairs.reduce((n,[,c])=>n+c,0);
+ const status=comparableGoal>0?(comparableCount<comparableGoal?"short":"complete"):"unknown";
+ return {goal,count,status,quality:completeData?"live":pairs.length?"partial":"unknown",celebrate:completeData&&goal>0&&status==="complete"};
+}
 const combinedNumber=n=>combinedValid(n)?formatNumber(n):"—";
-function combinedBreakdown(m,f){return '<small class="dashboard-mf" dir="ltr">M '+combinedNumber(m)+' + F '+combinedNumber(f)+'</small>';}
+function combinedBreakdown(m,f){
+ const line="M "+combinedNumber(m)+" + F "+combinedNumber(f);
+ return '<small class="dashboard-mf" dir="ltr" style="--mf-fit:'+Math.max(1,line.length*.53).toFixed(2)+'">'+esc(line)+'</small>';
+}
 function combinedSideTargets(rows,day){
  const g=aggregateGroupTargets(rows,day,dashboardGroupSettings);
  const exact=runningDashboardTargets(rows,day,dashboardGroupSettings),known=knownDashboardTargets(rows,day,dashboardGroupSettings);
- const out={dailyGoal:g.dailyGoal,yearlyGoal:g.yearlyGoal};
+ const noConfiguredGoals=rows.every(r=>!(r.daily||[]).some(x=>targetDateValid(x.date)&&x.date<=day&&combinedValid(x.goal)&&x.goal>0));
+ const out={dailyGoal:g.dailyGoal,yearlyGoal:noConfiguredGoals?0:g.yearlyGoal};
  for(const k of ["today","week","month","year"]){
-   out[k]=exact?.[k]??known?.[k]??(g.activeMembers===0&&rows.length===0?0:null);
+   out[k]=exact?.[k]??known?.[k]??(noConfiguredGoals?0:null);
  }
  return out;
 }
 function combinedLiveTargets(){
- if(!combinedGoalRows||!dashboardGroupSettings)return null;
+ if(!Array.isArray(combinedGoalRows?.male)||!Array.isArray(combinedGoalRows?.female)||!dashboardGroupSettings)return null;
  const day=globalDateKey();
  return {day,male:combinedSideTargets(combinedGoalRows.male,day),female:combinedSideTargets(combinedGoalRows.female,day)};
 }
 function combinedDashboardTargets(){
- const live=currentUser()?.isOwner?combinedLiveTargets():null;
- return live||(combinedPublishedTargets?.day===globalDateKey()?combinedPublishedTargets:null);
+ const day=globalDateKey(),side=window.duroodCurrentSide;
+ const published=combinedPublishedTargets?.day===day?combinedPublishedTargets:null;
+ const result={day,male:published?.male||null,female:published?.female||null};
+ if(currentUser()?.isOwner&&dashboardGroupSettings){
+  for(const g of ["male","female"])if(Array.isArray(combinedGoalRows?.[g]))result[g]=combinedSideTargets(combinedGoalRows[g],day);
+ }
+ // The already verified same-side goal directory remains usable even when
+ // the new shared document or opposite-side permissions have not synced.
+ if(["male","female"].includes(side)&&Array.isArray(ownerGoalRows)){
+   result[side]=combinedSideTargets(ownerGoalRows,day);
+ }else if(["male","female"].includes(side)&&!result[side]&&Array.isArray(dashboardPartialGoalRows)&&dashboardPartialGoalRows.length){
+   const known=knownDashboardTargets(dashboardPartialGoalRows,day,dashboardGroupSettings);
+   result[side]={dailyGoal:null,yearlyGoal:null,...known};
+ }
+ return result;
 }
 function dashboardTargetCards(){
  const t=combinedDashboardTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
@@ -2797,14 +2824,12 @@ function periodGoalLabel(key){
 function metricPeriodCards(){
  const t=combinedDashboardTargets();
  return periodLabels().map(([key,label])=>{
-   const m=t?.male?.[key],f=t?.female?.[key],goal=combinedSum(m,f);
-   const count=combinedSum(combinedSideCount("male",key),combinedSideCount("female",key));
-   const status=goal>0?periodGoalStatus(count,goal):"unknown";
+   const m=t?.male?.[key],f=t?.female?.[key];
+   const {goal,count,status,quality,celebrate}=combinedPeriodComparison(m,f,combinedSideCount("male",key),combinedSideCount("female",key));
    const color=status==="complete"?"#6effa0":status==="short"?"#ff777f":"#ffffff";
-   const quality=goal===null?"unknown":"live",celebrate=status==="complete"&&goal>0;
    const badge=combinedNumber(goal),read=combinedNumber(count);
    return '<section class="recitation-period period-'+status+'" data-goal-quality="'+quality+'" data-celebrate-period="'+key+'" data-positive-goal="'+(celebrate?'1':'0')+'" aria-label="'+esc(label)+'">'+
-   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key))+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
+   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+(quality==="partial"?tr(" · Available side only; other data pending"," · دستیاب حساب؛ باقی ریکارڈ سنک ہونا ہے"):""))+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
    '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
    '<div class="dashboard-period-numbers" dir="ltr"><div class="dashboard-period-copy"><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr" style="color:'+color+'!important;-webkit-text-fill-color:'+color+'!important">'+read+'</strong></div></div>'+
    combinedBreakdown(m,f)+'</section>';
@@ -5866,13 +5891,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=combined-dashboard-mf-20261127-v1";
+import "./wazaif.js?release=combined-dashboard-mf-zero-fallback-20261127-v2";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=combined-dashboard-mf-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=combined-dashboard-mf-zero-fallback-20261127-v2";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6201,7 +6226,10 @@ function observeCounters(side){
     const allRows=[...goalMembers.values()];
     const rows=allRows.filter(r=>r.meta.gender===side);
     if(currentProfile?.role==="owner"){
-      combinedGoalRows=goalDirectoryReady&&allRows.every(r=>Array.isArray(r.daily))?Object.fromEntries(["male","female"].map(g=>[g,allRows.filter(r=>r.meta.gender===g).map(r=>({daily:r.daily,...r.meta}))])):null;
+      combinedGoalRows=goalDirectoryReady?Object.fromEntries(["male","female"].map(g=>{
+        const members=allRows.filter(r=>r.meta.gender===g);
+        return [g,members.every(r=>Array.isArray(r.daily))?members.map(r=>({daily:r.daily,...r.meta})):null];
+      })):null;
       refreshDashboardTargetCards();scheduleCombinedPublish();
     }
     bridge.readerDirectoryGoals(observedUid,rows.map(r=>[r.meta.uid,r.daily]));
