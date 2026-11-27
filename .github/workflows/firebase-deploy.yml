@@ -1,6 +1,14 @@
-name: Manual Firebase Spark deployment (no Blaze)
+name: Firebase Spark rules deployment (no Blaze)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - '.github/workflows/firebase-deploy.yml'
+concurrency:
+  group: firebase-spark-deploy
+  cancel-in-progress: false
 permissions:
   contents: read
   id-token: write
@@ -30,4 +38,8 @@ jobs:
       - name: Publish only free Hosting and Firestore security rules
         run: |
           npm install --global firebase-tools@15
-          firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore:rules --non-interactive
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            firebase deploy --project durood-e-ibrahimi-global-c74e0 --only firestore:rules --non-interactive
+          else
+            firebase deploy --project durood-e-ibrahimi-global-c74e0 --only hosting,firestore:rules --non-interactive
+          fi
