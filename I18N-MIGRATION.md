@@ -1,1 +1,4 @@
 Staged localization deployed at owner request, with incomplete translations explicitly acknowledged. Maintains latest main dashboard changes and fixed RTL direction. Arabic and saved user content remain unchanged. Some dynamic and custom text is not translated. Full mobile verification remains pending.
+
+## Language dropdown and future updates
+The dashboard and login share a Language dropdown with direct Urdu/English/Bahasa Indonesia selection. New UI strings should use `duroodLocale.message(language,{ur:...,en:...,id:...})` (or update the central static dictionaries). This resolves at render time using the selected locale. Known static labels added dynamically are localized by the existing observer. New arbitrary untranslated sentences still need translations; do not silently machine-translate saved content or Arabic. Add locale tests for new screens.

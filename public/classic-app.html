@@ -1245,6 +1245,18 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
 <style id="tasbih-refresh">
+/* Language menu opens below its existing button without moving surrounding cards. */
+.locale-menu{position:relative;display:inline-block;direction:ltr;text-align:left;flex:0 0 auto}
+.locale-menu[open]{z-index:100}
+.locale-menu>summary{list-style:none;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
+.locale-menu>summary::-webkit-details-marker{display:none}
+.locale-menu>summary::after{content:"▾";font-size:.8em}
+.locale-menu-list{position:absolute;top:calc(100% + 4px);left:0;min-width:160px;max-width:calc(100vw - 24px);padding:4px;background:#064f3e;color:#e2fff1;border:1px solid #4db990;border-radius:10px;box-shadow:0 6px 18px #0005;display:grid;gap:2px;z-index:101}
+.locale-menu-list button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;font:600 .84rem/1.6 system-ui,sans-serif;color:inherit;background:transparent;border:0;border-radius:6px;padding:8px 10px;cursor:pointer;white-space:nowrap}
+.locale-menu-list button[aria-pressed="true"]{background:#15785c}
+.locale-menu-list button[aria-pressed="true"]::after{content:"✓"}
+.locale-menu-list button:hover,.locale-menu-list button:focus-visible{background:#15785c}
+
 .top-corners{display:flex;direction:ltr;justify-content:space-between;align-items:center;gap:12px;padding:8px max(12px,env(safe-area-inset-right)) 3px;max-width:940px;margin:0 auto}
 .top-corners .corner-link{font:inherit;font-weight:700;font-size:.88rem;color:var(--deep,#f9e6bd);border:1px solid currentColor;background:rgba(245,219,154,.13);padding:6px 11px;min-height:34px;border-radius:10px;cursor:pointer}
 .boxed-headline{width:fit-content;max-width:96%;margin:12px auto 18px;padding:8px 20px;border:1px solid var(--gold-light,#cca969);border-radius:13px;text-align:center;background:rgba(238,194,88,.09)}
@@ -1562,7 +1574,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
 <script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
-<script src="./ui-locale.js?v=20261127-v3"></script>
+<script src="./ui-locale.js?v=language-dropdown-20261127-v1"></script>
 <script src="./static-locale.js?v=20261127-v3"></script>
 <script>
 'use strict';
@@ -4978,8 +4990,7 @@ function sectionSwitch(person) {
 
 function pendingBellMarkup(){return '<button type="button" class="wz-profile-bell" data-wz-toggle-notice aria-controls="wz-dashboard-pending" aria-expanded="false" aria-label="'+tr("Pending recitations","باقی وظائف")+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span data-wz-notice-count hidden></span></button>';}
 function topCornerControls(){
-  const next=duroodLocale.next(language);
-  return '<div class="top-corners"><button type="button" class="corner-link" data-action="language" data-value="'+next+'">'+duroodLocale.names[next]+'</button>'+
+  return '<div class="top-corners">'+duroodLocale.menuMarkup(language)+
     '<button type="button" class="corner-link" data-durood-refresh aria-label="'+tr("Refresh","ریفریش")+'">↻ '+tr("Refresh","ریفریش")+'</button>'+
     '<button type="button" class="corner-link" data-action="nav" data-value="about">'+tr("About","تعارف")+'</button></div>';
 }
@@ -5019,12 +5030,10 @@ function updateNextPrayerTicker(now=Date.now()){
 }
 function appFooter(person) {
   if(person)return '';
-  const next = duroodLocale.next(language);
   const isAbout = (person ? section : screen) === 'about';
   return '<footer class="app-footer"><button type="button" class="button secondary" data-action="' +
     (person ? 'nav' : 'screen') + '" data-value="about"' + (isAbout ? ' aria-current="page"' : '') +
-    '>' + tr('About','تعارف') + '</button><button type="button" class="button secondary" data-action="language" lang="' +
-    next + '" data-value="' + next + '">' + duroodLocale.names[next] + '</button></footer>';
+    '>' + tr('About','تعارف') + '</button>'+duroodLocale.menuMarkup(language,"button secondary")+'</footer>';
 }
 
 function womenSectionCard(person) {
@@ -5056,9 +5065,11 @@ function changeLanguage(value) {
     else input.value = field.value;
   }
   updateRegistrationButton();
-  app.querySelector('[data-action="language"]')?.focus({preventScroll:true});
+  app.querySelector('.locale-menu summary')?.focus({preventScroll:true});
 }
 
+duroodLocale.bindMenu(app,changeLanguage);
+window.addEventListener("storage",event=>{if(event.key==="durood-language"&&duroodLocale.valid(event.newValue)&&event.newValue!==language)changeLanguage(event.newValue);});
 const registrationChecks = ['male','muslim','oath'];
 
 function updateRegistrationButton() {
@@ -5298,7 +5309,7 @@ app.addEventListener('click', event => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   const {action,value} = button.dataset;
-  if (action === 'language') return changeLanguage(value);
+  if (action === 'language') return; // Shared dropdown handler owns language selection.
 
   if (action === 'eye' || action === 'peek') {
     const wrap = button.closest('.input-wrap');

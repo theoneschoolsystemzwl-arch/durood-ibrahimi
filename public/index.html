@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="./styles.css">
-  <script src="./ui-locale.js?v=20261127-v3"></script>
+  <script src="./ui-locale.js?v=language-dropdown-20261127-v1"></script>
   <script src="./static-locale.js?v=20261127-v3"></script>
   <script defer src="./pull-refresh.js?v=dashboard-shared-goal-sync-20261127-v1"></script>
   <script type="module" src="./pwa.js?v=dashboard-shared-goal-sync-20261127-v1"></script>
@@ -47,6 +47,22 @@
 :root[data-theme] body > .brand-head .holy-place svg{display:block;width:100%;max-width:104px;height:auto;margin:0 auto}
 :root[data-theme] body > .brand-head .holy-place figcaption{font-size:clamp(.64rem,2.8vw,.91rem);line-height:1.7;background:#064735;color:#fff7d8;border:1px solid #c99a38;border-radius:9px;white-space:nowrap;padding:0 2px;margin-top:-2px}
 </style>
+<style>
+/* Language menu opens below its existing button without moving surrounding cards. */
+.locale-menu{position:relative;display:inline-block;direction:ltr;text-align:left;flex:0 0 auto}
+.locale-menu[open]{z-index:100}
+.locale-menu>summary{list-style:none;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
+.locale-menu>summary::-webkit-details-marker{display:none}
+.locale-menu>summary::after{content:"▾";font-size:.8em}
+.locale-menu-list{position:absolute;top:calc(100% + 4px);left:0;min-width:160px;max-width:calc(100vw - 24px);padding:4px;background:#064f3e;color:#e2fff1;border:1px solid #4db990;border-radius:10px;box-shadow:0 6px 18px #0005;display:grid;gap:2px;z-index:101}
+.locale-menu-list button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;font:600 .84rem/1.6 system-ui,sans-serif;color:inherit;background:transparent;border:0;border-radius:6px;padding:8px 10px;cursor:pointer;white-space:nowrap}
+.locale-menu-list button[aria-pressed="true"]{background:#15785c}
+.locale-menu-list button[aria-pressed="true"]::after{content:"✓"}
+.locale-menu-list button:hover,.locale-menu-list button:focus-visible{background:#15785c}
+
+#portal-language{display:inline-block;direction:ltr;text-align:left}
+#portal-language summary{padding:5px 10px;border:1px solid #4db990;border-radius:9px;background:#064f3e;color:#e2fff1;font:700 .85rem/1.5 system-ui,sans-serif}
+</style>
 </head>
 <body>
   <header class="brand-head">
@@ -73,7 +89,7 @@
 
     <section id="access" class="panel account-card" hidden aria-labelledby="welcome-title">
       <h2 id="welcome-title">خوش آمدید</h2>
-      <button type="button" id="portal-language" class="secondary" data-no-translate>English</button>
+      <div id="portal-language" data-no-translate></div>
       <p class="muted">مالک اور تمام ممبرز اسی فارم سے لاگ اِن کرتے ہیں۔ ممبر نمبر اکاؤنٹ بننے کے بعد پروفائل میں نظر آتا ہے۔</p>
       <div class="access-tabs" role="tablist" aria-label="اکاؤنٹ کے ٹیب">
         <button id="tab-login" type="button" role="tab" aria-selected="true" aria-controls="login-fields" data-tab="login">Login</button>
@@ -276,8 +292,8 @@
     const scopes=[document.querySelector(".brand-head"),document.getElementById("loading"),document.getElementById("access")];
     const refreshers=scopes.map(scope=>duroodStaticLocale.mount(scope));
     const langButton=document.getElementById("portal-language");
-    function syncLanguage(){const lang=duroodStaticLocale.selection();document.documentElement.lang=lang;document.documentElement.dir="rtl";langButton.textContent=duroodLocale.names[duroodLocale.next(lang)];refreshers.forEach(fn=>fn());}
-    langButton.addEventListener("click",()=>{try{localStorage.setItem("durood-language",duroodLocale.next(duroodStaticLocale.selection()));}catch{}syncLanguage();});
+    function syncLanguage(){const lang=duroodStaticLocale.selection();document.documentElement.lang=lang;document.documentElement.dir="rtl";langButton.innerHTML=duroodLocale.menuMarkup(lang,"secondary");refreshers.forEach(fn=>fn());}
+    duroodLocale.bindMenu(langButton,value=>{try{localStorage.setItem("durood-language",value);}catch{}syncLanguage();langButton.querySelector("summary")?.focus();});
     window.addEventListener("storage",event=>{if(event.key==="durood-language")syncLanguage();});syncLanguage();
     const retry=document.getElementById("loading-retry");
     retry.addEventListener("click",()=>location.reload());

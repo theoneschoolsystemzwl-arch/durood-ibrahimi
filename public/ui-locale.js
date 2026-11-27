@@ -524,5 +524,26 @@ function preserveSpace(s,v){return s.match(/^\s*/)[0]+v+s.match(/\s*$/)[0];}
 function phrase(s,dict){const t=s.trim();return Object.prototype.hasOwnProperty.call(dict,t)?preserveSpace(s,dict[t]):s;}
 function indonesian(s){if(typeof s!=="string")return s; if(!s.includes("<")&&!s.includes(">"))return phrase(s,id);return s.split(/(<[^>]*>|^[^<>]*>)/g).map(part=>part.startsWith("<")?part.replace(/\b(aria-label|placeholder|title)=(["'])(.*?)\2/g,(m,k,q,v)=>k+"="+q+phrase(v,id)+q):phrase(part,id)).join("");}
 function translate(lang,english,urdu){if(Object.prototype.hasOwnProperty.call(prayers,english))return urdu;return lang==="ur"?urdu:lang==="id"?indonesian(english):english;}
-root.duroodLocale=Object.freeze({valid,next,names,locale,translate,indonesian});
+const codes=Object.freeze(["ur","en","id"]);
+function message(lang,translations){
+ if(!translations||codes.some(code=>typeof translations[code]!=="string"))throw new TypeError("Every new UI message needs ur, en and id translations");
+ return translations[valid(lang)?lang:"ur"];
+}
+function menuMarkup(lang,buttonClass="corner-link"){
+ const selected=valid(lang)?lang:"ur";
+ const choices=codes.map(code=>'<button type="button" data-action="language" data-value="'+code+'" lang="'+code+'" aria-pressed="'+(selected===code)+'">'+names[code]+'</button>').join("");
+ return '<details class="locale-menu" data-no-translate><summary class="'+buttonClass+'" aria-label="Language">Language</summary><div class="locale-menu-list" role="group" aria-label="Language">'+choices+'</div></details>';
+}
+function bindMenu(scope,onSelect){
+ const doc=scope.ownerDocument||scope;
+ const close=()=>scope.querySelectorAll(".locale-menu[open]").forEach(menu=>{menu.open=false;});
+ scope.addEventListener("click",event=>{
+   const option=event.target.closest(".locale-menu button[data-action=language]");
+   if(!option||!valid(option.dataset.value))return;
+   event.preventDefault();close();onSelect(option.dataset.value);
+ });
+ doc.addEventListener("click",event=>{if(!event.target.closest(".locale-menu"))close();});
+ doc.addEventListener("keydown",event=>{if(event.key==="Escape"){const menu=scope.querySelector(".locale-menu[open]");if(menu){close();menu.querySelector("summary")?.focus();}}});
+}
+root.duroodLocale=Object.freeze({valid,next,names,codes,locale,translate,indonesian,message,menuMarkup,bindMenu});
 })(globalThis);
