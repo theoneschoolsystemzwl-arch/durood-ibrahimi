@@ -1,4 +1,4 @@
-const RELEASE="dashboard-period-clear-labels-20261127-v1";
+const RELEASE="dashboard-shared-goal-sync-20261127-v1";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}

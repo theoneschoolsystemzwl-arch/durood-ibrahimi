@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=dashboard-period-clear-labels-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=dashboard-shared-goal-sync-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=dashboard-period-clear-labels-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=dashboard-shared-goal-sync-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-period-clear-labels-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-shared-goal-sync-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2433,15 +2433,26 @@ function combinedSideTargets(rows,day){
  }
  return out;
 }
+const combinedTargetKeys=["dailyGoal","yearlyGoal","today","week","month","year"];
+function normalizeCombinedSide(value){
+ return Object.fromEntries(combinedTargetKeys.map(k=>[k,combinedValid(value?.[k])?value[k]:null]));
+}
 function combinedLiveTargets(){
- if(!Array.isArray(combinedGoalRows?.male)||!Array.isArray(combinedGoalRows?.female)||!dashboardGroupSettings)return null;
+ if(!dashboardGroupSettings)return null;
  const day=globalDateKey();
- return {day,male:combinedSideTargets(combinedGoalRows.male,day),female:combinedSideTargets(combinedGoalRows.female,day)};
+ const live={male:null,female:null};
+ for(const g of ["male","female"]){
+   if(Array.isArray(combinedGoalRows?.[g]))live[g]=combinedSideTargets(combinedGoalRows[g],day);
+ }
+ if(!live.male&&!live.female)return null;
+ const previous=combinedPublishedTargets?.day===day?combinedPublishedTargets:null;
+ return {day,male:normalizeCombinedSide(live.male||previous?.male),female:normalizeCombinedSide(live.female||previous?.female)};
 }
 function combinedDashboardTargets(){
  const day=globalDateKey(),side=window.duroodCurrentSide;
  const published=combinedPublishedTargets?.day===day?combinedPublishedTargets:null;
- const result={day,male:published?.male||null,female:published?.female||null};
+ const hasGoal=value=>combinedTargetKeys.some(k=>combinedValid(value?.[k]));
+ const result={day,male:hasGoal(published?.male)?published.male:null,female:hasGoal(published?.female)?published.female:null};
  if(currentUser()?.isOwner&&dashboardGroupSettings){
   for(const g of ["male","female"])if(Array.isArray(combinedGoalRows?.[g]))result[g]=combinedSideTargets(combinedGoalRows[g],day);
  }
@@ -5893,13 +5904,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=dashboard-period-clear-labels-20261127-v1";
+import "./wazaif.js?release=dashboard-shared-goal-sync-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=dashboard-period-clear-labels-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=dashboard-shared-goal-sync-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6127,8 +6138,8 @@ function observeCounters(side){
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
   // Only the verified owner publishes a compact aggregate, never member data.
   const combinedRef=doc(db,"dashboardAggregates","duroodTargets");
-  let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false;
-  scheduleCombinedPublish=()=>{
+  let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false,publishFailures=0;
+  scheduleCombinedPublish=(delay=500)=>{
     if(currentProfile?.role!=="owner"||!stillCurrent())return;
     clearTimeout(publishTimer);
     publishTimer=setTimeout(async()=>{
@@ -6137,21 +6148,36 @@ function observeCounters(side){
       const key=JSON.stringify(payload);
       if(key===remoteCombinedKey)return;
       publishInFlight=true;
-      try{await setDoc(combinedRef,{...payload,updatedAt:serverTimestamp()});remoteCombinedKey=key;}
-      catch(err){console.warn("Combined dashboard targets publish unavailable",err?.code);}
-      finally{publishInFlight=false;if(stillCurrent()&&JSON.stringify(combinedLiveTargets())!==key)scheduleCombinedPublish();}
-    },500);
+      let failed=false;
+      try{
+        await setDoc(combinedRef,{...payload,updatedAt:serverTimestamp()});
+        if(stillCurrent()){remoteCombinedKey=key;publishFailures=0;}
+      }catch(err){
+        failed=true;publishFailures++;
+        console.warn("Combined dashboard targets publish unavailable",err?.code);
+      }finally{
+        publishInFlight=false;
+        if(stillCurrent()){
+          if(failed)scheduleCombinedPublish(Math.min(300000,15000*2**Math.min(publishFailures-1,5)));
+          else if(JSON.stringify(combinedLiveTargets())!==key)scheduleCombinedPublish();
+        }
+      }
+    },delay);
   };
+  const retryCombinedOnFocus=()=>{if(stillCurrent())scheduleCombinedPublish(0);};
+  window.addEventListener("focus",retryCombinedOnFocus);
+  window.addEventListener("online",retryCombinedOnFocus);
   const stopCombinedTargets=retryGoalSnapshot(combinedRef,snap=>{
     if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
     const data=snap.exists()?snap.data():null;
     combinedPublishedTargets=data;
     remoteCombinedReady=true;
-    remoteCombinedKey=data?JSON.stringify({day:data.day,male:data.male,female:data.female}):null;
-    // Firestore can reorder map keys; compare a fixed field order before any write.
-    if(data){const keys=["dailyGoal","yearlyGoal","today","week","month","year"];remoteCombinedKey=JSON.stringify({day:data.day,male:Object.fromEntries(keys.map(k=>[k,data.male?.[k]])),female:Object.fromEntries(keys.map(k=>[k,data.female?.[k]]))});}
+    remoteCombinedKey=data?JSON.stringify({day:data.day,male:normalizeCombinedSide(data.male),female:normalizeCombinedSide(data.female)}):null;
     refreshDashboardTargetCards();scheduleCombinedPublish();
-  },err=>{if(stillCurrent()){combinedPublishedTargets=null;refreshDashboardTargetCards();}console.warn("Combined target summary unavailable",err?.code);});
+  },err=>{
+    if(stillCurrent()){remoteCombinedReady=false;combinedPublishedTargets=null;refreshDashboardTargetCards();}
+    console.warn("Combined target summary unavailable",err?.code);
+  });
   const photoStops=new Map();
   let photoDirectory=[];
   function watchPhotos(uids){
@@ -6481,7 +6507,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopCombinedTargets();clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopCombinedTargets();window.removeEventListener("focus",retryCombinedOnFocus);window.removeEventListener("online",retryCombinedOnFocus);clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let presenceUid="",presenceTimer=null,presenceLast=0,presenceBusy=false,presenceGeneration=0;
 function startPresence(profile){
