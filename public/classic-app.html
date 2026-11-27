@@ -3918,6 +3918,7 @@ function namaz(person) {
     tr("<p class=\"namaz-today-label\">Today <time datetime=\"", '<p class="namaz-today-label">آج <time datetime="') + today + '">' + esc(namazDateFormat.format(parseDay(today))) + '</time></p></header>' +
     (!prayerPrefs(person.id).confirmed ? tr("<p class=\"notice section\">For today's attendance <button class=\"link\" data-action=\"open-prayer-timing\">Save your location</button>۔</p>", '<p class="notice section">نماز کے اوقات دیکھنے کے لیے <button class="link" data-action="open-prayer-timing">اپنا مقام محفوظ کریں</button>؛ حاضری ہر وقت لگ سکتی ہے۔</p>') : '') +
     dailyAttendanceLedger(person,now,today) +
+    '<p><button type="button" class="button secondary" data-prayer-audit data-from="'+esc(qazaStart||today)+'" data-to="'+esc(today)+'">'+tr("Check saved attendance","محفوظ حاضری چیک کریں")+'</button></p>' +
     tr("<p class=\"namaz-instruction\">Select an attendance status and tap the prayer. Saved entries lock after 10 minutes; tap the same locked cell three times to unlock it.</p>", '<p class="namaz-instruction">حاضری کی حالت منتخب کرکے نماز پر ٹیپ کریں۔ دس منٹ بعد اندراج لاک ہوگا؛ اسی خانے پر مسلسل تین ٹیپ کرکے کھولیں۔</p>') +
     tr("<div class=\"namaz-options\" role=\"group\" aria-label=\"Attendance status\">", '<div class="namaz-options" role="group" aria-label="حاضری کی حالت">') +
     modeButtons.map(key => {
@@ -6085,6 +6086,68 @@ async function loadPrayerHistory(uid){
   loadingPrayerHistories.set(uid,work);
   return work;
 }
+// Read-only private attendance audit. Never export or log a member's religious records.
+ui.addEventListener("click",event=>{
+  const button=event.target.closest("[data-prayer-audit]");
+  if(!button)return;
+  const uid=auth.currentUser?.uid;
+  if(!uid||bridge.userForCurrent()!==uid)return;
+  const lang=document.documentElement.lang;
+  const t=(en,ur,id)=>lang==="ur"?ur:lang==="id"?id:en;
+  const labels={fajr:"فجر",dhuhr:"ظہر",asr:"عصر",maghrib:"مغرب",isha:"عشاء"};
+  const modes={jamat:t("Congregation","باجماعت","Berjemaah"),solo:t("Prayed alone","ادا","Salat sendiri"),made:t("Made up","قضا ادا","Sudah qada"),missed:t("Missed","قضا","Terlewat")};
+  const dialog=document.createElement("dialog");
+  dialog.style.cssText="max-width:min(95vw,520px);width:92%;max-height:85vh;overflow:auto;border-radius:12px;padding:14px";
+  const form=document.createElement("form");
+  const heading=document.createElement("h3");heading.textContent=t("Check saved attendance","محفوظ حاضری چیک کریں","Periksa kehadiran tersimpan");form.append(heading);
+  const dateField=(name,label,value)=>{
+    const wrap=document.createElement("label");wrap.style.cssText="display:block;margin:8px 0";
+    wrap.append(document.createTextNode(label+" "));
+    const input=document.createElement("input");input.type="date";input.name=name;input.required=true;input.min="1900-01-01";input.max=button.dataset.to;input.value=value;input.dir="ltr";wrap.append(input);form.append(wrap);return input;
+  };
+  const from=dateField("from",t("From","آغاز","Dari"),button.dataset.from);
+  const to=dateField("to",t("Through","اختتام","Sampai"),button.dataset.to);
+  const run=document.createElement("button");run.type="submit";run.className="button";run.textContent=t("Check Firebase records","Firebase ریکارڈ چیک کریں","Periksa Firebase");
+  const close=document.createElement("button");close.type="button";close.className="button secondary";close.textContent=t("Close","بند کریں","Tutup");close.addEventListener("click",()=>dialog.close());
+  form.append(run,close);
+  const report=document.createElement("pre");report.setAttribute("role","status");report.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.8;margin-top:12px";
+  dialog.append(form,report);document.body.append(dialog);
+  const authUnsubscribe=auth.onAuthStateChanged(user=>{if(user?.uid!==uid&&dialog.open)dialog.close();});
+  dialog.addEventListener("close",()=>{authUnsubscribe();report.textContent="";dialog.remove();},{once:true});
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const start=from.value,end=to.value;
+    if(start>end){report.textContent=t("Start must precede end.","ابتدائی تاریخ آخری تاریخ سے پہلے ہونی چاہیے۔","Tanggal awal harus sebelum akhir.");return;}
+    run.disabled=true;report.textContent=t("Reading saved records…","محفوظ ریکارڈ چیک ہو رہا ہے…","Membaca catatan…");
+    try{
+      const [days,plan]=await Promise.all([
+        getDocsFromServer(query(collection(db,"memberPrivate",uid,"prayers"),where("date",">=",start),where("date","<=",end))),
+        getDocFromServer(doc(db,"memberPrivate",uid,"qaza","plan"))
+      ]);
+      if(!dialog.open||auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid){if(dialog.open)dialog.close();return;}
+      const entries=new Map();
+      const put=(day,prayer,status,source)=>{
+        if(day<start||day>end||!labels[prayer]||!modes[status])return;
+        const key=day+" "+prayer, row=entries.get(key)||{day,prayer,attendance:"",qaza:false};
+        if(source==="qaza")row.qaza=true;else row.attendance=status;
+        entries.set(key,row);
+      };
+      for(const d of days.docs){const data=d.data();for(const [prayer,status] of Object.entries(data.statuses||{}))put(data.date,prayer,status,"attendance");}
+      for(const [prayer,dates] of Object.entries(plan.data()?.done||{}))for(const [day,value] of Object.entries(dates||{}))if(value===true||value===1)put(day,prayer,"made","qaza");
+      const counts={jamat:0,solo:0,made:0,missed:0};let conflicts=0;
+      const lines=[...entries.values()].sort((a,b)=>a.day.localeCompare(b.day)||Object.keys(labels).indexOf(a.prayer)-Object.keys(labels).indexOf(b.prayer)).map(row=>{
+        const status=["jamat","solo"].includes(row.attendance)?row.attendance:row.qaza?"made":row.attendance;
+        counts[status]++;
+        const conflict=row.qaza&&["jamat","solo","missed"].includes(row.attendance);
+        if(conflict)conflicts++;
+        return row.day+" | "+labels[row.prayer]+" | "+modes[status]+(conflict?" ("+t("conflicting records","متضاد اندراج","Catatan bertentangan")+": "+modes[row.attendance]+" + "+modes.made+")":"");
+      });
+      report.textContent=start+" — "+end+"\n"+Object.keys(counts).map(k=>modes[k]+": "+counts[k]).join(" | ")+"\n"+t("Total completed","کل ادا شدہ","Total ditunaikan")+": "+(counts.jamat+counts.solo+counts.made)+"\n"+t("Conflicting records","متضاد اندراجات","Catatan bertentangan")+": "+conflicts+"\n\n"+(lines.length?lines.join("\n"):t("No explicit attendance or make-up entries in this range.","اس مدت میں کوئی محفوظ حاضری یا قضا ادا کا اندراج نہیں۔","Tidak ada catatan kehadiran atau qada."))+"\n\n"+t("Read-only server report. No records changed.","صرف Firebase کا محفوظ ریکارڈ۔ کوئی اندراج تبدیل نہیں کیا گیا۔","Laporan server baca-saja. Tidak ada perubahan.");
+    }catch{if(dialog.open)report.textContent=t("Firebase read failed. No result can be verified.","Firebase ریکارڈ نہیں کھل سکا؛ گنتی کی تصدیق نہیں ہوئی۔","Pembacaan Firebase gagal.");}
+    finally{run.disabled=false;}
+  });
+  dialog.showModal();
+});
 ui.addEventListener("submit",event=>{
   if(["qaza-date-form","qaza-target-form"].includes(event.target?.id))
     setTimeout(scheduleQazaSave,0);
