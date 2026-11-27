@@ -336,7 +336,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(!home.includes("currentUser()?.isOwner?'<button type=\"button\" class=\"button secondary target-audit-launch"));
  assert(classic.includes('function openTargetAudit(){\n if(!currentUser()||'));
  assert(classic.includes('query(collection(db,"members"),where("gender","==",side),limit(200))'));
- assert(classic.includes('exists')&&classic.includes('isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]]'));
+ assert(classic.includes('exists')&&classic.includes('isGoalOwner&&r.meta.gender===side?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]]'));
  assert(rules.includes('exists(memberPath(uid)) && matchingGender(get(memberPath(uid)).data));'));
  assert(classic.includes('includeMetadataChanges:true},snap=>{')&&classic.includes('gender===side'));
  assert(!classic.includes('memberReaderGoalRows===null||memberGoalRows===null'));
@@ -367,7 +367,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(format(row,"2026-11-23",history,true),"75 / —");
  assert.equal(format(row,"2026-11-25",null,true),"75 / —");
  assert.equal(format(row,"2026-11-25",history,false),"75");
- assert(classic.includes("bridge.readerDirectoryGoals(observedUid,[...goalMembers]"));
+ assert(classic.includes("bridge.readerDirectoryGoals(observedUid,rows.map(r=>[r.meta.uid,r.daily]))"));
 }
 
 // Foreground presence is independent of the login lease and group membership.
@@ -471,11 +471,12 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const classic=fs.readFileSync("public/classic-app.html","utf8");
  const a=classic.indexOf("const publishGoals=()=>{"),b=classic.indexOf("const isGoalOwner=",a);
  const reports=[];
- const ctx=vm.createContext({stillCurrent:()=>true,goalDirectoryReady:true,observedUid:"owner",goalMembers:new Map([["a",{daily:[{date:"2026-11-23",goal:100}],meta:{uid:"a"}}],["b",{daily:null,meta:{uid:"b"}}]]),bridge:{readerDirectoryGoals(){},aggregateGoalRows(...args){reports.push(args);}}});
+ const ctx=vm.createContext({stillCurrent:()=>true,goalDirectoryReady:true,observedUid:"owner",side:"male",currentProfile:{role:"owner"},combinedGoalRows:null,refreshDashboardTargetCards(){},scheduleCombinedPublish(){},goalMembers:new Map([["a",{daily:[{date:"2026-11-23",goal:100}],meta:{uid:"a",gender:"male"}}],["b",{daily:null,meta:{uid:"b",gender:"male"}}],["f",{daily:[{date:"2026-11-23",goal:50}],meta:{uid:"f",gender:"female"}}]]),bridge:{readerDirectoryGoals(){},aggregateGoalRows(...args){reports.push(args);}}});
  vm.runInContext(classic.slice(a,b).trim().replace(/\{\s*$/,"")+"\npublishGoals();",ctx);
  assert.equal(reports[0][1],null);assert.equal(reports[0][2].length,1);assert.equal(reports[0][2][0].daily[0].goal,100);
+ assert.equal(ctx.combinedGoalRows.male,null);assert.equal(ctx.combinedGoalRows.female[0].daily[0].goal,50);
  vm.runInContext('goalMembers.get("b").daily=[{date:"2026-11-23",goal:50}];publishGoals();',ctx);
- assert.equal(reports[1][1].length,2);
+ assert.equal(reports[1][1].length,2);assert.equal(ctx.combinedGoalRows.male.length,2);assert.equal(ctx.combinedGoalRows.female.length,1);
 }
 
  // Each card compares its own confirmed period count and accrued goal.
@@ -492,7 +493,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(compare(100,null),"unknown");
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
  assert(markup.includes("dashboard-period-numbers"));
- assert(markup.indexOf('class="dashboard-period-copy"')<markup.indexOf('class="dashboard-period-goal"'));
+ assert(markup.indexOf('class="dashboard-period-goal"')<markup.indexOf('class="dashboard-period-copy"'));
  assert(css.includes(".period-short strong[data-period]")&&css.includes(".period-complete strong[data-period]"));
  }
 
@@ -501,8 +502,8 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const classic=fs.readFileSync("public/classic-app.html","utf8");
  const css=fs.readFileSync("public/dashboard-reference.css","utf8");
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
- assert(markup.includes('<h2 class="dashboard-period-heading"')&&!markup.includes("<small"),"only the period headings, no extra number labels");
- assert(classic.includes("['today','روزانہ'],['week','ہفتہ وار'],['month','ماہانہ'],['year','سالانہ']"));
+ assert(markup.includes('<h2 class="dashboard-period-heading"')&&markup.includes("period-target-label")&&markup.includes("period-total-label"),"each period labels the target and total");
+ assert(classic.includes("['year','سالانہ'],['month','ماہانہ'],['week','ہفتہ وار'],['today','روزانہ']"));
  assert(markup.includes('lang="ur" dir="rtl"'));
  assert(css.includes("grid-row:1;grid-column:1;align-items:center;justify-content:center;align-self:center;text-align:center"));
  assert(markup.includes('aria-label="پڑھی گئی تعداد"')&&markup.includes('aria-label="'+ "'"));
@@ -557,7 +558,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const partial=compare(200,null,undefined,200);
  assert.equal(partial.quality,"partial");assert.equal(partial.displayed,200);assert.equal(partial.celebrate,false);
  const markup=classic.slice(classic.indexOf("function metricPeriodCards("),classic.indexOf("// Local visual welcome"));
- assert(markup.includes('periodCardComparison(count,goal,previous[key],partial,Array.isArray(ownerGoalRows))'));
+ assert(markup.includes('combinedPeriodComparison(m,f,combinedSideCount("male",key),combinedSideCount("female",key))'));
  const daily=compare(284,null,999,221,true);
  assert.equal(daily.displayed,221);assert.equal(daily.status,'complete');assert.equal(daily.celebrate,true);assert.equal(daily.quality,'configured');
  assert.equal(compare(528,null,undefined,623,true).status,'short');
@@ -612,4 +613,25 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(classic.includes("const verifiedTotal=verifiedOwnDuroodTotal();"));
  assert(groupCardMarkup.includes("figures?.total??null"));
  assert(groupCardMarkup.includes("صرف گروپ وظیفے میں درج شمار"));
+}
+
+// Both dashboard views consume the same verified aggregate targets, including the blue cards.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("const combinedValid="),b=classic.indexOf("function combinedSideTargets",a);
+ const c=classic.indexOf("const combinedTargetKeys="),d=classic.indexOf("function targetAuditProgressMarkup",c);
+ const male={dailyGoal:221,yearlyGoal:58525,today:221,week:844,month:844,year:844};
+ const female={dailyGoal:100,yearlyGoal:26500,today:100,week:100,month:100,year:100};
+ const ctx=vm.createContext({combinedGoalRows:null,combinedPublishedTargets:{day:"2026-11-27",male,female},dashboardGroupSettings:{},combinedSideTargets:r=>r[0],globalDateKey:()=>"2026-11-27",currentUser:()=>({isOwner:false}),window:{duroodCurrentSide:"female"},ownerGoalRows:[female],dashboardPartialGoalRows:null,formatNumber:String,esc:String,annualTargetPeriod:()=>null,groupSessionCountdown:()=>""});
+ vm.runInContext(classic.slice(a,b)+classic.slice(c,d),ctx);
+ const blue=vm.runInContext("dashboardTargetCards()",ctx);
+ for(const v of ["321","85025","M 221 + F 100","M 58525 + F 26500"])assert(blue.includes(v),v);
+ ctx.window.duroodCurrentSide="male";ctx.ownerGoalRows=[male];
+ assert.equal(vm.runInContext("dashboardTargetCards()",ctx),blue);
+ ctx.combinedGoalRows={male:[male],female:null};
+ const payload=vm.runInContext("combinedLiveTargets()",ctx);
+ assert.equal(payload.male.dailyGoal,221);assert.equal(payload.female.dailyGoal,100);
+ const compare=vm.runInContext("combinedPeriodComparison",ctx);
+ assert.equal(compare(221,100,0,5).goal,321);assert.equal(compare(844,100,629,31).status,"short");
+ assert.equal(compare(221,0,221,0).celebrate,true);
 }
