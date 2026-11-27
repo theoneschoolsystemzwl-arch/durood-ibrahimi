@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=dashboard-owner-sync-recovery-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=reader-date-navigation-all-members-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=dashboard-owner-sync-recovery-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=reader-date-navigation-all-members-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1361,7 +1361,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=dashboard-owner-sync-recovery-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=reader-date-navigation-all-members-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2712,7 +2712,7 @@ function readerCountAndTarget(row,day,goalRows,canViewTarget){
  return count+' / '+(goal===undefined?'—':formatNumber(goal));
 }
 function readerList(){
- const historical=readerListDay!==null&&currentUser()?.isOwner;
+ const historical=readerListDay!==null&&!!currentUser()?.uid;
  const raw=historical?previousDayReaders:todayReaders;
  const selected=raw?.filter(row=>users.some(p=>p.uid===row.uid&&(currentUser()?.isOwner||(!p.disabled&&!p.deleted))&&(p.gender==="Female")===(window.duroodCurrentSide==="female")));
  if(historical&&readerListError)return tr("Could not load this date. Try again.","اس تاریخ کا ریکارڈ لوڈ نہیں ہوا۔ دوبارہ کوشش کریں۔");
@@ -2995,7 +2995,7 @@ function overview() {
    tr("Dashboard accounting from 1 November 2026; week starts Monday. Earlier records are preserved.","ڈیش بورڈ کا حساب یکم نومبر 2026 سے؛ ہفتہ پیر سے شروع۔ پرانا ریکارڈ محفوظ ہے۔")+'</p>'+
    '<section class="panel section readers-section"><div class="reader-card-heading"><h2><span aria-hidden="true">♧</span> '+
      tr("Reading Tasbih today","آج تسبیح پڑھنے والے")+
-   '</h2>'+(currentUser()?.isOwner?'<div class="reader-date-nav" dir="ltr"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'">−</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'</div><div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
+   '</h2>'+(currentUser()?.uid?'<div class="reader-date-nav" dir="ltr"><button type="button" class="button secondary" data-action="reader-list-day" data-value="-1" aria-label="'+tr("Previous date","پچھلی تاریخ")+'">−</button><bdi id="reader-list-date">'+readerDayLabel()+'</bdi><button type="button" class="button secondary" data-action="reader-list-day" data-value="1" aria-label="'+tr("Next date","اگلی تاریخ")+'"'+(readerDayLabel()>=globalDateKey()?' disabled':'')+'>+</button></div>':"")+'</div><div id="reader-audit">'+readerAuditMarkup()+'</div>'+feedback("legacy-reader-check")+'<div id="today-readers">'+readerList()+'</div></section>'+
    '</div>';
 }
 
@@ -5393,7 +5393,7 @@ app.addEventListener('click', event => {
     return;
   }
   if (action === 'reader-list-day') {
-    if(!currentUser()?.isOwner||!['-1','1'].includes(value))return;
+    if(!currentUser()?.uid||!['-1','1'].includes(value))return;
     const day=parseDay(readerDayLabel());
     day.setDate(day.getDate()+Number(value));
     const next=dateKey(day),today=globalDateKey();
@@ -5403,7 +5403,7 @@ app.addEventListener('click', event => {
     refreshReaderDateControls();refreshReaderAudit();
     const list=document.getElementById("today-readers");if(list)list.innerHTML=readerList();
     window.duroodWatchReaderDate?.(readerListDay);
-    if(readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();
+    if(currentUser()?.isOwner&&readerDayLabel()===legacyRepairDay)window.duroodAutoRepairLegacyReader?.();
     return;
   }
   if (action === 'record') record = value;
@@ -5926,13 +5926,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=dashboard-owner-sync-recovery-20261127-v1";
+import "./wazaif.js?release=reader-date-navigation-all-members-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=dashboard-owner-sync-recovery-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=reader-date-navigation-all-members-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6398,12 +6398,12 @@ function observeCounters(side){
   function watchReaderDate(day){
     stopHistory();stopHistory=()=>{};
     const generation=++historyGeneration;
-    if(!day||!stillCurrent()||currentProfile?.role!=="owner"||!/^\d{4}-\d{2}-\d{2}$/.test(day)||day>=globalDay())return;
-    const stopAudit=onSnapshot(doc(sideRef,"days",day),{includeMetadataChanges:true},snap=>{
+    if(!day||!stillCurrent()||!currentProfile?.uid||!targetDateValid(day)||day>=globalDay())return;
+    const stopAudit=currentProfile?.role!=="owner"?()=>{}:onSnapshot(doc(sideRef,"days",day),{includeMetadataChanges:true},snap=>{
       if(generation!==historyGeneration||!stillCurrent()||snap.metadata.fromCache)return;
       bridge.readerAudit(day,snap.exists()?Number(snap.data().total):0,false);
     },err=>console.warn("Historical total audit",err.code));
-    let baseRows=null,repair=null,repairReady=day!==legacyRepairDay||side!=="male";
+    let baseRows=null,repair=null,repairReady=currentProfile?.role!=="owner"||day!==legacyRepairDay||side!=="male";
     const publish=()=>{
       if(!baseRows||!repairReady||generation!==historyGeneration||!stillCurrent())return;
       const combined=baseRows.map(r=>({...r}));

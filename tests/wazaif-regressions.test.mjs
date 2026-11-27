@@ -635,3 +635,19 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.equal(compare(221,100,0,5).goal,321);assert.equal(compare(844,100,629,31).status,"short");
  assert.equal(compare(221,0,221,0).celebrate,true);
 }
+
+// Date navigation is available to all signed-in members, without granting
+// cross-gender reader access or owner-only historical repair privileges.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const overview=classic.slice(classic.indexOf("function overview()"),classic.indexOf("function simulateSave()"));
+ assert(overview.includes('currentUser()?.uid?\'<div class="reader-date-nav"'));
+ const handler=classic.slice(classic.indexOf("if (action === 'reader-list-day')"),classic.indexOf("if (action === 'record')"));
+ assert(handler.includes("!currentUser()?.uid")&&handler.includes("next>today")&&handler.includes("readerListDay=next===today?null:next"));
+ assert(handler.includes("currentUser()?.isOwner&&readerDayLabel()===legacyRepairDay"));
+ const watch=classic.slice(classic.indexOf("function watchReaderDate(day)"),classic.indexOf("window.duroodWatchReaderDate=watchReaderDate;"));
+ assert(watch.includes("!currentProfile?.uid")&&watch.includes('collection(sideRef,"days",day,"readers")'));
+ assert(watch.includes('repairReady=currentProfile?.role!=="owner"'));
+ const readerRule=rules.slice(rules.indexOf("match /genderStats/{gender}/days/{day}/readers/{uid}"));
+ assert(readerRule.includes("allow read: if validGender(gender) && (owner() || (currentMember() && myGender()==gender));"));
+}
