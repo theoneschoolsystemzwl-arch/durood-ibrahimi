@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=pending-wazaif-login-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=pending-wazaif-popup-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=pending-wazaif-login-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=pending-wazaif-popup-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=pending-wazaif-login-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=pending-wazaif-popup-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1533,19 +1533,21 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 @media(max-width:340px){:root[data-theme] .member-ranking .rank-number{width:24px;min-width:24px;height:26px}.member-ranking .rank-photo .avatar{width:52px;height:52px}}
 </style>
 <style id="pending-wazaif-notice">
-#wz-dashboard-pending[hidden]{display:none!important}
-#wz-dashboard-pending{margin:10px 0 13px;padding:10px 12px;border:1px solid #d7b469;border-radius:14px;background:linear-gradient(150deg,#123e31,#06291f);color:#f6fff8;box-shadow:0 4px 12px #001c1844}
-#wz-dashboard-pending .wz-pending-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:1px solid #bf995c66}
-#wz-dashboard-pending .wz-pending-head strong{color:#ffe0a0;font-size:1.05rem}
-#wz-dashboard-pending .wz-pending-close{width:32px;height:32px;border-radius:9px;background:#235444;border:1px solid #86b5a3;color:#fff;font:bold 24px/1 system-ui;cursor:pointer}
-#wz-dashboard-pending ol{list-style:none;margin:0;padding:0}
-#wz-dashboard-pending li{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid #71af8e33}
+#wz-dashboard-pending[hidden],#wz-dashboard-pending:not([open]){display:none!important}
+:root[data-theme] #wz-dashboard-pending{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(88vw,340px);max-width:340px;max-height:65vh;max-height:65dvh;padding:8px 10px;border:1px solid #d7b469;border-radius:13px;background:linear-gradient(150deg,#123e31,#06291f);color:#f6fff8;box-shadow:0 12px 40px #00140ec0;overflow:hidden}
+#wz-dashboard-pending[open]{display:flex;flex-direction:column;gap:3px}
+#wz-dashboard-pending::backdrop{background:rgba(0,20,15,.52)}
+#wz-dashboard-pending .wz-pending-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:5px;border-bottom:1px solid #bf995c66;flex:none}
+#wz-dashboard-pending .wz-pending-head strong{color:#ffe0a0;font-size:.92rem;line-height:1.6}
+#wz-dashboard-pending .wz-pending-close{flex:none;width:28px;height:28px;min-height:0;padding:0;border-radius:8px;background:#235444;border:1px solid #86b5a3;color:#fff;font:bold 20px/1 system-ui;cursor:pointer}
+#wz-dashboard-pending ol{list-style:none;margin:0;padding:0;overflow-y:auto;min-height:0;overscroll-behavior:contain}
+#wz-dashboard-pending li{display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid #71af8e33}
 #wz-dashboard-pending li:last-child{border-bottom:0;padding-bottom:0}
-#wz-dashboard-pending .wz-pending-index{min-width:24px;text-align:center;border-radius:6px;background:#795a2c;color:#fff0b5;font:800 .9rem/1.7 system-ui}
-#wz-dashboard-pending li div{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px}
+#wz-dashboard-pending .wz-pending-index{min-width:20px;text-align:center;border-radius:5px;background:#795a2c;color:#fff0b5;font:800 .75rem/1.6 system-ui}
+#wz-dashboard-pending li div{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:1px 6px;font-size:.83rem;line-height:1.6}
 #wz-dashboard-pending li strong{color:#fff;overflow-wrap:anywhere}
 #wz-dashboard-pending .wz-pending-total{color:#ffcf93;font-weight:800}
-#wz-dashboard-pending li small{width:100%;color:#cde8d9;font-size:.83rem}
+#wz-dashboard-pending li small{width:100%;color:#cde8d9;font-size:.73rem}
 </style>
 </head>
 <body>
@@ -4854,7 +4856,7 @@ function dashboard(person) {
   if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+(section==="overview"?"":prayerTickerMarkup(person))+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
-    (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women&&section==="overview"?'<section id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" hidden></section>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
+    (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women&&section==="overview"?'<dialog id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" aria-labelledby="wz-pending-title" hidden></dialog>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
     availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + (key==="members"?"ranking":key) +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + dashboardNavIcon(key) + '</span>' + label + '</button>').join('') +
@@ -5838,13 +5840,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=pending-wazaif-login-20261127-v1";
+import "./wazaif.js?release=pending-wazaif-popup-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-wazaif-login-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-wazaif-popup-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";

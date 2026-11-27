@@ -466,25 +466,38 @@ function pendingPersonalTask(task){
  const priorDue=Math.max(0,previousGoal-previousRead-Math.max(0,todayRead-todayGoal));
  return todayDue+priorDue>0?{title:task.title,today:todayDue,previous:priorDue,total:todayDue+priorDue}:null;
 }
+function hidePendingNotice(host){
+ if(!host)return;
+ if(host.open)host.close();
+ host.hidden=true;
+}
 function refreshPendingNotice(){
  const host=$("#wz-dashboard-pending");
  if(!host)return;
- if(state.noticeDismissed||!state.profile?.uid||auth.currentUser?.uid!==state.profile.uid){host.hidden=true;return;}
+ if(state.noticeDismissed||!state.profile?.uid||auth.currentUser?.uid!==state.profile.uid){hidePendingNotice(host);return;}
  subscribePersonal();
  const group=window.duroodGroupPendingNotice?.();
  const rows=[...(group&&group.total>0?[group]:[]),...(state.personalReady?personalList().map(pendingPersonalTask).filter(Boolean):[])];
- if(!rows.length){host.hidden=true;return;}
+ if(!rows.length){hidePendingNotice(host);return;}
  const english=document.documentElement.lang==="en";
  const title=english?"Pending recitations":"باقی وظائف کی یاد دہانی";
- const markup='<div class="wz-pending-head"><strong>'+title+'</strong><button type="button" class="wz-pending-close" aria-label="'+(english?"Close":"بند کریں")+'" data-wz-dismiss-notice>×</button></div>'+
+ const markup='<div class="wz-pending-head"><strong id="wz-pending-title">'+title+'</strong><button type="button" class="wz-pending-close" aria-label="'+(english?"Close":"بند کریں")+'" data-wz-dismiss-notice>×</button></div>'+
  '<ol>'+rows.map((row,i)=>'<li><span class="wz-pending-index">'+(i+1)+'</span><div><strong dir="auto">'+esc(row.title||"")+'</strong><span class="wz-pending-total">'+(english?"Total pending: ":"کل باقی: ")+fmt(row.total)+'</span><small>'+(english?"Today: ":"آج باقی: ")+fmt(row.today)+' · '+(english?"Previous: ":"سابقہ باقی: ")+fmt(row.previous)+'</small></div></li>').join("")+'</ol>';
  if(host.innerHTML!==markup)host.innerHTML=markup;
  host.hidden=false;
+ if(!host.open&&host.isConnected)host.showModal();
+}
+function dismissPendingNotice(){
+ state.noticeDismissed=true;
+ hidePendingNotice($("#wz-dashboard-pending"));
 }
 document.addEventListener("click",event=>{
- if(!event.target?.closest?.("[data-wz-dismiss-notice]"))return;
- state.noticeDismissed=true;const host=$("#wz-dashboard-pending");if(host)host.hidden=true;
+ if(event.target?.closest?.("[data-wz-dismiss-notice]"))dismissPendingNotice();
 });
+document.addEventListener("cancel",event=>{
+ if(event.target?.id!=="wz-dashboard-pending")return;
+ event.preventDefault();dismissPendingNotice();
+},true);
 function subscribe(){
   if(state.started||!state.profile||!auth.currentUser)return;
   const uid=state.profile.uid;state.started=true;
