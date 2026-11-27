@@ -131,7 +131,7 @@
  background:var(--ui-primary)!important;color:var(--ui-on-primary)!important;-webkit-text-fill-color:var(--ui-on-primary)!important;border-color:var(--ui-primary)!important;
 }
 :root[data-theme] body :is(button,.button) :is(svg,.nav-icon){color:inherit!important}
-:root[data-theme] body :is(.button,button,.nav,.tab,.period,.theme-option,.wz-cal-day,.wz-feedback-button):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.is-selected,:has(>input:checked)):not(.namaz-jamat):not(.namaz-solo):not(.namaz-made):not(.namaz-missed):not(.qaza-paid):not(.wz-sign-button){
+:root[data-theme] body :is(.button,button,.nav,.tab,.period,.theme-option,.wz-cal-day,.wz-feedback-button):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.is-selected,:has(>input:checked)):not(.namaz-jamat):not(.namaz-solo):not(.namaz-made):not(.namaz-missed):not(.qaza-paid):not(.qaza-options-paid):not(.wz-sign-button){
  background:var(--ui-selected)!important;color:var(--ui-on-selected)!important;-webkit-text-fill-color:var(--ui-on-selected)!important;border-color:var(--ui-accent)!important;text-shadow:none!important;
 }
 :root[data-theme] body :is(.button,button,.nav,.tab,.period,.theme-option,.wz-cal-day,.wz-feedback-button):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.is-selected,:has(>input:checked)) :is(span,small,b,strong,svg):not([data-wz-notice-count]){
@@ -185,6 +185,33 @@
 :root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-red,.wz-ledger-pending,.wz-green,.wz-ledger-green,.wz-yellow,.wz-ledger-yellow,.wz-today-due,.wz-today-due-cell,.wz-five-alert){background:var(--ui-raised)!important}
 :root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-history-row.wz-day-due,.wz-history-clear.wz-day-due){background:#fff0f2!important;color:#a51e38!important}
 :root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-history-row.wz-day-ok,.wz-history-clear.wz-day-ok){background:#e6f6eb!important;color:#12683c!important}
-:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-jamat,.namaz-solo,.namaz-made,.qaza-paid){color:#154f33!important;background:#d9f2e2!important}
-:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-missed,.qaza-holding){color:#9d203a!important;background:#ffe0e5!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-jamat,.namaz-solo){color:#154f33!important;background:#d9f2e2!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-missed){color:#9d203a!important;background:#ffe0e5!important}
 :root[data-theme] body .wz-pdf-page{background:#ffffff!important;color:#111111!important}
+
+/* Qaza Ada has one light-blue status palette in both calendars, in every theme. */
+:root[data-theme] body .namaz-card :is(button.namaz-made,button.qaza-paid,button.qaza-options-paid,button.qaza-holding){
+ background:#d9efff!important;
+ color:#124979!important;
+ -webkit-text-fill-color:currentColor!important;
+ border-color:#82bce5!important;
+}
+:root[data-theme] body .namaz-card :is(button.namaz-made,button.qaza-paid,button.qaza-options-paid,button.qaza-holding) :is(span,strong,small,time,svg){
+ color:inherit!important;
+ -webkit-text-fill-color:currentColor!important;
+}
+:root[data-theme] body .namaz-card button.namaz-made .namaz-icon{
+ color:#2379ad!important;
+ -webkit-text-fill-color:currentColor!important;
+}
+:root[data-theme] body .namaz-card :is(button.namaz-made,button.qaza-options-paid)[aria-pressed="true"]{
+ outline-color:#2379ad!important;
+}
+:root[data-theme] body .namaz-card button.qaza-holding{
+ box-shadow:0 0 0 1px #82bce5 inset!important;
+}
+:root[data-theme] body .namaz-card button.qaza-holding .qaza-hold-count{
+ background:#eef8ff!important;
+ color:#124979!important;
+ -webkit-text-fill-color:currentColor!important;
+}
