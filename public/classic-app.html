@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=pending-wazaif-24h-cooldown-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=pending-bell-next-to-logout-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=pending-wazaif-24h-cooldown-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=pending-bell-next-to-logout-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=pending-wazaif-24h-cooldown-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=pending-bell-next-to-logout-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1549,6 +1549,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 #wz-dashboard-pending .wz-pending-total{color:#ffcf93;font-weight:800}
 #wz-dashboard-pending li small{width:100%;color:#cde8d9;font-size:.73rem}
 
+.profile-card .profile-logout-controls{display:inline-flex;align-items:center;gap:6px;flex:none}
 :root[data-theme] .profile-card .wz-profile-bell{position:relative;display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-height:0;padding:0;color:#ffe0a0;background:#0b4839;border:1px solid #b69a60;border-radius:10px;cursor:pointer}
 .profile-card .wz-profile-bell[aria-expanded="true"]{background:#d8b76e;color:#173b2d}
 .profile-card .wz-profile-bell.has-pending{box-shadow:0 0 0 1px #e8bd63}
@@ -2269,14 +2270,14 @@ function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
   const inviteCount = groupMemberCount(person);
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
-    topCornerControls(true) + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
+    topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
     '<small class="muted direct-invites">'+tr('Group total Wird: ','گروپ کا مجموعی ورد: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
     '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
     '<small class="muted">'+tr("Login ID","لاگ اِن آئی ڈی")+' <bdi>'+esc(person.username)+'</bdi></small>' +
     ur(tr("Member since <bdi>", 'رکنیت کی تاریخ <bdi>') + esc(membershipDateLabel(person)) + '</bdi>','small','join-date') + '</div></div>' +
-    tr("<div class=\"profile-card-foot\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') +
+    tr("<div class=\"profile-card-foot\"><span class=\"profile-logout-controls\"><button class=\"button secondary logout\" data-action=\"logout\">Log out</button>", '<div class="profile-card-foot"><span class="profile-logout-controls"><button class="button secondary logout" data-action="logout">لاگ آؤٹ</button>') + pendingBellMarkup() + '</span>' +
     sectionSwitch(person) + '<span class="pill account-id">' + displayId(person.id) + '<span aria-hidden="true">·</span>' + role +
     '<span aria-hidden="true">·</span>' + tr('Level','لیول') + ' <bdi data-profile-member-level>' + formatNumber(memberLevel(person)) + '</bdi>' +
     '</span></div></section></header>';
@@ -4920,11 +4921,11 @@ function sectionSwitch(person) {
     (women ? 'male' : 'female') + '">' + (women ? tr('Men’s section','مردوں کا سیکشن') : tr('Women’s section','خواتین کا سیکشن')) + '</button>';
 }
 
-function topCornerControls(withReminder=false){
+function pendingBellMarkup(){return '<button type="button" class="wz-profile-bell" data-wz-toggle-notice aria-controls="wz-dashboard-pending" aria-expanded="false" aria-label="'+tr("Pending recitations","باقی وظائف")+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span data-wz-notice-count hidden></span></button>':;}
+function topCornerControls(){
   const next=language==='ur'?'en':'ur';
   return '<div class="top-corners"><button type="button" class="corner-link" data-action="language" data-value="'+next+'">'+(next==='en'?'English':'اردو')+'</button>'+
     '<button type="button" class="corner-link" data-durood-refresh aria-label="'+tr("Refresh","ریفریش")+'">↻ '+tr("Refresh","ریفریش")+'</button>'+
-    (withReminder?'<button type="button" class="wz-profile-bell" data-wz-toggle-notice aria-controls="wz-dashboard-pending" aria-expanded="false" aria-label="'+tr("Pending recitations","باقی وظائف")+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span data-wz-notice-count hidden></span></button>':"")+
     '<button type="button" class="corner-link" data-action="nav" data-value="about">'+tr("About","تعارف")+'</button></div>';
 }
 function nextPrayerCountdown(person,now=Date.now()){
@@ -5848,13 +5849,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=pending-wazaif-24h-cooldown-20261127-v1";
+import "./wazaif.js?release=pending-bell-next-to-logout-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-wazaif-24h-cooldown-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-bell-next-to-logout-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
