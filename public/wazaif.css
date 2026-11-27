@@ -395,3 +395,17 @@
 }
 .wz-card:is(.wz-personal,.wz-group) .wz-tasbih-cta:disabled{opacity:.58}
 .wz-card:is(.wz-personal,.wz-group) .wz-tasbih-cta:focus-visible{outline:3px solid #9bddff;outline-offset:3px}
+
+/* Gold Nastaliq title, blue enamel and a distinct serial medal. */
+.wz-card:is(.wz-personal,.wz-group) .wz-tasbih-top .wz-tasbih-cta{
+ direction:ltr;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;
+ min-height:64px;padding:6px 9px;border:2px solid #e6bc62;border-bottom:3px solid #b98727;border-radius:15px;
+ background:radial-gradient(ellipse at 50% 0%,#1478b8 0%,transparent 65%),linear-gradient(135deg,#075d9c,#06274d 72%,#043b73);
+ box-shadow:inset 0 1px 2px #fff5ce99,inset 0 -2px 6px #001d43,0 4px 10px #001b2f88;color:#ffe5a3;
+}
+.wz-card:is(.wz-personal,.wz-group) .wz-tasbih-cta .wz-cta-single{
+ font-family:"Noto Nastaliq Urdu","Jameel Noori Nastaleeq",var(--ur,serif);font-size:clamp(.98rem,4vw,1.45rem);font-weight:700;line-height:2.25;
+ color:#ffe5a3;text-shadow:0 2px 2px #00142b;padding:0 3px 3px;
+}
+.wz-launch-serial{display:grid;place-items:center;min-width:39px;padding:5px;border:1.5px solid #e6bc62;border-radius:11px;background:linear-gradient(155deg,#12649c,#06284f);box-shadow:inset 0 0 0 2px #092e56;color:#ffe6a7;font:800 clamp(.85rem,3.5vw,1.2rem)/1.3 system-ui,sans-serif;white-space:nowrap}
+.wz-launch-ornament{color:#e6bc62;font-size:1.1rem;line-height:1;border-inline-start:1px solid #dcb56580;padding-inline-start:7px}

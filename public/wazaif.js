@@ -521,6 +521,9 @@ function tasbihTabLabel(title){
  const name=String(title||"").trim();
  return /تسبیح\s*$/u.test(name)?name:name+" تسبیح";
 }
+function wazifaLaunchTitle(title,serial){
+ return '<bdi class="wz-launch-serial" dir="ltr">'+esc(serial)+'</bdi><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(title))+'</span><span class="wz-launch-ornament" aria-hidden="true">❖</span>';
+}
 function groupSessionInfo(g){
  const today=groupReadingDay(),p=window.duroodAnnualTargetPeriod?.(g);if(!p)return "";
  const count=state.groupDaysReady?Object.entries(state.groupDays).filter(([day])=>day>=p.start&&day<=p.end&&day<=today).reduce((sum,[,row])=>sum+(Number.isSafeInteger(row.count)&&row.count>=0?row.count:0),0):null;
@@ -535,7 +538,7 @@ function groupCard(){
  const all=asDurood?(figures?.total??null):(state.groupMember===null?null:Number(stats.total||0));
  const remaining=todayCount===null?null:Math.max(0,memberGroupDailyGoal(g,today)-todayCount);
  return '<article class="wz-card wz-group '+(enabled?'is-live':'is-off')+'">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(g.title))+'</span></button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں">'+wazifaLaunchTitle(g.title,"G1")+'</button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
  groupCardPlan(g,today,todayCount,all)+
@@ -609,7 +612,7 @@ function groupCardPlan(g,today,todayCount,all){
 function personalCard(task){
  const stateText=taskStatus(task);
  return '<article class="wz-card wz-personal">'+
- '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(task.title))+'</span></button></div>'+
+ '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں">'+wazifaLaunchTitle(task.title,wazifaSerial(task))+'</button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  personalCardSummary(task)+
  arabicOrPdf(task.arabic,"personal")+'<p class="wz-help">'+esc(task.instructions)+'</p>'+
