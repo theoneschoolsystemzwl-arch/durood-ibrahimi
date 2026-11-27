@@ -94,9 +94,10 @@ const wazifaCss=fs.readFileSync("public/wazaif.css","utf8");
 const personalCardMarkup=source.slice(source.indexOf("function personalCard("),source.indexOf("function inboxMarkup("));
 const groupCardMarkup=source.slice(source.indexOf("function groupCard("),source.indexOf("function taskStatus("));
 const readerMarkupSource=source.slice(source.indexOf("function readerMarkup("),source.indexOf("function refreshHeroReader("));
-assert(personalCardMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(task.title))'),
+const launchMarkup=source.slice(source.indexOf("function wazifaLaunchTitle("),source.indexOf("function groupSessionInfo("));
+assert(personalCardMarkup.includes('wazifaLaunchTitle(task.title,wazifaSerial(task))') && launchMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(title))'),
   "Personal Tasbih tab must show the Wazifa title and Tasbih in one span");
-assert(groupCardMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(g.title))'),
+assert(groupCardMarkup.includes('wazifaLaunchTitle(g.title,"G1")') && launchMarkup.includes('class="wz-cta-single" lang="ur" dir="rtl">\'+esc(tasbihTabLabel(title))'),
   "Group Tasbih tab must show the Wazifa title and Tasbih in one span");
 assert(!personalCardMarkup.includes("📿")&&!groupCardMarkup.includes("📿"),
   "Launch tabs must not show a Tasbih icon");

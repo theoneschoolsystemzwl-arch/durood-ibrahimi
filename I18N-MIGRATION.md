@@ -1,0 +1,1 @@
+Staged localization deployed at owner request, with incomplete translations explicitly acknowledged. Maintains latest main dashboard changes and fixed RTL direction. Arabic and saved user content remain unchanged. Some dynamic and custom text is not translated. Full mobile verification remains pending.

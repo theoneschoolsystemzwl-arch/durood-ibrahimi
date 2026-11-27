@@ -49,6 +49,7 @@ jobs:
           node --check public/wazaif.js
           node --check public/wazaif-counter.js
           node --check public/wazifa-sharing.js
+          node --test tests/ui-locale.test.cjs
           node tests/wazaif-regressions.test.mjs
           node tests/founder-group-code.test.cjs
           node tests/tasbih-durable-sync.test.cjs

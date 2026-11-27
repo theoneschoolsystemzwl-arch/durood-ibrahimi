@@ -1562,13 +1562,15 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
 <script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
+<script src="./ui-locale.js?v=20261127-v3"></script>
+<script src="./static-locale.js?v=20261127-v3"></script>
 <script>
 'use strict';
 
 let language = 'ur';
-try { if (localStorage.getItem('durood-language') === 'ur') language = 'ur'; } catch {}
-const tr = (english,urdu) => language === 'ur' ? urdu : english;
-const locale = () => tr('en-GB','ur-PK');
+try { const saved=localStorage.getItem('durood-language'); if (duroodLocale.valid(saved)) language=saved; } catch {}
+const tr = (english,urdu) => duroodLocale.translate(language,english,urdu);
+const locale = () => duroodLocale.locale(language);
 
 
 const app = document.querySelector('#app');
@@ -2133,7 +2135,7 @@ function memberLoginMarkup(uid,disabled=false) {
   const presenceKnown=data?.presenceReady===true;
   const status=presenceKnown||disabled?(online?'online':'offline'):'unknown';
   const time=Math.max(Number(lease?.authTime)||0,Number(data?.history?.get(uid)?.authTime)||0);
-  const date=time>0?new Intl.DateTimeFormat(language==='ur'?'ur-PK':'en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}).format(new Date(time*1000)):'—';
+  const date=time>0?new Intl.DateTimeFormat(language==='ur'?'ur-PK':language==='id'?'id-ID':'en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}).format(new Date(time*1000)):'—';
   return '<span class="member-login-light '+status+'" aria-hidden="true"></span><span>'+
     (presenceKnown||disabled?(online?tr('Online','آن لائن'):tr('Offline','آف لائن')):tr('Presence unknown','آن لائن اسٹیٹس نامعلوم'))+' · '+(known?(loggedIn?tr('Logged in','لاگ اِن'):tr('Logged out','لاگ آؤٹ')):tr('Login unknown','لاگ اِن نامعلوم'))+
     '</span><span>'+tr('Last login: ','آخری لاگ اِن: ')+'<bdi>'+esc(date)+'</bdi></span>';
@@ -4938,8 +4940,8 @@ function sectionSwitch(person) {
 
 function pendingBellMarkup(){return '<button type="button" class="wz-profile-bell" data-wz-toggle-notice aria-controls="wz-dashboard-pending" aria-expanded="false" aria-label="'+tr("Pending recitations","باقی وظائف")+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span data-wz-notice-count hidden></span></button>';}
 function topCornerControls(){
-  const next=language==='ur'?'en':'ur';
-  return '<div class="top-corners"><button type="button" class="corner-link" data-action="language" data-value="'+next+'">'+(next==='en'?'English':'اردو')+'</button>'+
+  const next=duroodLocale.next(language);
+  return '<div class="top-corners"><button type="button" class="corner-link" data-action="language" data-value="'+next+'">'+duroodLocale.names[next]+'</button>'+
     '<button type="button" class="corner-link" data-durood-refresh aria-label="'+tr("Refresh","ریفریش")+'">↻ '+tr("Refresh","ریفریش")+'</button>'+
     '<button type="button" class="corner-link" data-action="nav" data-value="about">'+tr("About","تعارف")+'</button></div>';
 }
@@ -4979,12 +4981,12 @@ function updateNextPrayerTicker(now=Date.now()){
 }
 function appFooter(person) {
   if(person)return '';
-  const next = language === 'ur' ? 'en' : 'ur';
+  const next = duroodLocale.next(language);
   const isAbout = (person ? section : screen) === 'about';
   return '<footer class="app-footer"><button type="button" class="button secondary" data-action="' +
     (person ? 'nav' : 'screen') + '" data-value="about"' + (isAbout ? ' aria-current="page"' : '') +
     '>' + tr('About','تعارف') + '</button><button type="button" class="button secondary" data-action="language" lang="' +
-    next + '" data-value="' + next + '">' + (next === 'en' ? 'English' : 'اردو') + '</button></footer>';
+    next + '" data-value="' + next + '">' + duroodLocale.names[next] + '</button></footer>';
 }
 
 function womenSectionCard(person) {
@@ -4999,7 +5001,7 @@ function womenSectionCard(person) {
 }
 
 function changeLanguage(value) {
-  if ((value !== 'en' && value !== 'ur') || value === language) return;
+  if (!duroodLocale.valid(value) || value === language) return;
   const fields = Array.from(app.querySelectorAll('form input[name],form select[name],form textarea[name]'))
     .filter(field => !field.readOnly && field.type !== 'file')
     .map(field => ({form:field.form?.id,name:field.name,value:field.value,checked:field.checked}));
@@ -5109,7 +5111,7 @@ function about() {
 
 function render({keepScroll = false} = {}) {
   document.documentElement.lang = language;
-  document.documentElement.dir = tr('ltr','rtl');
+  document.documentElement.dir = 'rtl';
   document.title = tr('Durood Sharif Global','درود شریف گلوبل');
   const person = currentUser();
   applyMemberTheme(person?.id);
@@ -5121,7 +5123,7 @@ function render({keepScroll = false} = {}) {
   app.innerHTML = person ? content : content + appFooter(null);
   if(person){syncDashboardFireworks();if(!ownerViewingWomen())window.duroodWazaif?.refreshPendingNotice?.();}
   else {resetProfileCelebration();}
-  if (person && section === 'tasbih') window.duroodWazaif?.render?.();
+  if (person && section === 'tasbih') { window.duroodWazaif?.render?.(); window.duroodStaticLocale?.mount(document.getElementById('wazaif-root')); }
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();
   const dock = app.querySelector('.nav-inner');
