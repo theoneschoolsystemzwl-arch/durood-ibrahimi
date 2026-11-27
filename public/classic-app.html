@@ -6732,6 +6732,28 @@ async function hydrate(){
     await Promise.all([loadPrayerMonth(month,profile.uid),loadPrayerHistory(profile.uid)]);
   }catch(e){console.warn("Prayer history unavailable",e.code||e);}
 }
+let parentAuthCopy=null;
+async function copyVerifiedParentUser(){
+  if(window.parent===window||classicLogoutBlocked())return false;
+  const parentUser=window.parent.duroodParentAuthUser?.();
+  if(!parentUser||!window.parent.duroodVerifiedProfile?.(parentUser.uid))return false;
+  if(auth.currentUser?.uid===parentUser.uid)return true;
+  if(parentAuthCopy)return parentAuthCopy;
+  parentAuthCopy=(async()=>{
+    try{
+      if(classicLogoutBlocked())return false;
+      await updateCurrentUser(auth,parentUser);
+      if(classicLogoutBlocked()){await firebaseSignOut(auth);return false;}
+      return auth.currentUser?.uid===parentUser.uid;
+    }catch(error){console.warn("Classic auth synchronization",error?.code||error);return false;}
+    finally{parentAuthCopy=null;}
+  })();
+  return parentAuthCopy;
+}
+window.addEventListener("message",event=>{
+  if(window.parent===window||event.origin!==location.origin||event.source!==window.parent||event.data?.type!=="durood-parent-auth-ready")return;
+  if(window.parent.duroodParentAuthUser?.()?.uid===event.data.uid)void copyVerifiedParentUser();
+});
 onAuthStateChanged(auth,async user=>{
   if(classicLogoutBlocked()){
     stopPresence();stopMemberLoginWatch();stopGoalWatch();goalWatchUid="";stopCounters();
@@ -6749,16 +6771,7 @@ onAuthStateChanged(auth,async user=>{
       // The parent may have just signed in while this fresh iframe still
       // reads old Auth storage. Copy the same already-verified Firebase user;
       // never redirect the parent to its login page.
-      const parentUser=window.parent.duroodParentAuthUser?.();
-      if(parentUser && window.parent.duroodVerifiedProfile?.(parentUser.uid)){
-        try{
-          if(classicLogoutBlocked())return;
-          await updateCurrentUser(auth,parentUser);
-          if(classicLogoutBlocked())await firebaseSignOut(auth);
-          return;
-        }
-        catch(error){console.warn("Classic auth synchronization",error?.code||error);}
-      }
+      if(await copyVerifiedParentUser())return;
       window.parent.postMessage({type:"durood-classic-auth-pending"},location.origin);
     }else window.location.replace("/");
     return;

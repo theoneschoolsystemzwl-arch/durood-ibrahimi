@@ -330,6 +330,7 @@ function showSignedIn(profile){
   if(!alreadyOpening)showOriginalDashboardIfReady();
   else if(classicReadyUid!==profile.uid){view("#loading",true);view("#access",false);}
   if(classicReadyUid===profile.uid)revealOriginalDashboard();
+  else $("#classic-frame")?.contentWindow?.postMessage({type:"durood-parent-auth-ready",uid:profile.uid},location.origin);
 }
 function showOriginalDashboardIfReady(){
   const frame=$("#classic-frame");
@@ -346,7 +347,7 @@ function showOriginalDashboardIfReady(){
   // Give the iframe its full viewport layout before hydration, but keep it
   // visually invisible and non-interactive until it signals readiness.
   frame.hidden=false;
-  frame.src="./classic-app.html?release=single-login-screen-20261127-v1";
+  frame.src="./classic-app.html?release=isolated-dashboard-auth-20261127-v1";
 }
 // A ready message can arrive while Firebase briefly reports null during its
 // initial shared-storage handoff. Remember it; reveal only on verified auth.
@@ -498,7 +499,7 @@ onAuthStateChanged(auth,async user=>{
 $("#loading-retry").addEventListener("click",async()=>{
   if(logoutBlocked()||appState.busy)return;
   if(!auth.currentUser){
-    if(appState.profile||lastAuthenticatedUid){recoverVerifiedSession();return;}
+    if(appState.profile||lastAuthenticatedUid){location.reload();return;}
     showSignedOut();return;
   }
   $("#loading-retry").hidden=true;

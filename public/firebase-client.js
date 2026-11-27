@@ -2,7 +2,7 @@
 // This uses the browser ESM CDN, so it does not require npm or a bundler.
 // Import this module from a module-based production application.
 import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import { getAuth, initializeAuth, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-analytics.js";
 
@@ -16,7 +16,14 @@ export const firebaseConfig = {
   "measurementId": "G-P94KRFGC60"
 };
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+// Only the top-level portal owns persistent credentials.
+function isManagedDashboard(){
+  try{return window.parent!==window && window.parent.location.origin===window.location.origin &&
+    typeof window.parent.duroodParentAuthUser==="function";}catch{return false;}
+}
+export const auth = isManagedDashboard()
+  ? initializeAuth(app,{persistence:inMemoryPersistence})
+  : getAuth(app);
 export const db = getFirestore(app);
 export async function initializeAnalytics() {
   return (await isSupported()) ? getAnalytics(app) : null;
