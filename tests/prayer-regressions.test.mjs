@@ -154,7 +154,11 @@ const biggerLedger=ledgerCtx.ledgerRow("کل", [125000,125000,125000,125000,1250
 assert(biggerLedger.includes('prayer-ledger-big')&&biggerLedger.includes('>125,000</bdi>'),"Unrounded six-digit totals fit");
 
 assert.equal((ledgerTableHtml.match(/<th scope="col">/g)||[]).length,7,"Attendance, five daily prayers and Total");
-assert.equal((ledgerTableHtml.match(/class="prayer-ledger-row-total"/g)||[]).length,5,"Four accounting rows and pending footer each have Total");
+assert.equal((ledgerTableHtml.match(/class="prayer-ledger-row-total"/g)||[]).length,6,"Five accounting rows and pending footer each have Total");
+const completedRow=ledgerTableHtml.match(/<tr class="ledger-completed">[\s\S]*?<\/tr>/)?.[0];
+assert(completedRow&&completedRow.includes("کل ادا شدہ"),"Completed subtotal is labeled");
+assert.deepEqual([...completedRow.matchAll(/<bdi[^>]*>([\d,]+)<\/bdi>/g)].map(m=>Number(m[1].replace(/,/g,""))),[3,3,3,1,1,11],"Each prayer subtotal and overall total sum congregation, solo, and made-up");
+assert(ledgerTableHtml.indexOf('class="ledger-completed"')<ledgerTableHtml.indexOf('<tfoot>'),"Completed subtotal precedes remaining Qaza");
 assert(ledgerHtml.includes("کل قضا نمازیں")&&ledgerHtml.includes("باقی قضا نمازیں"),"Both total due and pending rows are labeled");
 assert(ledgerHtml.includes("کل باقی نمازیں"),"Bottom grand total displays pending Qaza rather than all prayers");
 assert(ledgerHtml.includes('>15</bdi>')&&ledgerHtml.includes('>4</bdi>'),"Both 15 obligations and 4 pending are visible");

@@ -215,3 +215,13 @@
  color:#124979!important;
  -webkit-text-fill-color:currentColor!important;
 }
+
+/* Daily prayer ledger only: completed attendance subtotal, before pending footer. */
+:root[data-theme] body .namaz-card .prayer-ledger-seven .prayer-ledger-fit tbody tr.ledger-completed :is(th,td),
+:root[data-theme] body .namaz-card .prayer-ledger-seven .prayer-ledger-fit tbody tr.ledger-completed td.prayer-ledger-row-total{
+ background:#287bc1!important;color:#fff!important;border-color:#60a9e8!important;
+ -webkit-text-fill-color:#fff!important;
+}
+:root[data-theme] body .namaz-card .prayer-ledger-seven .prayer-ledger-fit tbody tr.ledger-completed :is(span,bdi){
+ color:#fff!important;-webkit-text-fill-color:#fff!important;
+}

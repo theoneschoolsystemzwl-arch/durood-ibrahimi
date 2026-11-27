@@ -4706,7 +4706,8 @@ function dailyAttendanceLedger(person,now,today) {
     [tr("Total prayers due", 'کل قضا نمازیں'),values('total'),'due'],
     [tr("Congregation", 'باجماعت'),values('jamat'),'jamat'],
     [tr("Prayed alone", 'ادا'),values('solo'),'solo'],
-    [tr("Made up", 'قضا ادا'),values('made'),'made']
+    [tr("Made up", 'قضا ادا'),values('made'),'made'],
+    [tr("Total completed", 'کل ادا شدہ'),prayerTotals.map(prayer=>prayer.jamat+prayer.solo+prayer.made),'completed']
   ];
   return ledgerTable({
     id:'daily-ledger-title',title:tr("Daily Prayer Ledger", 'روزانہ نمازوں کا لیجر'),
