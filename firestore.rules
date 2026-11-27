@@ -565,11 +565,12 @@ service cloud.firestore {
       return n == null || (n is int && n >= 0 && n <= 9007199254740991);
     }
     function validDashboardTargetSide(s) {
-      return s is map && s.keys().hasOnly(['dailyGoal','yearlyGoal','today','week','month','year']) &&
+      return s is map && s.keys().hasOnly(['dailyGoal','yearlyGoal','today','week','month','year','all']) &&
         s.keys().hasAll(['dailyGoal','yearlyGoal','today','week','month','year']) &&
         validDashboardAggregateNumber(s.dailyGoal) && validDashboardAggregateNumber(s.yearlyGoal) &&
         validDashboardAggregateNumber(s.today) && validDashboardAggregateNumber(s.week) &&
-        validDashboardAggregateNumber(s.month) && validDashboardAggregateNumber(s.year);
+        validDashboardAggregateNumber(s.month) && validDashboardAggregateNumber(s.year) &&
+        validDashboardAggregateNumber(s.get('all',null));
     }
     match /dashboardAggregates/duroodTargets {
       allow get: if currentMember() || owner();

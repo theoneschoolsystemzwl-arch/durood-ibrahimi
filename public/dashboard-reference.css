@@ -461,3 +461,8 @@
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers .period-total-label{font:600 clamp(.67rem,2.8vw,1rem)/1.5 var(--ur,system-ui,sans-serif);color:#ccecdf!important;white-space:nowrap}
 :root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-mf{font-size:clamp(.8rem,3.3vw,1.2rem);font-size:min(clamp(.8rem,3.3vw,1.2rem),calc(28cqi / var(--mf-fit,7)))}
 @media(max-width:360px){:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-heading{font-size:1.2rem}:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal .period-target-label{font-size:.55rem}}
+
+/* Daily carry only; leave other period strips unchanged. */
+:root[data-theme] .dashboard-home #dashboard-period-cards [data-celebrate-period="today"] .dashboard-period-goal{flex-direction:column;align-items:flex-end;gap:1px;white-space:normal;text-align:right;line-height:1.15}
+:root[data-theme] .dashboard-home #dashboard-period-cards [data-celebrate-period="today"] .period-target-label{white-space:normal}
+:root[data-theme] .dashboard-home #dashboard-period-cards [data-celebrate-period="today"] .dashboard-period-goal bdi{font-size:clamp(.62rem,2.5vw,.9rem);white-space:normal;overflow-wrap:anywhere}

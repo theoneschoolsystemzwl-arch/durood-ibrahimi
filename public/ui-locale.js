@@ -132,6 +132,7 @@ const id=Object.freeze({
   "Men": "Laki-laki",
   "members": "anggota",
   "Daily target": "Target harian",
+  "Daily target + arrears": "Target harian + tunggakan",
   "Membership date missing": "Tanggal keanggotaan tidak tersedia",
   "Calendar year": "Tahun kalender",
   "Not set": "Belum ditetapkan",

@@ -651,3 +651,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  const readerRule=rules.slice(rules.indexOf("match /genderStats/{gender}/days/{day}/readers/{uid}"));
  assert(readerRule.includes("allow read: if validGender(gender) && (owner() || (currentMember() && myGender()==gender));"));
 }
+
+// Prior balance excludes today's readings and persists across calendar boundaries.
+{
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
+ const a=classic.indexOf("function dailyCarryTarget("),b=classic.indexOf("function dashboardDailyCarry(",a);
+ const ctx=vm.createContext({combinedValid:n=>Number.isSafeInteger(n)&&n>=0});
+ vm.runInContext(classic.slice(a,b),ctx);
+ const carry=vm.runInContext("dailyCarryTarget",ctx);
+ for(const [daily,accrued,allRead,todayRead,pending,total] of [[300,300,100,100,0,300],[300,600,200,100,200,500],[300,900,300,100,400,700],[300,900,700,500,400,700],[300,900,800,100,0,300]]){
+  const r=carry(daily,accrued,allRead,todayRead);assert.equal(r.pending,pending);assert.equal(r.total,total);
+ }
+ assert.equal(carry(300,null,100,0),null);
+ assert.equal(carry(300,200,100,0),null);
+}

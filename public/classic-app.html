@@ -1361,7 +1361,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=reader-date-navigation-all-members-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=daily-carry-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1574,7 +1574,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <div id="app"></div>
 <noscript>Enable JavaScript to use this demo.</noscript>
 <script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
-<script src="./ui-locale.js?v=language-dropdown-20261127-v1"></script>
+<script src="./ui-locale.js?v=daily-carry-20261127-v1"></script>
 <script src="./static-locale.js?v=20261127-v3"></script>
 <script>
 'use strict';
@@ -2440,12 +2440,12 @@ function combinedSideTargets(rows,day){
  const exact=runningDashboardTargets(rows,day,dashboardGroupSettings),known=knownDashboardTargets(rows,day,dashboardGroupSettings);
  const noConfiguredGoals=rows.every(r=>!(r.daily||[]).some(x=>targetDateValid(x.date)&&x.date<=day&&combinedValid(x.goal)&&x.goal>0));
  const out={dailyGoal:g.dailyGoal,yearlyGoal:noConfiguredGoals?0:g.yearlyGoal};
- for(const k of ["today","week","month","year"]){
+ for(const k of ["today","week","month","year","all"]){
    out[k]=exact?.[k]??known?.[k]??(noConfiguredGoals?0:null);
  }
  return out;
 }
-const combinedTargetKeys=["dailyGoal","yearlyGoal","today","week","month","year"];
+const combinedTargetKeys=["dailyGoal","yearlyGoal","today","week","month","year","all"];
 function normalizeCombinedSide(value){
  return Object.fromEntries(combinedTargetKeys.map(k=>[k,combinedValid(value?.[k])?value[k]:null]));
 }
@@ -2775,8 +2775,8 @@ function runningDashboardTargets(rows,day,cfg){
  const monday=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
  const period=annualTargetPeriod(cfg,day);
  const clampStart=start=>start&&start<dashboardCountStart?dashboardCountStart:start;
- const starts={week:clampStart(monday),month:clampStart(day.slice(0,7)+"-01"),year:period?clampStart(period.countStart||period.start):null};
- const result={today:0,week:0,month:0,year:0};
+ const starts={week:clampStart(monday),month:clampStart(day.slice(0,7)+"-01"),year:period?clampStart(period.countStart||period.start):null,all:dashboardCountStart};
+ const result={today:0,week:0,month:0,year:0,all:0};
  for(const key of Object.keys(starts))if(!starts[key])result[key]=null;
  for(const row of rows){
   if(targetDateValid(row.joined)&&row.joined>day)continue;
@@ -2816,7 +2816,7 @@ function knownDashboardTargets(rows,day,cfg){
  const today=runningDashboardTargets(todayRows,day,cfg);
  const dated=runningDashboardTargets(datedRows,day,cfg);
  return {today:todayRows.length?today?.today:null,week:datedRows.length?dated?.week:null,
-  month:datedRows.length?dated?.month:null,year:datedRows.length?dated?.year:null};
+  month:datedRows.length?dated?.month:null,year:datedRows.length?dated?.year:null,all:datedRows.length?dated?.all:null};
 }
 function dashboardPeriodGoal(key,goals){
  const value=goals?.[key];
@@ -2849,17 +2849,34 @@ function periodCardComparison(count,goal,previous,partial,allGoalsLoaded=false){
 function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
 }
+// Daily goal includes unpaid prior group recitations, without double-counting today's reading.
+function dailyCarryTarget(daily,accrued,allRead,todayRead){
+ if(![daily,accrued,allRead,todayRead].every(combinedValid)||accrued<daily||allRead<todayRead)return null;
+ const pending=Math.max(0,(accrued-daily)-(allRead-todayRead));
+ const total=daily+pending;
+ return combinedValid(total)?{daily,pending,total}:null;
+}
+function dashboardDailyCarry(side,goals){
+ const period=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
+ const start=period?.countStart||period?.start;
+ const accrued=goals?.all??(start&&start<=dashboardCountStart?goals?.year:null);
+ return dailyCarryTarget(goals?.today,accrued,combinedSideCount(side,"all"),combinedSideCount(side,"today"));
+}
 function metricPeriodCards(){
  const t=combinedDashboardTargets();
  return periodLabels().map(([key,label])=>{
-   const m=t?.male?.[key],f=t?.female?.[key];
-   const {goal,count,status,quality,celebrate}=combinedPeriodComparison(m,f,combinedSideCount("male",key),combinedSideCount("female",key));
+   let m=t?.male?.[key],f=t?.female?.[key];
+   const mc=key==="today"?dashboardDailyCarry("male",t?.male):null,fc=key==="today"?dashboardDailyCarry("female",t?.female):null;
+   if(key==="today"){m=mc?.total??null;f=fc?.total??null;}
+   let {goal,count,status,quality,celebrate}=combinedPeriodComparison(m,f,combinedSideCount("male",key),combinedSideCount("female",key));
+   if(key==="today"&&(!mc||!fc)){goal=null;status="unknown";celebrate=false;}
+   const dailyFormula=key==="today"&&mc&&fc?combinedNumber(mc.daily+fc.daily)+" + "+combinedNumber(mc.pending+fc.pending)+" = "+combinedNumber(goal):combinedNumber(goal);
    const color=status==="complete"?"#6effa0":status==="short"?"#ff777f":"#ffffff";
-   const badge=combinedNumber(goal),read=combinedNumber(count);
-   const targetLabel={today:tr("Daily target","روزانہ کا ہدف"),week:tr("Weekly target","ہفتہ وار ہدف"),month:tr("Monthly target","ماہانہ ہدف"),year:tr("Annual target","سالانہ ہدف")}[key];
+   const badge=key==="today"?dailyFormula:combinedNumber(goal),read=combinedNumber(count);
+   const targetLabel={today:tr("Daily target + arrears","روزانہ ہدف + بقایا"),week:tr("Weekly target","ہفتہ وار ہدف"),month:tr("Monthly target","ماہانہ ہدف"),year:tr("Annual target","سالانہ ہدف")}[key];
    const totalLabel={today:tr("Today's total","آج کا ٹوٹل"),week:tr("Week total","ہفتے کا ٹوٹل"),month:tr("Month total","مہینے کا ٹوٹل"),year:tr("Year total","سال کا ٹوٹل")}[key];
    return '<section class="recitation-period period-'+status+'" data-goal-quality="'+quality+'" data-celebrate-period="'+key+'" data-positive-goal="'+(celebrate?'1':'0')+'" aria-label="'+esc(label)+'">'+
-   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key)+(quality==="partial"?tr(" · Available side only; other data pending"," · دستیاب حساب؛ باقی ریکارڈ سنک ہونا ہے"):""))+'"><small class="period-target-label" dir="auto">'+esc(targetLabel)+'</small><bdi dir="ltr">'+badge+'</bdi></span>'+
+   '<span class="dashboard-period-goal" title="'+esc((key==="today"?targetLabel:periodGoalLabel(key))+(quality==="partial"?tr(" · Available side only; other data pending"," · دستیاب حساب؛ باقی ریکارڈ سنک ہونا ہے"):""))+'"><small class="period-target-label" dir="auto">'+esc(targetLabel)+'</small><bdi dir="ltr">'+badge+'</bdi></span>'+
    '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
    '<div class="dashboard-period-numbers" dir="ltr"><div class="dashboard-period-copy"><small class="period-total-label" dir="auto">'+esc(totalLabel)+'</small><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr" style="color:'+color+'!important;-webkit-text-fill-color:'+color+'!important">'+read+'</strong></div></div>'+
    combinedBreakdown(m,f)+'</section>';
