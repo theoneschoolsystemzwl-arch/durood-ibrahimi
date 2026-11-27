@@ -177,7 +177,7 @@
 
 /* Status meaning is independent of the chosen decorative theme. */
 :root[data-theme] body .dashboard-home #dashboard-period-cards .period-short strong[data-period],
-:root[data-theme] body :is(.wz-red,.wz-ledger-pending,.wz-day-pending,.wz-today-due,.wz-today-due-cell,.wz-five-alert){color:var(--ui-bad)!important;-webkit-text-fill-color:var(--ui-bad)!important}
+:root[data-theme] body :is(.wz-red,.wz-ledger-pending,.wz-day-pending,.wz-five-alert){color:var(--ui-bad)!important;-webkit-text-fill-color:var(--ui-bad)!important}
 :root[data-theme] body .dashboard-home #dashboard-period-cards .period-complete strong[data-period],
 :root[data-theme] body :is(.wz-green,.wz-ledger-green,.wz-day-complete){color:var(--ui-good)!important;-webkit-text-fill-color:var(--ui-good)!important}
 :root[data-theme] body :is(.wz-yellow,.wz-ledger-yellow,.wz-day-extra){color:var(--ui-manual)!important;-webkit-text-fill-color:var(--ui-manual)!important}
@@ -244,3 +244,26 @@
  border-color:var(--ui-accent)!important;
 }
 :root[data-theme] body .member-shell .bottom-nav .nav .nav-icon svg{width:20px;height:20px}
+
+/* Selected-day counter: preserve source colors instead of painting every cell red. */
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell {
+ --wz-figure-ink:var(--ui-ink);
+ color:var(--wz-figure-ink)!important;
+ -webkit-text-fill-color:var(--wz-figure-ink)!important;
+}
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:has(#wz-five-tasbih),
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:has(#wz-five-pending.is-done) {
+ --wz-figure-ink:var(--ui-good);
+}
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:has(#wz-five-manual) {
+ --wz-figure-ink:var(--ui-manual);
+}
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell:has(#wz-five-pending.is-pending) {
+ --wz-figure-ink:var(--ui-bad);
+}
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell > small,
+:root[data-theme] body .wz-hero-reader .wz-daily-toolbar .wz-today-due-cell > strong:is(#wz-five-pending,#wz-five-read,#wz-five-manual,#wz-five-tasbih,#wz-five-goal) {
+ color:var(--wz-figure-ink)!important;
+ -webkit-text-fill-color:var(--wz-figure-ink)!important;
+ text-shadow:none!important;
+}
