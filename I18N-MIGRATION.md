@@ -1,5 +1,6 @@
-# Three-language UI migration (review branch)
+# Three-language migration — staged review branch
 
-This is a staged, incomplete migration, not a production release. The current Urdu layout stays RTL in all modes. The existing switch cycles Urdu → English → Bahasa Indonesia → Urdu and restores saved selection. Prayer labels use the same Arabic-script strings in every mode. The Indonesian dictionary covers 329 common existing English UI phrases. Existing Urdu and English tr() pairs are retained.
-
-Remaining before merge: translate hard-coded labels and errors in classic-app, wazaif, parent portal (index/app.js), PWA and PDF dialogs; finish Indonesian translation of every tr pair including long text and dynamic fragments; protect Arabic scripture and user-authored content; provide explicit separate translated instruction/purpose fields for custom wazifa; synchronize language across iframe and outer portal; verify CSS, mobile width, screen reader labels, forms, prayer dates, counters, and service-worker updates. Do not change Firestore data or counting logic for localization. No production deployment or test run has been performed.
+- Existing locale switch cycles Urdu, English, Indonesian and persists selection. The Urdu RTL layout stays fixed. Prayer names stay in Arabic script.
+- 294 additional exact UI strings cover the login portal and common wirid cards, controls, forms, and static guidance. The earlier Indonesian dictionary has 329 entries.
+- Arabic text and explicitly marked user-authored fields are not translated by the static-label scanner. No database fields or counting rules changed.
+- Incomplete: dynamic phrases, browser confirm dialogs, remaining untranslated dashboard/portal/PDF/PWA texts, custom user-authored translations (require separate language-specific fields), and mobile visual/functional regression checks. Exact-label localization is deliberately conservative; unmatched content remains unchanged. Do not deploy as a finished translation yet.

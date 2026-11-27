@@ -11,6 +11,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="./styles.css">
+  <script src="./ui-locale.js?v=20261127-v1"></script>
+  <script src="./static-locale.js?v=20261127-v2"></script>
   <script defer src="./pull-refresh.js?v=member-ranking-original-large-photo-20261127-v1"></script>
   <script type="module" src="./pwa.js?v=member-ranking-original-large-photo-20261127-v1"></script>
   <script type="module" src="./app.js?release=member-ranking-original-large-photo-20261127-v1"></script>
@@ -71,6 +73,7 @@
 
     <section id="access" class="panel account-card" hidden aria-labelledby="welcome-title">
       <h2 id="welcome-title">خوش آمدید</h2>
+      <button type="button" id="portal-language" class="secondary" data-no-translate>English</button>
       <p class="muted">مالک اور تمام ممبرز اسی فارم سے لاگ اِن کرتے ہیں۔ ممبر نمبر اکاؤنٹ بننے کے بعد پروفائل میں نظر آتا ہے۔</p>
       <div class="access-tabs" role="tablist" aria-label="اکاؤنٹ کے ٹیب">
         <button id="tab-login" type="button" role="tab" aria-selected="true" aria-controls="login-fields" data-tab="login">Login</button>
@@ -270,6 +273,12 @@
   // Even if a CDN module fails to download, the page will not remain stuck
   // forever with no recovery action. This does not sign out or clear data.
   (() => {
+    const scopes=[document.querySelector(".brand-head"),document.getElementById("loading"),document.getElementById("access")];
+    const refreshers=scopes.map(scope=>duroodStaticLocale.mount(scope));
+    const langButton=document.getElementById("portal-language");
+    function syncLanguage(){const lang=duroodStaticLocale.selection();document.documentElement.lang=lang;document.documentElement.dir="rtl";langButton.textContent=duroodLocale.names[duroodLocale.next(lang)];refreshers.forEach(fn=>fn());}
+    langButton.addEventListener("click",()=>{try{localStorage.setItem("durood-language",duroodLocale.next(duroodStaticLocale.selection()));}catch{}syncLanguage();});
+    window.addEventListener("storage",event=>{if(event.key==="durood-language")syncLanguage();});syncLanguage();
     const retry=document.getElementById("loading-retry");
     retry.addEventListener("click",()=>location.reload());
     setTimeout(()=>{

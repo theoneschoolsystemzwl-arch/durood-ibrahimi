@@ -1538,6 +1538,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 <noscript>Enable JavaScript to use this demo.</noscript>
 <script src="./hijri-session.js?v=hijri-first-year-count-20261126-v1"></script>
 <script src="./ui-locale.js?v=20261127-v1"></script>
+<script src="./static-locale.js?v=20261127-v2"></script>
 <script>
 'use strict';
 
@@ -5052,7 +5053,7 @@ function render({keepScroll = false} = {}) {
   app.innerHTML = person ? content : content + appFooter(null);
   if(person)syncDashboardFireworks();
   else {resetProfileCelebration();}
-  if (person && section === 'tasbih') window.duroodWazaif?.render?.();
+  if (person && section === 'tasbih') { window.duroodWazaif?.render?.(); window.duroodStaticLocale?.mount(document.getElementById('wazaif-root')); }
   if (person && section === 'wazifa-reader') updateReader();
   if(person)updateNextPrayerTicker();
   const dock = app.querySelector('.nav-inner');
