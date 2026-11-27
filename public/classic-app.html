@@ -2299,7 +2299,7 @@ function profileCard(person) {
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
     topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
-    '<small class="muted direct-invites">'+tr('Group total Wird: ','گروپ کا مجموعی ورد: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
+    '<small class="muted direct-invites">'+tr('All-time Durood recited','تمام اراکین کا مجموعی ورد')+': <bdi data-profile-community-wird>'+dashboardTotalText()+'</bdi></small>' +
     '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
     '<bdi data-profile-member-count>'+formatNumber(inviteCount)+'</bdi></small>' +
     (!person.isOwner?'<small class="muted member-community-line">'+tr("Total members in community","کمیونٹی کے کل ارکان")+' · <bdi>'+(groupDirectoryReady?displayNumber(visibleMembers().filter(p=>p.gender===person.gender).length):'—')+'</bdi></small>'+
@@ -2601,7 +2601,7 @@ function ownGroupTotalText(){
  return person&&!ownerViewingWomen()?groupWirdText(person):"—";
 }
 function refreshMemberGroupProgress(){
- document.querySelectorAll("[data-own-group-total]").forEach(node=>{node.textContent=ownGroupTotalText();});
+ // The profile community total is refreshed by refreshDashboardDatedTotal.
  window.duroodWazaif?.refreshGroupTargets?.();
 }
 function openMemberDailyTarget(){
@@ -2775,7 +2775,8 @@ function combinedSideCount(side,key){
 function dashboardDatedTotal(){return combinedSum(combinedSideCount("male","all"),combinedSideCount("female","all"));}
 function dashboardTotalText(){return combinedNumber(dashboardDatedTotal());}
 function refreshDashboardDatedTotal(){
- const el=document.getElementById("global-total");if(el){const value=dashboardTotalText();if(el.textContent!==value)el.textContent=value;}
+ const value=dashboardTotalText();
+ document.querySelectorAll("[data-profile-community-wird], #global-total").forEach(el=>{if(el.textContent!==value)el.textContent=value;});
  const split=document.getElementById("global-total-mf");if(split){const html=combinedBreakdown(combinedSideCount("male","all"),combinedSideCount("female","all"));if(split.innerHTML!==html)split.innerHTML=html;}
 }
 let dashboardGroupTitle='';
