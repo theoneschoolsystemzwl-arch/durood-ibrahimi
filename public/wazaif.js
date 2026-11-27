@@ -173,7 +173,7 @@ const state={
  profile:null,group:null,groupExists:false,groupStats:null,groupMember:null,groupDays:{},groupDaysReady:false,yearStats:null,personal:[],
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
- subscriptions:[],started:false,personalStarted:false,personalReady:false,noticeDismissed:false,noticeManual:false,bootstrapTried:false,busy:false,
+ subscriptions:[],started:false,personalStarted:false,personalReady:false,noticeDismissed:false,noticeManual:false,noticeAutoOpen:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
  seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
 };
@@ -413,7 +413,7 @@ function setMember(profile){
   if(!profile?.uid)return;
   if(state.profile?.uid===profile.uid){state.profile=profile;return;}
   stop();
-  state.profile=profile;state.noticeDismissed=false;state.noticeManual=false;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
+  state.profile=profile;state.noticeDismissed=false;state.noticeManual=false;state.noticeAutoOpen=false;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
   state.yearStats=null;state.groupMember=null;state.groupDays={};state.groupDaysReady=false;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
   state.bootstrapTried=false;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.continueEdit=false;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
 }
@@ -466,6 +466,26 @@ function pendingPersonalTask(task){
  const priorDue=Math.max(0,previousGoal-previousRead-Math.max(0,todayRead-todayGoal));
  return todayDue+priorDue>0?{title:task.title,today:todayDue,previous:priorDue,total:todayDue+priorDue}:null;
 }
+// Persist the reminder cooldown per account on this installation, even across refresh/logout.
+const pendingNoticeCooldownMs=24*60*60*1000;
+const pendingNoticeLastSeen=new Map();
+function pendingNoticeKey(uid){return "durood-pending-notice-last-shown-v1:"+uid;}
+function pendingNoticeLastTime(uid){
+ if(!uid)return 0;
+ let saved=0;
+ try{saved=Number(localStorage.getItem(pendingNoticeKey(uid)))||0;}catch{}
+ return Math.max(saved,pendingNoticeLastSeen.get(uid)||0);
+}
+function markPendingNoticeTime(){
+ const uid=state.profile?.uid;
+ if(!uid||auth.currentUser?.uid!==uid)return;
+ const now=Date.now();pendingNoticeLastSeen.set(uid,now);
+ try{localStorage.setItem(pendingNoticeKey(uid),String(now));}catch{}
+}
+function pendingNoticeDue(){
+ const last=pendingNoticeLastTime(state.profile?.uid);
+ return !last||Date.now()-last>=pendingNoticeCooldownMs;
+}
 function hidePendingNotice(host){
  if(!host)return;
  if(host.open)host.close();
@@ -485,7 +505,8 @@ function refreshPendingNotice(){
  subscribePersonal();
  const group=window.duroodGroupPendingNotice?.();
  const rows=[...(group&&group.total>0?[group]:[]),...(state.personalReady?personalList().map(pendingPersonalTask).filter(Boolean):[])];
- const shouldOpen=!state.noticeDismissed&&(state.noticeManual||(host.dataset.auto==="true"&&rows.length>0));
+ const autoEligible=host.dataset.auto==="true"&&rows.length>0;
+ const shouldOpen=!state.noticeDismissed&&(state.noticeManual||(autoEligible&&(state.noticeAutoOpen||pendingNoticeDue())));
  if(!shouldOpen){hidePendingNotice(host);updatePendingBell(rows.length,false);return;}
  const english=document.documentElement.lang==="en";
  const title=english?"Pending recitations":"باقی وظائف کی یاد دہانی";
@@ -495,10 +516,15 @@ function refreshPendingNotice(){
  if(host.innerHTML!==markup)host.innerHTML=markup;
  host.hidden=false;
  if(!host.open&&host.isConnected)host.show();
+ if(host.open&&!state.noticeManual&&!state.noticeAutoOpen){
+   state.noticeAutoOpen=true;markPendingNoticeTime();
+ }
  updatePendingBell(rows.length,host.open);
 }
 function dismissPendingNotice(){
- state.noticeDismissed=true;state.noticeManual=false;
+ const host=$("#wz-dashboard-pending");
+ if(host?.open)markPendingNoticeTime();
+ state.noticeDismissed=true;state.noticeManual=false;state.noticeAutoOpen=false;
  refreshPendingNotice();
 }
 document.addEventListener("click",event=>{
@@ -2349,7 +2375,7 @@ document.addEventListener("durood:before-refresh",event=>{
 });
 window.duroodWazaif={
  setMember,render,back,
- refreshPendingNotice,resetPendingNotice:()=>{state.noticeDismissed=false;state.noticeManual=false;},
+ refreshPendingNotice,resetPendingNotice:()=>{state.noticeDismissed=false;state.noticeManual=false;state.noticeAutoOpen=false;},
  groupData:currentGroup,
  groupArabicMarkup:()=>pdfMark(currentGroup().arabic)?pdfViewerMarkup(currentGroup().arabic,"group"):null,
  refreshGroupTargets:()=>{refreshPendingNotice();if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
