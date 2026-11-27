@@ -2518,6 +2518,8 @@ function targetAuditMarkup(){
  if(!rows)return '<p class="muted">'+tr("Confirmed targets not yet available. Check connection and permissions; totals are not guessed.","تصدیق شدہ اہداف ابھی دستیاب نہیں۔ انٹرنیٹ اور اجازت چیک کریں؛ اندازے سے ہدف نہیں دکھایا جائے گا۔")+'</p>';
  const g=aggregateGroupTargets(ownerGoalRows,day,dashboardGroupSettings);
  const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
+ // Total the same confirmed saved Durood counts shown in this side’s member rows.
+ const totalRead=savedMemberWirdsComplete?rows.reduce((sum,row)=>sum+(savedMemberWirds.get(row.uid)??0),0):null;
  return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
  '<p class="muted">'+value(g.activeMembers)+tr(" active members; "," فعال ممبرز؛ ")+value(g.missingTargets)+tr(" targets not set."," کے ہدف مقرر نہیں۔")+' '+esc(day)+'</p><p class="muted" dir="ltr">'+esc(g.annualStartDate)+' — '+esc(g.annualEndDate)+'</p>'+
  '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Read / target to date","پڑھا / آج تک ہدف")+'</span><span>'+tr("Annual","سالانہ")+'</span></div>'+
@@ -2531,7 +2533,7 @@ function targetAuditMarkup(){
     (row.goal===null&&row.legacyGoal!==null?'<small>'+tr("Old group target (not counted): ","پرانا گروپ ہدف (شامل نہیں): ")+value(row.legacyGoal)+'</small>':"")+'</span>'+
     '<span>'+goal+'</span><span>'+targetAuditProgressMarkup(progress)+'<small>'+value(row.days)+tr(" session days"," سیشن دن")+'</small></span><span>'+value(row.annual)+'</span></div>';
  }).join("")+
- '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b>'+"—"+'</b><b>'+value(noTargets?null:g.yearlyGoal)+'</b></div></div>'+
+ '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b><bdi dir="ltr">'+value(totalRead)+'</bdi><small>'+tr("All-time Durood recited","اب تک گروپ کا کل پڑھا گیا درود")+'</small></b><b>'+value(noTargets?null:g.yearlyGoal)+'</b></div></div>'+
  '<p class="muted">'+tr("Read / target to date uses the saved all-time Durood total and effective-dated daily goals from membership through today. Red: below target; green: target met or exceeded.","پڑھا / آج تک ہدف میں Firebase کا محفوظ مجموعی درود اور رکنیت سے آج تک تاریخ وار مقررہ روزانہ اہداف شامل ہیں۔ سرخ: کم؛ سبز: برابر یا زیادہ۔")+'</p>'+
  '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. Each session ends on 12 Rabi al-Awwal; the next starts on 13 Rabi al-Awwal. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ ہر سال 12 ربیع الاول کو ختم اور 13 ربیع الاول کو شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
 }
