@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=pending-wazaif-popup-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=pending-wazaif-bell-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=pending-wazaif-popup-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=pending-wazaif-bell-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=pending-wazaif-popup-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=pending-wazaif-bell-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1534,7 +1534,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 </style>
 <style id="pending-wazaif-notice">
 #wz-dashboard-pending[hidden],#wz-dashboard-pending:not([open]){display:none!important}
-:root[data-theme] #wz-dashboard-pending{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(88vw,340px);max-width:340px;max-height:65vh;max-height:65dvh;padding:8px 10px;border:1px solid #d7b469;border-radius:13px;background:linear-gradient(150deg,#123e31,#06291f);color:#f6fff8;box-shadow:0 12px 40px #00140ec0;overflow:hidden}
+:root[data-theme] #wz-dashboard-pending{position:fixed;z-index:400;inset:0;margin:auto;box-sizing:border-box;width:min(88vw,340px);max-width:340px;max-height:65vh;max-height:65dvh;padding:8px 10px;border:1px solid #d7b469;border-radius:13px;background:linear-gradient(150deg,#123e31,#06291f);color:#f6fff8;box-shadow:0 12px 40px #00140ec0;overflow:hidden}
 #wz-dashboard-pending[open]{display:flex;flex-direction:column;gap:3px}
 #wz-dashboard-pending::backdrop{background:rgba(0,20,15,.52)}
 #wz-dashboard-pending .wz-pending-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-bottom:5px;border-bottom:1px solid #bf995c66;flex:none}
@@ -1548,6 +1548,13 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 #wz-dashboard-pending li strong{color:#fff;overflow-wrap:anywhere}
 #wz-dashboard-pending .wz-pending-total{color:#ffcf93;font-weight:800}
 #wz-dashboard-pending li small{width:100%;color:#cde8d9;font-size:.73rem}
+
+:root[data-theme] .profile-card .wz-profile-bell{position:relative;display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-height:0;padding:0;color:#ffe0a0;background:#0b4839;border:1px solid #b69a60;border-radius:10px;cursor:pointer}
+.profile-card .wz-profile-bell[aria-expanded="true"]{background:#d8b76e;color:#173b2d}
+.profile-card .wz-profile-bell.has-pending{box-shadow:0 0 0 1px #e8bd63}
+.profile-card .wz-profile-bell [data-wz-notice-count]{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 2px;display:grid;place-items:center;background:#c63936;color:#fff;border-radius:10px;font:800 10px/1 system-ui}
+.profile-card .wz-profile-bell [data-wz-notice-count][hidden]{display:none!important}
+#wz-dashboard-pending .wz-pending-empty{margin:6px 0;text-align:center;font-size:.83rem;color:#cde8d9}
 </style>
 </head>
 <body>
@@ -2262,7 +2269,7 @@ function profileCard(person) {
   const role = person.id === 1 ? tr("Owner", 'مالک') : tr("Member", 'رکن');
   const inviteCount = groupMemberCount(person);
   return tr("<header class=\"app-head\"><section class=\"profile-card\" aria-label=\"Your account\">", '<header class="app-head"><section class="profile-card" aria-label="آپ کا اکاؤنٹ">') +
-    topCornerControls() + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
+    topCornerControls(true) + '<div class="profile-greeting">' + photoWithWird(person,true) + '<div class="profile-copy">' +
     '<strong dir="auto">' + esc(memberName(person)) + '</strong>' +
     '<small class="muted direct-invites">'+tr('Group total Wird: ','گروپ کا مجموعی ورد: ')+'<bdi data-own-group-total>'+ownGroupTotalText()+'</bdi></small>' +
     '<small class="muted direct-invites">' + ((person.isOwner||person.isFoundingSpouse)?tr('Group members (including founder): ','بانی سمیت گروپ کے ارکان: '):tr('Your member count: ', 'آپ کے شامل کردہ ممبرز: ')) +
@@ -4856,7 +4863,7 @@ function dashboard(person) {
   if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
   return '<div class="shell">' + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+(section==="overview"?"":prayerTickerMarkup(person))+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
-    (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women&&section==="overview"?'<dialog id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" aria-labelledby="wz-pending-title" hidden></dialog>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
+    (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women?'<dialog id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" data-auto="'+(section==="overview")+'" aria-labelledby="wz-pending-title" hidden></dialog>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
     availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + (key==="members"?"ranking":key) +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + dashboardNavIcon(key) + '</span>' + label + '</button>').join('') +
@@ -4913,10 +4920,11 @@ function sectionSwitch(person) {
     (women ? 'male' : 'female') + '">' + (women ? tr('Men’s section','مردوں کا سیکشن') : tr('Women’s section','خواتین کا سیکشن')) + '</button>';
 }
 
-function topCornerControls(){
+function topCornerControls(withReminder=false){
   const next=language==='ur'?'en':'ur';
   return '<div class="top-corners"><button type="button" class="corner-link" data-action="language" data-value="'+next+'">'+(next==='en'?'English':'اردو')+'</button>'+
     '<button type="button" class="corner-link" data-durood-refresh aria-label="'+tr("Refresh","ریفریش")+'">↻ '+tr("Refresh","ریفریش")+'</button>'+
+    (withReminder?'<button type="button" class="wz-profile-bell" data-wz-toggle-notice aria-controls="wz-dashboard-pending" aria-expanded="false" aria-label="'+tr("Pending recitations","باقی وظائف")+'"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span data-wz-notice-count hidden></span></button>':"")+
     '<button type="button" class="corner-link" data-action="nav" data-value="about">'+tr("About","تعارف")+'</button></div>';
 }
 function nextPrayerCountdown(person,now=Date.now()){
@@ -5095,7 +5103,7 @@ function render({keepScroll = false} = {}) {
       tr('Back to login','لاگ اِن پر واپس جائیں') + '</button></p></main>'
     : authMarkup();
   app.innerHTML = person ? content : content + appFooter(null);
-  if(person){syncDashboardFireworks();if(section==="overview"&&!ownerViewingWomen())window.duroodWazaif?.refreshPendingNotice?.();}
+  if(person){syncDashboardFireworks();if(!ownerViewingWomen())window.duroodWazaif?.refreshPendingNotice?.();}
   else {resetProfileCelebration();}
   if (person && section === 'tasbih') window.duroodWazaif?.render?.();
   if (person && section === 'wazifa-reader') updateReader();
@@ -5840,13 +5848,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=pending-wazaif-popup-20261127-v1";
+import "./wazaif.js?release=pending-wazaif-bell-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-wazaif-popup-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-wazaif-bell-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
