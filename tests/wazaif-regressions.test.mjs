@@ -694,6 +694,7 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
 
 // The audit footer keeps both genders separate and totals only confirmed member rows.
 {
+ const classic=fs.readFileSync("public/classic-app.html","utf8");
  const start=classic.indexOf("function targetAuditReadTotal("),end=classic.indexOf("function targetAuditMarkup()",start);
  assert(start>=0&&end>start);
  const ctx=vm.createContext({combinedNumber:n=>Number.isSafeInteger(n)?String(n):"—"});
