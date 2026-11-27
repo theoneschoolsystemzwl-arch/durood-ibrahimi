@@ -173,7 +173,7 @@ const state={
  profile:null,group:null,groupExists:false,groupStats:null,groupMember:null,groupDays:{},groupDaysReady:false,yearStats:null,personal:[],
  mode:"list",formScope:"personal",editId:null,readerId:null,panel:null,error:"",
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
- subscriptions:[],started:false,bootstrapTried:false,busy:false,
+ subscriptions:[],started:false,personalStarted:false,personalReady:false,noticeDismissed:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
  seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
 };
@@ -407,13 +407,13 @@ async function reconcileLegacySerials(){
 function stop(){
   wzSync.stop();
   state.subscriptions.forEach(fn=>{try{fn();}catch{}});
-  state.subscriptions=[];state.started=false;state.migrating=false;state.migrationPromise=null;
+  state.subscriptions=[];state.started=false;state.personalStarted=false;state.personalReady=false;state.migrating=false;state.migrationPromise=null;
 }
 function setMember(profile){
   if(!profile?.uid)return;
   if(state.profile?.uid===profile.uid){state.profile=profile;return;}
   stop();
-  state.profile=profile;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
+  state.profile=profile;state.noticeDismissed=false;wzSync.start(profile.uid);state.group=null;state.groupExists=false;state.groupStats=null;
   state.yearStats=null;state.groupMember=null;state.groupDays={};state.groupDaysReady=false;state.personal=[];state.inbox=[];state.shareFor=null;state.shareNotice="";state.mode="list";state.error="";
   state.bootstrapTried=false;state.tapQueue=0;state.lastTapAt=0;state.tapMetaQueue=[];state.historyDay=null;state.continueFor=null;state.continueEdit=false;state.tapBusy=false;state.historyLimit=60;state.draftDay=null;
 }
@@ -439,6 +439,52 @@ async function initializeGroup(){
     });
   }catch(e){setError("گروپ کی پہلی سیٹنگ محفوظ نہیں ہو سکی: "+(e.code||e.message));}
 }
+function subscribePersonal(){
+ if(state.personalStarted||!state.profile?.uid||auth.currentUser?.uid!==state.profile.uid)return;
+ const uid=state.profile.uid;state.personalStarted=true;
+ const ownCollection=query(collection(db,"memberWazaif",uid,"items"),limit(100));
+ state.subscriptions.push(onSnapshot(ownCollection,{includeMetadataChanges:true},snap=>{
+   if(auth.currentUser?.uid!==uid||state.profile?.uid!==uid)return;
+   state.personal=snap.docs.map(d=>({id:d.id,...d.data()}));
+   state.personalReady=!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites;
+   refreshPendingNotice();
+   if(state.mode!=="form")render();
+   if(state.personalReady&&$("#wazaif-root"))void reconcileLegacySerials();
+ },err=>{if(auth.currentUser?.uid===uid){state.personalReady=false;refreshPendingNotice();console.warn("Personal reminder records unavailable",err?.code);}}));
+}
+function pendingPersonalTask(task){
+ const today=readingDay();
+ if(!["daily","fixed"].includes(task.kind)||!dayOk(task.startDate)||task.startDate>today||pausedOn(task,today))return null;
+ const rows=datedProgress(task);
+ const last=rows.at(-1);if(!last)return null;
+ const current=last.day===today?last:null;
+ const todayGoal=targetForDay(task,today);
+ const todayRead=Math.max(0,Number(task.dailyLedger?.[today]?.count??(task.day===today?task.today:0))||0);
+ const previousRead=(current?last.cumulativeRead-last.count:last.cumulativeRead);
+ const previousGoal=(current?last.cumulativeGoal-last.goal:last.cumulativeGoal);
+ const todayDue=Math.max(0,todayGoal-todayRead-Math.max(0,previousRead-previousGoal));
+ const priorDue=Math.max(0,previousGoal-previousRead-Math.max(0,todayRead-todayGoal));
+ return todayDue+priorDue>0?{title:task.title,today:todayDue,previous:priorDue,total:todayDue+priorDue}:null;
+}
+function refreshPendingNotice(){
+ const host=$("#wz-dashboard-pending");
+ if(!host)return;
+ if(state.noticeDismissed||!state.profile?.uid||auth.currentUser?.uid!==state.profile.uid){host.hidden=true;return;}
+ subscribePersonal();
+ const group=window.duroodGroupPendingNotice?.();
+ const rows=[...(group&&group.total>0?[group]:[]),...(state.personalReady?personalList().map(pendingPersonalTask).filter(Boolean):[])];
+ if(!rows.length){host.hidden=true;return;}
+ const english=document.documentElement.lang==="en";
+ const title=english?"Pending recitations":"باقی وظائف کی یاد دہانی";
+ const markup='<div class="wz-pending-head"><strong>'+title+'</strong><button type="button" class="wz-pending-close" aria-label="'+(english?"Close":"بند کریں")+'" data-wz-dismiss-notice>×</button></div>'+
+ '<ol>'+rows.map((row,i)=>'<li><span class="wz-pending-index">'+(i+1)+'</span><div><strong dir="auto">'+esc(row.title||"")+'</strong><span class="wz-pending-total">'+(english?"Total pending: ":"کل باقی: ")+fmt(row.total)+'</span><small>'+(english?"Today: ":"آج باقی: ")+fmt(row.today)+' · '+(english?"Previous: ":"سابقہ باقی: ")+fmt(row.previous)+'</small></div></li>').join("")+'</ol>';
+ if(host.innerHTML!==markup)host.innerHTML=markup;
+ host.hidden=false;
+}
+document.addEventListener("click",event=>{
+ if(!event.target?.closest?.("[data-wz-dismiss-notice]"))return;
+ state.noticeDismissed=true;const host=$("#wz-dashboard-pending");if(host)host.hidden=true;
+});
 function subscribe(){
   if(state.started||!state.profile||!auth.currentUser)return;
   const uid=state.profile.uid;state.started=true;
@@ -466,12 +512,7 @@ function subscribe(){
     state.groupDaysReady=!snap.metadata.fromCache;
     if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();
   }),err));
-  const ownCollection=query(collection(db,"memberWazaif",uid,"items"),limit(100));
-  state.subscriptions.push(onSnapshot(ownCollection,safe(snap=>{
-    state.personal=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(state.mode!=="form")render();
-    void reconcileLegacySerials();
-  }),err));
+  subscribePersonal();
   state.subscriptions.push(onSnapshot(query(inboxCollection(uid),limit(100)),safe(snap=>{
     state.inbox=snap.docs.map(d=>({id:d.id,...d.data()}))
       .sort((a,b)=>(Number(a.createdAt?.seconds)||0)-(Number(b.createdAt?.seconds)||0));
@@ -1343,6 +1384,7 @@ function render(){
  if(!root||!state.profile)return;
  if(!["personal-reader","group-reader"].includes(state.mode)&&state.immersive)setWazifaImmersive(false);
  if(!state.started)subscribe();
+ if(state.personalReady)void reconcileLegacySerials();
  if(state.mode==="shared-form"){
    if(root.querySelector("#wz-shared-form"))return;
    root.innerHTML=sharedSetupMarkup();return;
@@ -2278,9 +2320,10 @@ document.addEventListener("durood:before-refresh",event=>{
 });
 window.duroodWazaif={
  setMember,render,back,
+ refreshPendingNotice,resetPendingNotice:()=>{state.noticeDismissed=false;},
  groupData:currentGroup,
  groupArabicMarkup:()=>pdfMark(currentGroup().arabic)?pdfViewerMarkup(currentGroup().arabic,"group"):null,
- refreshGroupTargets:()=>{if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
+ refreshGroupTargets:()=>{refreshPendingNotice();if(state.mode==="group-reader")refreshHeroReader();else if(state.mode==="list")render();const el=$("#wazifa-form [data-wz-auto-goals]");if(el){const html=autoGroupGoalMarkup();if(el.innerHTML!==html)el.innerHTML=html;}},
  activeGroup:()=>state.groupExists&&currentGroup().active===true,
  groupCountsAsDurood:()=>currentGroup().countAsDurood!==false
 };
