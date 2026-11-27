@@ -424,3 +424,13 @@
 /* Four equal columns on every screen; preserve existing typography and effects. */
 :root[data-theme] .dashboard-home #dashboard-period-cards{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px;min-width:0;width:100%;}
 :root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{min-width:0;padding-inline:3px;}
+
+/* Compact shared dashboard: preserve the existing four columns, colors and large counts. */
+:root[data-theme] .dashboard-home #dashboard-period-cards .recitation-period{grid-template-rows:auto auto 1fr auto;gap:0;align-items:center}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-goal{grid-row:1;grid-column:1;position:static;justify-self:end;align-self:start;padding:0 2px;line-height:1.05}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-heading{grid-row:2;grid-column:1;line-height:1.25}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-period-numbers{grid-row:3;grid-column:1;grid-template-rows:1fr;gap:0}
+:root[data-theme] .dashboard-home #dashboard-period-cards .dashboard-mf{grid-row:4;grid-column:1;align-self:end}
+:root[data-theme] .dashboard-home .dashboard-mf{display:block;direction:ltr;white-space:nowrap;max-width:100%;font:650 clamp(.43rem,1.7vw,.76rem)/1.2 system-ui,sans-serif;text-align:center;color:#d5eee2;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+:root[data-theme] .dashboard-home #group-target-cards .dashboard-mf{font:650 clamp(.43rem,1.8vw,.79rem)/1.2 system-ui,sans-serif;white-space:nowrap;color:#e0f5ec;opacity:1}
+:root[data-theme] .dashboard-home .all-time-durood-card .dashboard-mf{font:650 clamp(.6rem,2.3vw,.9rem)/1.2 system-ui,sans-serif;color:#ffe4a2}

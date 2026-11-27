@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=pending-bell-next-to-logout-20261127-v2">
+<link rel="stylesheet" href="./wazaif.css?v=combined-dashboard-mf-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=pending-bell-next-to-logout-20261127-v2"></script>
+<script defer src="./pull-refresh.js?v=combined-dashboard-mf-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=pending-bell-next-to-logout-20261127-v2">
+<link rel="stylesheet" href="./dashboard-reference.css?v=combined-dashboard-mf-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -2401,16 +2401,37 @@ function groupSessionCountdown(period,now=new Date()){
  const two=n=>String(n).padStart(2,"0");
  return [[days,"دن"],[two(hours),"گھنٹے"],[two(mins),"منٹ"],[two(secs),"سیکنڈ"]].map(([value,label])=>'<span><b dir="ltr">'+value+'</b><em dir="rtl">'+label+'</em></span>').join("");
 }
+// Dashboard-only aggregate numbers: never pass these into personal, reader or tree calculations.
+let combinedGoalRows=null,combinedPublishedTargets=null;
+let combinedDatedCounts={male:null,female:null};
+const combinedValid=n=>Number.isSafeInteger(n)&&n>=0;
+const combinedSum=(m,f)=>combinedValid(m)&&combinedValid(f)?m+f:null;
+const combinedNumber=n=>combinedValid(n)?formatNumber(n):"—";
+function combinedBreakdown(m,f){return '<small class="dashboard-mf" dir="ltr">M '+combinedNumber(m)+' + F '+combinedNumber(f)+'</small>';}
+function combinedSideTargets(rows,day){
+ const g=aggregateGroupTargets(rows,day,dashboardGroupSettings);
+ const exact=runningDashboardTargets(rows,day,dashboardGroupSettings),known=knownDashboardTargets(rows,day,dashboardGroupSettings);
+ const out={dailyGoal:g.dailyGoal,yearlyGoal:g.yearlyGoal};
+ for(const k of ["today","week","month","year"]){
+   out[k]=exact?.[k]??known?.[k]??(g.activeMembers===0&&rows.length===0?0:null);
+ }
+ return out;
+}
+function combinedLiveTargets(){
+ if(!combinedGoalRows||!dashboardGroupSettings)return null;
+ const day=globalDateKey();
+ return {day,male:combinedSideTargets(combinedGoalRows.male,day),female:combinedSideTargets(combinedGoalRows.female,day)};
+}
+function combinedDashboardTargets(){
+ const live=currentUser()?.isOwner?combinedLiveTargets():null;
+ return live||(combinedPublishedTargets?.day===globalDateKey()?combinedPublishedTargets:null);
+}
 function dashboardTargetCards(){
- if(!currentUser()?.isOwner)return "";
- const g=window.duroodAggregateGroupTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
- const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
- const sideLabel=window.duroodCurrentSide==="female"?tr("Women","خواتین"):tr("Men","مرد");
- const noTargets=g&&g.activeMembers>0&&g.missingTargets===g.activeMembers;
- const memberCount=g?value(g.activeMembers)+tr(" members"," ممبران"):"—";
- const incomplete=g?.missingTargets?'<small>'+esc(String(g.missingTargets))+tr(" target(s) not set"," ممبرز کے اہداف مقرر نہیں")+'</small>':"";
- return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+(noTargets?"—":value(g?.dailyGoal))+'</strong><small>'+tr("Daily target","روزانہ ہدف")+' · '+memberCount+'</small>'+incomplete+'</section>'+
- '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+value(noTargets?null:g?.yearlyGoal)+'</strong>'+(g?.missingJoinDates?'<small>'+tr("Membership date missing","رکنیت کی تاریخ دستیاب نہیں")+'</small>':(!p?'<small>'+tr("Calendar year","کیلنڈر سال")+'</small>':""))+'</section>'+
+ const t=combinedDashboardTargets(),p=annualTargetPeriod(dashboardGroupSettings,globalDateKey());
+ const m=t?.male,f=t?.female;
+ const daily=combinedSum(m?.dailyGoal,f?.dailyGoal),annual=combinedSum(m?.yearlyGoal,f?.yearlyGoal);
+ return '<section class="recitation-banner group-overall-target"><h2>مجموعی ہدف</h2><strong dir="ltr">'+combinedNumber(daily)+'</strong>'+combinedBreakdown(m?.dailyGoal,f?.dailyGoal)+'</section>'+
+ '<section class="recitation-banner group-annual-target"><h2>سالانہ ہدف</h2><strong dir="ltr">'+combinedNumber(annual)+'</strong>'+combinedBreakdown(m?.yearlyGoal,f?.yearlyGoal)+'</section>'+
  '<section class="recitation-banner group-end-date"><h2>اختتامی تاریخ</h2><strong dir="ltr">'+(p?esc(p.end):"—")+'</strong><small>'+(p?'12 ربیع الاول'+(p.confirmed?'':' · تخمینی'):'')+'</small><small class="group-countdown" data-group-session-countdown>'+groupSessionCountdown(p)+'</small></section>';
 }
 function targetAuditProgressMarkup(progress){
@@ -2670,13 +2691,19 @@ function readerList(){
 
 const dashboardCountStart="2026-11-01";
 let periodCounts=null,periodDatedCounts=null;
-function dashboardDatedTotal(){
- if(!periodDatedCounts)return null;
- const today=globalDateKey();
- return Object.entries(periodDatedCounts).filter(([day])=>day>=dashboardCountStart&&day<=today).reduce((sum,[,n])=>sum+n,0);
+function combinedSideCount(side,key){
+ const rows=combinedDatedCounts[side];if(!rows)return null;
+ const today=globalDateKey(),p=annualTargetPeriod(dashboardGroupSettings,today);
+ const start=key==="today"?today:key==="week"?targetAddDays(today,-((new Date(today+"T00:00:00Z").getUTCDay()+6)%7)):key==="month"?today.slice(0,7)+"-01":key==="year"?(p?.countStart||p?.start):dashboardCountStart;
+ if(!start)return null;
+ return Object.entries(rows).filter(([day])=>day>=dashboardCountStart&&day>=start&&day<=today&&(key!=="year"||day<=p.end)).reduce((sum,[,n])=>sum+n,0);
 }
-function dashboardTotalText(){const total=dashboardDatedTotal();return Number.isSafeInteger(total)&&total>=0?new Intl.NumberFormat("en-US").format(total):"—";}
-function refreshDashboardDatedTotal(){const el=document.getElementById("global-total");if(el){const value=dashboardTotalText();if(el.textContent!==value||el.childNodes.length!==1||el.firstChild?.nodeType!==3)el.replaceChildren(document.createTextNode(value));}}
+function dashboardDatedTotal(){return combinedSum(combinedSideCount("male","all"),combinedSideCount("female","all"));}
+function dashboardTotalText(){return combinedNumber(dashboardDatedTotal());}
+function refreshDashboardDatedTotal(){
+ const el=document.getElementById("global-total");if(el){const value=dashboardTotalText();if(el.textContent!==value)el.textContent=value;}
+ const split=document.getElementById("global-total-mf");if(split){const html=combinedBreakdown(combinedSideCount("male","all"),combinedSideCount("female","all"));if(split.innerHTML!==html)split.innerHTML=html;}
+}
 let dashboardGroupTitle='';
 function groupTitleLabel(){
   return dashboardGroupTitle || tr('Group wazifa','گروپ وظیفہ');
@@ -2766,31 +2793,19 @@ function periodGoalLabel(key){
  return {today:tr("Daily goal","روزانہ ہدف"),week:tr("Weekly goal to date","آج تک ہفتہ وار ہدف"),month:tr("Monthly goal to date","آج تک ماہانہ ہدف"),year:tr("Hijri year goal to date","آج تک سالانہ ہدف")}[key];
 }
 function metricPeriodCards(){
- const day=globalDateKey(),uid=currentUser()?.uid,side=window.duroodCurrentSide;
- const goals=runningDashboardTargets(ownerGoalRows,day,dashboardGroupSettings);
- const known=knownDashboardTargets(ownerGoalRows??dashboardPartialGoalRows,day,dashboardGroupSettings);
- // Cache only verified aggregate values, never another account/side or date.
- const key=uid&&["male","female"].includes(side)?"durood-period-goals-v1:"+uid+":"+side+":"+day:null;
- let previous={};
- if(key){try{previous=JSON.parse(localStorage.getItem(key)||sessionStorage.getItem(key)||"{}")||{};}catch{}}
- const live={...previous};
- for(const period of ["today","week","month","year"]){
-  const value=dashboardPeriodGoal(period,goals);
-  if(value!==null)live[period]=value;
- }
- if(key){try{localStorage.setItem(key,JSON.stringify(live));}catch{}}
+ const t=combinedDashboardTargets();
  return periodLabels().map(([key,label])=>{
-   const goal=dashboardPeriodGoal(key,goals),count=dashboardPeriodCount(key);
-   const partial=goal===null?dashboardPeriodGoal(key,known):null;
-   const {displayed,quality,status,color,celebrate}=periodCardComparison(count,goal,previous[key],partial,Array.isArray(ownerGoalRows));
-   const badge=displayed===null?"—":displayNumber(displayed),read=count===null?"—":displayNumber(count);
-   const badgeLabel=quality==="configured"?tr("Confirmed set goals; members without targets excluded","تصدیق شدہ مقررہ اہداف؛ بغیر ہدف والے ممبرز شامل نہیں"):quality==="cached"?tr("Last verified goal","آخری تصدیق شدہ ہدف"):quality==="partial"?tr("Known goals only; full target not confirmed","معلوم اہداف؛ مکمل ہدف کی تصدیق باقی"):quality==="unknown"?tr("Goal sync pending","ہدف سنک باقی"):tr("Goal","ہدف");
-    return '<section class="recitation-period period-'+status+'" data-goal-quality="'+quality+'" data-celebrate-period="'+key+'" data-positive-goal="'+(celebrate?'1':'0')+'" aria-label="'+esc(label)+'">'+
+   const m=t?.male?.[key],f=t?.female?.[key],goal=combinedSum(m,f);
+   const count=combinedSum(combinedSideCount("male",key),combinedSideCount("female",key));
+   const status=goal>0?periodGoalStatus(count,goal):"unknown";
+   const color=status==="complete"?"#6effa0":status==="short"?"#ff777f":"#ffffff";
+   const quality=goal===null?"unknown":"live",celebrate=status==="complete"&&goal>0;
+   const badge=combinedNumber(goal),read=combinedNumber(count);
+   return '<section class="recitation-period period-'+status+'" data-goal-quality="'+quality+'" data-celebrate-period="'+key+'" data-positive-goal="'+(celebrate?'1':'0')+'" aria-label="'+esc(label)+'">'+
+   '<span class="dashboard-period-goal" title="'+esc(periodGoalLabel(key))+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
    '<h2 class="dashboard-period-heading" lang="ur" dir="rtl">'+label+'</h2>'+
-   '<div class="dashboard-period-numbers" dir="ltr">'+
-   '<div class="dashboard-period-copy"><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr" style="color:'+color+'!important;-webkit-text-fill-color:'+color+'!important">'+read+'</strong></div>'+
-   '<span class="dashboard-period-goal" title="'+esc(badgeLabel+' · '+periodGoalLabel(key)+': '+badge)+'" aria-label="'+esc(badgeLabel+': '+badge)+'"><bdi dir="ltr">'+badge+'</bdi></span>'+
-   '</div></section>';
+   '<div class="dashboard-period-numbers" dir="ltr"><div class="dashboard-period-copy"><strong aria-label="پڑھی گئی تعداد" data-period="'+key+'" dir="ltr" style="color:'+color+'!important;-webkit-text-fill-color:'+color+'!important">'+read+'</strong></div></div>'+
+   combinedBreakdown(m,f)+'</section>';
  }).join('');
 }
 // Local visual welcome on authenticated dashboard opening (including refresh).
@@ -2912,12 +2927,12 @@ function overview() {
    '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
    '<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>'+'</div>'+
-   (currentUser()?.isOwner?'<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>':"")+
+   '<div id="group-target-cards" class="group-target-cards">'+dashboardTargetCards()+'</div>'+
    '<header class="headline boxed-headline dashboard-group-summary"><div class="dashboard-group-copy"><h1>'+
-     (ownerViewingWomen()?tr("Women’s group wazaif","خواتین کے گروپ وظائف"):tr("Group wazaif","گروپ وظائف"))+'</h1>'+
+     tr("Group wazaif","گروپ وظائف")+'</h1>'+
      ur(tr("Group Durood Sharif","گروپ درود شریف")+'<span style="display:block" data-dashboard-group-title>'+esc(groupTitleLabel())+'</span>')+'</div>'+
    '<section class="recitation-banner all-time-durood-card"><h2>'+tr("All-time Durood recited","اب تک پڑھا گیا کل درود")+
-   '</h2><strong id="global-total" dir="ltr">'+dashboardTotalText()+'</strong></section><div class="dashboard-rawda"><svg class="dashboard-rawda-icon" viewBox="0 0 120 116" role="img" aria-label="روضۂ رسول ﷺ" xmlns="http://www.w3.org/2000/svg"><g stroke="#e6be65" stroke-width="1.4" stroke-linejoin="round"><path fill="#174c3c" d="M9 100h102v8H9z"/><path fill="#b2a87c" d="M16 39h12v62H16z"/><path fill="#d9c998" d="M13 39h18v5H13zM15 56h14v4H15zM15 79h14v4H15z"/><path fill="#0a7752" d="M16 39V30l6-13 6 13v9z"/><path fill="none" stroke-linecap="round" d="M22 17V8"/><path fill="#c7b887" d="M92 27h12v74H92z"/><path fill="#e1ce9c" d="M89 27h18v5H89zM91 49h14v4H91zM91 73h14v4H91z"/><path fill="#0a7752" d="M92 27V19l6-12 6 12v8z"/><path fill="none" stroke-linecap="round" d="M98 7V3"/><path fill="#e1d4a7" d="M34 77h52v24H34z"/><path fill="#09784e" d="M31 77v-8h58v8z"/><path fill="#0c9a5b" d="M34 69c0-19 10-33 26-42 16 9 26 23 26 42z"/><path fill="#08764a" d="M60 27c11 14 15 29 15 42h11c0-19-10-33-26-42z"/><path fill="none" d="M60 27c-11 14-15 29-15 42"/><path fill="#eac76e" d="M60 15v12M60 15c-6 0-8-6-4-9-2 5 4 8 8 5-1 3-2 4-4 4z"/><path fill="#07543e" d="M42 100V88q5-8 10 0v12M55 100V86q5-8 10 0v14M68 100V88q5-8 10 0v12"/></g></svg></div></header>'+
+   '</h2><strong id="global-total" dir="ltr">'+dashboardTotalText()+'</strong><span id="global-total-mf">'+combinedBreakdown(combinedSideCount("male","all"),combinedSideCount("female","all"))+'</span></section><div class="dashboard-rawda"><svg class="dashboard-rawda-icon" viewBox="0 0 120 116" role="img" aria-label="روضۂ رسول ﷺ" xmlns="http://www.w3.org/2000/svg"><g stroke="#e6be65" stroke-width="1.4" stroke-linejoin="round"><path fill="#174c3c" d="M9 100h102v8H9z"/><path fill="#b2a87c" d="M16 39h12v62H16z"/><path fill="#d9c998" d="M13 39h18v5H13zM15 56h14v4H15zM15 79h14v4H15z"/><path fill="#0a7752" d="M16 39V30l6-13 6 13v9z"/><path fill="none" stroke-linecap="round" d="M22 17V8"/><path fill="#c7b887" d="M92 27h12v74H92z"/><path fill="#e1ce9c" d="M89 27h18v5H89zM91 49h14v4H91zM91 73h14v4H91z"/><path fill="#0a7752" d="M92 27V19l6-12 6 12v8z"/><path fill="none" stroke-linecap="round" d="M98 7V3"/><path fill="#e1d4a7" d="M34 77h52v24H34z"/><path fill="#09784e" d="M31 77v-8h58v8z"/><path fill="#0c9a5b" d="M34 69c0-19 10-33 26-42 16 9 26 23 26 42z"/><path fill="#08764a" d="M60 27c11 14 15 29 15 42h11c0-19-10-33-26-42z"/><path fill="none" d="M60 27c-11 14-15 29-15 42"/><path fill="#eac76e" d="M60 15v12M60 15c-6 0-8-6-4-9-2 5 4 8 8 5-1 3-2 4-4 4z"/><path fill="#07543e" d="M42 100V88q5-8 10 0v12M55 100V86q5-8 10 0v14M68 100V88q5-8 10 0v12"/></g></svg></div></header>'+
    '<div class="recitation-periods" id="dashboard-period-cards">'+metricCards+'</div>'+
    '<p class="muted period-note">'+
    tr("Dashboard accounting from 1 November 2026; week starts Monday. Earlier records are preserved.","ڈیش بورڈ کا حساب یکم نومبر 2026 سے؛ ہفتہ پیر سے شروع۔ پرانا ریکارڈ محفوظ ہے۔")+'</p>'+
@@ -5631,7 +5646,7 @@ window.duroodClassicBridge = {
       liveGroupMemberCounts=new Map();readerGoalsByUid=new Map();
       savedMemberWirds=new Map();savedMemberWirdsComplete=false;ownGroupWirds=new Map();groupDirectoryReady=false;
       liveMemberPhotos=new Map();
-      periodCounts=null;periodDatedCounts=null;todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;dashboardPartialGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
+      periodCounts=null;periodDatedCounts=null;combinedGoalRows=null;combinedPublishedTargets=null;combinedDatedCounts={male:null,female:null};todayReaders=null;previousDayReaders=null;readerListDay=null;readerListError=false;readerAuditToday=null;readerAuditPast=null;dashboardGroupTitle='';dashboardGroupSettings=null;dashboardGroupStats=null;dashboardGroupYear=null;dashboardGroupDays=null;memberGoalRows=null;memberReaderGoalRows=null;ownerGoalRows=null;dashboardPartialGoalRows=null;memberGroupDays=null;memberGroupSummary=null;prayerEditedDays.clear();prayerLocalRevision=0;readerHistoryLimit=31;
       readerServerScope="";readerServerTotals=Object.create(null);readerServerManual=Object.create(null);
       readerPendingTotals=Object.create(null);
     }
@@ -5849,13 +5864,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=pending-bell-next-to-logout-20261127-v2";
+import "./wazaif.js?release=combined-dashboard-mf-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=pending-bell-next-to-logout-20261127-v2";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=combined-dashboard-mf-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6075,11 +6090,39 @@ function observeCounters(side){
   stopCounters();
   const sideRef=doc(db,"genderStats",side);
   const observedUid=auth.currentUser?.uid;
+  let scheduleCombinedPublish=()=>{};
   const stopGroupTitle=onSnapshot(doc(db,"wazaifSettings","group"),snap=>{
     if(auth.currentUser?.uid===observedUid && (!snap.metadata.fromCache || snap.exists()))
-      bridge.groupSettings(snap.exists()?snap.data():null);
+      {bridge.groupSettings(snap.exists()?snap.data():null);scheduleCombinedPublish();}
   },err=>console.warn("Group title unavailable",err.code));
   const stillCurrent=()=>!classicLogoutBlocked()&&auth.currentUser?.uid===observedUid&&window.duroodCurrentSide===side;
+  // Only the verified owner publishes a compact aggregate, never member data.
+  const combinedRef=doc(db,"dashboardAggregates","duroodTargets");
+  let publishTimer=null,publishInFlight=false,remoteCombinedKey=null,remoteCombinedReady=false;
+  scheduleCombinedPublish=()=>{
+    if(currentProfile?.role!=="owner"||!stillCurrent())return;
+    clearTimeout(publishTimer);
+    publishTimer=setTimeout(async()=>{
+      if(!stillCurrent()||publishInFlight||!remoteCombinedReady)return;
+      const payload=combinedLiveTargets();if(!payload)return;
+      const key=JSON.stringify(payload);
+      if(key===remoteCombinedKey)return;
+      publishInFlight=true;
+      try{await setDoc(combinedRef,{...payload,updatedAt:serverTimestamp()});remoteCombinedKey=key;}
+      catch(err){console.warn("Combined dashboard targets publish unavailable",err?.code);}
+      finally{publishInFlight=false;if(stillCurrent()&&JSON.stringify(combinedLiveTargets())!==key)scheduleCombinedPublish();}
+    },500);
+  };
+  const stopCombinedTargets=onSnapshot(combinedRef,{includeMetadataChanges:true},snap=>{
+    if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+    const data=snap.exists()?snap.data():null;
+    combinedPublishedTargets=data;
+    remoteCombinedReady=true;
+    remoteCombinedKey=data?JSON.stringify({day:data.day,male:data.male,female:data.female}):null;
+    // Firestore can reorder map keys; compare a fixed field order before any write.
+    if(data){const keys=["dailyGoal","yearlyGoal","today","week","month","year"];remoteCombinedKey=JSON.stringify({day:data.day,male:Object.fromEntries(keys.map(k=>[k,data.male?.[k]])),female:Object.fromEntries(keys.map(k=>[k,data.female?.[k]]))});}
+    refreshDashboardTargetCards();scheduleCombinedPublish();
+  },err=>{if(stillCurrent()){combinedPublishedTargets=null;refreshDashboardTargetCards();}console.warn("Combined target summary unavailable",err?.code);});
   const photoStops=new Map();
   let photoDirectory=[];
   function watchPhotos(uids){
@@ -6146,15 +6189,20 @@ function observeCounters(side){
   }
   const publishSideGroup=()=>{
     if(!stillCurrent()||currentProfile?.role!=="owner")return;
-    const rolled=goalDirectoryReady?rollupSideGroup([...goalMembers.values()],globalDay()):null;
+    const rolled=goalDirectoryReady?rollupSideGroup([...goalMembers.values()].filter(r=>r.meta.gender===side),globalDay()):null;
     if(!rolled){bridge.groupProgressStats(null);bridge.groupProgressDays(null);return;}
     const {days,...summary}=rolled;
     bridge.groupProgressStats(summary);bridge.groupProgressDays(days);
   };
   const publishGoals=()=>{
     if(!stillCurrent())return;
-    const rows=[...goalMembers.values()];
-    bridge.readerDirectoryGoals(observedUid,[...goalMembers].map(([uid,r])=>[uid,r.daily]));
+    const allRows=[...goalMembers.values()];
+    const rows=allRows.filter(r=>r.meta.gender===side);
+    if(currentProfile?.role==="owner"){
+      combinedGoalRows=goalDirectoryReady&&allRows.every(r=>Array.isArray(r.daily))?Object.fromEntries(["male","female"].map(g=>[g,allRows.filter(r=>r.meta.gender===g).map(r=>({daily:r.daily,...r.meta}))])):null;
+      refreshDashboardTargetCards();scheduleCombinedPublish();
+    }
+    bridge.readerDirectoryGoals(observedUid,rows.map(r=>[r.meta.uid,r.daily]));
     const verifiedRows=rows.filter(r=>Array.isArray(r.daily)).map(r=>({daily:r.daily,legacy:r.legacy,...r.meta}));
      const complete=goalDirectoryReady&&verifiedRows.length===rows.length;
      bridge.aggregateGoalRows(observedUid,complete?verifiedRows:null,verifiedRows.length?verifiedRows:null);
@@ -6172,24 +6220,24 @@ function observeCounters(side){
         // Match the member directory's legacy-gender handling and never
         // include the male master owner in the women's target aggregation.
         const m=d.data(),gender=m.role==="owner"?"male":(m.gender==="female"?"female":"male");
-        return gender===side&&(isGoalOwner||m.deleted!==true);
+        return isGoalOwner||(gender===side&&m.deleted!==true);
       }).map(d=>{
         const m=d.data(),joined=registrationDate(m),inactive=m.disabled===true||m.deleted===true;
         const changed=m.updatedAt?.toDate?.();
-        return [d.id,{uid:d.id,name:m.name||"",memberNumber:Number(m.memberNumber)||0,active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
+        return [d.id,{uid:d.id,gender:m.role==="owner"?"male":(m.gender==="female"?"female":"male"),name:m.name||"",memberNumber:Number(m.memberNumber)||0,active:!inactive,joined:joined?globalDay(joined):null,inactiveDay:inactive&&changed?globalDay(changed):null}];
       }));
       const active=new Set(directory.keys());
-      if(isGoalOwner)watchPhotos([...active]);
+      if(isGoalOwner)watchPhotos([...active].filter(uid=>directory.get(uid).gender===side));
       for(const [uid,r] of goalMembers)if(!active.has(uid)){r.stops.forEach(stop=>stop());goalMembers.delete(uid);}
       for(const uid of active)if(goalMembers.has(uid))goalMembers.get(uid).meta=directory.get(uid);
       for(const uid of active)if(!goalMembers.has(uid)){
         const r={daily:null,legacy:null,groupDays:null,groupSummary:null,stops:[],meta:directory.get(uid)};goalMembers.set(uid,r);
-        if(isGoalOwner){
+        if(isGoalOwner&&r.meta.gender===side){
         const memberRef=doc(db,"wazaifGroupStats","main","members",uid);
         r.stops.push(onSnapshot(memberRef,{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupSummary=snap.exists()?snap.data():{};publishSideGroup();},err=>{r.groupSummary=null;publishSideGroup();console.warn("Side group member summary",err.code);}));
         r.stops.push(onSnapshot(collection(memberRef,"days"),{includeMetadataChanges:true},snap=>{if(!stillCurrent()||goalMembers.get(uid)!==r||snap.metadata.fromCache)return;r.groupDays=Object.fromEntries(snap.docs.filter(x=>Number.isSafeInteger(x.data().count)&&x.data().count>=0).map(x=>[x.id,x.data().count]));publishSideGroup();},err=>{r.groupDays=null;publishSideGroup();console.warn("Side group member dates",err.code);}));
         }
-        for(const [key,name] of (isGoalOwner?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]])){
+        for(const [key,name] of (isGoalOwner&&r.meta.gender===side?[["daily","duroodGoals"],["legacy","groupTargets"]]:[["daily","duroodGoals"]])){
           r.stops.push(retryGoalSnapshot(collection(db,"memberPrivate",uid,name),goals=>{
             if(!stillCurrent()||goalMembers.get(uid)!==r||goals.metadata.fromCache||goals.metadata.hasPendingWrites)return;
             r[key]=goals.docs.map(d=>d.data());publishGoals();
@@ -6250,7 +6298,7 @@ function observeCounters(side){
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner"||snap.size<200,side);
   },err=>{if(stillCurrent())bridge.savedWirdTotals(observedUid,[],false,side);console.warn("Saved member Wird totals unavailable",err.code);});
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
-  let stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
+  let stopOppositeDays=()=>{},stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
   let historyGeneration=0;
   function watchReaderDate(day){
     stopHistory();stopHistory=()=>{};
@@ -6350,7 +6398,7 @@ function observeCounters(side){
   }
   function watchDays(){
     watchGroupYear();refreshDashboardGroupProgress();
-    stopDays();stopRows();rows=null;bridge.readers(null);refreshReaderDateControls();
+    stopDays();stopOppositeDays();stopRows();rows=null;bridge.readers(null);refreshReaderDateControls();
     const now=new Date(globalNow()),today=globalDay(now);
     observedDay=today;
     bridge.readerAudit(today,null,true);
@@ -6375,6 +6423,14 @@ function observeCounters(side){
     // Fixed accounting epoch; preserve all older Firestore data and use only dated records for the dashboard.
     const from=dashboardCountStart;
     bridge.periodTotals(null);
+    combinedDatedCounts={male:null,female:null};refreshPeriodCards();scheduleCombinedPublish();
+    const other=side==="male"?"female":"male";
+    const otherDays=query(collection(db,"genderStats",other,"days"),where("day",">=",from),where("day","<=",today));
+    stopOppositeDays=retryGoalSnapshot(otherDays,snap=>{
+      if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+      const dated={};snap.forEach(item=>{const {day,total}=item.data();if(targetDateValid(day)&&day>=from&&day<=today&&combinedValid(total))dated[day]=total;});
+      combinedDatedCounts[other]=dated;refreshPeriodCards();
+    },err=>{if(stillCurrent()){combinedDatedCounts[other]=null;refreshPeriodCards();}console.warn("Opposite aggregate days unavailable",err?.code);});
     const days=query(collection(sideRef,"days"),where("day",">=",from),where("day","<=",today));
     stopDays=retryGoalSnapshot(days,snap=>{
       if(!stillCurrent()||today!==globalDay()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
@@ -6387,13 +6443,13 @@ function observeCounters(side){
         if(day>=week)totals.week+=total;
         if(day>=month)totals.month+=total;
       });
-      bridge.periodTotals(totals,dated);
+      combinedDatedCounts[side]=dated;bridge.periodTotals(totals,dated);
       bridge.readerAudit(today,totals.today,true);
-    },err=>{if(stillCurrent())bridge.periodTotals(null);console.warn("Period totals unavailable",err.code);});
+    },err=>{if(stillCurrent()){combinedDatedCounts[side]=null;bridge.periodTotals(null);}console.warn("Period totals unavailable",err.code);});
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopCombinedTargets();clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let presenceUid="",presenceTimer=null,presenceLast=0,presenceBusy=false,presenceGeneration=0;
 function startPresence(profile){
