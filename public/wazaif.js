@@ -11,6 +11,8 @@ import {wazifaSerial,validMemberSerial,assignLegacyWazifaSerial,createPersonalWa
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const builtinInstructionTexts=new Set(["ہر مرتبہ مکمل درودِ ابراہیمی پڑھنے کے بعد تسبیح کو ایک بار دبائیں۔","درودِ ابراہیمی کی مشترکہ روزانہ تلاوت","ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔","مقصد درج نہیں کیا گیا۔"]);
+function localizeBuiltin(value){return builtinInstructionTexts.has(value)?window.duroodStaticLocale?.textFor(value)||value:value;}
 const fmt=n=>new Intl.NumberFormat("en").format(Math.max(0,Number(n)||0));
 const dayOk=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||"")) && !Number.isNaN(Date.parse(s+"T12:00:00Z"));
 const spanDays=(a,b)=>dayOk(a)&&dayOk(b)&&b>=a?Math.floor((Date.parse(b+"T12:00:00Z")-Date.parse(a+"T12:00:00Z"))/86400000)+1:0;
@@ -546,7 +548,7 @@ function groupCard(){
  groupCardPlan(g,today,todayCount,all)+
  (asDurood&&state.groupMember!==null?'<p class="wz-help">صرف گروپ وظیفے میں درج شمار: '+fmt(Number(stats.total||0))+'</p>':"")+groupSessionInfo(g)+
  arabicOrPdf(g.arabic,"group")+
- '<p class="wz-help" data-no-translate>'+esc(g.instructions)+'</p>'+
+ '<p class="wz-help" data-no-translate>'+esc(localizeBuiltin(g.instructions))+'</p>'+
  '<div class="wz-actions">'+
  (owner()?'<button type="button" class="wz-button" data-wazifa-action="edit-group">مالک کی گروپ سیٹنگ</button>':'')+'</div>'+
  (!ready?'<p class="wz-help">گروپ کی سیٹنگ Firebase میں محفوظ ہونے کے بعد مشترکہ تسبیح شروع ہوگی۔</p>':'')+
@@ -617,7 +619,7 @@ function personalCard(task){
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-personal" data-wazifa-id="'+esc(task.id)+'" '+(!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(stateText)?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(task.title))+' کھولیں">'+wazifaLaunchTitle(task.title,wazifaSerial(task))+'</button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3 data-no-translate><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  personalCardSummary(task)+
- arabicOrPdf(task.arabic,"personal")+'<p class="wz-help" data-no-translate>'+esc(task.instructions)+'</p>'+
+ arabicOrPdf(task.arabic,"personal")+'<p class="wz-help" data-no-translate>'+esc(localizeBuiltin(task.instructions))+'</p>'+
 
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
@@ -691,7 +693,7 @@ function inboxMarkup(){
  '<header class="wz-card-head"><div><span class="wz-caption">شیئرڈ وظیفہ · بھیجنے والا <bdi dir="ltr">'+esc(item.senderSerial)+'</bdi></span>'+
  '<h3 data-no-translate>'+esc(item.title)+'</h3></div></header>'+
  arabicOrPdf(item.arabic,"shared:"+item.senderUid)+
- '<p class="wz-help" data-no-translate>'+esc(item.instructions)+'</p>'+
+ '<p class="wz-help" data-no-translate>'+esc(localizeBuiltin(item.instructions))+'</p>'+
  '<div class="wz-actions"><button type="button" class="wz-button wz-primary" data-wazifa-action="accept-share" data-wazifa-id="'+esc(item.id)+'">اپنی سیٹنگ بنائیں</button>'+
  '<button type="button" class="wz-button wz-delete" data-wazifa-action="reject-share" data-wazifa-id="'+esc(item.id)+'">حذف کریں</button></div></article>').join('')+'</section>';
 }
@@ -1131,8 +1133,8 @@ function readerMarkup(group){
  '<h2 class="wz-hero-title" data-no-translate><span aria-hidden="true">❖</span>'+esc(w.title)+'<span aria-hidden="true">❖</span></h2>'+ 
  '<section class="wz-reading-text wz-reading-text-visible" aria-label="وظیفے کی مکمل تفصیل">'+
  '<h3>عربی عبارت</h3>'+arabicOrPdf(w.arabic,group?"group":"personal","div",true)+
- '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+(w.instructions?'<span data-no-translate>'+esc(w.instructions)+'</span>':esc("ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔"))+'</p>'+
- '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+(w.purpose?'<span data-no-translate>'+esc(w.purpose)+'</span>':esc("مقصد درج نہیں کیا گیا۔"))+'</p></section>'+
+ '<p class="wz-reading-instruction"><b>پڑھنے کا طریقہ:</b> '+(w.instructions?'<span data-no-translate>'+esc(localizeBuiltin(w.instructions))+'</span>':esc("ہر مرتبہ مکمل وظیفہ پڑھ کر تسبیح کو ایک بار دبائیں۔"))+'</p>'+
+ '<p class="wz-reading-purpose"><b>وظیفے کا مقصد:</b> '+(w.purpose?'<span data-no-translate>'+esc(localizeBuiltin(w.purpose))+'</span>':esc("مقصد درج نہیں کیا گیا۔"))+'</p></section>'+
  '<section class="wz-session-card" aria-label="تسبیح کاؤنٹر اور روزانہ کا حساب">'+
  (group?'<div class="wz-group-counter-grid" id="wz-group-counter-summary">'+groupCounterSummaryMarkup()+'</div>':showDates?'<div class="wz-hero-six">'+
  heroTile("روزانہ ہدف",fmt(s.dailyGoal),"target")+

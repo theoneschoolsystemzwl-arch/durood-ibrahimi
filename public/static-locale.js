@@ -1471,6 +1471,151 @@ const labels=Object.freeze({
     "ur": "میں عورت ہوں اور حلف دیتی ہوں کہ درود شریف اخلاص سے پڑھوں گی اور صرف اتنی تعداد درج کروں گی جتنی میں نے واقعی پڑھی ہے۔ تسبیح کاؤنٹر یا دستی اندراج کے ذریعے جان بوجھ کر کوئی جھوٹی تعداد شامل نہیں کروں گی۔",
     "en": "I swear that I will recite salawat sincerely and record only what I actually recite. I will never knowingly add a false count through the tasbih counter or manual entry.",
     "id": "Saya bersumpah akan membaca selawat dengan ikhlas dan hanya mencatat jumlah yang benar-benar saya baca. Saya tidak akan sengaja menambah hitungan palsu melalui penghitung tasbih atau entri manual."
+  },
+  "اللہ تعالیٰ اپنے محبوب حضرت محمد ﷺ اور آپ کی آل پر رحمت، برکت اور سلامتی نازل فرمائے۔": {
+    "ur": "اللہ تعالیٰ اپنے محبوب حضرت محمد ﷺ اور آپ کی آل پر رحمت، برکت اور سلامتی نازل فرمائے۔",
+    "en": "May Allah send mercy, blessings and peace upon His beloved Muhammad ﷺ and his family.",
+    "id": "Semoga Allah melimpahkan rahmat, berkah dan kedamaian kepada kekasih-Nya Muhammad ﷺ dan keluarganya."
+  },
+  "وظائف کی فہرست لوڈ ہو رہی ہے…": {
+    "ur": "وظائف کی فہرست لوڈ ہو رہی ہے…",
+    "en": "Loading wirid list…",
+    "id": "Memuat daftar wirid…"
+  },
+  "روزانہ درود / وظیفہ کی تعداد": {
+    "ur": "روزانہ درود / وظیفہ کی تعداد",
+    "en": "Daily salawat / wirid count",
+    "id": "Jumlah selawat / wirid harian"
+  },
+  "صفر بھی محفوظ کر سکتے ہیں اور کسی بھی وقت ہدف بدل سکتے ہیں۔ یہ ہدف خودکار طور پر اپنی سائیڈ کے اجتماعی اہداف میں شامل ہوگا۔": {
+    "ur": "صفر بھی محفوظ کر سکتے ہیں اور کسی بھی وقت ہدف بدل سکتے ہیں۔ یہ ہدف خودکار طور پر اپنی سائیڈ کے اجتماعی اہداف میں شامل ہوگا۔",
+    "en": "You can save zero and change the target at any time. It is automatically included in the shared targets of your section.",
+    "id": "Anda dapat menyimpan nol dan mengubah target kapan saja. Target otomatis dimasukkan ke target bersama bagian Anda."
+  },
+  "رکنیت کی اصل تاریخ دستیاب نہیں۔": {
+    "ur": "رکنیت کی اصل تاریخ دستیاب نہیں۔",
+    "en": "Original membership date unavailable.",
+    "id": "Tanggal keanggotaan asli tidak tersedia."
+  },
+  "تاریخ مقرر نہیں": {
+    "ur": "تاریخ مقرر نہیں",
+    "en": "Date not set",
+    "id": "Tanggal belum ditetapkan"
+  },
+  "روزانہ درود کی تعداد": {
+    "ur": "روزانہ درود کی تعداد",
+    "en": "Daily salawat count",
+    "id": "Jumlah selawat harian"
+  },
+  "مجموعی بقایا تاریخ وار محفوظ شمار سے ہے؛ بے تاریخ پرانا شمار کل پڑھے گئے میں شامل ہے۔": {
+    "ur": "مجموعی بقایا تاریخ وار محفوظ شمار سے ہے؛ بے تاریخ پرانا شمار کل پڑھے گئے میں شامل ہے۔",
+    "en": "Total outstanding uses dated saved counts; undated old counts are included in total recited.",
+    "id": "Total kekurangan memakai hitungan tersimpan bertanggal; hitungan lama tanpa tanggal masuk ke total bacaan."
+  },
+  "روزانہ اہداف کا مجموعہ آغاز سے آج تک؛ موقوف دن سیٹنگ کے مطابق۔": {
+    "ur": "روزانہ اہداف کا مجموعہ آغاز سے آج تک؛ موقوف دن سیٹنگ کے مطابق۔",
+    "en": "Daily targets from start through today, with paused days according to settings.",
+    "id": "Total target harian sejak awal hingga hari ini, dengan hari jeda sesuai pengaturan."
+  },
+  "اوپن وظیفے کا مجموعی ہدف، روزانہ کی مقررہ پابندی نہیں۔": {
+    "ur": "اوپن وظیفے کا مجموعی ہدف، روزانہ کی مقررہ پابندی نہیں۔",
+    "en": "Total target for an open-ended wirid, with no fixed daily obligation.",
+    "id": "Target total wirid tanpa batas waktu, tanpa kewajiban harian tetap."
+  },
+  "مقررہ مدت مکمل ہوگئی۔ کیا آپ اس وظیفے کو اگلے دن سے جاری رکھنا چاہتے ہیں؟ سابقہ ہدف اور ریکارڈ محفوظ رہیں گے۔": {
+    "ur": "مقررہ مدت مکمل ہوگئی۔ کیا آپ اس وظیفے کو اگلے دن سے جاری رکھنا چاہتے ہیں؟ سابقہ ہدف اور ریکارڈ محفوظ رہیں گے۔",
+    "en": "The fixed period is complete. Continue this wirid from the next day? Previous targets and records will be preserved.",
+    "id": "Periode tetap selesai. Lanjutkan wirid ini mulai hari berikutnya? Target dan catatan sebelumnya tetap tersimpan."
+  },
+  "موجودہ مرحلے کا ہدف، آغاز یا اختتامی تاریخ درست کر سکتے ہیں۔ پہلے کا ریکارڈ محفوظ رہے گا۔": {
+    "ur": "موجودہ مرحلے کا ہدف، آغاز یا اختتامی تاریخ درست کر سکتے ہیں۔ پہلے کا ریکارڈ محفوظ رہے گا۔",
+    "en": "You can correct the current phase target, start or end date. Earlier records are preserved.",
+    "id": "Anda dapat memperbaiki target, tanggal mulai atau selesai fase saat ini. Catatan lama tetap tersimpan."
+  },
+  "آج کی تسبیح سبز، پچھلی منتخب تاریخ کی تسبیح پیلے دستی شمار میں محفوظ ہوگی۔": {
+    "ur": "آج کی تسبیح سبز، پچھلی منتخب تاریخ کی تسبیح پیلے دستی شمار میں محفوظ ہوگی۔",
+    "en": "Today's tasbih is green; a past date is saved as a yellow manual count.",
+    "id": "Tasbih hari ini berwarna hijau; tanggal lampau disimpan sebagai hitungan manual kuning."
+  },
+  "منتخب تاریخ وظیفے کی فعال مدت میں نہیں ہے۔": {
+    "ur": "منتخب تاریخ وظیفے کی فعال مدت میں نہیں ہے۔",
+    "en": "Selected date is outside the active wirid period.",
+    "id": "Tanggal terpilih di luar periode aktif wirid."
+  },
+  "تاریخ تبدیل کرنے سے پہلے موجودہ تسبیح محفوظ کریں۔": {
+    "ur": "تاریخ تبدیل کرنے سے پہلے موجودہ تسبیح محفوظ کریں۔",
+    "en": "Save the current tasbih before changing the date.",
+    "id": "Simpan tasbih saat ini sebelum mengubah tanggal."
+  },
+  "اس تاریخ کا اندراج وظیفے کی فعال مدت میں نہیں ہے۔": {
+    "ur": "اس تاریخ کا اندراج وظیفے کی فعال مدت میں نہیں ہے۔",
+    "en": "This date is outside the active wirid period.",
+    "id": "Tanggal ini di luar periode aktif wirid."
+  },
+  "پچھلا بقایا اگلے دن جمع ہوگا؛ بعد میں پورا ہونے پر کارڈ سبز ہو جائے گا۔ دستی وقت تسبیح کی اوسط رفتار سے تخمینہ ہے۔": {
+    "ur": "پچھلا بقایا اگلے دن جمع ہوگا؛ بعد میں پورا ہونے پر کارڈ سبز ہو جائے گا۔ دستی وقت تسبیح کی اوسط رفتار سے تخمینہ ہے۔",
+    "en": "Previous outstanding counts carry over to the next day; the card turns green when completed. Manual time is estimated from average tasbih pace.",
+    "id": "Kekurangan sebelumnya dibawa ke hari berikutnya; kartu menjadi hijau jika selesai. Waktu manual diperkirakan dari kecepatan tasbih rata-rata."
+  },
+  "رکنیت کی اصل تاریخ دستیاب ہونے تک روزانہ ریکارڈ نہیں دکھایا جا سکتا۔": {
+    "ur": "رکنیت کی اصل تاریخ دستیاب ہونے تک روزانہ ریکارڈ نہیں دکھایا جا سکتا۔",
+    "en": "Daily records cannot be displayed until the original membership date is available.",
+    "id": "Catatan harian tidak dapat ditampilkan sampai tanggal keanggotaan asli tersedia."
+  },
+  "ہر اکاؤنٹ کے وظائف": {
+    "ur": "ہر اکاؤنٹ کے وظائف",
+    "en": "Wirid in each account",
+    "id": "Wirid pada setiap akun"
+  },
+  "سے شروع ہوتے ہیں؛ حذف شدہ نمبر کی خالی جگہ پہلے استعمال ہوگی۔": {
+    "ur": "سے شروع ہوتے ہیں؛ حذف شدہ نمبر کی خالی جگہ پہلے استعمال ہوگی۔",
+    "en": "start here; vacant deleted numbers will be reused first.",
+    "id": "dimulai dari sini; nomor kosong yang dihapus digunakan kembali terlebih dahulu."
+  },
+  "مردوں کی شناخت M-1، M-2 اور خواتین کی F-1، F-2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔": {
+    "ur": "مردوں کی شناخت M-1، M-2 اور خواتین کی F-1، F-2 ہے۔ شیئرنگ صرف اپنی سائیڈ میں ہوگی۔",
+    "en": "Men use M-1, M-2 and women use F-1, F-2. Sharing is restricted to your own section.",
+    "id": "Laki-laki menggunakan M-1, M-2 dan perempuan F-1, F-2. Berbagi hanya dalam bagian sendiri."
+  },
+  "گروپ کی سیٹنگ Firebase میں محفوظ ہونے کے بعد مشترکہ تسبیح شروع ہوگی۔": {
+    "ur": "گروپ کی سیٹنگ Firebase میں محفوظ ہونے کے بعد مشترکہ تسبیح شروع ہوگی۔",
+    "en": "Shared tasbih starts after group settings are saved in Firebase.",
+    "id": "Tasbih bersama dimulai setelah pengaturan grup disimpan di Firebase."
+  },
+  "صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)": {
+    "ur": "صرف اپنی سائیڈ کی ممبر آئی ڈی (مثلاً M-2 یا F-2)",
+    "en": "Member ID in your own section only (e.g. M-2 or F-2)",
+    "id": "ID anggota hanya dalam bagian Anda (contoh M-2 atau F-2)"
+  },
+  "تعداد لکھیں (اضافے کے لیے +، کمی کے لیے -)": {
+    "ur": "تعداد لکھیں (اضافے کے لیے +، کمی کے لیے -)",
+    "en": "Enter count (+ to add, - to subtract)",
+    "id": "Masukkan jumlah (+ untuk menambah, - untuk mengurangi)"
+  },
+  "محفوظ نہیں ہوا:": {
+    "ur": "محفوظ نہیں ہوا:",
+    "en": "Not saved:",
+    "id": "Tidak tersimpan:"
+  },
+  "انٹرنیٹ بند ہے۔": {
+    "ur": "انٹرنیٹ بند ہے۔",
+    "en": "Internet is offline.",
+    "id": "Internet tidak tersambung."
+  },
+  "تازہ ریکارڈ نہیں ملا۔ انٹرنیٹ چیک کرکے دوبارہ کوشش کریں۔": {
+    "ur": "تازہ ریکارڈ نہیں ملا۔ انٹرنیٹ چیک کرکے دوبارہ کوشش کریں۔",
+    "en": "Fresh records unavailable. Check the internet and retry.",
+    "id": "Catatan terbaru tidak tersedia. Periksa internet dan coba lagi."
+  },
+  "پاکستان میں رویتِ ہلال کے مطابق 12 ربیع الاول کی اصل تاریخ مالک خود محفوظ کرے۔ اسی دن کے اختتام پر سال مکمل، اگلے دن 13 ربیع الاول سے نیا سال شروع ہوگا۔ آئندہ سال کی خودکار تاریخ تخمینی ہے، اسے بھی درست کر سکتے ہیں۔ پرانی گنتی نہیں مٹے گی۔": {
+    "ur": "پاکستان میں رویتِ ہلال کے مطابق 12 ربیع الاول کی اصل تاریخ مالک خود محفوظ کرے۔ اسی دن کے اختتام پر سال مکمل، اگلے دن 13 ربیع الاول سے نیا سال شروع ہوگا۔ آئندہ سال کی خودکار تاریخ تخمینی ہے، اسے بھی درست کر سکتے ہیں۔ پرانی گنتی نہیں مٹے گی۔",
+    "en": "The owner should save the actual date of 12 Rabi al-Awwal according to moon sighting in Pakistan. The year ends that day and the next year begins on 13 Rabi al-Awwal. The estimated date for the next year can also be corrected. Old counts are preserved.",
+    "id": "Pemilik harus menyimpan tanggal sebenarnya 12 Rabiulawal sesuai rukyat hilal di Pakistan. Tahun berakhir pada hari itu dan tahun berikutnya dimulai pada 13 Rabiulawal. Tanggal perkiraan tahun berikutnya dapat diperbaiki. Hitungan lama tetap tersimpan."
+  },
+  "موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سالانہ ہدف ہر ممبر کی رکنیت یا سیشن کے آغاز (جو بعد میں ہو) سے اختتام تک کے دنوں کے مطابق ہے۔": {
+    "ur": "موجودہ سائیڈ کے تمام فعال ممبرز کے اپنی تسبیح میں محفوظ روزانہ اہداف کا مجموعہ۔ ہفتہ 7 دن، مہینہ موجودہ کیلنڈر کے دن، سالانہ ہدف ہر ممبر کی رکنیت یا سیشن کے آغاز (جو بعد میں ہو) سے اختتام تک کے دنوں کے مطابق ہے۔",
+    "en": "Sum of daily targets saved by active members of this section. Week: 7 days; month: calendar days; annual target: days from each member's joining date or session start (whichever is later) to session end.",
+    "id": "Jumlah target harian tersimpan anggota aktif bagian ini. Minggu: 7 hari; bulan: hari kalender; target tahunan: hari dari tanggal bergabung atau awal sesi (mana yang lebih akhir) hingga akhir sesi."
   }
 });
 const selection=()=>{try{const x=localStorage.getItem("durood-language");return root.duroodLocale.valid(x)?x:"ur";}catch{return "ur";}};

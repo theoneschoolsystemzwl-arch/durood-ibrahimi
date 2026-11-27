@@ -1,6 +1,7 @@
 # Three-language migration — staged review branch
 
-- Existing locale switch cycles Urdu, English, Indonesian and persists selection. The Urdu RTL layout stays fixed. Prayer names stay in Arabic script.
-- 294 additional exact UI strings cover the login portal and common wirid cards, controls, forms, and static guidance. The earlier Indonesian dictionary has 329 entries.
-- Arabic text and explicitly marked user-authored fields are not translated by the static-label scanner. No database fields or counting rules changed.
-- Incomplete: dynamic phrases, browser confirm dialogs, remaining untranslated dashboard/portal/PDF/PWA texts, custom user-authored translations (require separate language-specific fields), and mobile visual/functional regression checks. Exact-label localization is deliberately conservative; unmatched content remains unchanged. Do not deploy as a finished translation yet.
+Existing Urdu/English translator now supports Indonesian (512 dictionary keys), fixed RTL root direction, Arabic-script prayer names, and saved locale selection. Static dictionary has 323 exact entries for common login/wirid UI. Saved custom content is protected; known built-in instructions are translated. No Firebase data changes.
+
+Validation: JavaScript parsing passed for localization scripts and wirid source (imports excluded for parsing). Five direct localization assertions passed. Added node:test tests; full browser and regression suite not run.
+
+Remaining: dynamic/composite labels, all other hard-coded dashboard, portal, PWA/PDF and alert texts, and custom user-authored translations (need separate per-language data fields). Mobile layout and regression checks remain. Do not deploy as completed localization.
