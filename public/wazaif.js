@@ -538,8 +538,7 @@ function groupCard(){
  '<div class="wz-tasbih-top"><button type="button" class="wz-button wz-primary wz-tasbih-cta" data-wazifa-action="read-group" '+(!enabled||!ready?'disabled':'')+' aria-label="'+esc(tasbihTabLabel(g.title))+' کھولیں"><span class="wz-cta-single" lang="ur" dir="rtl">'+esc(tasbihTabLabel(g.title))+'</span></button></div>'+
  '<header class="wz-card-head"><div><span class="wz-caption">گروپ وظیفہ</span><h2>'+esc(g.title)+'</h2></div>'+
  '<span class="wz-state '+(enabled?'on':'')+'"><i class="wz-led"></i>'+(enabled?'جاری ہے':'بند ہے')+'</span></header>'+
- '<div class="wz-inline-counts" aria-label="گروپ کی براہ راست اکاؤنٹنگ">'+
- compactCount("میرا آج پڑھا",todayCount)+compactCount("میرا باقی ہدف",remaining)+compactCount(asDurood?"میرا مجموعی درود":"میرا مجموعی شمار",all)+'</div>'+
+ groupCardPlan(g,today,todayCount,all)+
  (asDurood&&state.groupMember!==null?'<p class="wz-help">صرف گروپ وظیفے میں درج شمار: '+fmt(Number(stats.total||0))+'</p>':"")+groupSessionInfo(g)+
  arabicOrPdf(g.arabic,"group")+
  '<p class="wz-help">'+esc(g.instructions)+'</p>'+
@@ -558,22 +557,54 @@ function taskStatus(task){
  if(fixedExpired(task,now))return "مدت مکمل";
  return "جاری";
 }
+// Common outer-card board, using the same tile and progress styles as fixed plans.
+function cardPlanBoard({tiles,progress,progressLabel="تعداد کی پیش رفت",daysProgress=null,daysLabel="دنوں کی پیش رفت",foot=""}){
+ const tile=([label,value])=>'<div class="wz-stat"><small>'+esc(label)+'</small><strong dir="auto">'+esc(value)+'</strong></div>';
+ const bar=(label,value,cls="")=>'<div class="wz-plan-bar-label"><span>'+esc(label)+'</span><strong>'+(value===null?"—":fmt(value)+"%")+'</strong></div>'+
+ (value===null?"":'<progress class="wz-plan-progress '+cls+'" max="100" value="'+value+'" aria-label="'+esc(label)+'"></progress>');
+ return '<section class="wz-fixed-plan" dir="rtl" aria-label="وظیفے کی پیش رفت"><div class="wz-plan-tiles">'+tiles.map(tile).join("")+'</div>'+
+ bar(progressLabel,progress)+(daysProgress===null?"":bar(daysLabel,daysProgress,"wz-days-progress"))+
+ (foot?'<p class="wz-plan-foot">'+esc(foot)+'</p>':"")+'</section>';
+}
+function boardCount(n){return n===null||n===undefined?"—":fmt(n);}
+function boardPercent(read,goal){return read===null||goal===null||!(goal>0)?null:Math.min(100,Math.max(0,Math.floor(read*100/goal)));}
 function personalCardSummary(task){
- const today=readingDay();
- const entry=task.dailyLedger?.[today];
- const read=Math.max(0,Number(entry?.count??(task.day===today?task.today:0))||0);
- const figures=selectedDayFigures(false,task,task,today);
- const goal=Math.max(0,Number(targetForDay(task,today))||0);
+ if(task.kind==="fixed")return fixedPlanMarkup(task);
+ const today=readingDay(),days=spanDays(task.startDate,today),daily=task.kind==="daily";
+ const read=Math.max(0,Number(task.dailyLedger?.[today]?.count??(task.day===today?task.today:0))||0);
  const total=Math.max(0,Number(task.total)||0);
- const remaining=task.kind==="fixed"?(fixedPlan(task)?.remainingCount??Math.max(0,Number(figures.goal||0)-read)):
-   Math.max(0,Number(figures.goal||0)-read);
- return '<section aria-label="میرے وظیفے کا خلاصہ" dir="rtl">'+
- '<div class="wz-inline-counts" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:5px 0" aria-label="آغاز اور کل دن">'+
- '<div class="wz-inline-count" style="min-height:36px;padding:3px"><small>آغاز</small><strong dir="ltr">'+esc(task.startDate||"—")+'</strong></div>'+
- '<div class="wz-inline-count" style="min-height:36px;padding:3px"><small>کل دن</small><strong dir="ltr">'+fmt(spanDays(task.startDate,today))+'</strong></div></div>'+
- '<div class="wz-inline-counts" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px" aria-label="روزانہ اور مجموعی شمار">'+
- compactCount("آج کا ہدف",goal)+compactCount("آج پڑھا",read)+
- compactCount("ٹوٹل باقی",remaining)+compactCount("کل پڑھا",total)+'</div></section>';
+ const rows=daily?datedProgress(task):[],last=rows.at(-1);
+ const goal=daily?(last?.cumulativeGoal||0):Math.max(0,Number(task.goal)||0);
+ const compared=daily?(last?.cumulativeRead||0):total;
+ const dayGoal=daily?targetForDay(task,today):null;
+ const left=Math.max(0,goal-compared),percent=boardPercent(compared,goal);
+ const todayLeft=dayGoal===null?null:Math.max(0,dayGoal-read);
+ return cardPlanBoard({tiles:[
+ ["اصل مدت",daily?"روزانہ":"اوپن"],["کل دن",fmt(days)],["حالت",taskStatus(task)],
+ ["آغاز کی تاریخ",task.startDate||"—"],["اختتامی تاریخ","مقرر نہیں"],["کل پڑھے گئے",fmt(total)],
+ ["آج کا ہدف",boardCount(dayGoal)],[daily?"اب تک کا کل ہدف":"کل ہدف",fmt(goal)],["مجموعی باقی",fmt(left)],
+ ["آج پڑھا",fmt(read)],["آج باقی",boardCount(todayLeft)],["فیصد تکمیل",percent===null?"—":fmt(percent)+"%"]],
+ progress:percent,daysProgress:daily?boardPercent(read,dayGoal):null,daysLabel:"آج کے ہدف کی پیش رفت",
+ foot:daily?(total>compared?"مجموعی بقایا تاریخ وار محفوظ شمار سے ہے؛ بے تاریخ پرانا شمار کل پڑھے گئے میں شامل ہے۔":"روزانہ اہداف کا مجموعہ آغاز سے آج تک؛ موقوف دن سیٹنگ کے مطابق۔"):"اوپن وظیفے کا مجموعی ہدف، روزانہ کی مقررہ پابندی نہیں۔"});
+}
+function groupCardPlan(g,today,todayCount,all){
+ const period=window.duroodAnnualTargetPeriod?.(g);
+ const goals=window.duroodMemberGroupTargets?.(today);
+ const summary=window.duroodGroupCounterSummary?.(false);
+ const n=v=>Number.isFinite(v)&&v>=0?v:null;
+ const dayGoal=n(goals?.dailyGoal),annualGoal=period?n(goals?.yearlyGoal):null;
+ const annual=n(summary?.annual);
+ const left=annual===null||annualGoal===null?null:Math.max(0,annualGoal-annual);
+ const dayLeft=dayGoal===null||todayCount===null?null:Math.max(0,dayGoal-todayCount);
+ const percent=boardPercent(annual,annualGoal),days=period?spanDays(period.start,period.end):0;
+ const elapsed=period?Math.min(days,spanDays(period.start,today)):0;
+ return cardPlanBoard({tiles:[
+ ["سال کے کل دن",period?fmt(days):"—"],["گزرے دن",period?fmt(elapsed):"—"],["باقی دن",period?fmt(Math.max(0,days-elapsed)):"—"],
+ ["وظیفے کا آغاز",g.startDate||"—"],["سال کا اختتام",period?.end||"—"],["میرا کل پڑھا",boardCount(all)],
+ ["آج کا ہدف",boardCount(dayGoal)],["میرا سالانہ ہدف",boardCount(annualGoal)],["سالانہ باقی",boardCount(left)],
+ ["آج پڑھا",boardCount(todayCount)],["آج باقی",boardCount(dayLeft)],["فیصد تکمیل",percent===null?"—":fmt(percent)+"%"]],
+ progress:percent,progressLabel:"سالانہ تعداد کی پیش رفت",daysProgress:period?boardPercent(elapsed,days):null,
+ foot:"اسلامی سال کا آغاز: "+(period?.start||"—")+" · اس سال پڑھا: "+boardCount(annual)+" · ہفتہ وار ہدف: "+boardCount(n(goals?.weeklyGoal))+" · ماہانہ ہدف: "+boardCount(n(goals?.monthlyGoal))});
 }
 function personalCard(task){
  const stateText=taskStatus(task);
@@ -582,7 +613,7 @@ function personalCard(task){
  '<header class="wz-card-head"><div><span class="wz-caption">ذاتی وظیفہ · '+esc((periodOnDay(task)?.mode==="daily"||legacyContinuation(task))?"ڈیلی":({daily:"ڈیلی",fixed:"فکس",open:"اوپن"}[task.kind]||""))+'</span><h3><bdi dir="ltr" class="wz-serial">'+esc(wazifaSerial(task))+'</bdi> · '+esc(task.title)+'</h3></div><span class="wz-state">'+stateText+'</span></header>'+
  personalCardSummary(task)+
  arabicOrPdf(task.arabic,"personal")+'<p class="wz-help">'+esc(task.instructions)+'</p>'+
- (task.kind==="fixed"?fixedPlanMarkup(task):"")+
+
  '<div class="wz-actions"><button type="button" class="wz-button" data-wazifa-action="edit-personal" data-wazifa-id="'+esc(task.id)+'">سیٹنگ</button>'+
  '<button type="button" class="wz-button" data-wazifa-action="share-personal" data-wazifa-id="'+esc(task.id)+'" '+(!Number.isSafeInteger(task.wNumber)?'disabled':'')+'>دوسرے یوزر کو شیئر کریں</button>'+
  '</div>'+
