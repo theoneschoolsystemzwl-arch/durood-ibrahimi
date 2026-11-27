@@ -2432,6 +2432,7 @@ function groupSessionCountdown(period,now=new Date()){
 }
 // Dashboard-only aggregate numbers: never pass these into personal, reader or tree calculations.
 let combinedGoalRows=null,combinedPublishedTargets=null;
+let targetAuditOppositeWirds=null;
 let combinedDatedCounts={male:null,female:null};
 const combinedValid=n=>Number.isSafeInteger(n)&&n>=0;
 // Keep confirmed zero distinct from unavailable data. Show the known subtotal
@@ -2510,6 +2511,14 @@ function targetAuditProgressMarkup(progress){
  const value=n=>Number.isSafeInteger(n)?displayNumber(n):"—";
  return '<bdi dir="ltr" class="target-audit-progress"><span class="'+progress.status+'">'+value(progress.read)+'</span> / '+value(progress.target)+'</bdi>';
 }
+// Keep both sides' saved-count totals on the exact same member-ledger basis.
+function targetAuditReadTotal(rows,counts){
+ if(!Array.isArray(rows)||!(counts instanceof Map))return null;
+ return rows.reduce((sum,row)=>sum+(counts.get(row.uid)??0),0);
+}
+function targetAuditSplit(m,f){
+ return '<bdi class="target-audit-split" dir="ltr"><span>M '+combinedNumber(m)+'</span><span>+ F '+combinedNumber(f)+'</span></bdi>';
+}
 function targetAuditMarkup(){
  if(!currentUser())return "";
  const day=globalDateKey(),rows=memberTargetAudit(ownerGoalRows,day,dashboardGroupSettings);
@@ -2519,7 +2528,13 @@ function targetAuditMarkup(){
  const g=aggregateGroupTargets(ownerGoalRows,day,dashboardGroupSettings);
  const noTargets=g.activeMembers>0&&g.missingTargets===g.activeMembers;
  // Total the same confirmed saved Durood counts shown in this side’s member rows.
- const totalRead=savedMemberWirdsComplete?rows.reduce((sum,row)=>sum+(savedMemberWirds.get(row.uid)??0),0):null;
+ const totalRead=targetAuditReadTotal(rows,savedMemberWirdsComplete?savedMemberWirds:null);
+ const selected=window.duroodCurrentSide==="female"?"female":"male",opposite=selected==="male"?"female":"male";
+ const targets=combinedDashboardTargets();
+ const totals={male:{daily:targets.male?.dailyGoal,annual:targets.male?.yearlyGoal,read:null},female:{daily:targets.female?.dailyGoal,annual:targets.female?.yearlyGoal,read:null}};
+ totals[selected]={daily:noTargets?null:g.dailyGoal,annual:noTargets?null:g.yearlyGoal,read:totalRead};
+ totals[opposite].read=targetAuditReadTotal(combinedGoalRows?.[opposite],targetAuditOppositeWirds);
+ const split=key=>targetAuditSplit(totals.male[key],totals.female[key]);
  return '<div class="target-audit-title"><strong>'+side+' · '+tr("Daily target","آج کا ہدف")+'</strong><b>'+ (noTargets?tr("Not set","مقرر نہیں"):value(g.dailyGoal))+'</b></div>'+
  '<p class="muted">'+value(g.activeMembers)+tr(" active members; "," فعال ممبرز؛ ")+value(g.missingTargets)+tr(" targets not set."," کے ہدف مقرر نہیں۔")+' '+esc(day)+'</p><p class="muted" dir="ltr">'+esc(g.annualStartDate)+' — '+esc(g.annualEndDate)+'</p>'+
  '<div class="target-audit-table"><div class="target-audit-row target-audit-header"><span>'+tr("Member","ممبر")+'</span><span>'+tr("Daily","روزانہ")+'</span><span>'+tr("Read / target to date","پڑھا / آج تک ہدف")+'</span><span>'+tr("Annual","سالانہ")+'</span></div>'+
@@ -2533,7 +2548,7 @@ function targetAuditMarkup(){
     (row.goal===null&&row.legacyGoal!==null?'<small>'+tr("Old group target (not counted): ","پرانا گروپ ہدف (شامل نہیں): ")+value(row.legacyGoal)+'</small>':"")+'</span>'+
     '<span>'+goal+'</span><span>'+targetAuditProgressMarkup(progress)+'<small>'+value(row.days)+tr(" session days"," سیشن دن")+'</small></span><span>'+value(row.annual)+'</span></div>';
  }).join("")+
- '<div class="target-audit-row target-audit-header"><b>'+tr("Total","کل")+'</b><b>'+(noTargets?"—":value(g.dailyGoal))+'</b><b><bdi dir="ltr">'+value(totalRead)+'</bdi><small>'+tr("All-time Durood recited","اب تک گروپ کا کل پڑھا گیا درود")+'</small></b><b>'+value(noTargets?null:g.yearlyGoal)+'</b></div></div>'+
+ '<div class="target-audit-row target-audit-header target-audit-total"><b>'+tr("Total","کل")+'</b><b>'+split("daily")+'</b><b>'+split("read")+'<small>'+tr("All-time Durood recited","اب تک گروپ کا کل پڑھا گیا درود")+'</small></b><b>'+split("annual")+'</b></div></div>'+
  '<p class="muted">'+tr("Read / target to date uses the saved all-time Durood total and effective-dated daily goals from membership through today. Red: below target; green: target met or exceeded.","پڑھا / آج تک ہدف میں Firebase کا محفوظ مجموعی درود اور رکنیت سے آج تک تاریخ وار مقررہ روزانہ اہداف شامل ہیں۔ سرخ: کم؛ سبز: برابر یا زیادہ۔")+'</p>'+
  '<p class="muted">'+tr("Annual target = current daily goal × inclusive days from the later of session start and verified membership date to session end. Each session ends on 12 Rabi al-Awwal; the next starts on 13 Rabi al-Awwal. Missing membership dates are not guessed.","سالانہ ہدف = موجودہ روزانہ ہدف × سیشن کی آغاز تاریخ یا اصل رکنیت کی تاریخ (جو بعد میں ہو) سے اختتامی تاریخ تک کے دن۔ ہر سال 12 ربیع الاول کو ختم اور 13 ربیع الاول کو شروع ہوگا۔ نامعلوم تاریخ کا اندازہ نہیں لگایا جاتا۔")+'</p>';
 }
@@ -6273,6 +6288,7 @@ async function refreshGroupChat(){
 let stopCounters=()=>{};
 function observeCounters(side){
   stopCounters();
+  targetAuditOppositeWirds=null;
   const sideRef=doc(db,"genderStats",side);
   const observedUid=auth.currentUser?.uid;
   let scheduleCombinedPublish=()=>{};
@@ -6520,6 +6536,16 @@ function observeCounters(side){
     if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
     bridge.savedWirdTotals(observedUid,snap.docs.map(d=>({uid:d.id,total:d.data().total})),currentProfile?.role==="owner"||snap.size<200,side);
   },err=>{if(stillCurrent())bridge.savedWirdTotals(observedUid,[],false,side);console.warn("Saved member Wird totals unavailable",err.code);});
+  // Owner-only read of the opposite side. No cross-side member data for ordinary accounts.
+  const oppositeAuditSide=side==="male"?"female":"male";
+  const refreshAuditRead=()=>{const audit=document.getElementById("member-target-audit");if(audit)audit.innerHTML=targetAuditMarkup();};
+  const stopOppositeAuditWirds=currentProfile?.role!=="owner"?()=>{}:retryGoalSnapshot(
+    query(collection(db,"memberCounts"),where("gender","==",oppositeAuditSide)),snap=>{
+      if(!stillCurrent()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+      const entries=snap.docs.map(d=>[d.id,d.data().total]);
+      targetAuditOppositeWirds=entries.every(([uid,total])=>uid&&combinedValid(total))?new Map(entries):null;
+      refreshAuditRead();
+    },err=>{if(stillCurrent()){targetAuditOppositeWirds=null;refreshAuditRead();}console.warn("Opposite audit member totals unavailable",err?.code);});
   const stopTotal=onSnapshot(sideRef,snap=>bridge.allTime(Number(snap.data()?.totalRecitations||0)),err=>console.warn("Total unavailable",err.code));
   let stopOppositeDays=()=>{},stopDays=()=>{},stopRows=()=>{},stopHistory=()=>{},stopSharedDays=()=>{},timer,rows=null;
   let historyGeneration=0;
@@ -6672,7 +6698,7 @@ function observeCounters(side){
     timer=setTimeout(watchDays,Math.max(100,globalDayEnd(today)-globalNow()+100));
   }
   watchDays();
-  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopWelcome();stopCombinedTargets();window.removeEventListener("focus",retryCombinedOnFocus);window.removeEventListener("online",retryCombinedOnFocus);clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
+  stopCounters=()=>{window.removeEventListener("focus",retryPhotos);for(const stop of photoStops.values())stop();photoStops.clear();stopGoalDirectory();stopInviteDirectory();clearTimeout(groupRefreshTimer);for(const r of goalMembers.values())r.stops.forEach(stop=>stop());goalMembers.clear();stopGroupTitle();stopWelcome();stopCombinedTargets();window.removeEventListener("focus",retryCombinedOnFocus);window.removeEventListener("online",retryCombinedOnFocus);clearTimeout(publishTimer);stopOppositeDays();stopMemberTargets();stopMemberGroup();stopMemberDays();stopGroupStats();stopGroupYear();stopWirdTotals();stopOppositeAuditWirds();targetAuditOppositeWirds=null;for(const stop of ownWirdStops.values())stop();ownWirdStops.clear();delete window.duroodWatchOwnGroupWirds;stopTotal();stopDays();stopRows();stopHistory();historyGeneration++;if(window.duroodWatchReaderDate===watchReaderDate)delete window.duroodWatchReaderDate;stopSharedDays();clearInterval(pulse);clearTimeout(timer);};
 }
 let presenceUid="",presenceTimer=null,presenceLast=0,presenceBusy=false,presenceGeneration=0;
 function startPresence(profile){

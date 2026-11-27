@@ -691,3 +691,15 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(css.includes("-webkit-text-fill-color:var(--ui-ink)!important"));
  assert(css.includes("input[readonly]")&&css.includes("::placeholder")&&css.includes("theme-option"));
 }
+
+// The audit footer keeps both genders separate and totals only confirmed member rows.
+{
+ const start=classic.indexOf("function targetAuditReadTotal("),end=classic.indexOf("function targetAuditMarkup()",start);
+ assert(start>=0&&end>start);
+ const ctx=vm.createContext({combinedNumber:n=>Number.isSafeInteger(n)?String(n):"—"});
+ vm.runInContext(classic.slice(start,end),ctx);
+ assert.equal(vm.runInContext('targetAuditReadTotal([{uid:"a"},{uid:"b"}],new Map([["a",882],["z",99]]))',ctx),882);
+ assert.equal(vm.runInContext('targetAuditReadTotal([{uid:"a"}],null)',ctx),null);
+ assert.match(vm.runInContext('targetAuditSplit(221,169)',ctx),/M 221.*\+ F 169/);
+ assert.match(vm.runInContext('targetAuditSplit(null,0)',ctx),/M —.*\+ F 0/);
+}

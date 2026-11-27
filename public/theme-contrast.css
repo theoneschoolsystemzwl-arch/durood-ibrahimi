@@ -267,3 +267,11 @@
  -webkit-text-fill-color:var(--wz-figure-ink)!important;
  text-shadow:none!important;
 }
+
+/* Male + female subtotals in the target audit footer, with narrow-phone wrapping. */
+:root[data-theme] body .target-audit-total .target-audit-split{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+ font:750 clamp(.62rem,2.45vw,.88rem)/1.4 system-ui,sans-serif;
+ font-variant-numeric:tabular-nums;direction:ltr;
+}
+:root[data-theme] body .target-audit-total .target-audit-split span{white-space:nowrap;color:inherit!important}
