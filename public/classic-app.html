@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=wazaif-gold-numbered-tabs-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=member-ranking-photo-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=wazaif-gold-numbered-tabs-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=member-ranking-photo-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=wazaif-gold-numbered-tabs-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=member-ranking-photo-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1494,6 +1494,33 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 :root[data-theme] .tree-activity-gc{display:flex;width:100%;justify-content:space-between;align-items:center;border-top:1px solid #b5a36766;padding-top:2px;gap:3px}
 :root[data-theme] .tree-activity-gc>bdi{color:#dbffec;font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;overflow-wrap:anywhere}
 :root[data-theme] .tree-group-wird>bdi{font:800 clamp(.78rem,3.2vw,1.1rem)/1.3 system-ui,sans-serif;color:#dbffec;max-width:100%;overflow-wrap:anywhere}
+</style>
+<style id="member-ranking-design">
+.member-ranking .headline{text-align:center;margin:12px auto 8px}
+.member-ranking .headline h1{font-size:clamp(1.45rem,5vw,2rem);color:#ffe4a4}
+.member-ranking .headline p{font-size:.82rem}
+.member-ranking .rank-tree-link{display:flex;justify-content:center;margin:4px 0 12px}
+.member-ranking .rank-tree-link button{font-size:.8rem;padding:5px 12px;min-height:34px}
+.member-ranking .tab-row,.member-ranking .periods{justify-content:center;gap:5px}
+.member-ranking .rank-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.member-ranking .rank-card{position:relative;display:flex;align-items:center;gap:7px;min-width:0;text-align:center;padding:13px 7px 10px;border:1px solid #318975;border-radius:16px;background:linear-gradient(150deg,#07523f,#032e26);color:#f2fff9;box-shadow:0 3px 9px #001d1944}
+.member-ranking .rank-card.first{border-color:#e8bd65;background:linear-gradient(155deg,#145544,#07382d);box-shadow:inset 0 0 0 1px #c4a35955}
+.member-ranking .rank-card.second{border-color:#b8d3d1}
+.member-ranking .rank-card.third{border-color:#c79867}
+.member-ranking .rank-number{position:absolute;inset-block-start:8px;inset-inline-start:8px;min-width:26px;height:26px;border-radius:9px;background:#105e4b;color:#e0fff2}
+.member-ranking .first .rank-number{background:#f3d07f;color:#513607}
+.member-ranking .second .rank-number{background:#c6d9da;color:#193d3a}
+.member-ranking .third .rank-number{background:#d4a779;color:#442a14}
+.member-ranking .rank-photo .avatar{width:clamp(52px,15vw,76px);height:clamp(52px,15vw,76px);border:2px solid #59bd9f;border-radius:50%;overflow:hidden;background:#0c6853;color:#eafff6;font-size:1.25rem}
+.member-ranking .rank-photo .avatar img{width:100%;height:100%;object-fit:cover}
+.member-ranking .first .rank-photo .avatar{border-color:#efca76}
+.member-ranking .rank-person{min-width:0;width:100%}
+.member-ranking .rank-card h2{font-size:clamp(.85rem,3.4vw,1.13rem);line-height:1.7;margin:0;overflow-wrap:anywhere;color:#fff}
+.member-ranking .rank-person .muted{color:#b9ded0;font-size:.75rem}
+.member-ranking .rank-total{width:100%;display:grid;justify-items:center;gap:1px;margin-top:auto;border-top:1px solid #549c8355;padding-top:5px}
+.member-ranking .rank-total strong{font-size:clamp(1.15rem,4.6vw,1.65rem);font-variant-numeric:tabular-nums;color:#ffe3a1;overflow-wrap:anywhere;max-width:100%}
+.member-ranking .rank-total small{font-size:.72rem;color:#c3ead9}
+@media(min-width:640px){.member-ranking .rank-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -1905,10 +1932,11 @@ function toggle(label, action, value, active, style) {
 }
 
 function rankCard(entry, index) {
-  return '<article class="rank-card ' + ['first','second','third'][index] + tr("\"><span class=\"rank-number\" aria-label=\"Rank ", '"><span class="rank-number" aria-label="درجہ ') +
-    (index + 1) + '">' + (index + 1) + '</span><div><h2 dir="auto">' + esc(memberName(entry.person)) + '</h2>' +
-    '<small class="muted">' + displayId(entry.person.id) + '</small></div><div class="rank-total">' +
-    displayNumber(entry.total) + tr(" <small>Durood</small></div></article>", ' <small>درود</small></div></article>');
+  const place=['first','second','third'][index]||'';
+  return '<article class="rank-card '+place+'"><span class="rank-number" aria-label="'+tr("Rank ","درجہ ")+(index+1)+'">'+(index+1)+'</span>'+
+    '<div class="rank-photo">'+avatar(entry.person,true)+'</div>'+
+    '<div class="rank-person"><h2 dir="auto">'+esc(memberName(entry.person))+'</h2><small class="muted" dir="ltr">'+displayId(entry.person.id)+'</small></div>'+
+    '<div class="rank-total"><strong dir="ltr">'+displayNumber(entry.total)+'</strong><small>'+tr("Durood","درود شریف")+'</small></div></article>';
 }
 
 function ranking() {
@@ -1916,19 +1944,16 @@ function ranking() {
     .map(person => ({person, total:score(person, selectedPeriod, record)}))
     .filter(entry => entry.total > 0)
     .sort((first, second) => second.total - first.total || first.person.id - second.person.id).slice(0,10);
-  return heading(tr("Top Members", 'نمایاں ارکان'),tr("The ten members with the highest recorded counts for this period.", 'منتخب مدت میں سب سے زیادہ شمار درج کرنے والے دس ممبرز۔')) +
+  return '<section class="member-ranking">'+heading(tr("Top Members", 'نمایاں ارکان'),tr("The ten members with the highest recorded counts for this period.", 'منتخب مدت میں سب سے زیادہ شمار درج کرنے والے دس ارکان۔')) +
+    '<div class="rank-tree-link"><button class="button secondary" data-action="nav" data-value="members">'+tr("Member groups and branches","ارکان کے گروپس اور شجرہ")+'</button></div>'+
     tr("<div class=\"tab-row\" aria-label=\"Record type\">", '<div class="tab-row" aria-label="ریکارڈ کی قسم">') +
     toggle(tr("Current record", 'موجودہ ریکارڈ'),'record','current',record === 'current','tab') +
     toggle(tr("Previous record", 'پچھلا ریکارڈ'),'record','previous',record === 'previous','tab') + '</div>' +
     tr("<div class=\"periods\" aria-label=\"Period\">", '<div class="periods" aria-label="مدت">') + periods.map(([key,label]) => toggle(label,'period',key,selectedPeriod === key,'period')).join('') + '</div>' +
     (record === 'previous' && selectedPeriod === 'all' ? '<div class="section">' +
       ur(tr("The previous all-time record runs through the end of yesterday.", 'پچھلا مجموعی ریکارڈ گزشتہ دن کے اختتام تک ہے۔'),'p','notice') + '</div>' : '') +
-    (top.length ? '<div class="rank-grid">' + top.slice(0,3).map(rankCard).join('') + '</div>' +
-      (top.length > 3 ? '<div class="panel rank-list">' + top.slice(3).map((entry,index) =>
-        '<article class="rank-row"><span class="rank-number">' + (index + 4) + '</span><div><strong dir="auto">' + esc(memberName(entry.person)) +
-        '</strong><span class="rank-id muted">' + displayId(entry.person.id) + '</span></div><span class="rank-total">' + displayNumber(entry.total) +
-        tr(" <small>Durood</small></span></article>", ' <small>درود</small></span></article>')).join('') + '</div>' : '') :
-      tr("<p class=\"panel empty section\">No Durood count recorded in this period.</p>", '<p class="panel empty section">اس مدت میں درود کا کوئی شمار درج نہیں۔</p>'));
+    (top.length ? '<div class="rank-grid">'+top.map(rankCard).join('')+'</div>' :
+      tr("<p class=\"panel empty section\">No Durood count recorded in this period.</p>", '<p class="panel empty section">اس مدت میں درود کا کوئی شمار درج نہیں۔</p>'))+'</section>';
 }
 
 // Keep membership activity separate from GC (saved recitations).
@@ -4776,7 +4801,7 @@ function dashboard(person) {
     '<main class="main" id="main-content">'+(section==="overview"?"":prayerTickerMarkup(person))+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
-    availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + key +
+    availableLinks.map(([key,icon,label]) => '<button class="nav" data-action="nav" data-value="' + (key==="members"?"ranking":key) +
       '"' + (key === active ? ' aria-current="page"' : '') + '><span class="nav-icon" aria-hidden="true">' + dashboardNavIcon(key) + '</span>' + label + '</button>').join('') +
     '</div></nav></div>';
 }
@@ -5583,14 +5608,13 @@ window.duroodClassicBridge = {
     groupIdentityCache=groupDirectoryReady?buildGroupIdentity(users):new Map();
     if(!refresh)globalTotal=Number(totals.global||0);
     liveAdded=0;
-    selectedPeriod="all";
-    record="current";
+    if(!refresh||section!=="ranking"){selectedPeriod="all";record="current";}
     if(!refresh){
       restoreMemberPrivateSettings(profile.uid,Number(profile.memberNumber)||1);
       restoreReaderJournal(profile.uid,Number(profile.memberNumber)||1);
       signIn(users.find(m=>m.uid===profile.uid)?.id??Number(profile.memberNumber));
     }
-    else if(["overview","tree","profile","directory","groups","members"].includes(section))render({keepScroll:true});
+    else if(["overview","tree","profile","directory","groups","members","ranking"].includes(section))render({keepScroll:true});
     else {
       const dateNode=document.querySelector(".profile-card .join-date bdi");
       const person=currentUser();
@@ -5758,13 +5782,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=wazaif-gold-numbered-tabs-20261127-v1";
+import "./wazaif.js?release=member-ranking-photo-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=wazaif-gold-numbered-tabs-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-ranking-photo-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
@@ -6565,7 +6589,7 @@ ui.addEventListener("click",event=>{
     }).finally(()=>{switchingSide=false;if(button.isConnected)button.disabled=false;});
     return;
   }
-  if(action==="branch" || action==="group" || (action==="nav"&&["tree","groups","members"].includes(button.dataset.value))){
+  if(action==="branch" || action==="group" || (action==="nav"&&["tree","groups","members","ranking"].includes(button.dataset.value))){
     // Refresh the selected side from Firebase after the local navigation,
     // so newly registered descendants are visible without a manual reload.
     setTimeout(()=>{if(!classicLogoutBlocked())hydrate().catch(e=>console.warn("Tree refresh unavailable",e?.code||e));},0);
