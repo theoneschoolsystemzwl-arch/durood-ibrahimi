@@ -82,11 +82,11 @@ function nav(app,section){
    if(paidDay)assert.equal(ownerData.qaza.done?.[paidPrayer]?.[paidDay],true,
      "Paid Qaza did not persist on device");
    nav(app,"settings");
-   const themeInput=app.document.querySelector('input[name="ui-theme"][value="navy-silver"]');
+   const themeInput=app.document.querySelector('input[name="ui-theme"][value="blue"]');
    assert(themeInput,"Profile theme radio button missing");
    themeInput.checked=true;
    themeInput.dispatchEvent(new app.window.Event("change",{bubbles:true}));
-   assert.equal(app.document.documentElement.dataset.theme,"navy-silver",
+   assert.equal(app.document.documentElement.dataset.theme,"blue",
      "Changing profile theme did not apply");
 
 
@@ -108,7 +108,7 @@ function nav(app,section){
      assert.equal(restored.document.querySelector("#qaza-target").value,"15");
      if(paidDay)assert.equal(JSON.parse(restored.window.localStorage.getItem(ownerPrivateKey))
        .qaza.done?.[paidPrayer]?.[paidDay],true,"Paid Qaza was lost after reload");
-     assert.equal(restored.document.documentElement.dataset.theme,"navy-silver",
+     assert.equal(restored.document.documentElement.dataset.theme,"blue",
        "Owner theme was lost after reload");
      assert.equal(restored.errors.length,0,restored.errors.map(String).join("\n"));
    }finally{restored.dom.window.close();}

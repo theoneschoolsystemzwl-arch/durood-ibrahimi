@@ -1,0 +1,190 @@
+/* Explicit, paired colors. Never inverted or recolored by the legacy palette adapter. */
+:root[data-theme="white"]{
+ --ui-page:#f1f4f8;
+ --ui-surface:#ffffff;
+ --ui-raised:#eaf0f6;
+ --ui-field:#f8fafc;
+ --ui-ink:#192b3c;
+ --ui-muted:#485d70;
+ --ui-line:#a7b7c8;
+ --ui-primary:#36536f;
+ --ui-on-primary:#ffffff;
+ --ui-accent:#805c15;
+ --ui-selected:#f3e5b8;
+ --ui-on-selected:#382809;
+ --ui-good:#126a3e;
+ --ui-bad:#aa203b;
+ --ui-manual:#80590b;
+ --ui-hero:#e6edf5;
+ --ui-nav:#e5ebf3;
+ color-scheme:light;
+}
+:root[data-theme="blue"]{
+ --ui-page:#071b3c;
+ --ui-surface:#102e57;
+ --ui-raised:#1a3c68;
+ --ui-field:#0b2346;
+ --ui-ink:#f2f7ff;
+ --ui-muted:#c0d4ed;
+ --ui-line:#648db9;
+ --ui-primary:#23558c;
+ --ui-on-primary:#ffffff;
+ --ui-accent:#f5d486;
+ --ui-selected:#f5d486;
+ --ui-on-selected:#1b2e45;
+ --ui-good:#85f4b0;
+ --ui-bad:#ff9da8;
+ --ui-manual:#ffe08a;
+ --ui-hero:#143660;
+ --ui-nav:#102b51;
+ color-scheme:dark;
+}
+:root[data-theme="pink"]{
+ --ui-page:#fff0f5;
+ --ui-surface:#fff9fc;
+ --ui-raised:#fce1ed;
+ --ui-field:#fffafd;
+ --ui-ink:#54213a;
+ --ui-muted:#77516a;
+ --ui-line:#c88ba7;
+ --ui-primary:#a83164;
+ --ui-on-primary:#ffffff;
+ --ui-accent:#922757;
+ --ui-selected:#f6c7da;
+ --ui-on-selected:#59203e;
+ --ui-good:#12683c;
+ --ui-bad:#ad2141;
+ --ui-manual:#81520d;
+ --ui-hero:#f9dce9;
+ --ui-nav:#f8d8e6;
+ color-scheme:light;
+}
+:root[data-theme="red"]{
+ --ui-page:#300910;
+ --ui-surface:#591521;
+ --ui-raised:#722333;
+ --ui-field:#410e18;
+ --ui-ink:#fff2f0;
+ --ui-muted:#f2cbd1;
+ --ui-line:#b96d7a;
+ --ui-primary:#8e2942;
+ --ui-on-primary:#ffffff;
+ --ui-accent:#ffd18a;
+ --ui-selected:#ffd18a;
+ --ui-on-selected:#431019;
+ --ui-good:#8df4b5;
+ --ui-bad:#ffb2bc;
+ --ui-manual:#ffe18e;
+ --ui-hero:#691c2a;
+ --ui-nav:#4f111d;
+ color-scheme:dark;
+}
+:root[data-theme="emerald"]{
+ --ui-page:#002e25;
+ --ui-surface:#004438;
+ --ui-raised:#075749;
+ --ui-field:#00372e;
+ --ui-ink:#effff8;
+ --ui-muted:#c1e3d6;
+ --ui-line:#459b83;
+ --ui-primary:#08765b;
+ --ui-on-primary:#ffffff;
+ --ui-accent:#f7d571;
+ --ui-selected:#f7d571;
+ --ui-on-selected:#173a2f;
+ --ui-good:#80f5a9;
+ --ui-bad:#ff9ca8;
+ --ui-manual:#ffe08a;
+ --ui-hero:#005043;
+ --ui-nav:#06463a;
+ color-scheme:dark;
+}
+:root[data-theme]{
+ --paper:var(--ui-page)!important;--surface:var(--ui-surface)!important;--raised:var(--ui-raised)!important;
+ --ink:var(--ui-ink)!important;--deep:var(--ui-ink)!important;--muted:var(--ui-muted)!important;
+ --line:var(--ui-line)!important;--border:var(--ui-line)!important;--mint:var(--ui-raised)!important;
+ --light:var(--ui-raised)!important;--gold:var(--ui-accent)!important;--gold-light:var(--ui-accent)!important;
+ --green:var(--ui-good)!important;--emerald:var(--ui-primary)!important;
+ background:var(--ui-page)!important;color:var(--ui-ink)!important;accent-color:var(--ui-primary)!important;
+}
+:root[data-theme] body{background:var(--ui-page)!important;color:var(--ui-ink)!important}
+:root[data-theme] body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]):not([type=color]),textarea,select){
+ background:var(--ui-field)!important;color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important;
+ border-color:var(--ui-line)!important;caret-color:var(--ui-ink)!important;color-scheme:inherit!important;opacity:1;
+}
+:root[data-theme] body :is(input[readonly],input:disabled,textarea:disabled,select:disabled){
+ background:var(--ui-raised)!important;color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important;opacity:1!important;
+}
+:root[data-theme] body :is(input,textarea)::placeholder{color:var(--ui-muted)!important;-webkit-text-fill-color:var(--ui-muted)!important;opacity:1!important}
+:root[data-theme] body input:is(:autofill,:-webkit-autofill){-webkit-box-shadow:0 0 0 1000px var(--ui-field) inset!important;-webkit-text-fill-color:var(--ui-ink)!important;caret-color:var(--ui-ink)!important}
+:root[data-theme] body :is(input[type=checkbox],input[type=radio],input[type=range],progress){accent-color:var(--ui-primary)!important}
+:root[data-theme] body :is(input,textarea,select,button,summary):focus-visible{outline:2px solid var(--ui-primary)!important;outline-offset:2px}
+:root[data-theme] body :is(.panel,.auth-card,profile-contacts .panel,.theme-option,dialog,.wz-edit-dialog,.wz-date-dialog,#wz-dashboard-pending){
+ background:var(--ui-surface)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+:root[data-theme] body :is(.field,label,legend,summary,dt,.panel h1,.panel h2,.panel h3,.panel h4,.profile-title strong,.theme-option span){color:var(--ui-ink)!important}
+:root[data-theme] body :is(.field-help,.muted,.panel .muted,.footnote,.panel small,.profile-title small){color:var(--ui-muted)!important}
+:root[data-theme] body :is(.button,button.primary,button.secondary,.wz-button,.wz-primary,button[type=submit],.password-eye,.eye,.corner-link,.wz-cal-arrow,.wz-date-button,.wz-feedback-button,.wz-day-step,.wz-ticker-setting button,.wz-reader-fullscreen,.wz-pending-close,.wz-history-edit,.wz-ledger-edit-button,.wz-hero-back):not(.danger):not(.wz-delete):not(.dial):not(.wz-dial):not(.wz-hero-dial):not(.namaz-jamat):not(.namaz-solo):not(.namaz-made):not(.namaz-missed):not(.qaza-paid){
+ background:var(--ui-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;-webkit-text-fill-color:currentColor!important;text-shadow:none!important;
+}
+:root[data-theme] body :is(.button:not(.secondary):not(.soft):not(.danger),button.primary,button[type=submit],.wz-primary,.wz-reader-save):not(.dial):not(.wz-dial):not(.wz-hero-dial){
+ background:var(--ui-primary)!important;color:var(--ui-on-primary)!important;-webkit-text-fill-color:var(--ui-on-primary)!important;border-color:var(--ui-primary)!important;
+}
+:root[data-theme] body :is(button,.button) :is(svg,.nav-icon){color:inherit!important}
+:root[data-theme] body :is(.button,button,.nav,.tab,.period,.theme-option,.wz-cal-day,.wz-feedback-button):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.is-selected,:has(>input:checked)):not(.namaz-jamat):not(.namaz-solo):not(.namaz-made):not(.namaz-missed):not(.qaza-paid):not(.wz-sign-button){
+ background:var(--ui-selected)!important;color:var(--ui-on-selected)!important;-webkit-text-fill-color:var(--ui-on-selected)!important;border-color:var(--ui-accent)!important;text-shadow:none!important;
+}
+:root[data-theme] body :is(.button,button,.nav,.tab,.period,.theme-option,.wz-cal-day,.wz-feedback-button):is([aria-current=page],[aria-pressed=true],[aria-selected=true],.is-selected,:has(>input:checked)) :is(span,small,b,strong,svg):not([data-wz-notice-count]){
+ color:inherit!important;-webkit-text-fill-color:currentColor!important;
+}
+:root[data-theme] body :is(.bottom-nav,.utility-bar,.owner-sections,.locale-menu-list,.access-tabs,.prayer-switch,.tab-row){background:var(--ui-nav)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important}
+:root[data-theme] body :is(.bottom-nav .nav,.access-tabs button,.tab,.period,.locale-menu-list button):not([aria-current=page]):not([aria-selected=true]):not([aria-pressed=true]){background:var(--ui-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important}
+:root[data-theme] body .bottom-nav .nav :is(span,svg){color:inherit!important;-webkit-text-fill-color:currentColor!important;filter:none!important}
+:root[data-theme] body .bottom-nav .nav[aria-current=page]{background:var(--ui-selected)!important;color:var(--ui-on-selected)!important;border-color:var(--ui-accent)!important}
+:root[data-theme] body :is(.feedback.error,.message:not(.ok):not(:empty),.wz-error,.wz-edit-error){color:var(--ui-bad)!important;background:var(--ui-surface)!important}
+:root[data-theme] body :is(.feedback.success,.feedback.ok,.message.ok,.wz-day-complete){color:var(--ui-good)!important}
+:root[data-theme] body :is(.button.danger,.wz-delete){background:#9f2440!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;border-color:#9f2440!important}
+
+/* All non-default palettes: match each major card with its own foreground. */
+:root[data-theme]:not([data-theme=emerald]) body :is(.profile-card,.brand-head,.auth .art,.about-hero,.recitation-banner,.recitation-period,.next-prayer-ticker,.dashboard-home .readers-section,.dashboard-home .reader-list li,.dashboard-home .boxed-headline,.member-card,.community-card,.group-card,.rank-card,.reader,.reader-inner,.namaz-card,.qaza-card,.qaza-section,.ledger-card,.ledger-frame,.tree-node,.tree-scroll,.about-block,.about-person,.chat-bubble,.wz-card,.wz-form,.wz-accounting,.wz-reading,.wz-hero-reader,.wz-session-card,.wz-fixed-plan,.wz-history-detail,.wz-share-form,.wz-reading-text,.wz-reading-text-visible,.wz-continue-prompt,.wz-continuation-form,.wz-pdf-scroll,.wz-edit-dialog,.wz-date-dialog,.wz-history-entry){
+ background:var(--ui-surface)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;--read-ink:var(--ui-ink);--read-mute:var(--ui-muted);--read-panel:var(--ui-raised);--read-line:var(--ui-line);--prayer-ink:var(--ui-ink);--prayer-muted:var(--ui-muted);
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.profile-card,.brand-head,.recitation-banner,.next-prayer-ticker,.wz-session-card,.wz-hero-title,.wz-tasbih-cta,.group-reader-intro .durood-copy,.wz-reading-text-visible,.wz-arabic-ticker,.wz-ticker-window){
+ background:var(--ui-hero)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.profile-card,.brand-head,.recitation-banner,.recitation-period,.next-prayer-ticker,.reader-list,.wz-card,.wz-hero-reader,.wz-session-card,.wz-form,.namaz-card,.rank-card,.tree-node,.group-card,.member-card,.qaza-section,.ledger-card,dialog) :is(h1,h2,h3,h4,label,legend,summary,.period-target-label,.period-total-label,.dashboard-mf,.dashboard-period-heading,.dashboard-period-goal,.dashboard-period-goal bdi,.profile-copy strong,.member-content,.wz-title,.wz-subtitle,.wz-hero-title,.wz-stat strong,.wz-hero-stat strong,.wz-hero-tile strong,.wz-inline-count strong,.wz-metric strong,.reader-person,.rank-total strong,.prayer-name,.namaz-date-number,.tree-member-label){
+ color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important;text-shadow:none!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.profile-card,.recitation-banner,.recitation-period,.reader-list,.wz-card,.wz-hero-reader,.wz-session-card,.wz-form,.namaz-card,.rank-card,.tree-node,.group-card,.member-card,dialog) :is(small,.muted,.period-note,.join-date,.direct-invites,.wz-hero-caption,.wz-day-note){
+ color:var(--ui-muted)!important;-webkit-text-fill-color:var(--ui-muted)!important;text-shadow:none!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.brand-head .header-scripture,.brand-head .brand-lines,.brand-head .salawat,.brand-head .basmala,.brand-head h1,.brand-head .subtitle,.brand-head .holy-place figcaption,.brand-head .header-scripture small,.recitation-banner h2,.dashboard-home .boxed-headline h1,.readers-section h2){
+ background:transparent!important;color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important;border-color:var(--ui-line)!important;text-shadow:none!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.recitation-banner #global-total,.all-time-durood-card #global-total,.wz-tasbih-cta,.wz-hero-title,.dashboard-salam,.dashboard-salam>b,.dashboard-salam>span){
+ color:var(--ui-accent)!important;-webkit-text-fill-color:var(--ui-accent)!important;text-shadow:none!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.reader-metric,.qaza-metric,.qaza-column,.qaza-next-card,.stat,.detail-grid>div,.pace-grid>*,.wz-metric,.wz-stat,.wz-hero-stat,.wz-hero-tile,.wz-inline-count,.wz-clear-cell,.wz-ledger-item,.wz-five-cell,.wz-time-three span,.wz-hero-speed,.wz-progress-line,.wz-continuation-grid>div,.wz-kind-choice,.wz-edit-saved,.tree-group-wird,.tree-activity,.wz-feedback-control,.wz-date-select,.wz-cal-day,.wz-history-edit,.wz-hero-remaining,.wz-serial,.wz-received,.wz-state,.wz-reading-text,.reader .arabic,.durood-copy){
+ background:var(--ui-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.dial,.wz-dial,.wz-hero-dial){color:var(--ui-ink)!important;}
+:root[data-theme]:not([data-theme=emerald]) body :is(.dial,.wz-dial,.wz-hero-dial) :is(strong,small,span,b,time){color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important;text-shadow:none!important}
+:root[data-theme]:not([data-theme=emerald]) body :is(.namaz-table,.prayer-ledger,.ledger-card) :is(th,td):not(.namaz-jamat):not(.namaz-solo):not(.namaz-made):not(.namaz-missed):not(.qaza-paid):not(.qaza-holding){
+ background:var(--ui-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+:root[data-theme]:not([data-theme=emerald]) body :is(.namaz-table,.prayer-ledger) thead th{background:var(--ui-hero)!important;color:var(--ui-ink)!important}
+:root[data-theme]:not([data-theme=emerald]) body :is(.namaz-jamat,.namaz-solo,.namaz-made,.namaz-missed,.qaza-paid,.qaza-holding) :is(span,small,strong){color:inherit!important;-webkit-text-fill-color:currentColor!important}
+
+/* Status meaning is independent of the chosen decorative theme. */
+:root[data-theme] body .dashboard-home #dashboard-period-cards .period-short strong[data-period],
+:root[data-theme] body :is(.wz-red,.wz-ledger-pending,.wz-day-pending,.wz-today-due,.wz-today-due-cell,.wz-five-alert){color:var(--ui-bad)!important;-webkit-text-fill-color:var(--ui-bad)!important}
+:root[data-theme] body .dashboard-home #dashboard-period-cards .period-complete strong[data-period],
+:root[data-theme] body :is(.wz-green,.wz-ledger-green,.wz-day-complete){color:var(--ui-good)!important;-webkit-text-fill-color:var(--ui-good)!important}
+:root[data-theme] body :is(.wz-yellow,.wz-ledger-yellow,.wz-day-extra){color:var(--ui-manual)!important;-webkit-text-fill-color:var(--ui-manual)!important}
+:root[data-theme] body .dashboard-home #dashboard-period-cards .period-unknown strong[data-period]{color:var(--ui-ink)!important;-webkit-text-fill-color:var(--ui-ink)!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-red,.wz-ledger-pending,.wz-green,.wz-ledger-green,.wz-yellow,.wz-ledger-yellow,.wz-today-due,.wz-today-due-cell,.wz-five-alert){background:var(--ui-raised)!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-history-row.wz-day-due,.wz-history-clear.wz-day-due){background:#fff0f2!important;color:#a51e38!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.wz-history-row.wz-day-ok,.wz-history-clear.wz-day-ok){background:#e6f6eb!important;color:#12683c!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-jamat,.namaz-solo,.namaz-made,.qaza-paid){color:#154f33!important;background:#d9f2e2!important}
+:root[data-theme]:is([data-theme=white],[data-theme=pink]) body :is(.namaz-missed,.qaza-holding){color:#9d203a!important;background:#ffe0e5!important}
+:root[data-theme] body .wz-pdf-page{background:#ffffff!important;color:#111111!important}

@@ -15,7 +15,7 @@ function stored(){try{return normalize(localStorage.getItem(key));}catch{return 
 const root=document.documentElement, originals=new Map();
 let applied="",ready=false;
 const status=/period-(?:short|complete)|(?:^|[-_.])(?:pending|complete|completed|missed|success|error|danger|manual|offline|jamat|solo|made|qaza-ada|short|extra|fireworks|status-green|status-red)(?:[-_.:\s,\[]|$)/i;
-const colorProperties=/^(?:--|color$|background|border|outline|box-shadow|text-shadow|fill$|stroke$|accent-color|caret-color|scrollbar-color)/;
+const colorProperties=/^(?:--|color$|background|border|outline|box-shadow|text-shadow|fill$|stroke$|accent-color|caret-color|scrollbar-color|-webkit-text-fill-color)/;
 function hexRgb(token){
  let v=token.slice(1);if(v.length===3||v.length===4)v=[...v].map(x=>x+x).join("");
  if(v.length!==6&&v.length!==8)return null;
@@ -36,8 +36,12 @@ function rgbToken(token,p,prop,semantic){
  if(!cool&&!neutral&&!gold)return token;
  if(cool){h=p.h;s=Math.min(1,s*p.s);}
  if(p.light){
-  if(cool||neutral){if(alpha<.35)return token;l=1-l;l=.08+.86*l;if(neutral&&p.h===331){h=p.h;s=.12;}}
-  else if(gold&&/^(?:color|fill|stroke|text-shadow)/.test(prop)&&l>.52)l=.35;
+  const foreground=/^(?:color|fill|stroke|caret-color|-webkit-text-fill-color)$/.test(prop);
+  if(alpha<.35)return token;
+  if(cool||neutral){
+   if(foreground){l=.14+Math.min(.15,l*.12);h=p.h;s=p.h===331?.34:.21;}
+   else {l=.89+Math.min(.09,l*.08);h=p.h;s=p.h===331?.45:.14;}
+  }else if(gold&&foreground)l=.30;
  }
  if(!p.light&&!cool)return token;
  return "hsl("+h.toFixed(1)+" "+(s*100).toFixed(1)+"% "+(l*100).toFixed(1)+"% / "+alpha.toFixed(3)+")";
@@ -50,19 +54,7 @@ function convert(value,p,prop,semantic){
   if(token.toLowerCase()==="white")token="#ffffff";else if(token.toLowerCase()==="black")token="#000000";
   return rgbToken(token,p,prop,false);
  });
- if(p.light&&typeof CSS!=="undefined"&&CSS.supports("color","hsl(from red h s calc(100 - l))")){
-  let out="",i=0;const re=/hsla?\(/ig;let match;
-  while((match=re.exec(result))){
-   let end=re.lastIndex,depth=1;while(end<result.length&&depth){if(result[end]==="(")depth++;else if(result[end]===")")depth--;end++;}
-   if(depth)break;
-   const v=result.slice(match.index,end);
-   out+=result.slice(i,match.index);
-   // Only pre-existing variable-based HSL, not the converted literal tokens.
-   out+=/var\(--(?:base-h|theme-hue)/.test(v)?"hsl(from "+v+" h s calc(100 - l))":v;
-   i=end;re.lastIndex=end;
-  }
-  result=out+result.slice(i);
- }
+ // Never depend on relative-color CSS support or blindly invert text and backgrounds.
  return result;
 }
 function visit(rules,fn){
@@ -74,7 +66,7 @@ function visit(rules,fn){
 function repaint(theme){
  const p=palettes[theme];
  for(const sheet of Array.from(document.styleSheets)){
-  if(sheet.href&&new URL(sheet.href,location.href).origin!==location.origin)continue;
+  if(sheet.href){const url=new URL(sheet.href,location.href);if(url.origin!==location.origin||url.pathname.endsWith("/theme-contrast.css"))continue;}
   try{visit(sheet.cssRules,r=>{
    if(!originals.has(r)){
     const values=[];for(const prop of Array.from(r.style)){if(colorProperties.test(prop))values.push([prop,r.style.getPropertyValue(prop),r.style.getPropertyPriority(prop)]);}

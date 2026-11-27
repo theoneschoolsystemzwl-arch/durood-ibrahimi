@@ -677,3 +677,17 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert(classic.includes("person.isOwner?welcomeSettingsMarkup()"));assert(classic.includes('currentProfile.role!=="owner"'));
  const themes=fs.readFileSync("public/app-theme.js","utf8");assert(themes.includes('white:')&&themes.includes('blue:')&&themes.includes('pink:')&&themes.includes('red:')&&themes.includes('emerald:'));
 }
+
+// Every decorative theme supplies readable paired foreground and background colors.
+{
+ const css=fs.readFileSync("public/theme-contrast.css","utf8");
+ const luminance=hex=>{const rgb=hex.match(/[0-9a-f]{2}/gi).map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]};
+ const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+ for(const theme of ["white","blue","pink","red","emerald"]){
+  const block=css.match(new RegExp(':root\\[data-theme="'+theme+'"\\]\\{([^}]+)\\}'))[1];
+  const t=Object.fromEntries([...block.matchAll(/--ui-([a-z-]+):\s*(#[0-9a-f]{6})/gi)].map(m=>[m[1],m[2]]));
+  for(const [a,b] of [["ink","page"],["ink","surface"],["ink","field"],["ink","raised"],["muted","field"],["on-primary","primary"],["on-selected","selected"],["good","surface"],["bad","surface"],["manual","surface"]])assert(contrast(t[a],t[b])>=4.5,theme+" "+a+"/"+b+" contrast "+contrast(t[a],t[b]));
+ }
+ assert(css.includes("-webkit-text-fill-color:var(--ui-ink)!important"));
+ assert(css.includes("input[readonly]")&&css.includes("::placeholder")&&css.includes("theme-option"));
+}

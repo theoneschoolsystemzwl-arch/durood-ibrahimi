@@ -1,4 +1,4 @@
-const RELEASE="five-themes-welcome-20261127-v1";
+const RELEASE="theme-contrast-20261127-v2";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
