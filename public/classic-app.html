@@ -1238,9 +1238,9 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader-list li>strong {float:inline-end;color:var(--deep)}
 </style>
 <link rel="stylesheet" href="./emerald.css?v=3">
-<link rel="stylesheet" href="./wazaif.css?v=member-ranking-photo-20261127-v1">
+<link rel="stylesheet" href="./wazaif.css?v=member-ranking-list-20261127-v1">
 <link rel="stylesheet" href="./wazaif-rollover.css?v=tasbih-native-haptics-speed300-20261124-v14">
-<script defer src="./pull-refresh.js?v=member-ranking-photo-20261127-v1"></script>
+<script defer src="./pull-refresh.js?v=member-ranking-list-20261127-v1"></script>
 <link rel="stylesheet" href="./prayer-calendar-fix.css?v=ledger-no-scroll-20261123-v6">
 
 <style>.tree-node .tree-member-label{display:inline-flex;align-items:center;gap:.8em}</style>
@@ -1349,7 +1349,7 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .reader .reader-history .record-list{padding-inline-start:0}
 @media(max-width:420px){.reader .reader-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reader .reader-grid .reader-metric{padding:5px}.reader .reader-grid .reader-metric strong{font-size:1.2rem}}
 </style>
-<link rel="stylesheet" href="./dashboard-reference.css?v=member-ranking-photo-20261127-v1">
+<link rel="stylesheet" href="./dashboard-reference.css?v=member-ranking-list-20261127-v1">
 <!-- Naskh for recitation only; preserve Urdu navigation typography. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&amp;display=swap">
 <style>
@@ -1502,25 +1502,25 @@ body {background:linear-gradient(155deg,hsl(var(--theme-hue) 33% 88%),hsl(var(--
 .member-ranking .rank-tree-link{display:flex;justify-content:center;margin:4px 0 12px}
 .member-ranking .rank-tree-link button{font-size:.8rem;padding:5px 12px;min-height:34px}
 .member-ranking .tab-row,.member-ranking .periods{justify-content:center;gap:5px}
-.member-ranking .rank-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.member-ranking .rank-card{position:relative;display:flex;align-items:center;gap:7px;min-width:0;text-align:center;padding:13px 7px 10px;border:1px solid #318975;border-radius:16px;background:linear-gradient(150deg,#07523f,#032e26);color:#f2fff9;box-shadow:0 3px 9px #001d1944}
+.member-ranking .rank-grid{grid-template-columns:minmax(0,1fr);gap:7px}
+.member-ranking .rank-card{position:relative;display:grid;grid-template-columns:26px auto minmax(0,1fr) minmax(65px,auto);align-items:center;gap:9px;min-width:0;text-align:start;padding:8px 9px;border:1px solid #318975;border-radius:16px;background:linear-gradient(150deg,#07523f,#032e26);color:#f2fff9;box-shadow:0 3px 9px #001d1944}
 .member-ranking .rank-card.first{border-color:#e8bd65;background:linear-gradient(155deg,#145544,#07382d);box-shadow:inset 0 0 0 1px #c4a35955}
 .member-ranking .rank-card.second{border-color:#b8d3d1}
 .member-ranking .rank-card.third{border-color:#c79867}
-.member-ranking .rank-number{position:absolute;inset-block-start:8px;inset-inline-start:8px;min-width:26px;height:26px;border-radius:9px;background:#105e4b;color:#e0fff2}
+.member-ranking .rank-number{position:static;min-width:26px;height:26px;border-radius:9px;background:#105e4b;color:#e0fff2}
 .member-ranking .first .rank-number{background:#f3d07f;color:#513607}
 .member-ranking .second .rank-number{background:#c6d9da;color:#193d3a}
 .member-ranking .third .rank-number{background:#d4a779;color:#442a14}
-.member-ranking .rank-photo .avatar{width:clamp(52px,15vw,76px);height:clamp(52px,15vw,76px);border:2px solid #59bd9f;border-radius:50%;overflow:hidden;background:#0c6853;color:#eafff6;font-size:1.25rem}
+.member-ranking .rank-photo .avatar{width:clamp(42px,11vw,58px);height:clamp(42px,11vw,58px);border:2px solid #59bd9f;border-radius:50%;overflow:hidden;background:#0c6853;color:#eafff6;font-size:1.25rem}
 .member-ranking .rank-photo .avatar img{width:100%;height:100%;object-fit:cover}
 .member-ranking .first .rank-photo .avatar{border-color:#efca76}
 .member-ranking .rank-person{min-width:0;width:100%}
 .member-ranking .rank-card h2{font-size:clamp(.85rem,3.4vw,1.13rem);line-height:1.7;margin:0;overflow-wrap:anywhere;color:#fff}
 .member-ranking .rank-person .muted{color:#b9ded0;font-size:.75rem}
-.member-ranking .rank-total{width:100%;display:grid;justify-items:center;gap:1px;margin-top:auto;border-top:1px solid #549c8355;padding-top:5px}
-.member-ranking .rank-total strong{font-size:clamp(1.15rem,4.6vw,1.65rem);font-variant-numeric:tabular-nums;color:#ffe3a1;overflow-wrap:anywhere;max-width:100%}
+.member-ranking .rank-total{width:auto;display:grid;justify-items:center;gap:0;margin:0;border-inline-start:1px solid #549c8355;padding-inline-start:8px;min-width:0}
+.member-ranking .rank-total strong{font-size:clamp(1.05rem,4.3vw,1.5rem);font-variant-numeric:tabular-nums;color:#ffe3a1;overflow-wrap:anywhere;max-width:100%}
 .member-ranking .rank-total small{font-size:.72rem;color:#c3ead9}
-@media(min-width:640px){.member-ranking .rank-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:340px){.member-ranking .rank-card{gap:5px;padding:7px 5px;grid-template-columns:24px auto minmax(0,1fr) minmax(55px,auto)}.member-ranking .rank-total{padding-inline-start:4px}}
 </style>
 </head>
 <body>
@@ -5782,13 +5782,13 @@ document.addEventListener('keydown',event => {
 
 <script type="module">
 import "./profile-contacts.js";
-import "./wazaif.js?release=member-ranking-photo-20261127-v1";
+import "./wazaif.js?release=member-ranking-list-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
 import {globalDay,globalNow,globalDayEnd,globalWeekStart,syncGlobalClock} from "./global-clock.js";
-import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-ranking-photo-20261127-v1";
+import {localReadingDate,readingsSpark,invitationSpark,memberActiveSpark,memberDeleteSpark,classifyLegacyMemberSpark,profileNameSpark,prayerSaveSpark,prayerMonthSpark,prayerHistorySpark,groupMessagesSpark,sendGroupMessageSpark,resetMemberSessionSpark} from "./spark-data.js?release=member-ranking-list-20261127-v1";
 import {reauthenticateWithCredential,EmailAuthProvider,updatePassword,updateCurrentUser,signOut as firebaseSignOut} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {rollupSideGroup} from "./group-side-rollup.js";
 import {updateDoc,setDoc,onSnapshot,writeBatch,serverTimestamp,collection,doc,getDoc,getDocs,getDocFromServer,getDocsFromServer,runTransaction,query,where,limit,orderBy,startAfter} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
