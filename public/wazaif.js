@@ -177,7 +177,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,personalStarted:false,personalReady:false,noticeDismissed:false,noticeManual:false,noticeAutoOpen:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:false,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
+ seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:true,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -219,11 +219,12 @@ function checkWzIdle(){
 
 const owner=()=>state.profile?.role==="owner";
 try{
- state.soundEnabled=localStorage.getItem("durood-wz-sound")==="1";
+ state.soundEnabled=localStorage.getItem("durood-wz-sound")!=="0";
  state.motorEnabled=localStorage.getItem("durood-tap-motor-v5-enabled")!=="0";
  state.motorStrength=normalizeMotorStrength(localStorage.getItem("durood-tap-motor-v5-strength")??10);
 
-  state.soundLevel=Math.min(10,Math.max(0,Number(localStorage.getItem("durood-wz-sound-level")??10)));
+  const storedSoundLevel=Number(localStorage.getItem("durood-wz-sound-level")??10);
+  state.soundLevel=Number.isFinite(storedSoundLevel)?Math.min(10,Math.max(0,Math.round(storedSoundLevel))):10;
 
 }catch{}
 let wzTapAudio=null;
@@ -377,13 +378,22 @@ function playWazifaFeedback(){
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;
   if(!Audio)return;
-  wzTapAudio ||= new Audio();
-  if(wzTapAudio.state==="suspended")void wzTapAudio.resume().catch(()=>{});
-  const oscillator=wzTapAudio.createOscillator(),gain=wzTapAudio.createGain(),at=wzTapAudio.currentTime;
-  oscillator.type="sine";oscillator.frequency.setValueAtTime(740,at);
-  gain.gain.setValueAtTime(0.01+state.soundLevel*0.014,at);gain.gain.exponentialRampToValueAtTime(0.001,at+0.055);
-  oscillator.connect(gain);gain.connect(wzTapAudio.destination);
-  oscillator.start(at);oscillator.stop(at+0.055);
+  if(!wzTapAudio||wzTapAudio.state==="closed")wzTapAudio=new Audio();
+  const context=wzTapAudio;
+  const play=()=>{
+   if(!state.soundEnabled||state.soundLevel===0||context.state!=="running")return;
+   const oscillator=context.createOscillator(),gain=context.createGain(),at=context.currentTime;
+   oscillator.type="sine";oscillator.frequency.setValueAtTime(880,at);
+   gain.gain.setValueAtTime(0.001,at);
+   gain.gain.linearRampToValueAtTime(0.30*state.soundLevel/10,at+0.005);
+   gain.gain.exponentialRampToValueAtTime(0.001,at+0.085);
+   oscillator.connect(gain);gain.connect(context.destination);
+   oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+   oscillator.start(at);oscillator.stop(at+0.09);
+  };
+  // Resume inside the user gesture, then schedule the tone on a running clock.
+  if(context.state==="running")play();
+  else void context.resume().then(play).catch(()=>{});
  }catch{}
 }
 
@@ -1260,7 +1270,7 @@ function readerMarkup(group){
  '<div class="wz-daily-toolbar">'+
  '<div class="wz-reader-feedback" aria-label="ساؤنڈ، وائبریشن اور فل سکرین">'+
  '<div class="wz-feedback-control">'+
-  '<button type="button" class="wz-feedback-button" data-wazifa-action="toggle-sound" aria-pressed="'+state.soundEnabled+'">ساؤنڈ</button>'+
+  '<button type="button" class="wz-feedback-button" data-wazifa-action="toggle-sound" aria-pressed="'+state.soundEnabled+'">'+(state.soundEnabled?'ساؤنڈ ON':'ساؤنڈ OFF')+'</button>'+
   '<div class="wz-feedback-level"><button type="button" data-wazifa-action="sound-down" aria-label="ساؤنڈ کم کریں">−</button>'+
   '<output id="wz-sound-level" aria-label="ساؤنڈ کی سطح">'+state.soundLevel+'</output>'+
   '<button type="button" data-wazifa-action="sound-up" aria-label="ساؤنڈ بڑھائیں">+</button></div></div>'+
@@ -2095,9 +2105,15 @@ document.addEventListener("click",event=>{
  }
  if(action==="toggle-sound"){
   state.soundEnabled=!state.soundEnabled;
-  try{localStorage.setItem("durood-wz-sound",state.soundEnabled?"1":"0");}catch{}
+  if(state.soundEnabled&&state.soundLevel===0)state.soundLevel=10;
+  try{
+   localStorage.setItem("durood-wz-sound",state.soundEnabled?"1":"0");
+   localStorage.setItem("durood-wz-sound-level",String(state.soundLevel));
+  }catch{}
   button.setAttribute("aria-pressed",String(state.soundEnabled));
-  button.textContent="ساؤنڈ";
+  button.textContent=state.soundEnabled?"ساؤنڈ ON":"ساؤنڈ OFF";
+  const output=$("#wz-sound-level");if(output)output.textContent=String(state.soundLevel);
+  if(state.soundEnabled)playWazifaFeedback();
   return;
  }
  if(action==="toggle-fullscreen"){
