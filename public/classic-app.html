@@ -2178,12 +2178,10 @@ function memberLevel(person) {
 // Spark Hosting cannot perform privileged Auth mutations with a member token.
 function ownerPasswordRecoveryMarkup(person){
   if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted||person.disabled)return '';
-  const recoveryUrl="https://shell.cloud.google.com/?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Ftheoneschoolsystemzwl-arch%2Fdurood-ibrahimi.git&cloudshell_tutorial=MEMBER-PASSWORD-RECOVERY.md";
-  return '<section class="panel section"><h2>'+tr("Reset password","پاس ورڈ ری سیٹ")+'</h2>'+
-    ur(tr("No email required. Open the authorized Google Cloud recovery tool, verify the member UID and set a new password. This does not change saved readings or membership.","ای میل ضروری نہیں۔ گوگل کلاؤڈ کا محفوظ ٹول کھولیں، رکن کی UID کی تصدیق کریں اور نیا پاس ورڈ رکھیں۔ گنتی اور رکنیت تبدیل نہیں ہوگی۔"),'p','muted')+
-    '<label class="field">'+tr("Firebase member UID","رکن کی Firebase UID")+'<input type="text" readonly dir="ltr" value="'+esc(person.uid)+'" onclick="this.select()" aria-label="Firebase member UID"></label>'+
-    '<div class="form-actions"><a class="button secondary" href="'+esc(recoveryUrl)+'" target="_blank" rel="noopener noreferrer">'+tr("Open secure password recovery","محفوظ پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
-    ur(tr("Requires Google Cloud project administrator access; the app itself cannot change another user’s password on Spark.","گوگل کلاؤڈ پراجیکٹ کی انتظامی اجازت ضروری ہے؛ Spark ایپ خود کسی دوسرے صارف کا پاس ورڈ نہیں بدل سکتی۔"),'p','muted')+'</section>';
+  return '<section class="panel section"><h2>'+tr("Reset member password","رکن کا پاس ورڈ ری سیٹ کریں")+'</h2>'+
+    '<form class="form" id="member-password-reset" data-uid="'+esc(person.uid)+'"><div class="form-grid">'+
+    passwordField("password",tr("New password","نیا پاس ورڈ"))+passwordField("confirm",tr("Again new password","نیا پاس ورڈ دوبارہ لکھیں"))+
+    '</div>'+feedback("member-reset-feedback")+'<button class="button" type="submit">'+tr("Save","محفوظ کریں")+'</button></form></section>';
 }
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
@@ -6008,6 +6006,7 @@ document.addEventListener('keydown',event => {
 import "./profile-contacts.js";
 import "./wazaif.js?release=reader-date-navigation-all-members-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
+import {resetMemberPassword} from "./member-password-reset.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
@@ -7106,6 +7105,27 @@ ui.addEventListener("click",event=>{
 ui.addEventListener("submit",event=>{
   const form=event.target;
   if(!currentProfile)return;
+  if(form.id==="member-password-reset"){
+    event.preventDefault();event.stopImmediatePropagation();
+    const button=form.querySelector('[type="submit"]');
+    if(currentProfile.role!=="owner"||button.disabled)return;
+    const uid=form.dataset.uid;
+    const next=form.elements.password.value;
+    const tell=(message,ok=false)=>{if(form.isConnected)bridge.status("member-reset-feedback",message,ok);};
+    if(next.length<8||next.length>128||next!==form.elements.confirm.value){
+      tell("دونوں خانوں میں ایک ہی پاس ورڈ لکھیں، 8 سے 128 حروف تک۔");return;
+    }
+    button.disabled=true;
+    resetMemberPassword(uid,next,()=>form.isConnected && currentProfile?.role==="owner" && form.dataset.uid===uid)
+      .then(()=>{form.reset();tell("اسی رکن کا نیا پاس ورڈ محفوظ ہو گیا۔",true);})
+      .catch(e=>{
+        if(e.code==="auth/operation-not-allowed")tell("پہلے Firebase Authentication میں Google سائن اِن فعال کریں۔");
+        else if(e.message==="permission")tell("اس گوگل اکاؤنٹ کو پروجیکٹ میں ممبر کا پاس ورڈ بدلنے کی اجازت درکار ہے۔");
+        else if(e.code==="auth/popup-closed-by-user"||e.code==="auth/popup-blocked")tell("پاس ورڈ بدلنے کے لیے گوگل کی تصدیق مکمل کریں۔");
+        else tell("پاس ورڈ محفوظ ہونے کی تصدیق نہیں ہو سکی۔ رکن اور گوگل اکاؤنٹ چیک کریں۔");
+      }).finally(()=>{button.disabled=false;});
+    return;
+  }
   if(form.id==="dashboard-welcome-form"){
     event.preventDefault();event.stopImmediatePropagation();
     if(currentProfile.role!=="owner"||auth.currentUser?.uid!==currentProfile.uid||!welcomeSettingsReady)return;
