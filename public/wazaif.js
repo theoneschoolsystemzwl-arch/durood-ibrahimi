@@ -177,7 +177,7 @@ const state={
  inbox:[],shareFor:null,shareNotice:"",migrating:false,migrationPromise:null,
  subscriptions:[],started:false,personalStarted:false,personalReady:false,noticeDismissed:false,noticeManual:false,noticeAutoOpen:false,bootstrapTried:false,busy:false,
  tapQueue:0,tapMetaQueue:[],historyDay:null,continueFor:null,continueEdit:false,historyLimit:60,draftDay:null,tapBusy:false,pendingBack:false,dialFloating:false,skipDialClick:false,clockStart:null,clockMs:0,clockIntervals:0,clockLastTap:null,tapGapMs:0,tapGapTotalMs:0,
- seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:true,soundLevel:10,motorEnabled:true,motorStrength:10,immersive:false,lastTapAt:0
+ seenDay:readingDay(),seenGroupDay:groupReadingDay(),soundEnabled:true,soundLevel:20,motorEnabled:true,motorStrength:20,immersive:false,lastTapAt:0
 };
 
 const wzSync=createDurableTasbihSync({
@@ -221,10 +221,10 @@ const owner=()=>state.profile?.role==="owner";
 try{
  state.soundEnabled=localStorage.getItem("durood-wz-sound")!=="0";
  state.motorEnabled=localStorage.getItem("durood-tap-motor-v5-enabled")!=="0";
- state.motorStrength=normalizeMotorStrength(localStorage.getItem("durood-tap-motor-v5-strength")??10);
+ state.motorStrength=normalizeMotorStrength(localStorage.getItem("durood-tap-motor-v6-strength20")??(Number(localStorage.getItem("durood-tap-motor-v5-strength")??10)*2));
 
-  const storedSoundLevel=Number(localStorage.getItem("durood-wz-sound-level")??10);
-  state.soundLevel=Number.isFinite(storedSoundLevel)?Math.min(10,Math.max(0,Math.round(storedSoundLevel))):10;
+  const storedSoundLevel=Number(localStorage.getItem("durood-wz-sound-level20")??(Number(localStorage.getItem("durood-wz-sound-level")??10)*2));
+  state.soundLevel=Number.isFinite(storedSoundLevel)?Math.min(20,Math.max(0,Math.round(storedSoundLevel))):20;
 
 }catch{}
 let wzTapAudio=null;
@@ -295,7 +295,7 @@ document.addEventListener("keydown",event=>{
 });
 function normalizeMotorStrength(value){
  const n=Number(value);
- return Number.isFinite(n)?Math.min(10,Math.max(0,Math.round(n))):10;
+ return Number.isFinite(n)?Math.min(20,Math.max(0,Math.round(n))):20;
 }
 // A single short native waveform per accepted count; never wait for a hold.
 let lastTapMotorOutcome="off",lastMotorDiagnostic="";
@@ -308,7 +308,8 @@ function requestTapMotor(allowBrowser=true){
   try{
    const api=frame.DuroodAndroid;
    if(typeof api?.pulseTasbihMotor==="function"){
-    const accepted=api.pulseTasbihMotor(state.motorStrength)===true;
+    // The existing Android bridge accepts levels 1–10; preserve its contract.
+    const accepted=api.pulseTasbihMotor(Math.ceil(state.motorStrength/2))===true;
     try{lastMotorDiagnostic=typeof api.tapMotorDiagnostic==="function"?String(api.tapMotorDiagnostic()):"old-native";}catch{lastMotorDiagnostic="old-native";}
     return accepted?"native":"unavailable";
    }
@@ -318,7 +319,7 @@ function requestTapMotor(allowBrowser=true){
  if(!allowBrowser)return "unavailable";
  // Ordinary browsers do not expose motor amplitude; use a short web pulse only.
  for(const frame of frames){
-  try{if(frame.navigator.vibrate?.(180)===true)return "web";}catch{}
+  try{if(frame.navigator.vibrate?.(Math.max(10,Math.round(180*state.motorStrength/20)))===true)return "web";}catch{}
  }
  return "web-pending";
 }
@@ -369,7 +370,7 @@ function updateTapMotorControls(){
 function saveTapMotorSettings(){
  try{
   localStorage.setItem("durood-tap-motor-v5-enabled",state.motorEnabled?"1":"0");
-  localStorage.setItem("durood-tap-motor-v5-strength",String(state.motorStrength));
+  localStorage.setItem("durood-tap-motor-v6-strength20",String(state.motorStrength));
  }catch{}
  updateTapMotorControls();inspectTapMotorBridge();
 }
@@ -385,7 +386,7 @@ function playWazifaFeedback(){
    const oscillator=context.createOscillator(),gain=context.createGain(),at=context.currentTime;
    oscillator.type="sine";oscillator.frequency.setValueAtTime(880,at);
    gain.gain.setValueAtTime(0.001,at);
-   gain.gain.linearRampToValueAtTime(0.30*state.soundLevel/10,at+0.005);
+   gain.gain.linearRampToValueAtTime(0.30*state.soundLevel/20,at+0.005);
    gain.gain.exponentialRampToValueAtTime(0.001,at+0.085);
    oscillator.connect(gain);gain.connect(context.destination);
    oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
@@ -2086,8 +2087,8 @@ document.addEventListener("click",event=>{
  }
  if(["sound-up","sound-down"].includes(action)){
   const key="soundLevel";
-  state[key]=Math.min(10,Math.max(0,state[key]+(action.endsWith("-up")?1:-1)));
-  try{localStorage.setItem("durood-wz-sound-level",String(state[key]));}catch{}
+  state[key]=Math.min(20,Math.max(0,state[key]+(action.endsWith("-up")?1:-1)));
+  try{localStorage.setItem("durood-wz-sound-level20",String(state[key]));}catch{}
   const output=$("#wz-sound-level");if(output)output.textContent=String(state[key]);
   if(state.soundEnabled)playWazifaFeedback();
   return;
@@ -2099,16 +2100,16 @@ document.addEventListener("click",event=>{
  }
  if(action==="toggle-vibration"){
   state.motorEnabled=!state.motorEnabled;
-  if(state.motorEnabled&&state.motorStrength===0)state.motorStrength=10;
+  if(state.motorEnabled&&state.motorStrength===0)state.motorStrength=20;
   saveTapMotorSettings();
   return;
  }
  if(action==="toggle-sound"){
   state.soundEnabled=!state.soundEnabled;
-  if(state.soundEnabled&&state.soundLevel===0)state.soundLevel=10;
+  if(state.soundEnabled&&state.soundLevel===0)state.soundLevel=20;
   try{
    localStorage.setItem("durood-wz-sound",state.soundEnabled?"1":"0");
-   localStorage.setItem("durood-wz-sound-level",String(state.soundLevel));
+   localStorage.setItem("durood-wz-sound-level20",String(state.soundLevel));
   }catch{}
   button.setAttribute("aria-pressed",String(state.soundEnabled));
   button.textContent=state.soundEnabled?"ساؤنڈ ON":"ساؤنڈ OFF";
