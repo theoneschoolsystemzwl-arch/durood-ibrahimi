@@ -1,5 +1,5 @@
 // Network-first app shell. Never caches personal member records, Firebase API responses,
-// OAuth credentials, or third-party CDN requests. Online launches fetch latest deploy.
+// OAuth credentials, or dynamic third-party requests. Only versioned Firebase SDK JS is cached. Online launches fetch latest deploy.
 const SHELL_CACHE="durood-global-shell-v126"; // retain existing offline assets across releases
 const ALLOWED=new Set([
   "/","/index.html","/classic-app","/classic-app.html","/pull-refresh.js","/pwa.js","/arabic-fonts.css","/styles.css","/app.js","/community-pages.js",

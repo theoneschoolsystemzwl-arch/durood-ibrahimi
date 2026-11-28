@@ -2337,9 +2337,9 @@ function goalPeriods(daily,day){
 function memberGroupTargets(day=globalDateKey()){
  const goals=goalPeriods(effectiveGroupDailyGoal(memberReaderGoalRows,memberGoalRows,day),day);
  const row={daily:memberReaderGoalRows};const period=targetProjectionPeriod(dashboardGroupSettings,day);
- const monthStart=day.slice(0,7)+"-01",monthEnd=targetAddDays(monthStart,Number(goals.monthlyGoal&&new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate()||new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate())-1);
+ const monthStart=day.slice(0,7)+"-01",monthEnd=targetAddDays(monthStart,new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate()-1);
  const weekStart=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
- goals.weeklyGoal=accruedMemberTarget(row,weekStart,targetAddDays(weekStart,6));goals.monthlyGoal=accruedMemberTarget(row,monthStart,monthEnd);goals.yearlyGoal=accruedMemberTarget(row,period.start,period.end);
+ goals.weeklyGoal=projectedTarget(row,weekStart,targetAddDays(weekStart,6));goals.monthlyGoal=projectedTarget(row,monthStart,monthEnd);goals.yearlyGoal=projectedTarget(row,period.start,period.end);
  return goals;
 }
 const targetDayMs=86400000;
@@ -2370,6 +2370,14 @@ function accruedMemberTarget(row,start,end){
  }
  return sum;
 }
+// Project the configured goal over a planning period, preserving every subsequent dated change.
+function projectedTarget(row,start,end){
+ const rows=(row.daily||[]).filter(r=>targetDateValid(r.date)&&Number.isSafeInteger(r.goal)&&r.goal>=0).sort((a,b)=>a.date.localeCompare(b.date));
+ if(!rows.length||start>end)return 0;
+ // Retain the original first-goal planning convention; subsequent changes are never backdated.
+ const daily=rows[0].date>start?[{date:start,goal:rows[0].goal},...rows]:rows;
+ return accruedMemberTarget({daily},start,end);
+}
 function sessionTargetDays(period){
  return period?1+Math.round((Date.parse(period.end+"T00:00:00Z")-Date.parse(period.start+"T00:00:00Z"))/targetDayMs):null;
 }
@@ -2383,7 +2391,7 @@ function memberSessionPlan(row,day,period){
  if(!targetDateValid(row.joined))return {from:null,days:null,annual:goal===0?0:null};
  const from=row.joined>period.start?row.joined:period.start;
  const days=from>period.end?0:sessionTargetDays({start:from,end:period.end});
- return {from,days,annual:accruedMemberTarget(row,from,period.end)};
+ return {from,days,annual:projectedTarget(row,from,period.end)};
 }
 function memberToDateProgress(row,day,actual){
  const target=targetDateValid(row.joined)&&latestReaderGoal(row.daily,day)?
@@ -2405,7 +2413,7 @@ function aggregateGroupTargets(rows,day,cfg){
  if(rows===null)return null;
  const result=goalPeriods(rows.reduce((sum,r)=>sum+(r.active===false?0:effectiveGroupDailyGoal(r.daily,r.legacy,day)),0),day);
  const weekStart=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7)),monthStart=day.slice(0,7)+"-01",monthEnd=targetAddDays(monthStart,new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate()-1);
- result.weeklyGoal=rows.reduce((n,r)=>n+(r.active===false?0:accruedMemberTarget(r,weekStart,targetAddDays(weekStart,6))),0);result.monthlyGoal=rows.reduce((n,r)=>n+(r.active===false?0:accruedMemberTarget(r,monthStart,monthEnd)),0);
+ result.weeklyGoal=rows.reduce((n,r)=>n+(r.active===false?0:projectedTarget(r,weekStart,targetAddDays(weekStart,6))),0);result.monthlyGoal=rows.reduce((n,r)=>n+(r.active===false?0:projectedTarget(r,monthStart,monthEnd)),0);
  result.activeMembers=rows.filter(r=>r.active!==false).length;
  result.missingTargets=rows.filter(r=>r.active!==false&&!latestReaderGoal(r.daily,day)).length;
  result.overallGoal=result.dailyGoal;
@@ -5629,6 +5637,7 @@ window.duroodClassicBridge = {
   welcomeSettings(value){applyDashboardWelcome(value);},
   groupSettings(value){
     dashboardGroupSettings=value||null;
+    try{if(currentUser()?.uid)window.parent.duroodCacheGroup?.(currentUser().uid,dashboardGroupSettings);}catch{}
     this.groupTitle(value?.title);
     refreshDashboardTargetCards();
     refreshDashboardGroupProgress();refreshMemberGroupProgress();
@@ -7118,7 +7127,7 @@ ui.addEventListener("click",event=>{
   if(action==="namaz-mark"||action==="qaza-record"){
     const day=button.dataset.day,priorQaza=bridge.qazaRevision(),priorPrayer=bridge.prayerRevision(),before=day?bridge.prayerStatuses(day):{};
     // A locked tap or unlock gesture is not a prayer write.
-    if(day)setTimeout(async()=>{
+    if(day)queueMicrotask(async()=>{
       if(action==="namaz-mark"&&bridge.prayerRevision()===priorPrayer)return;
       // If attendance overwrites a Qaza-paid day, sync the amended Qaza plan too.
       if(action==="namaz-mark"&&bridge.qazaRevision()!==priorQaza)scheduleQazaSave();
@@ -7126,7 +7135,7 @@ ui.addEventListener("click",event=>{
         if(window.parent!==window&&window.parent.duroodQueuePrayer){if(!window.parent.duroodQueuePrayer(currentProfile.uid,day,changes))throw Error("فون میں محفوظ نہیں ہوا");}
         else await prayerSaveSpark(day,after);}
       catch(e){bridge.notice("نماز کا ریکارڈ Firebase میں محفوظ نہیں ہوا: "+errorText(e));}
-    },0);
+    });
   }
 },true);
 ui.addEventListener("submit",event=>{
