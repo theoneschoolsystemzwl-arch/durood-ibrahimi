@@ -4058,7 +4058,9 @@ function handleNamazAction(action,button,value) {
     return true;
   }
   attendanceRememberMark(currentUserId,day,value,selectedNamazStatus,now);
-  const saved = saveOfflineState();
+  let durable=true;
+  try{const uid=currentUser()?.uid;if(uid&&window.parent!==window&&window.parent.duroodQueuePrayer)durable=window.parent.duroodQueuePrayer(uid,day,{[value]:selectedNamazStatus});}catch{durable=false;}
+  const saved = saveOfflineState()&&durable;
   const prayer = prayers.find(([id]) => id === value)[1];
   const status = prayerModes[prayerMode(currentUserId,day,value,today,now)].cell || tr("Entry cleared", 'اندراج صاف');
   render({keepScroll:true});
@@ -7127,15 +7129,15 @@ ui.addEventListener("click",event=>{
   if(action==="namaz-mark"||action==="qaza-record"){
     const day=button.dataset.day,priorQaza=bridge.qazaRevision(),priorPrayer=bridge.prayerRevision(),before=day?bridge.prayerStatuses(day):{};
     // A locked tap or unlock gesture is not a prayer write.
-    if(day)queueMicrotask(async()=>{
+    if(day)setTimeout(async()=>{
       if(action==="namaz-mark"&&bridge.prayerRevision()===priorPrayer)return;
       // If attendance overwrites a Qaza-paid day, sync the amended Qaza plan too.
       if(action==="namaz-mark"&&bridge.qazaRevision()!==priorQaza)scheduleQazaSave();
       try{const after=bridge.prayerStatuses(day),changes={};for(const name of new Set([...Object.keys(before),...Object.keys(after)]))if(before[name]!==after[name])changes[name]=after[name]||"clear";
-        if(window.parent!==window&&window.parent.duroodQueuePrayer){if(!window.parent.duroodQueuePrayer(currentProfile.uid,day,changes))throw Error("فون میں محفوظ نہیں ہوا");}
+        if(window.parent!==window&&window.parent.duroodQueuePrayer){if(action!=="namaz-mark"&&!window.parent.duroodQueuePrayer(currentProfile.uid,day,changes))throw Error("فون میں محفوظ نہیں ہوا");}
         else await prayerSaveSpark(day,after);}
       catch(e){bridge.notice("نماز کا ریکارڈ Firebase میں محفوظ نہیں ہوا: "+errorText(e));}
-    });
+    },0);
   }
 },true);
 ui.addEventListener("submit",event=>{

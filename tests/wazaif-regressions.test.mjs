@@ -708,3 +708,24 @@ console.log("Wazifa regression checks passed (numbering, fixed continuation, dat
  assert.match(vm.runInContext('targetAuditSplit(221,169)',ctx),/M 221.*\+ F 169/);
  assert.match(vm.runInContext('targetAuditSplit(null,0)',ctx),/M —.*\+ F 0/);
 }
+
+// Offline attendance is journaled before any network write, survives a new workspace, and
+// preserves individual prayer statuses rather than replacing the whole day.
+{
+ const source=fs.readFileSync("public/offline-session.js","utf8").replace(/^import[^\n]*\n/g,"").replace("export function","function");
+ const values=new Map(),localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
+ const navigator={onLine:false},auth={currentUser:{uid:"test-user"}},window={addEventListener(){}};
+ const writes=[];let verified=true;
+ const ctx=vm.createContext({localStorage,navigator,auth,window,crypto:{randomUUID:()=>"test-id"},setInterval(){},console,doc:(...args)=>args,setDoc:async(...args)=>writes.push(args),serverTimestamp:()=>0,createDurableTasbihSync:()=>({stop(){}})});
+ vm.runInContext(source,ctx);
+ const first=vm.runInContext("createOfflineSession",ctx)({auth,db:{},blocked:()=>false,isVerified:()=>verified});
+ assert.equal(window.duroodQueuePrayer("test-user","2026-11-28",{fajr:"jamat"}),true);
+ assert.equal(writes.length,0);
+ const restored=vm.runInContext("createOfflineSession",ctx)({auth,db:{},blocked:()=>false,isVerified:()=>verified});
+ navigator.onLine=true;verified=false;await restored.flushPrayers();assert.equal(writes.length,0);
+ verified=true;await restored.flushPrayers();assert.equal(writes.length,1);
+ assert.equal(writes[0][1].statuses.fajr,"jamat");assert.equal(writes[0][2].merge,true);
+ await restored.flushPrayers();assert.equal(writes.length,1);
+ assert.equal(window.duroodQueuePrayer("other-user","2026-11-28",{fajr:"solo"}),false);
+ console.log("Offline attendance persistence, verified replay and account isolation passed.");
+}
