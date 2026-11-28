@@ -1,4 +1,4 @@
-const RELEASE="offline-tasbih-recovery-20261128-v1";
+const RELEASE="offline-session-goal-history-20261128-v2";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
@@ -56,6 +56,8 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
   async function checkWorker(){
     try{const reg=await navigator.serviceWorker.getRegistration();if(reg)await reg.update();}catch(error){console.debug("PWA update check skipped",error?.message);}
   }
+  function warmOfflineShell(){try{const urls=[location.origin+"/",location.origin+"/index.html",...performance.getEntriesByType("resource").map(e=>e.name)];const frame=document.getElementById("classic-frame");if(frame?.contentWindow)urls.push(frame.contentWindow.location.href,...frame.contentWindow.performance.getEntriesByType("resource").map(e=>e.name));navigator.serviceWorker.controller?.postMessage({type:"durood-warm-shell",urls});}catch{}}
+  navigator.serviceWorker.addEventListener("controllerchange",warmOfflineShell);window.addEventListener("focus",warmOfflineShell);setInterval(()=>{if(navigator.onLine!==false)warmOfflineShell();},15000);
   window.addEventListener("focus",checkWorker);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)void checkWorker();});
   window.addEventListener("load",async()=>{

@@ -459,6 +459,7 @@ function subscribePersonal(){
  state.subscriptions.push(onSnapshot(ownCollection,{includeMetadataChanges:true},snap=>{
    if(auth.currentUser?.uid!==uid||state.profile?.uid!==uid)return;
    state.personal=snap.docs.map(d=>({id:d.id,...d.data()}));
+   if(!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites)try{window.parent.duroodCacheTasks?.(uid,state.personal);}catch{}
    state.personalReady=!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites;
    refreshPendingNotice();
    if(state.mode!=="form")render();
@@ -561,6 +562,7 @@ function subscribe(){
   state.subscriptions.push(onSnapshot(doc(db,"wazaifSettings","group"),safe(snap=>{
     state.groupExists=snap.exists();
     state.group=snap.exists()?snap.data():null;
+    if(!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites)try{window.parent.duroodCacheGroup?.(uid,state.group);}catch{}
     if(!snap.exists()&&!snap.metadata.fromCache&&owner())initializeGroup();
     if(state.mode!=="form")render();
   }),err));
@@ -2168,15 +2170,18 @@ document.addEventListener("click",event=>{
    if(!state.groupExists||currentGroup().active!==true)return;
    state.error="";state.readerId=null;state.tapQueue=0;startClock();
    if(currentGroup().countAsDurood!==false){
+     try{window.parent.duroodSelectOfflineTask?.(state.profile.uid,"_durood_");}catch{}
      window.duroodClassicBridge?.openGroupReader?.();
      return;
    }
+   try{window.parent.duroodSelectOfflineTask?.(state.profile.uid,"_group_");}catch{}
    state.mode="group-reader";state.historyDay=null;state.historyLimit=60;state.tapMetaQueue=[];state.draftDay=groupReadingDay();restoreDraft();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});window.duroodEnsureMemberDailyGoal?.();return;
  }
  if(action==="read-personal"){
    const selected=state.personal.find(item=>item.id===id);
    if(!selected||!["جاری","روزانہ جاری","فکس جاری","موقوف"].includes(taskStatus(selected)))return;
+   try{window.parent.duroodSelectOfflineTask?.(state.profile.uid,id);}catch{}
    state.readerId=id;state.mode="personal-reader";state.historyDay=null;state.historyLimit=60;state.error="";startClock();restoreDraft();
    const root=$("#wazaif-root");if(root)root.innerHTML="";render();root?.scrollIntoView({block:"start",behavior:"auto"});return;
  }

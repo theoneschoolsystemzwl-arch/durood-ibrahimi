@@ -2336,7 +2336,10 @@ function goalPeriods(daily,day){
 }
 function memberGroupTargets(day=globalDateKey()){
  const goals=goalPeriods(effectiveGroupDailyGoal(memberReaderGoalRows,memberGoalRows,day),day);
- const period=annualTargetPeriod(dashboardGroupSettings,day);if(period)goals.yearlyGoal=goals.dailyGoal*sessionTargetDays(period);
+ const row={daily:memberReaderGoalRows};const period=targetProjectionPeriod(dashboardGroupSettings,day);
+ const monthStart=day.slice(0,7)+"-01",monthEnd=targetAddDays(monthStart,Number(goals.monthlyGoal&&new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate()||new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate())-1);
+ const weekStart=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7));
+ goals.weeklyGoal=accruedMemberTarget(row,weekStart,targetAddDays(weekStart,6));goals.monthlyGoal=accruedMemberTarget(row,monthStart,monthEnd);goals.yearlyGoal=accruedMemberTarget(row,period.start,period.end);
  return goals;
 }
 const targetDayMs=86400000;
@@ -2380,7 +2383,7 @@ function memberSessionPlan(row,day,period){
  if(!targetDateValid(row.joined))return {from:null,days:null,annual:goal===0?0:null};
  const from=row.joined>period.start?row.joined:period.start;
  const days=from>period.end?0:sessionTargetDays({start:from,end:period.end});
- return {from,days,annual:goal*days};
+ return {from,days,annual:accruedMemberTarget(row,from,period.end)};
 }
 function memberToDateProgress(row,day,actual){
  const target=targetDateValid(row.joined)&&latestReaderGoal(row.daily,day)?
@@ -2401,6 +2404,8 @@ function memberTargetAudit(rows,day,cfg){
 function aggregateGroupTargets(rows,day,cfg){
  if(rows===null)return null;
  const result=goalPeriods(rows.reduce((sum,r)=>sum+(r.active===false?0:effectiveGroupDailyGoal(r.daily,r.legacy,day)),0),day);
+ const weekStart=targetAddDays(day,-((new Date(day+"T00:00:00Z").getUTCDay()+6)%7)),monthStart=day.slice(0,7)+"-01",monthEnd=targetAddDays(monthStart,new Date(Number(day.slice(0,4)),Number(day.slice(5,7)),0).getDate()-1);
+ result.weeklyGoal=rows.reduce((n,r)=>n+(r.active===false?0:accruedMemberTarget(r,weekStart,targetAddDays(weekStart,6))),0);result.monthlyGoal=rows.reduce((n,r)=>n+(r.active===false?0:accruedMemberTarget(r,monthStart,monthEnd)),0);
  result.activeMembers=rows.filter(r=>r.active!==false).length;
  result.missingTargets=rows.filter(r=>r.active!==false&&!latestReaderGoal(r.daily,day)).length;
  result.overallGoal=result.dailyGoal;
@@ -2620,8 +2625,10 @@ function openMemberDailyTarget(){
  const old=document.getElementById("member-daily-goal-dialog");if(old?.open)return;old?.remove();
  const goal=latestReaderGoal(memberReaderGoalRows,globalDateKey())?.goal,dialog=document.createElement("dialog");
  dialog.id="member-daily-goal-dialog";dialog.dir="rtl";dialog.setAttribute("aria-labelledby","member-daily-goal-title");dialog.style.background="var(--surface, #064638)";dialog.style.color="var(--ink, #fff)";
- dialog.innerHTML='<h2 id="member-daily-goal-title">میرا روزانہ ہدف</h2><form class="form"><label class="field">روزانہ درود / وظیفہ کی تعداد<input name="goal" type="number" min="0" max="1000000" step="1" required value="'+(goal??"")+'"></label><p class="muted">صفر بھی محفوظ کر سکتے ہیں اور کسی بھی وقت ہدف بدل سکتے ہیں۔ یہ ہدف خودکار طور پر اپنی سائیڈ کے اجتماعی اہداف میں شامل ہوگا۔</p><p data-goal-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-goal>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
+ dialog.innerHTML='<h2 id="member-daily-goal-title">میرا روزانہ ہدف</h2><form class="form"><label class="field">روزانہ درود / وظیفہ کی تعداد<input name="goal" type="number" min="0" max="1000000" step="1" required value="'+(goal??"")+'"></label><p class="muted">صفر بھی محفوظ کر سکتے ہیں اور کسی بھی وقت ہدف بدل سکتے ہیں۔ یہ ہدف خودکار طور پر اپنی سائیڈ کے اجتماعی اہداف میں شامل ہوگا۔</p><fieldset data-goal-scope style="display:grid;gap:8px"><legend>ہدف کی تبدیلی کب سے؟</legend><label><input type="checkbox" name="goalToday" checked> آج کی تاریخ سے (پچھلا ہدف برقرار)</label><label><input type="checkbox" name="goalStart"> شروع سے (پرانا ہدف بھی تبدیل)</label></fieldset><p data-goal-feedback role="status"></p><div class="form-actions"><button type="button" class="button secondary" data-close-goal>منسوخ کریں</button><button type="submit" class="button">محفوظ کریں</button></div></form>';
  const form=dialog.querySelector("form");
+ const scope=form.querySelector("[data-goal-scope]");scope.hidden=goal===undefined;if(scope.hidden)scope.style.display="none";
+ for(const item of [form.elements.goalToday,form.elements.goalStart])item.addEventListener("change",()=>{if(item.checked)(item===form.elements.goalToday?form.elements.goalStart:form.elements.goalToday).checked=false;else if(!form.elements.goalToday.checked&&!form.elements.goalStart.checked)item.checked=true;});
  dialog.querySelector("[data-close-goal]").addEventListener("click",()=>dialog.close());
  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
  form.addEventListener("submit",async event=>{
@@ -2635,12 +2642,12 @@ function openMemberDailyTarget(){
     if(dialog.open)note.textContent="سرور نے ابھی تصدیق نہیں کی۔ انٹرنیٹ چیک کریں۔ ہدف ابھی محفوظ ظاہر نہیں کیا گیا۔";
   },10000);
   try{
-    await window.duroodSaveReaderGoal(uid,day,goal);
+    const updatedRows=await window.duroodSaveReaderGoal(uid,day,goal,form.elements.goalStart.checked?"start":"today");
     if(currentUser()?.uid!==uid)return;
     // Close only after the server has acknowledged the write; rendering a
     // history row must not prevent the already successful dialog from closing.
     if(dialog.open)dialog.close();
-    memberReaderGoalRows=[...(memberReaderGoalRows||[]).filter(r=>r.date!==day),{date:day,goal}];
+    memberReaderGoalRows=updatedRows;
     window.duroodClassicBridge.readerGoalHistory(uid,memberReaderGoalRows);
     window.duroodClassicBridge.notice("روزانہ ہدف محفوظ ہو گیا۔");
   }catch(error){
@@ -6085,6 +6092,7 @@ async function loadPrayerMonth(month,uid){
     const result=await prayerMonthSpark(month);
     if(auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)return;
     bridge.loadPrayerDays(result.days||[],month,startRevision);
+    try{window.parent.duroodCachePrayers?.(uid,result.days||[]);}catch{}
     loadedPrayerMonths.set(key,true);
   })().catch(error=>{
     console.warn("Prayer month unavailable",month,error?.code||error?.message);
@@ -6101,6 +6109,7 @@ async function loadPrayerHistory(uid){
     const result=await prayerHistorySpark();
     if(auth.currentUser?.uid!==uid||bridge.userForCurrent()!==uid)return;
     bridge.loadPrayerHistoryDays(result.days||[],startRevision);
+    try{window.parent.duroodCachePrayers?.(uid,result.days||[]);}catch{}
   })().catch(error=>{
     console.warn("All-time private prayer history unavailable",error?.code||error?.message);
     bridge.status("namaz-feedback","پچھلی نمازوں کی مکمل حاضری Firebase سے نہیں مل سکی؛ شمار جزوی ہو سکتا ہے۔",false);
@@ -6194,10 +6203,18 @@ let currentProfile=null;
 // Read the member's historic Durood taps from the existing, same-gender
 // Firebase daily-reader documents. Empty documents mean zero for that day.
 // Read only displayed dates; older dates load when "More" is selected.
-window.duroodSaveReaderGoal=async function(uid,day,goal){
+window.duroodSaveReaderGoal=async function(uid,day,goal,scope="today"){
  if(auth.currentUser?.uid!==uid||currentProfile?.uid!==uid||bridge.userForCurrent()!==uid)throw Error("Account changed");
  if(!Number.isSafeInteger(goal)||goal<0||goal>1000000)throw Error("Invalid daily goal");
- await setDoc(doc(db,"memberPrivate",uid,"duroodGoals",day),{date:day,goal,updatedAt:serverTimestamp()});
+ const ref=collection(db,"memberPrivate",uid,"duroodGoals");
+ const snapshot=await getDocsFromServer(ref);
+ if(auth.currentUser?.uid!==uid)throw Error("Account changed");
+ const rows=snapshot.docs.map(x=>x.data()).filter(x=>targetDateValid(x.date)&&x.date<=day&&Number.isSafeInteger(x.goal));
+ const dates=scope==="start"?[...new Set([...rows.map(x=>x.date),day])]:[day];
+ if(dates.length>450)throw Error("ہدف کی تاریخیں زیادہ ہیں؛ آج سے تبدیلی منتخب کریں۔");
+ if(scope==="start"&&dates.length>1&&!window.confirm("شروع سے تمام سابقہ اہداف بھی تبدیل ہوں گے۔ جاری رکھیں؟"))throw Error("تبدیلی منسوخ کر دی گئی۔");
+ const batch=writeBatch(db);for(const date of dates)batch.set(doc(ref,date),{date,goal,updatedAt:serverTimestamp()});await batch.commit();
+ return [...rows.filter(x=>!dates.includes(x.date)),...dates.map(date=>({date,goal}))];
 };
 let goalWatchUid="",stopGoalWatch=()=>{};
 window.duroodLoadReaderGoals=function(){
@@ -6265,6 +6282,7 @@ function queueTasbihTap(){
   bridge.notice("فون کی اسٹوریج میں گنتی محفوظ نہیں ہو سکی؛ تسبیح نہیں بڑھی۔");
   return;
  }
+ try{window.parent.duroodSelectOfflineTask?.(uid,"_durood_");}catch{}
  bridge.tap();
  bridge.pendingSaved(tasbihSync.byDay("_durood_"));
 }
@@ -7098,13 +7116,15 @@ ui.addEventListener("click",event=>{
     return;
   }
   if(action==="namaz-mark"||action==="qaza-record"){
-    const day=button.dataset.day,priorQaza=bridge.qazaRevision(),priorPrayer=bridge.prayerRevision();
+    const day=button.dataset.day,priorQaza=bridge.qazaRevision(),priorPrayer=bridge.prayerRevision(),before=day?bridge.prayerStatuses(day):{};
     // A locked tap or unlock gesture is not a prayer write.
     if(day)setTimeout(async()=>{
       if(action==="namaz-mark"&&bridge.prayerRevision()===priorPrayer)return;
       // If attendance overwrites a Qaza-paid day, sync the amended Qaza plan too.
       if(action==="namaz-mark"&&bridge.qazaRevision()!==priorQaza)scheduleQazaSave();
-      try{await prayerSaveSpark(day,bridge.prayerStatuses(day));}
+      try{const after=bridge.prayerStatuses(day),changes={};for(const name of new Set([...Object.keys(before),...Object.keys(after)]))if(before[name]!==after[name])changes[name]=after[name]||"clear";
+        if(window.parent!==window&&window.parent.duroodQueuePrayer){if(!window.parent.duroodQueuePrayer(currentProfile.uid,day,changes))throw Error("فون میں محفوظ نہیں ہوا");}
+        else await prayerSaveSpark(day,after);}
       catch(e){bridge.notice("نماز کا ریکارڈ Firebase میں محفوظ نہیں ہوا: "+errorText(e));}
     },0);
   }

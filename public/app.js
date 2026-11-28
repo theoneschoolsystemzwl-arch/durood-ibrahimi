@@ -2,6 +2,7 @@ import {prepareApproval,requestOwnerApproval,approveRecovery,checkRecoveryCode,r
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {globalDay} from "./global-clock.js";
+import {createOfflineSession} from "./offline-session.js";
 import "./password-change.js";
 import {
   login, register, createInvitation, setMemberActive, updateMyProfile, loadMemberProfile,
@@ -36,6 +37,7 @@ let dashboardTimer;
 let authGeneration=0;
 let nullAuthTimer=null;
 let lastAuthenticatedUid=null;
+const offlineSession=createOfflineSession({auth,db,isVerified:uid=>!logoutBlocked()&&appState.profile?.uid===uid,blocked:logoutBlocked});
 const SESSION_RECOVERY_MS=15000;
 function sessionText(ur,en,id){return window.duroodLocale?.message(window.duroodStaticLocale?.selection()||'ur',{ur,en,id})||ur;}
 function recoveryText(){return sessionText('محفوظ لاگ اِن بحال کیا جا رہا ہے…','Restoring your saved login…','Memulihkan login tersimpan…');}
@@ -353,6 +355,7 @@ function showSignedOut() {
   document.body.classList.remove("classic-pending");
   $("#loading-retry").hidden=true;
   $("#loading-signin").hidden=true;
+  offlineSession.hide();
   appState.profile=null;
   lastAuthenticatedUid=null;
   classicFrameRequested=false;
@@ -372,6 +375,7 @@ function showSignedIn(profile){
   const alreadyOpening=lastAuthenticatedUid===profile.uid && classicFrameRequested;
   lastAuthenticatedUid=profile.uid;
   appState.profile=profile;
+  offlineSession.remember(profile.uid);offlineSession.flushPrayers();fallbackTasbih.start(profile.uid);
   if(deviceWatchUid!==profile.uid){
     clearDeviceWatch();deviceWatchUid=profile.uid;
     stopDeviceWatch=watchDeviceSession(auth.currentUser,profile,()=>void silentlyReplacedSession(profile.uid));
@@ -541,6 +545,7 @@ onAuthStateChanged(auth,async user=>{
   }
   view("#loading",true);
   view("#access",false);
+  if(navigator.onLine===false&&offlineSession.open(user.uid)){view("#loading",false);view("#access",false);return;}
   let profile;
   try {
     profile=await loadProfile(user);
@@ -586,6 +591,7 @@ async function explicitLogout(){
   if(signingOut)return;
   signingOut=true;
   markLogout(true);
+  offlineSession.hide();
   ++authGeneration;
   clearTimeout(nullAuthTimer);
   clearTimeout(dashboardTimer);
@@ -639,7 +645,7 @@ $("#fallback-tasbih-save").addEventListener("click",async()=>{
  if(fallbackTasbih.pending())message("#reading-message","محفوظ نہیں ہوا؛ دوبارہ Save دبائیں۔ "+(fallbackTasbih.status().error||""));
  else{message("#reading-message","گنتی Firebase میں محفوظ ہو گئی۔",true);await refreshCounts().catch(()=>{});}
 });
-onAuthStateChanged(auth,user=>{if(user)fallbackTasbih.start(user.uid);else fallbackTasbih.stop();});
+onAuthStateChanged(auth,user=>{if(!user)fallbackTasbih.stop();});
 $("#manual-form").addEventListener("submit",async event=>{
   event.preventDefault();
   const amount=Number($("#manual-amount").value);
