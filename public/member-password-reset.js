@@ -15,13 +15,20 @@ async function adminRequest(action,token,body){
     headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
     body:JSON.stringify(body)
   });
-  if(!response.ok)throw new Error(response.status===403?"permission":"request");
+  if(!response.ok){
+    const data=await response.json().catch(()=>null);
+    const reason=data?.error?.details?.find(detail=>typeof detail.reason==="string")?.reason
+      ||data?.error?.message?.split(/[: ]/)[0];
+    const code=/^[A-Z][A-Z_]{1,70}$/.test(reason)?reason:"HTTP_"+response.status;
+    throw Object.assign(new Error(action),{code});
+  }
   return response.json();
 }
 
 export async function resetMemberPassword(uid,password,stillSelected){
   const authorized=()=>auth.currentUser?.uid===ownerUid && uid && uid!==ownerUid && stillSelected();
-  if(!authorized()||password.length<8||password.length>128)throw new Error("member");
+  if(!authorized())throw new Error("owner-session");
+  if(password.length<8||password.length>128)throw new Error("password");
   adminAuth??=initializeAuth(initializeApp(firebaseConfig,"member-recovery"),{
     persistence:inMemoryPersistence,popupRedirectResolver:browserPopupRedirectResolver
   });
@@ -31,15 +38,18 @@ export async function resetMemberPassword(uid,password,stillSelected){
   try{
     const result=await signInWithPopup(adminAuth,google);
     const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
-    if(!token||!authorized())throw new Error("member");
-    const profile=(await getDocFromServer(doc(db,"members",uid))).data();
-    if(profile?.role!=="member"||profile.deleted||profile.disabled)throw new Error("member");
+    if(!token)throw new Error("google-token");
+    if(!authorized())throw new Error("owner-session");
+    const profile=(await getDocFromServer(doc(db,"members",uid)).catch(error=>{throw Object.assign(new Error("profile"),{code:error.code});})).data();
+    if(!profile)throw new Error("missing-profile");
+    if(profile.role!=="member"||profile.deleted||profile.disabled)throw new Error("member");
     const {users=[]}=await adminRequest("lookup",token,{localId:[uid]});
     const user=users[0];
-    const claims=JSON.parse(user?.customAttributes||"{}");
+    if(!user||user.localId!==uid)throw new Error("missing-auth");
+    const claims=JSON.parse(user.customAttributes||"{}");
     if(users.length!==1||user.localId!==uid||user.disabled||claims.admin||claims.owner||!authorized())throw new Error("member");
     const saved=await adminRequest("update",token,{localId:uid,password,returnSecureToken:false});
-    if(saved.localId!==uid)throw new Error("request");
+    if(saved.localId!==uid)throw new Error("unconfirmed");
   }finally{
     await signOut(adminAuth).catch(()=>{});
   }

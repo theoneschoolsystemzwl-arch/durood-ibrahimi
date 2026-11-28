@@ -7116,13 +7116,33 @@ ui.addEventListener("submit",event=>{
       tell("دونوں خانوں میں ایک ہی پاس ورڈ لکھیں، 8 سے 128 حروف تک۔");return;
     }
     button.disabled=true;
-    resetMemberPassword(uid,next,()=>form.isConnected && currentProfile?.role==="owner" && form.dataset.uid===uid)
+    for(const field of [form.elements.password,form.elements.confirm]){
+      field.type="password";
+      field.closest(".input-wrap")?.querySelector(".eye")?.setAttribute("aria-pressed","false");
+    }
+    tell("پروجیکٹ کے گوگل اکاؤنٹ سے تصدیق کریں…");
+    const submitReset=window.parent.duroodResetMemberPassword||resetMemberPassword;
+    submitReset(uid,next,()=>form.isConnected && currentProfile?.role==="owner" && form.dataset.uid===uid)
       .then(()=>{form.reset();tell("اسی رکن کا نیا پاس ورڈ محفوظ ہو گیا۔",true);})
       .catch(e=>{
-        if(e.code==="auth/operation-not-allowed")tell("پہلے Firebase Authentication میں Google سائن اِن فعال کریں۔");
-        else if(e.message==="permission")tell("اس گوگل اکاؤنٹ کو پروجیکٹ میں ممبر کا پاس ورڈ بدلنے کی اجازت درکار ہے۔");
-        else if(e.code==="auth/popup-closed-by-user"||e.code==="auth/popup-blocked")tell("پاس ورڈ بدلنے کے لیے گوگل کی تصدیق مکمل کریں۔");
-        else tell("پاس ورڈ محفوظ ہونے کی تصدیق نہیں ہو سکی۔ رکن اور گوگل اکاؤنٹ چیک کریں۔");
+        const code=/^[a-zA-Z0-9_/-]{1,80}$/.test(e.code)?e.code:"";
+        const messages={
+          "owner-session":"اونر کا سیشن دوبارہ کھولیں، پھر اسی رکن کو منتخب کریں۔",
+          "google-token":"گوگل سے اجازت موصول نہیں ہوئی۔ تصدیق مکمل کریں۔",
+          "missing-profile":"اس رکن کا پروفائل Firebase میں نہیں ملا۔",
+          "missing-auth":"اس رکن کی آئی ڈی کا لاگ اِن اکاؤنٹ Firebase میں نہیں ملا۔",
+          "member":"اس رکن کی موجودہ حیثیت پاس ورڈ ری سیٹ کی اجازت نہیں دیتی۔",
+          "profile":"Firebase سے رکن کا پروفائل پڑھنے میں مسئلہ آیا۔",
+          "lookup":"گوگل اکاؤنٹ سے رکن کا لاگ اِن ریکارڈ چیک نہیں ہو سکا۔",
+          "update":"Firebase نے پاس ورڈ بدلنے کی درخواست رد کر دی۔",
+          "auth/popup-closed-by-user":"گوگل کی تصدیق مکمل ہونے سے پہلے ونڈو بند ہو گئی۔",
+          "auth/popup-blocked":"فون میں اس ویب سائٹ کے پاپ اَپ کی اجازت دیں اور دوبارہ محفوظ کریں۔",
+          "auth/unauthorized-domain":"اس ویب پتے کو Firebase میں گوگل لاگ اِن کی اجازت درکار ہے۔",
+          "auth/network-request-failed":"گوگل سے رابطہ نہیں ہوا۔ انٹرنیٹ چیک کریں۔",
+          "HTTP_403":"پروجیکٹ کے مجاز گوگل اکاؤنٹ سے تصدیق کریں۔",
+          "ACCESS_TOKEN_SCOPE_INSUFFICIENT":"گوگل نے ممبر اکاؤنٹس سنبھالنے کی اجازت نہیں دی۔"
+        };
+        tell((messages[code]||messages[e.message]||"پاس ورڈ محفوظ ہونے کی تصدیق نہیں ہوئی۔")+(code?" ("+code+")":""));
       }).finally(()=>{button.disabled=false;});
     return;
   }

@@ -1,4 +1,4 @@
-const RELEASE="member-password-reset-20261128-v1";
+const RELEASE="member-password-reset-20261128-v2";
 const seenKey="durood-update-refresh-attempt";
 function attemptedRelease(){try{return sessionStorage.getItem(seenKey);}catch{return null;}}
 function markAttempt(version){try{sessionStorage.setItem(seenKey,version);}catch{}}
