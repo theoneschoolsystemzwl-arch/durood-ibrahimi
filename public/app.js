@@ -1,3 +1,4 @@
+import {requestOwnerApproval,approveRecovery,checkRecoveryCode,redeemRecoveryCode} from "./member-recovery.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {globalDay} from "./global-clock.js";
@@ -181,13 +182,49 @@ passwordEye.addEventListener("click",()=>{
   loginPassword.focus({preventScroll:true});
 });
 
+window.duroodApproveRecovery=(uid,id,selected)=>approveRecovery(uid,id,()=>appState.profile?.role==="owner" && !logoutBlocked() && selected());
+const recoveryDialog=$("#recovery-dialog"), recoveryForm=$("#recovery-form");
+$("#redeem-recovery").onclick=()=>{
+  recoveryForm.reset();
+  const fields=recoveryForm.querySelector("fieldset");
+  fields.hidden=fields.disabled=true;
+  recoveryForm.elements.username.readOnly=recoveryForm.elements.code.readOnly=false;
+  recoveryForm.elements.username.value=identityInput.value;
+  recoveryForm.querySelector('[type="submit"]').textContent="کوڈ چیک کریں";
+  recoveryForm.querySelector('[role="status"]').textContent="";
+  recoveryDialog.showModal();
+};
+$("#close-recovery").onclick=()=>recoveryDialog.close();
+recoveryDialog.onclose=()=>recoveryForm.reset();
+recoveryForm.onsubmit=async e=>{
+  e.preventDefault();
+  const f=recoveryForm.elements,fields=recoveryForm.querySelector("fieldset"),save=recoveryForm.querySelector('[type="submit"]'),notice=recoveryForm.querySelector('[role="status"]');
+  if(save.disabled)return;
+  save.disabled=true;notice.textContent="";
+  try{
+    if(fields.disabled){
+      await checkRecoveryCode(f.username.value,f.code.value);
+      fields.disabled=fields.hidden=false;
+      f.username.readOnly=f.code.readOnly=true;save.textContent="نیا پاس ورڈ محفوظ کریں";f.next.focus();
+    }else{
+      const username=f.username.value;
+      await redeemRecoveryCode(username,f.code.value,f.next.value,f.confirm.value);
+      recoveryDialog.close();identityInput.value=username;loginPassword.value="";
+      message("#auth-message","پاس ورڈ محفوظ ہو گیا۔ اب نئے پاس ورڈ سے لاگ اِن کریں۔",true);
+    }
+  }catch(error){notice.textContent=error.code?"کوڈ یا رابطہ چیک کریں ("+error.code+")۔":error.message;}
+  finally{save.disabled=false;}
+};
+
 $("#forgot-password").addEventListener("click",async()=>{
   if(appState.busy)return;
   const entered=identityInput.value.trim();
-  if(!entered || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
-    message("#auth-message","Password Reset کے لیے Firebase Users میں درج پوری Email لکھیں۔");
-    identityInput.focus();
-    return;
+  if(!entered){message("#auth-message","اپنی لاگ اِن آئی ڈی یا رجسٹرڈ ای میل لکھیں۔");identityInput.focus();return;}
+  if(!entered.includes("@")){
+    updateBusy(true);
+    try{await requestOwnerApproval(entered);message("#auth-message","درخواست اونر کو بھیج دی گئی۔ کوڈ ملنے پر «میرے پاس اونر کا کوڈ ہے» دبائیں۔",true);}
+    catch(error){message("#auth-message",error.code==="permission-denied"?"آئی ڈی چیک کریں۔ اگر درخواست پہلے بھیجی تھی تو اونر سے کوڈ لیں۔":"درخواست بھیجنے میں مسئلہ آیا۔ دوبارہ کوشش کریں۔");}
+    finally{updateBusy(false);}return;
   }
   updateBusy(true);
   try {

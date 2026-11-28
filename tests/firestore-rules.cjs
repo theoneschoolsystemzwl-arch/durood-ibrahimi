@@ -75,6 +75,21 @@ const {doc,getDoc,getDocs,collection,query,where,limit,setDoc,updateDoc,runTrans
   await assertSucceeds(setDoc(doc(newDb,"activeLogins",newId),{
     authTime:1700000000,sessionId:"test-device-member-two",claimedAt:serverTimestamp()
   }));
+  const requestDb=db=>doc(db,"memberRecoveryRequests","member2");
+  const pending={status:"pending",requestedAt:serverTimestamp()};
+  await assertFails(setDoc(doc(guestDb,"memberRecoveryRequests","owner"),pending));
+  await assertFails(setDoc(doc(guestDb,"memberRecoveryRequests","missing"),pending));
+  await assertFails(setDoc(requestDb(guestDb),{...pending,code:"untrusted"}));
+  await assertSucceeds(setDoc(requestDb(guestDb),pending));
+  await assertFails(getDoc(requestDb(guestDb)));
+  await assertFails(setDoc(requestDb(guestDb),pending));
+  const approval={status:"approved",approvedAt:serverTimestamp()};
+  await assertFails(updateDoc(requestDb(newDb),approval));
+  await assertSucceeds(getDoc(requestDb(ownerDb)));
+  await assertFails(updateDoc(requestDb(ownerDb),approval));
+  await assertSucceeds(updateDoc(requestDb(ownerDb),{status:"issuing",attempt:"00000000-0000-4000-8000-000000000000",approvedAt:serverTimestamp()}));
+  await assertSucceeds(updateDoc(requestDb(ownerDb),approval));
+  await assertFails(setDoc(requestDb(guestDb),pending));
   // Signed-in same-side members can see profile portraits, not edit them.
   await assertSucceeds(getDoc(doc(newDb,"memberPhotos",ownerId)));
   await assertFails(getDoc(doc(guestDb,"memberPhotos",ownerId)));

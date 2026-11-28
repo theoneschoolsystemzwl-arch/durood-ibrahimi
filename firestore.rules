@@ -292,6 +292,26 @@ service cloud.firestore {
       allow update: if docId == 'membership' &&
         (signupCounter() || restoreDeletedTestOwnerSequence());
     }
+    match /memberRecoveryRequests/{username} {
+      function pendingRequest() {
+        let indexPath = /databases/$(database)/documents/usernames/$(username);
+        let member = get(memberPath(get(indexPath).data.uid)).data;
+        return validUsername(username) && request.resource.data.keys().hasOnly(['status','requestedAt']) &&
+          request.resource.data.status == 'pending' && request.resource.data.requestedAt == request.time &&
+          exists(indexPath) && member.role == 'member' && member.username == username && member.disabled == false && member.get('deleted', false) != true;
+      }
+      allow get, list: if owner();
+      allow create: if pendingRequest();
+      allow update: if (resource.data.status == 'approved' &&
+          request.time > resource.data.approvedAt + duration.value(10,'m') && pendingRequest()) ||
+        (owner() && request.resource.data.approvedAt == request.time &&
+          ((request.resource.data.status == 'issuing' && request.resource.data.attempt is string &&
+            request.resource.data.attempt.size() == 36 &&
+            (resource.data.status == 'pending' || request.time > resource.data.approvedAt + duration.value(2,'m')) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','attempt','approvedAt'])) ||
+           (resource.data.status == 'issuing' && request.resource.data.status in ['approved','pending'] &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedAt']))));
+    }
     match /usernames/{username} {
       allow get: if signed() && validUsername(username);
       allow list, update, delete: if false;

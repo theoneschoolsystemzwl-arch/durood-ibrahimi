@@ -2199,7 +2199,7 @@ function profileDetails(person) {
       '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
       tr('">Delete member</button></div>', '">رکن حذف کریں</button></div>') +
-      '</section>' + managementDialog(person));
+      '</section>' + managementDialog(person) + (!person.disabled&&!person.deleted&&person.uid?'<recovery-approval data-uid="'+esc(person.uid)+'" data-username="'+esc(person.username)+'"></recovery-approval>':''));
 }
 
 let genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
@@ -3046,9 +3046,16 @@ function refreshPeriodCards(){
  const html=metricPeriodCards();if(container._periodMarkup!==html){container.innerHTML=html;container._periodMarkup=html;}
  syncDashboardFireworks();
 }
+window.duroodRecoverySelection=uid=>currentUser()?.isOwner===true && section==="profile" && getUser(profileId)?.uid===uid;
+window.duroodOpenRecoveryProfile=username=>{
+  if(!currentUser()?.isOwner)return;
+  const member=visibleMembers().find(person=>person.username===username);
+  if(!member){window.duroodClassicBridge.notice("متعلقہ مرد یا خواتین سیکشن کھول کر رکن کی پروفائل منتخب کریں۔");return;}
+  profileId=member.id;section="profile";render();
+};
 function overview() {
  const metricCards=metricPeriodCards();
- return '<div class="dashboard-home">'+
+ return '<div class="dashboard-home">'+(currentUser()?.isOwner?'<recovery-notices></recovery-notices>':'')+
    '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
    '<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>'+'</div>'+
@@ -5998,6 +6005,7 @@ document.addEventListener('keydown',event => {
 import "./profile-contacts.js";
 import "./wazaif.js?release=reader-date-navigation-all-members-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
+import "./owner-recovery.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
