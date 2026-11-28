@@ -1,0 +1,42 @@
+name: Owner offline receipt read-only audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/owner-offline-receipt-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/277153649028/locations/global/workloadIdentityPools/durood-github/providers/github-main
+          service_account: github-firebase-deploy@durood-e-ibrahimi-global-c74e0.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read owner group and recent receipt totals only
+        run: |
+          export ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          node <<'NODE'
+          const root="https://firestore.googleapis.com/v1/projects/durood-e-ibrahimi-global-c74e0/databases/(default)/documents/";
+          const headers={Authorization:"Bearer "+process.env.ACCESS_TOKEN};
+          const day="2026-11-28",uid="vt06NK7DcmgPpUKD4R7EgwzAxIH3";
+          async function read(path){const r=await fetch(root+path,{headers});if(r.status===404)return null;if(!r.ok)throw Error("Read failed HTTP "+r.status);return r.json();}
+          function value(d,k){const f=d?.fields?.[k];return f?.integerValue!==undefined?Number(f.integerValue):f?.stringValue??f?.timestampValue??null;}
+          async function main(){
+            const groupPath="wazaifGroupStats/main/members/"+uid;
+            const [group,groupDay,reader]=await Promise.all([read(groupPath),read(groupPath+"/days/"+day),read("genderStats/male/days/"+day+"/readers/"+uid)]);
+            console.log(JSON.stringify({date:day,ownerGroupTotal:value(group,"total"),ownerGroupToday:value(groupDay,"count"),ownerDuroodToday:value(reader,"total"),ownerManualToday:value(reader,"manualTotal")}));
+            const since=new Date(Date.now()-3*3600000).toISOString();
+            const endpoint=root+"memberWazaif/"+uid+":runQuery";
+            const response=await fetch(endpoint,{method:"POST",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify({structuredQuery:{from:[{collectionId:"syncReceipts"}],where:{fieldFilter:{field:{fieldPath:"createdAt"},op:"GREATER_THAN_OR_EQUAL",value:{timestampValue:since}}},orderBy:[{field:{fieldPath:"createdAt"},direction:"DESCENDING"}],limit:1000}})});
+            if(!response.ok)throw Error("Receipt query failed HTTP "+response.status);
+            const rows=(await response.json()).map(x=>x.document).filter(Boolean);
+            const selected=rows.filter(d=>value(d,"day")===day);
+            console.log(JSON.stringify({since,receiptCount:selected.length,receipts:selected.map(d=>({time:value(d,"createdAt"),kind:value(d,"kind"),amount:value(d,"amount")})),limitReached:rows.length===1000,writeOperations:0}));
+          }
+          main().catch(e=>{console.error(e.message);process.exitCode=1;});
+          NODE
