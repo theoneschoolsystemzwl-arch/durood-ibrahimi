@@ -185,6 +185,18 @@ passwordEye.addEventListener("click",()=>{
 window.duroodPrepareApproval=prepareApproval;
 window.duroodApproveRecovery=(uid,id,selected)=>approveRecovery(uid,id,()=>appState.profile?.role==="owner" && !logoutBlocked() && selected());
 const recoveryDialog=$("#recovery-dialog"), recoveryForm=$("#recovery-form");
+function showRecoveryPassword(button,visible){
+  const input=document.getElementById(button.getAttribute("aria-controls"));
+  input.type=visible?"text":"password";
+  button.setAttribute("aria-pressed",String(visible));
+  button.setAttribute("aria-label",input.labels[0].textContent+(visible?" چھپائیں":" دکھائیں"));
+  button.querySelector(".eye-slash").toggleAttribute("hidden",!visible);
+}
+const recoveryEyes=recoveryForm.querySelectorAll(".password-eye");
+for(const button of recoveryEyes){
+  button.addEventListener("click",()=>showRecoveryPassword(button,button.getAttribute("aria-pressed")!=="true"));
+}
+recoveryForm.addEventListener("reset",()=>{for(const button of recoveryEyes)showRecoveryPassword(button,false);});
 const recoveryMenu=$("#recovery-menu"),requestForm=$("#recovery-request-form");
 $("#forgot-password").addEventListener("click",()=>{
   if(appState.busy)return;

@@ -42,6 +42,9 @@
 .password-eye{position:absolute;right:5px;top:50%;transform:translateY(-50%);
   display:flex;align-items:center;justify-content:center;width:44px;height:42px;
   background:transparent;border:0;border-radius:8px;color:#315b48;cursor:pointer}
+#recovery-form .password-field input{direction:ltr;text-align:left}
+#recovery-form .password-eye .eye-slash{display:none}
+#recovery-form .password-eye[aria-pressed="true"] .eye-slash{display:block}
 .password-eye:hover,.password-eye:focus-visible{background:#edf5ee}
 .password-eye[aria-pressed="true"]{color:#114837}
 
