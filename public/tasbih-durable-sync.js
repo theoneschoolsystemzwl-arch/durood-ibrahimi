@@ -3,7 +3,7 @@
 // Distinct records avoid lost updates when two tabs share the same browser storage.
 // Firebase transactions use that record's stable id as a sync receipt to prevent double counting.
 export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
- let ownerUid=null,busy=false,timer=null,timerDue=0,lastError="",retryAfter=0,quotaFailures=0,reconnectRequested=false;
+ let ownerUid=null,busy=false,timer=null,timerDue=0,lastError="",retryAfter=0,quotaFailures=0,reconnectRequested=false,recovery=false;
  // A page owns its mutable draft under a browser-wide Web Lock. A different
  // page may recover it only after that lock is released. Without Web Locks,
  // preserve the original immutable per-tap journal rather than risk data.
@@ -111,6 +111,7 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   migrateLegacy(uid);
   // An online reload has no online event. Resume the original dated journal
   // as soon as the authenticated page starts, even after an offline refresh.
+  recovery=pending()>0;
   schedule(1500);
  }
  function enqueue({taskId,day,source="tasbih",count=1,durationMs=0,intervals=0}){
@@ -177,29 +178,30 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  // submit pending records using the same immutable receipt IDs.
  function schedule(delay=0){
   notify();
-  if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!pending())return;
+  if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!recovery||!pending())return;
   const now=Date.now(),due=Math.max(now+Math.max(0,delay),retryAfter);
   if(timer!==null&&timerDue<=due)return;
   clearTimeout(timer);timerDue=due;
   timer=setTimeout(()=>{
    timer=null;timerDue=0;
-   if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!pending())return;
+   if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!recovery||!pending())return;
    if(Date.now()<retryAfter){schedule(retryAfter-Date.now());return;}
    void flush();
   },Math.max(0,due-now));
  }
  async function resumeOnReconnect(){
   if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false){notify();return;}
+  recovery=pending()>0;
   if(busy){reconnectRequested=true;return;}
-  if(pending()>0)await flush();else notify();
+  if(recovery)await flush();else notify();
  }
  async function flush(taskId=null){
   if(busy)return;
   if(!ownerUid||getUid()!==ownerUid){lastError="auth-required";notify();return;}
   if(navigator.onLine===false){lastError="offline";notify();return;}
-  if(Date.now()<retryAfter){lastError="resource-exhausted: "+Math.ceil((retryAfter-Date.now())/1000)+"s";schedule(retryAfter-Date.now());return;}
+  if(Date.now()<retryAfter){recovery=true;lastError="resource-exhausted: "+Math.ceil((retryAfter-Date.now())/1000)+"s";schedule(retryAfter-Date.now());return;}
   clearTimeout(timer);timer=null;timerDue=0;
-  try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();schedule(20000);return;}
+  try{sealOwnDraft();}catch(error){recovery=true;lastError=String(error?.message||error);notify();schedule(20000);return;}
   const uid=ownerUid;busy=true;lastError="";notify();
   try{
    for(const candidate of listOps(uid).filter(op=>!taskId||op.taskId===taskId)){
@@ -227,16 +229,20 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   }finally{
    busy=false;
    if(uid===ownerUid&&pending(taskId)>0&&!lastError)lastError="pending-retry";
-   if(uid===ownerUid&&pending()>0)schedule(20000);
+   if(uid===ownerUid){
+    if(!pending())recovery=false;
+    else if(lastError)recovery=true;
+    if(recovery)schedule(20000);
+   }
    notify();
    if(uid===ownerUid&&reconnectRequested){reconnectRequested=false;await resumeOnReconnect();}
   }
  }
- function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;reconnectRequested=false;lastError="";retryAfter=0;quotaFailures=0;notify();}
+ function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;reconnectRequested=false;recovery=false;lastError="";retryAfter=0;quotaFailures=0;notify();}
  window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}finally{draftLease=false;releaseLease?.();}});
  window.addEventListener("pageshow",()=>{acquireLease();schedule(0);});
  document.addEventListener("visibilitychange",()=>{if(document.hidden){try{sealOwnDraft();}catch{}}});
- window.addEventListener("offline",()=>{clearTimeout(timer);timer=null;timerDue=0;if(ownerUid&&pending()>0)lastError="offline";notify();});
+ window.addEventListener("offline",()=>{clearTimeout(timer);timer=null;timerDue=0;if(ownerUid&&pending()>0){recovery=true;lastError="offline";}notify();});
  window.addEventListener("online",()=>resumeOnReconnect());
  window.addEventListener("storage",event=>{
   if(!ownerUid||!event.key||(!event.key.startsWith(recordPrefix(ownerUid))&&event.key!==legacyKey(ownerUid)))return;

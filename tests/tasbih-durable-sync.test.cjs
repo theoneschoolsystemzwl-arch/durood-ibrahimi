@@ -37,7 +37,7 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
   assert.match(op.id,/^[a-f0-9]{32}$/);
   if(!receipts.has(op.id)){receipts.add(op.id);backend.total+=op.count;}
  };
- // Manual-save contract: no automatic request on ordinary taps or startup.
+ // Ordinary online taps stay local; restored journals auto-submit after startup.
  const draftStore=storage(), draft=client(draftStore,send);
  assert(draft.sync.enqueue(tap));
  assert(draft.sync.enqueue({...tap,taskId:"_group_"}));
@@ -47,11 +47,25 @@ const tap={taskId:"WAZIFA00123",day,source:"tasbih",count:1,durationMs:0,interva
  draft.sync.stop();
  const restored=client(draftStore,async()=>{});
  assert.equal(restored.sync.pending(),2);
+ assert.equal(restored.timers.length,1,"Online reload schedules saved journal recovery");
  await restored.sync.flush(tap.taskId);
  assert.equal(restored.sync.pending(tap.taskId),0);
  assert.equal(restored.sync.pending("_group_"),1,"Personal Save must not submit group draft");
  await restored.sync.flush("_group_");
  assert.equal(restored.sync.pending(),0);
+ // Regression: 86 offline taps survive a refresh and auto-save on online startup.
+ const offlineStore=storage(), offline=client(offlineStore,async()=>{throw Error("Offline must not send");});
+ offline.navigator.onLine=false;
+ for(let i=0;i<86;i++)assert(offline.sync.enqueue(tap));
+ offline.events.offline?.();offline.sync.stop();
+ const seen=new Set();let restoredTotal=0;
+ const online=client(offlineStore,async op=>{assert.equal(op.day,day);if(!seen.has(op.id)){seen.add(op.id);restoredTotal+=op.count;}});
+ assert.equal(online.sync.pending(),86);
+ assert.equal(online.timers.length,1);
+ online.timers[0]();
+ for(let i=0;i<500;i++)await Promise.resolve();
+ assert.equal(restoredTotal,86);assert.equal(online.sync.pending(),0);
+ await online.events.online();assert.equal(restoredTotal,86);
  // With a browser Web Lock, 100 taps share one locally durable batch.
  const held=new Set();
  const locks={request(name,opts,callback){
