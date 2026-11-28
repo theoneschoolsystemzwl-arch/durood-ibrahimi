@@ -105,10 +105,13 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  function status(){return {pending:pending(),error:lastError,online:navigator.onLine!==false,busy};}
  function start(uid){
   if(!uid||ownerUid===uid)return;
-  clearTimeout(timer);timer=null;
+  try{sealOwnDraft();}catch{}
+  clearTimeout(timer);timer=null;timerDue=0;
   ownerUid=uid;lastError="";retryAfter=0;quotaFailures=0;draftId=null;reconnectRequested=false;
   migrateLegacy(uid);
-  notify();
+  // An online reload has no online event. Resume the original dated journal
+  // as soon as the authenticated page starts, even after an offline refresh.
+  schedule(1500);
  }
  function enqueue({taskId,day,source="tasbih",count=1,durationMs=0,intervals=0}){
   const uid=ownerUid,op={taskId,day,source,count,durationMs,intervals};
@@ -170,9 +173,21 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   const latest=JSON.parse(localStorage.getItem(recordPrefix(uid)+op.id)||"null");
   return latest?.schema===4&&valid(latest)?latest:null;
  }
- // Ordinary taps and background events stay local. Explicit Save or an online
- // reconnect submits pending records using the same immutable receipt IDs.
- function schedule(){notify();}
+ // Ordinary taps stay local; startup, reconnect, visibility and retry can
+ // submit pending records using the same immutable receipt IDs.
+ function schedule(delay=0){
+  notify();
+  if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!pending())return;
+  const now=Date.now(),due=Math.max(now+Math.max(0,delay),retryAfter);
+  if(timer!==null&&timerDue<=due)return;
+  clearTimeout(timer);timerDue=due;
+  timer=setTimeout(()=>{
+   timer=null;timerDue=0;
+   if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false||busy||!pending())return;
+   if(Date.now()<retryAfter){schedule(retryAfter-Date.now());return;}
+   void flush();
+  },Math.max(0,due-now));
+ }
  async function resumeOnReconnect(){
   if(!ownerUid||getUid()!==ownerUid||navigator.onLine===false){notify();return;}
   if(busy){reconnectRequested=true;return;}
@@ -182,7 +197,8 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
   if(busy)return;
   if(!ownerUid||getUid()!==ownerUid){lastError="auth-required";notify();return;}
   if(navigator.onLine===false){lastError="offline";notify();return;}
-  if(Date.now()<retryAfter){lastError="resource-exhausted: "+Math.ceil((retryAfter-Date.now())/1000)+"s";notify();return;}
+  if(Date.now()<retryAfter){lastError="resource-exhausted: "+Math.ceil((retryAfter-Date.now())/1000)+"s";schedule(retryAfter-Date.now());return;}
+  clearTimeout(timer);timer=null;timerDue=0;
   try{sealOwnDraft();}catch(error){lastError=String(error?.message||error);notify();schedule(20000);return;}
   const uid=ownerUid;busy=true;lastError="";notify();
   try{
@@ -218,9 +234,9 @@ export function createDurableTasbihSync({prefix,send,getUid,onChange=()=>{}}){
  }
  function stop(){try{sealOwnDraft();}catch{}clearTimeout(timer);timer=null;timerDue=0;ownerUid=null;reconnectRequested=false;lastError="";retryAfter=0;quotaFailures=0;notify();}
  window.addEventListener("pagehide",()=>{try{sealOwnDraft();}catch{}finally{draftLease=false;releaseLease?.();}});
- window.addEventListener("pageshow",()=>acquireLease());
+ window.addEventListener("pageshow",()=>{acquireLease();schedule(0);});
  document.addEventListener("visibilitychange",()=>{if(document.hidden){try{sealOwnDraft();}catch{}}});
- window.addEventListener("offline",()=>{if(ownerUid&&pending()>0)lastError="offline";notify();});
+ window.addEventListener("offline",()=>{clearTimeout(timer);timer=null;timerDue=0;if(ownerUid&&pending()>0)lastError="offline";notify();});
  window.addEventListener("online",()=>resumeOnReconnect());
  window.addEventListener("storage",event=>{
   if(!ownerUid||!event.key||(!event.key.startsWith(recordPrefix(ownerUid))&&event.key!==legacyKey(ownerUid)))return;
