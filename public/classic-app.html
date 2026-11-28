@@ -2177,9 +2177,13 @@ function memberLevel(person) {
 
 // Spark Hosting cannot perform privileged Auth mutations with a member token.
 function ownerPasswordRecoveryMarkup(person){
-  if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted)return '';
-  return '<section class="panel section"><h2>'+tr("Password recovery","پاس ورڈ کی بحالی")+'</h2>'+
-    ur(tr("Existing passwords cannot be viewed. Direct administrator password changes require a trusted server; they are not available on this Spark client.","موجودہ پاس ورڈ نظر نہیں آ سکتا۔ مالک کے ذریعے نیا پاس ورڈ مقرر کرنے کے لیے محفوظ سرور درکار ہے؛ موجودہ Spark ایپ میں یہ سہولت دستیاب نہیں۔"),'p','muted')+'</section>';
+  if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted||person.disabled)return '';
+  const recoveryUrl="https://shell.cloud.google.com/?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Ftheoneschoolsystemzwl-arch%2Fdurood-ibrahimi.git&cloudshell_tutorial=MEMBER-PASSWORD-RECOVERY.md";
+  return '<section class="panel section"><h2>'+tr("Reset password","پاس ورڈ ری سیٹ")+'</h2>'+
+    ur(tr("No email required. Open the authorized Google Cloud recovery tool, verify the member UID and set a new password. This does not change saved readings or membership.","ای میل ضروری نہیں۔ گوگل کلاؤڈ کا محفوظ ٹول کھولیں، رکن کی UID کی تصدیق کریں اور نیا پاس ورڈ رکھیں۔ گنتی اور رکنیت تبدیل نہیں ہوگی۔"),'p','muted')+
+    '<label class="field">'+tr("Firebase member UID","رکن کی Firebase UID")+'<input type="text" readonly dir="ltr" value="'+esc(person.uid)+'" onclick="this.select()" aria-label="Firebase member UID"></label>'+
+    '<div class="form-actions"><a class="button secondary" href="'+esc(recoveryUrl)+'" target="_blank" rel="noopener noreferrer">'+tr("Open secure password recovery","محفوظ پاس ورڈ ری سیٹ کھولیں")+'</a></div>'+
+    ur(tr("Requires Google Cloud project administrator access; the app itself cannot change another user’s password on Spark.","گوگل کلاؤڈ پراجیکٹ کی انتظامی اجازت ضروری ہے؛ Spark ایپ خود کسی دوسرے صارف کا پاس ورڈ نہیں بدل سکتی۔"),'p','muted')+'</section>';
 }
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
