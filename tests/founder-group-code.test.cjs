@@ -38,14 +38,7 @@ assert.equal(ac.canViewTreeBranch(branchRows[0],branchRows[3]),true);
 assert(src.includes("members:treeMembersPage,ranking,groups")&&src.includes("if(currentUser()?.isOwner!==true)return treeMembersPage()"));
 console.log("Member group and directory scope, no private profile access, passed");
 
-const resetA=src.indexOf("function ownerPasswordRecoveryMarkup"),resetB=src.indexOf("function profileDetails",resetA);
-let viewer={isOwner:false};
-const resetCtx={passwordField:(key)=>key,currentUser:()=>viewer,tr:(a,b)=>a,ur:a=>a,feedback:()=>"",esc:s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")};vm.createContext(resetCtx);vm.runInContext(src.slice(resetA,resetB),resetCtx);
-assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"}),"");viewer={isOwner:true};
-assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"admin",isOwner:true}),"");assert.equal(resetCtx.ownerPasswordRecoveryMarkup({uid:"deleted",deleted:true}),"");
-const reset=resetCtx.ownerPasswordRecoveryMarkup({uid:"member-uid"});assert(reset.includes("member-password-reset")&&reset.includes("passwordconfirm")&&reset.includes('type="submit"')&&!reset.includes("REPLACE_WITH_NEW_PASSWORD")&&!reset.includes("docs.cloud.google.com"));
-console.log("Owner-only password recovery helper, no stored password, passed");
-
+assert(!src.includes('id="member-password-reset"'),"Member profiles must not accept passwords from an owner");
 const ja=src.indexOf("function joinedGroupName("),jb=src.indexOf("function groupCode(",ja);
 const jc={groupIdentity:p=>g.get(p.id),getUser:id=>rows.find(p=>p.id===id),ownedGroupName:id=>g.get(id)?.owned||"—"};
 vm.createContext(jc);vm.runInContext(src.slice(ja,jb),jc);

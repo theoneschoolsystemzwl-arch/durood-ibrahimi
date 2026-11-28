@@ -1,4 +1,3 @@
-import {resetMemberPassword} from "./member-password-reset.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {globalDay} from "./global-clock.js";
@@ -29,9 +28,6 @@ function markLogout(value){
 window.duroodLogoutBlocked=logoutBlocked;
 window.duroodVerifiedProfile=uid=>!logoutBlocked() && auth.currentUser?.uid===uid && appState.profile?.uid===uid ? appState.profile : null;
 window.duroodParentAuthUser=()=>!logoutBlocked() && appState.profile?.uid===auth.currentUser?.uid ? auth.currentUser : null;
-window.duroodResetMemberPassword=(uid,password,selected)=>resetMemberPassword(uid,password,
-  ()=>!logoutBlocked() && appState.profile?.role==="owner" && appState.profile.uid===auth.currentUser?.uid && selected());
-
 let classicFrameRequested=false;
 let classicReadyUid=null;
 let pendingLoginFireworkUid=null;

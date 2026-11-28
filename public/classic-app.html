@@ -2175,14 +2175,6 @@ function memberLevel(person) {
   return groupMemberCount(person);
 }
 
-// Spark Hosting cannot perform privileged Auth mutations with a member token.
-function ownerPasswordRecoveryMarkup(person){
-  if(currentUser()?.isOwner!==true||!person?.uid||person.isOwner||person.deleted||person.disabled)return '';
-  return '<section class="panel section"><h2>'+tr("Reset member password","رکن کا پاس ورڈ ری سیٹ کریں")+'</h2>'+
-    '<form class="form" id="member-password-reset" data-uid="'+esc(person.uid)+'"><div class="form-grid">'+
-    passwordField("password",tr("New password","نیا پاس ورڈ"))+passwordField("confirm",tr("Again new password","نیا پاس ورڈ دوبارہ لکھیں"))+
-    '</div>'+feedback("member-reset-feedback")+'<button class="button" type="submit">'+tr("Save","محفوظ کریں")+'</button></form></section>';
-}
 function profileDetails(person) {
   if(currentUser()?.isOwner!==true)return treeMembersPage();
   const values = [[tr("Level", "لیول"),String(memberLevel(person))],[tr("Login ID", 'لاگ اِن آئی ڈی'),person.username],[tr("Member ID", 'رکنیت نمبر'),memberIdentityText(person.id)],[tr("Group ID", 'گروپ آئی ڈی'),groupId(person.id)],[tr("Joined group", 'شمولیت والا گروپ'),joinedGroupName(person.id)],[tr("Own group", 'اپنا گروپ'),ownedGroupName(person.id)],[tr("Age", 'عمر'),person.age],[tr("Date of birth", 'تاریخِ پیدائش'),person.birthDate],
@@ -2207,7 +2199,7 @@ function profileDetails(person) {
       '">' + tr("Reset lost phone login", "کھوئی ہوئی ڈیوائس کا لاگ اِن ری سیٹ") +
       '</button><button class="button danger" data-action="open-delete" data-value="' + person.id +
       tr('">Delete member</button></div>', '">رکن حذف کریں</button></div>') +
-      '</section>' + managementDialog(person) + ownerPasswordRecoveryMarkup(person));
+      '</section>' + managementDialog(person));
 }
 
 let genderLabels = {Male:tr("Male", 'مرد'),Female:tr("Female", 'عورت'),Other:tr("Other", 'دیگر'),'Prefer not to say':tr("Prefer not to say", 'ظاہر نہیں کرنا')};
@@ -6006,7 +5998,6 @@ document.addEventListener('keydown',event => {
 import "./profile-contacts.js";
 import "./wazaif.js?release=reader-date-navigation-all-members-20261127-v1";
 import {qazaReadSpark,qazaSaveSpark} from "./qaza-firebase.js?v=qaza-audit-1";
-import {resetMemberPassword} from "./member-password-reset.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {loadMemberProfile,claimDeviceSession,watchDeviceSession,signOut,onAuthStateChanged,sessionId} from "./member-auth.js?release=latest-device-v1";
@@ -7105,47 +7096,6 @@ ui.addEventListener("click",event=>{
 ui.addEventListener("submit",event=>{
   const form=event.target;
   if(!currentProfile)return;
-  if(form.id==="member-password-reset"){
-    event.preventDefault();event.stopImmediatePropagation();
-    const button=form.querySelector('[type="submit"]');
-    if(currentProfile.role!=="owner"||button.disabled)return;
-    const uid=form.dataset.uid;
-    const next=form.elements.password.value;
-    const tell=(message,ok=false)=>{if(form.isConnected)bridge.status("member-reset-feedback",message,ok);};
-    if(next.length<8||next.length>128||next!==form.elements.confirm.value){
-      tell("دونوں خانوں میں ایک ہی پاس ورڈ لکھیں، 8 سے 128 حروف تک۔");return;
-    }
-    button.disabled=true;
-    for(const field of [form.elements.password,form.elements.confirm]){
-      field.type="password";
-      field.closest(".input-wrap")?.querySelector(".eye")?.setAttribute("aria-pressed","false");
-    }
-    tell("پروجیکٹ کے گوگل اکاؤنٹ سے تصدیق کریں…");
-    const submitReset=window.parent.duroodResetMemberPassword||resetMemberPassword;
-    submitReset(uid,next,()=>form.isConnected && currentProfile?.role==="owner" && form.dataset.uid===uid)
-      .then(()=>{form.reset();tell("اسی رکن کا نیا پاس ورڈ محفوظ ہو گیا۔",true);})
-      .catch(e=>{
-        const code=/^[a-zA-Z0-9_/-]{1,80}$/.test(e.code)?e.code:"";
-        const messages={
-          "owner-session":"اونر کا سیشن دوبارہ کھولیں، پھر اسی رکن کو منتخب کریں۔",
-          "google-token":"گوگل سے اجازت موصول نہیں ہوئی۔ تصدیق مکمل کریں۔",
-          "missing-profile":"اس رکن کا پروفائل Firebase میں نہیں ملا۔",
-          "missing-auth":"اس رکن کی آئی ڈی کا لاگ اِن اکاؤنٹ Firebase میں نہیں ملا۔",
-          "member":"اس رکن کی موجودہ حیثیت پاس ورڈ ری سیٹ کی اجازت نہیں دیتی۔",
-          "profile":"Firebase سے رکن کا پروفائل پڑھنے میں مسئلہ آیا۔",
-          "lookup":"گوگل اکاؤنٹ سے رکن کا لاگ اِن ریکارڈ چیک نہیں ہو سکا۔",
-          "update":"Firebase نے پاس ورڈ بدلنے کی درخواست رد کر دی۔",
-          "auth/popup-closed-by-user":"گوگل کی تصدیق مکمل ہونے سے پہلے ونڈو بند ہو گئی۔",
-          "auth/popup-blocked":"فون میں اس ویب سائٹ کے پاپ اَپ کی اجازت دیں اور دوبارہ محفوظ کریں۔",
-          "auth/unauthorized-domain":"اس ویب پتے کو Firebase میں گوگل لاگ اِن کی اجازت درکار ہے۔",
-          "auth/network-request-failed":"گوگل سے رابطہ نہیں ہوا۔ انٹرنیٹ چیک کریں۔",
-          "HTTP_403":"پروجیکٹ کے مجاز گوگل اکاؤنٹ سے تصدیق کریں۔",
-          "ACCESS_TOKEN_SCOPE_INSUFFICIENT":"گوگل نے ممبر اکاؤنٹس سنبھالنے کی اجازت نہیں دی۔"
-        };
-        tell((messages[code]||messages[e.message]||"پاس ورڈ محفوظ ہونے کی تصدیق نہیں ہوئی۔")+(code?" ("+code+")":""));
-      }).finally(()=>{button.disabled=false;});
-    return;
-  }
   if(form.id==="dashboard-welcome-form"){
     event.preventDefault();event.stopImmediatePropagation();
     if(currentProfile.role!=="owner"||auth.currentUser?.uid!==currentProfile.uid||!welcomeSettingsReady)return;
