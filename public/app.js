@@ -1,4 +1,4 @@
-import {requestOwnerApproval,approveRecovery,checkRecoveryCode,redeemRecoveryCode} from "./member-recovery.js";
+import {prepareApproval,requestOwnerApproval,approveRecovery,checkRecoveryCode,redeemRecoveryCode} from "./member-recovery.js";
 import {auth,db} from "./firebase-client.js";
 import {createDurableTasbihSync} from "./tasbih-durable-sync.js?v=reconnect-save-20261126-v6";
 import {globalDay} from "./global-clock.js";
@@ -182,14 +182,24 @@ passwordEye.addEventListener("click",()=>{
   loginPassword.focus({preventScroll:true});
 });
 
+window.duroodPrepareApproval=prepareApproval;
 window.duroodApproveRecovery=(uid,id,selected)=>approveRecovery(uid,id,()=>appState.profile?.role==="owner" && !logoutBlocked() && selected());
 const recoveryDialog=$("#recovery-dialog"), recoveryForm=$("#recovery-form");
+const recoveryMenu=$("#recovery-menu"),requestForm=$("#recovery-request-form");
+$("#forgot-password").addEventListener("click",()=>{
+  if(appState.busy)return;
+  requestForm.elements.identity.value=identityInput.value.trim();
+  requestForm.querySelector('[role="status"]').textContent="";
+  recoveryMenu.showModal();
+});
+$("#close-recovery-menu").onclick=()=>recoveryMenu.close();
 $("#redeem-recovery").onclick=()=>{
+  recoveryMenu.close();
   recoveryForm.reset();
   const fields=recoveryForm.querySelector("fieldset");
   fields.hidden=fields.disabled=true;
   recoveryForm.elements.username.readOnly=recoveryForm.elements.code.readOnly=false;
-  recoveryForm.elements.username.value=identityInput.value;
+  recoveryForm.elements.username.value=requestForm.elements.identity.value;
   recoveryForm.querySelector('[type="submit"]').textContent="کوڈ چیک کریں";
   recoveryForm.querySelector('[role="status"]').textContent="";
   recoveryDialog.showModal();
@@ -216,28 +226,30 @@ recoveryForm.onsubmit=async e=>{
   finally{save.disabled=false;}
 };
 
-$("#forgot-password").addEventListener("click",async()=>{
+requestForm.addEventListener("submit",async event=>{
+  event.preventDefault();
+  const report=text=>{requestForm.querySelector('[role="status"]').textContent=text;};
   if(appState.busy)return;
-  const entered=identityInput.value.trim();
-  if(!entered){message("#auth-message","اپنی لاگ اِن آئی ڈی یا رجسٹرڈ ای میل لکھیں۔");identityInput.focus();return;}
+  const entered=requestForm.elements.identity.value.trim();
+  if(!entered){report("اپنی لاگ اِن آئی ڈی یا رجسٹرڈ ای میل لکھیں۔");requestForm.elements.identity.focus();return;}
   if(!entered.includes("@")){
     updateBusy(true);
-    try{await requestOwnerApproval(entered);message("#auth-message","درخواست اونر کو بھیج دی گئی۔ کوڈ ملنے پر «میرے پاس اونر کا کوڈ ہے» دبائیں۔",true);}
-    catch(error){message("#auth-message",error.code==="permission-denied"?"آئی ڈی چیک کریں۔ اگر درخواست پہلے بھیجی تھی تو اونر سے کوڈ لیں۔":"درخواست بھیجنے میں مسئلہ آیا۔ دوبارہ کوشش کریں۔");}
+    try{await requestOwnerApproval(entered);report("درخواست اونر کو بھیج دی گئی۔ کوڈ ملنے پر «میرے پاس اونر کا دیا ہوا ری سیٹ کوڈ ہے» دبائیں۔",true);}
+    catch(error){report(error.code==="permission-denied"?"آئی ڈی چیک کریں۔ اگر درخواست پہلے بھیجی تھی تو اونر سے کوڈ لیں۔":"درخواست بھیجنے میں مسئلہ آیا۔ دوبارہ کوشش کریں۔");}
     finally{updateBusy(false);}return;
   }
   updateBusy(true);
   try {
     await sendPasswordResetEmail(auth,entered.toLowerCase());
-    message("#auth-message","اگر یہ Email Firebase میں موجود ہے تو Password Reset کا لنک بھیج دیا گیا ہے۔ اپنی Email کا Inbox اور Spam چیک کریں۔",true);
+    report("اگر یہ Email Firebase میں موجود ہے تو Password Reset کا لنک بھیج دیا گیا ہے۔ اپنی Email کا Inbox اور Spam چیک کریں۔",true);
   }catch(error) {
     if(error?.code==="auth/too-many-requests"){
-      message("#auth-message","Reset کی بہت زیادہ کوششیں ہوئی ہیں؛ کچھ دیر بعد دوبارہ کوشش کریں۔");
+      report("Reset کی بہت زیادہ کوششیں ہوئی ہیں؛ کچھ دیر بعد دوبارہ کوشش کریں۔");
     }else if(error?.code==="auth/network-request-failed"){
-      message("#auth-message","Firebase سے رابطہ نہیں ہو سکا، انٹرنیٹ کنکشن چیک کریں۔");
+      report("Firebase سے رابطہ نہیں ہو سکا، انٹرنیٹ کنکشن چیک کریں۔");
     }else{
       // Do not disclose whether an email is registered.
-      message("#auth-message","Reset درخواست مکمل نہیں ہوئی۔ Firebase Authentication اور Email کی درستگی چیک کریں۔");
+      report("Reset درخواست مکمل نہیں ہوئی۔ Firebase Authentication اور Email کی درستگی چیک کریں۔");
     }
   }finally{updateBusy(false);}
 });

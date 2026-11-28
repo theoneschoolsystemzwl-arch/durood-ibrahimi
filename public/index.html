@@ -14,7 +14,7 @@
   <script src="./ui-locale.js?v=five-themes-welcome-20261127-v1"></script>
   <script src="./static-locale.js?v=20261127-v3"></script>
   <script defer src="./pull-refresh.js?v=reader-date-navigation-all-members-20261127-v1"></script>
-  <script type="module" src="./pwa.js?v=member-recovery-20261128-v4"></script>
+  <script type="module" src="./pwa.js?v=member-recovery-20261128-v5"></script>
   <script type="module" src="./app.js?release=isolated-dashboard-auth-20261127-v1"></script>
 <link rel="stylesheet" href="./emerald.css?v=3">
 <style>.tasbih-emblem{display:grid;justify-items:center;gap:5px;margin:0 auto 10px;text-align:center}.tasbih-emblem img{display:block;width:clamp(86px,24vw,120px);height:auto;border-radius:16px}.tasbih-emblem figcaption{font-family:var(--ur,serif);font-size:1.05rem;line-height:2.15;color:inherit}</style>
@@ -133,7 +133,6 @@ body>.container{margin-top:5px}
           </div>
           <label class="remember-login"><input type="checkbox" id="remember-login" name="rememberLogin" checked> <span>مجھے لاگ اِن رکھیں — Keep me logged in</span></label>
           <button type="button" id="forgot-password" class="reset-password-link">Forgot password? / پاس ورڈ ری سیٹ کریں</button>
-          <button type="button" id="redeem-recovery">میرے پاس اونر کا کوڈ ہے</button>
         </fieldset>
         <fieldset id="register-fields" class="fields" hidden disabled>
           <label>پورا نام — Full name
@@ -170,6 +169,13 @@ body>.container{margin-top:5px}
         </fieldset>
         <button type="submit" id="access-submit" class="primary">Log in</button>
       </form>
+      <dialog id="recovery-menu"><form id="recovery-request-form" class="fields">
+        <h2>پاس ورڈ ری سیٹ کریں</h2>
+        <label>ممبر کی لاگ اِن آئی ڈی یا رجسٹرڈ ای میل<input name="identity" required maxlength="254" dir="auto" autocapitalize="none" spellcheck="false"></label>
+        <button type="submit">ری سیٹ کی درخواست بھیجیں</button>
+        <button type="button" id="redeem-recovery">میرے پاس اونر کا دیا ہوا ری سیٹ کوڈ ہے</button>
+        <p role="status"></p><button type="button" id="close-recovery-menu">بند کریں</button>
+      </form></dialog>
       <dialog id="recovery-dialog"><form id="recovery-form" class="fields">
         <h2>اپنا نیا پاس ورڈ رکھیں</h2>
         <label>لاگ اِن آئی ڈی<input name="username" required dir="auto"></label>

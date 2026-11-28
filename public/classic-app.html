@@ -3055,7 +3055,7 @@ window.duroodOpenRecoveryProfile=username=>{
 };
 function overview() {
  const metricCards=metricPeriodCards();
- return '<div class="dashboard-home">'+(currentUser()?.isOwner?'<recovery-notices></recovery-notices>':'')+
+ return '<div class="dashboard-home">'+
    '<div class="dashboard-quick-strip" dir="ltr">'+prayerTickerMarkup(currentUser())+
    '<div id="global-pkt-clock" class="dashboard-pkt-clock" aria-label="Pakistan standard time">'+globalClockMarkup()+'</div>'+
    '<button type="button" class="button secondary target-audit-launch" data-action="open-target-audit" dir="'+tr("ltr","rtl")+'">'+tr("Member targets","ممبران کے اہداف کی تفصیل")+'</button>'+'</div>'+
@@ -5011,7 +5011,7 @@ function dashboard(person) {
   const availableLinks = women ? links.filter(([key]) => !personalTabs.includes(key)) : links;
   const screens = {overview,tasbih:wazaifLanding,'wazifa-reader':tasbih,about,namaz:() => namazPage(person),members:treeMembersPage,ranking,groups,tree:() => tree(person),settings:() => settings(person),messages:groupMessagesPage};
   if (owner) Object.assign(screens,{directory,profile:() => profileDetails(getUser(profileId) || person)});
-  return '<div class="shell'+(owner?'':' member-shell')+'">' + (women ? womenSectionCard(person) : profileCard(person)) +
+  return '<div class="shell'+(owner?'':' member-shell')+'">' + (owner && section==='overview'?'<recovery-notices class="panel" style="display:block" aria-live="polite"></recovery-notices>':'') + (women ? womenSectionCard(person) : profileCard(person)) +
     '<main class="main" id="main-content">'+(section==="overview"?"":prayerTickerMarkup(person))+'<aside id="prayer-alert" class="prayer-alert ur" role="alert">' +
     (women ? '' : prayerAlertMarkup()) + '</aside>' + (!women?'<dialog id="wz-dashboard-pending" class="wz-dashboard-pending" dir="rtl" data-auto="'+(section==="overview")+'" aria-labelledby="wz-pending-title" hidden></dialog>':"") + (message ? '<div role="status">' + ur(esc(message),'p','notice') + '</div>' : '') +
     (women && personalTabs.includes(section) ? overview() : (screens[section] || overview)()) + appFooter(person) + tr("</main><nav class=\"bottom-nav\" aria-label=\"Main navigation\"><div class=\"nav-inner\">", '</main><nav class="bottom-nav" aria-label="مرکزی نیویگیشن"><div class="nav-inner">') +
@@ -6879,6 +6879,14 @@ async function hydrate(){
   if(classicLogoutBlocked()||auth.currentUser?.uid!==profile.uid)return;
   if(window.duroodCurrentSide!==side)return;
   bridge.enter(profile,rows,{memberCounts,groupDirectoryReady:directoryReady},true);
+  if(owner && (window.parent===window||document.referrer.startsWith(location.origin+"/"))){
+    const portal=window.parent;
+    const selected=new URLSearchParams(portal.location.hash.slice(1)).get("recoveryMember");
+    if(selected && rows.some(row=>row.username===selected)){
+      portal.history.replaceState(portal.history.state,"",portal.location.pathname+portal.location.search);
+      window.duroodOpenRecoveryProfile(selected);
+    }
+  }
   window.duroodWatchOwnGroupWirds?.(rows.filter(d=>d.deleted!==true&&d.gender===side&&(d.inviterUid===profile.uid||(d.uid===profile.uid&&side==='female'&&d.sideNumber===1))).map(d=>d.uid));
   startPresence(profile);watchMemberLogins(profile.uid,owner,side);
   if(owner&&side==="male")window.duroodAutoRepairLegacyReader?.();

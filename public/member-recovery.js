@@ -9,6 +9,43 @@ const normalize=id=>id.trim().normalize("NFKC").toLowerCase();
 let googleAuth;
 let issuing=false;
 
+const projectClientId="277153649028-4mt9dsr000h62bn3np6o6l985e6o0f8o.apps.googleusercontent.com";
+const identityScope="https://www.googleapis.com/auth/identitytoolkit";
+let loadingGoogle;
+
+export function prepareApproval(){
+  if(location.hostname!==firebaseConfig.authDomain || window.google?.accounts?.oauth2)return Promise.resolve();
+  if(!loadingGoogle)loadingGoogle=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://accounts.google.com/gsi/client";script.async=true;
+    script.onload=resolve;
+    script.onerror=()=>{loadingGoogle=null;script.remove();reject(Error("Google سے رابطہ نہیں ہوا۔ دوبارہ کوشش کریں۔"));};
+    document.head.append(script);
+  });
+  return loadingGoogle;
+}
+
+function projectToken(){
+  // This origin is the project's own OAuth host. Authorize the Google API
+  // directly without performing another Firebase sign-in for the owner.
+  if(location.hostname===firebaseConfig.authDomain){
+    return new Promise((resolve,reject)=>{
+      const oauth=window.google?.accounts?.oauth2;
+      if(!oauth){reject(Error("Google کی تصدیق لوڈ ہونے دیں، پھر دوبارہ دبائیں۔"));return;}
+      const client=oauth.initTokenClient({
+        client_id:projectClientId,scope:identityScope,include_granted_scopes:false,
+        callback:r=>r.access_token?resolve(r.access_token):reject(Error("Google کی اجازت مکمل نہیں ہوئی۔")),
+        error_callback:()=>reject(Error("Google کی تصدیق کے لیے اسی صفحے کو Chrome میں کھولیں اور پاپ اَپ کی اجازت دیں۔"))
+      });
+      client.requestAccessToken({prompt:"select_account"});
+    });
+  }
+  googleAuth??=initializeAuth(initializeApp(firebaseConfig,"member-code-approval"),{
+    persistence:inMemoryPersistence,popupRedirectResolver:browserPopupRedirectResolver});
+  const provider=new GoogleAuthProvider();provider.addScope(identityScope);
+  return signInWithPopup(googleAuth,provider).then(result=>GoogleAuthProvider.credentialFromResult(result)?.accessToken);
+}
+
 export async function requestOwnerApproval(id){
   const username=normalize(id);
   await aliasEmail(username);
@@ -32,14 +69,9 @@ export async function approveRecovery(uid,loginId,selected){
   const username=normalize(loginId),owner=auth.currentUser?.uid;
   const valid=()=>owner && owner!==uid && auth.currentUser?.uid===owner && selected();
   if(!valid())throw Error("اونر کے اکاؤنٹ سے رکن کی پروفائل کھولیں۔");
-  googleAuth??=initializeAuth(initializeApp(firebaseConfig,"member-code-approval"),{
-    persistence:inMemoryPersistence,popupRedirectResolver:browserPopupRedirectResolver});
-  const provider=new GoogleAuthProvider();
-  provider.addScope("https://www.googleapis.com/auth/identitytoolkit");
   issuing=true;
   try{
-    const credential=await signInWithPopup(googleAuth,provider);
-    const token=GoogleAuthProvider.credentialFromResult(credential)?.accessToken;
+    const token=await projectToken();
     const ref=doc(db,requests,username);
     const [request,profile,alias]=await Promise.all([getDocFromServer(ref),getDocFromServer(doc(db,"members",uid)),aliasEmail(username)]);
     const member=profile.data(),pending=request.data();
@@ -68,7 +100,7 @@ export async function approveRecovery(uid,loginId,selected){
       await settle("approved");
     }catch(error){await settle("pending").catch(()=>{});throw error;}
     return code;
-  }finally{issuing=false;await signOut(googleAuth).catch(()=>{});}
+  }finally{issuing=false;if(googleAuth)await signOut(googleAuth).catch(()=>{});}
 }
 
 export async function checkRecoveryCode(id,code){

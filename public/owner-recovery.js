@@ -1,14 +1,14 @@
 import {auth,db} from "./firebase-client.js";
 import {doc,onSnapshot} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
-import {approveRecovery,watchRecoveryRequests} from "./member-recovery.js";
+import {prepareApproval,approveRecovery,watchRecoveryRequests} from "./member-recovery.js";
 
 class RecoveryNotices extends HTMLElement{
   connectedCallback(){
     this.stop=watchRecoveryRequests(ids=>{
       this.replaceChildren();
-      if(!ids.length)return;
+
       const title=document.createElement("h2");
-      title.textContent="پاس ورڈ ری سیٹ کی درخواستیں";
+      title.textContent="پاس ورڈ ری سیٹ کی درخواستیں ("+ids.length+")";
       this.append(title);
       for(const id of ids){
         const button=document.createElement("button");
@@ -34,6 +34,18 @@ function showCode(code,id){
   document.body.append(dialog);dialog.showModal();
 }
 
+// Google authorization runs only on the project's verified Firebase Hosting sites.
+const approvalHost="durood-e-ibrahimi-global-c74e0.firebaseapp.com";
+const hostingHosts=new Set([approvalHost,"durood-e-ibrahimi-global-c74e0.web.app"]);
+function showHostingLink(container,username){
+  const destination=new URL("https://"+approvalHost+"/");
+  destination.hash=new URLSearchParams({recoveryMember:username}).toString();
+  const link=document.createElement("a");
+  link.className="button secondary";link.href=destination.href;link.target="_blank";link.rel="noopener noreferrer";
+  link.textContent="اونر کی منظوری Firebase پر کھولیں";
+  container.replaceChildren("اس ایپ میں گوگل کی تصدیق دستیاب نہیں۔ ",link);
+}
+
 class RecoveryApproval extends HTMLElement{
   connectedCallback(){
     const {uid,username}=this.dataset;
@@ -43,6 +55,12 @@ class RecoveryApproval extends HTMLElement{
       const button=document.createElement("button"),status=document.createElement("p");
       button.type="button";button.className="button";button.textContent=snap.data().status==="pending"?"پاس ورڈ ری سیٹ کی منظوری دیں":"ری سیٹ کوڈ دوبارہ جاری کریں";
       this.append(button,status);
+      if(location.protocol!=="https:"||!hostingHosts.has(location.hostname)){button.hidden=true;showHostingLink(status,username);return;}
+      const prepare=window.parent.duroodPrepareApproval||prepareApproval;
+      if(location.hostname===approvalHost){
+        button.disabled=true;
+        prepare().catch(error=>{status.textContent=error.message;}).finally(()=>{button.disabled=false;});
+      }
       button.onclick=async()=>{
         const owner=auth.currentUser?.uid;
         button.disabled=true;status.textContent="رکن کے کوڈ کے لیے Google کی تصدیق مکمل کریں۔";
@@ -50,7 +68,7 @@ class RecoveryApproval extends HTMLElement{
           const approve=window.parent.duroodApproveRecovery||approveRecovery;
           const code=await approve(uid,username,()=>window.duroodRecoverySelection(uid) && auth.currentUser?.uid===owner);
           if(auth.currentUser?.uid===owner && window.duroodRecoverySelection(uid))showCode(code,username);
-        }catch(error){status.textContent=error.code?"کوڈ جاری نہیں ہوا ("+error.code+")۔":error.message;}
+        }catch(error){void prepare().catch(()=>{});if(error.code==="auth/unauthorized-domain"||error.code==="auth/operation-not-supported-in-this-environment"){showHostingLink(status,username);return;}status.textContent=error.code?"کوڈ جاری نہیں ہوا ("+error.code+")۔":error.message;}
         finally{button.disabled=false;}
       };
     },()=>{this.textContent="ری سیٹ درخواست لوڈ نہیں ہو سکی۔";});
